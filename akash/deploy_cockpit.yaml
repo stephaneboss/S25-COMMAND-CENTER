@@ -1,0 +1,95 @@
+# ============================================================
+# S25 LUMIÈRE — Akash Deployment SDL
+# Cockpit Web UI + Watchdog + GOUV4 Agent
+# Budget: ~$2-4/mois (ultra-léger pour tests)
+# ============================================================
+---
+version: "2.0"
+
+services:
+  s25-cockpit:
+    image: python:3.11-slim
+    expose:
+      - port: 7777
+        as: 80
+        to:
+          - global: true
+    env:
+      - HA_URL=http://homeassistant.local:8123
+      - HA_TOKEN=REPLACE_WITH_TOKEN
+      - GEMINI_API_KEY=REPLACE_WITH_KEY
+      - CHECK_INTERVAL=60
+      - PORT=7777
+    command:
+      - sh
+      - -c
+      - |
+        pip install flask requests python-dotenv --quiet &&
+        echo "S25 Cockpit starting..." &&
+        python /app/cockpit_lumiere.py
+    resources:
+      cpu:
+        units: 0.25       # 250m CPU — ultra-léger
+      memory:
+        size: 256Mi       # 256MB RAM suffisant pour Flask
+      storage:
+        size: 512Mi       # 512MB stockage
+
+  s25-watchdog:
+    image: python:3.11-slim
+    env:
+      - HA_URL=http://homeassistant.local:8123
+      - HA_TOKEN=REPLACE_WITH_TOKEN
+      - CHECK_INTERVAL=60
+    command:
+      - sh
+      - -c
+      - |
+        pip install requests --quiet &&
+        python /app/watchdog.py
+    resources:
+      cpu:
+        units: 0.1        # 100m CPU
+      memory:
+        size: 128Mi       # 128MB RAM
+      storage:
+        size: 256Mi
+
+profiles:
+  compute:
+    s25-cockpit:
+      resources:
+        cpu:
+          units: 0.25
+        memory:
+          size: 256Mi
+        storage:
+          size: 512Mi
+    s25-watchdog:
+      resources:
+        cpu:
+          units: 0.1
+        memory:
+          size: 128Mi
+        storage:
+          size: 256Mi
+
+  placement:
+    akash:
+      pricing:
+        s25-cockpit:
+          denom: uakt
+          amount: 100        # ~$0.10/mois ultra-cheap
+        s25-watchdog:
+          denom: uakt
+          amount: 50
+
+deployment:
+  s25-cockpit:
+    akash:
+      profile: s25-cockpit
+      count: 1
+  s25-watchdog:
+    akash:
+      profile: s25-watchdog
+      count: 1
