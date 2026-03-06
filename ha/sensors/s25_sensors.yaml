@@ -1,0 +1,67 @@
+# ============================================================
+# S25 LUMIÈRE - Sensors ARKON-5 Pipeline
+# Lit ai_analysis.json toutes les 30 secondes
+# ============================================================
+
+# Sensor principal: lit ai_analysis.json via HTTP local
+- platform: rest
+  name: "S25 ARKON5 Action"
+  unique_id: s25_arkon5_action
+  resource: "http://homeassistant.local:8123/local/ai_analysis.json"
+  method: GET
+  value_template: "{{ value_json.decision.action | default('HOLD') }}"
+  json_attributes:
+    - decision
+    - timestamp
+    - signal
+    - execution
+  scan_interval: 30
+  timeout: 10
+
+- platform: rest
+  name: "S25 ARKON5 Confidence"
+  unique_id: s25_arkon5_conf
+  resource: "http://homeassistant.local:8123/local/ai_analysis.json"
+  method: GET
+  value_template: "{{ (value_json.decision.conf | default(0) * 100) | round(1) }}"
+  unit_of_measurement: "%"
+  scan_interval: 30
+  timeout: 10
+
+- platform: rest
+  name: "S25 ARKON5 TP"
+  unique_id: s25_arkon5_tp
+  resource: "http://homeassistant.local:8123/local/ai_analysis.json"
+  method: GET
+  value_template: "{{ value_json.decision.tp | default('--') }}"
+  unit_of_measurement: "USDT"
+  scan_interval: 30
+  timeout: 10
+
+- platform: rest
+  name: "S25 ARKON5 SL"
+  unique_id: s25_arkon5_sl
+  resource: "http://homeassistant.local:8123/local/ai_analysis.json"
+  method: GET
+  value_template: "{{ value_json.decision.sl | default('--') }}"
+  unit_of_measurement: "USDT"
+  scan_interval: 30
+  timeout: 10
+
+- platform: rest
+  name: "S25 ARKON5 Reason"
+  unique_id: s25_arkon5_reason
+  resource: "http://homeassistant.local:8123/local/ai_analysis.json"
+  method: GET
+  value_template: "{{ value_json.decision.reason | default('En attente') }}"
+  scan_interval: 30
+  timeout: 10
+
+- platform: rest
+  name: "S25 Pipeline Timestamp"
+  unique_id: s25_pipeline_timestamp
+  resource: "http://homeassistant.local:8123/local/ai_analysis.json"
+  method: GET
+  value_template: "{{ value_json.timestamp | default(0) | timestamp_local }}"
+  scan_interval: 30
+  timeout: 10

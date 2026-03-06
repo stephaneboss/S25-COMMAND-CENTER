@@ -1,0 +1,330 @@
+# ============================================================
+# S25 LUMIÈRE — Dashboard Lovelace ARKON-5 Command Center
+# Vue: s25_orchestrator
+# Coller dans: HA → Settings → Dashboards → Edit (raw YAML)
+# ============================================================
+
+title: "⚡ S25 LUMIÈRE"
+views:
+  - title: "🎯 ORCHESTRATOR"
+    icon: mdi:rocket-launch
+    path: s25_orchestrator
+    background: "radial-gradient(ellipse at top, #0d1b2a 0%, #0a0a0f 100%)"
+    cards:
+
+      # ─────────────────────────────────────────────────────
+      # ROW 1 — STATUS HEADER
+      # ─────────────────────────────────────────────────────
+      - type: custom:mushroom-title-card
+        title: "⚡ S25 LUMIÈRE — ARKON-5"
+        subtitle: >
+          Pipeline: {{ states('input_text.ai_model_actif') }} |
+          Mode: {% if is_state('input_boolean.ai_auto_mode','on') %}🟢 AUTO{% else %}🔴 MANUAL{% endif %}
+
+      # ─────────────────────────────────────────────────────
+      # ROW 2 — SIGNAL PRINCIPAL (ARKON-5)
+      # ─────────────────────────────────────────────────────
+      - type: horizontal-stack
+        cards:
+          - type: custom:mushroom-template-card
+            primary: "{{ states('sensor.s25_arkon5_action') }}"
+            secondary: "Signal ARKON-5"
+            icon: >
+              {% set a = states('sensor.s25_arkon5_action') %}
+              {% if a == 'BUY' %}mdi:arrow-up-bold-circle
+              {% elif a == 'SELL' %}mdi:arrow-down-bold-circle
+              {% else %}mdi:pause-circle{% endif %}
+            icon_color: >
+              {% set a = states('sensor.s25_arkon5_action') %}
+              {% if a == 'BUY' %}green
+              {% elif a == 'SELL' %}red
+              {% else %}orange{% endif %}
+            badge_icon: mdi:robot
+            badge_color: blue
+            tap_action:
+              action: more-info
+
+          - type: custom:mushroom-template-card
+            primary: "{{ states('sensor.s25_arkon5_conf') }}%"
+            secondary: "Confiance IA"
+            icon: mdi:brain
+            icon_color: >
+              {% set c = states('sensor.s25_arkon5_conf') | float(0) %}
+              {% if c >= 75 %}green
+              {% elif c >= 60 %}orange
+              {% else %}red{% endif %}
+
+          - type: custom:mushroom-template-card
+            primary: "{{ states('sensor.s25_pipeline_timestamp') }}"
+            secondary: "Dernier signal"
+            icon: mdi:clock-fast
+            icon_color: blue
+
+      # ─────────────────────────────────────────────────────
+      # ROW 3 — TP / SL / RAISON
+      # ─────────────────────────────────────────────────────
+      - type: horizontal-stack
+        cards:
+          - type: custom:mushroom-template-card
+            primary: "{{ states('sensor.s25_arkon5_tp') }} USDT"
+            secondary: "🎯 Take Profit"
+            icon: mdi:target
+            icon_color: green
+
+          - type: custom:mushroom-template-card
+            primary: "{{ states('sensor.s25_arkon5_sl') }} USDT"
+            secondary: "🛡️ Stop Loss"
+            icon: mdi:shield-check
+            icon_color: red
+
+          - type: custom:mushroom-template-card
+            primary: "{{ states('sensor.s25_arkon5_reason')[:40] }}..."
+            secondary: "💬 Analyse IA"
+            icon: mdi:comment-text
+            icon_color: purple
+
+      # ─────────────────────────────────────────────────────
+      # ROW 4 — PIPELINE CONTROL
+      # ─────────────────────────────────────────────────────
+      - type: entities
+        title: "🔧 Contrôles Pipeline S25"
+        entities:
+          - entity: input_boolean.ai_auto_mode
+            name: "Mode Auto S25"
+            icon: mdi:robot-outline
+          - entity: input_select.ai_model
+            name: "Modèle IA Actif"
+            icon: mdi:brain
+          - entity: input_text.ai_model_actif
+            name: "Status Pipeline"
+            icon: mdi:state-machine
+          - entity: input_text.ai_prompt
+            name: "Dernier Prompt Kimi"
+            icon: mdi:message-text
+
+      # ─────────────────────────────────────────────────────
+      # ROW 5 — TUNNEL S25 + COMMANDES
+      # ─────────────────────────────────────────────────────
+      - type: horizontal-stack
+        cards:
+          - type: custom:mushroom-template-card
+            primary: "Tunnel S25"
+            secondary: "Cloudflare → Kimi"
+            icon: mdi:tunnel
+            icon_color: cyan
+            tap_action:
+              action: call-service
+              service: shell_command.start_s25_tunnel
+
+          - type: custom:mushroom-template-card
+            primary: "Stop Tunnel"
+            secondary: "Fermer le pipe"
+            icon: mdi:tunnel-outline
+            icon_color: grey
+            tap_action:
+              action: call-service
+              service: shell_command.stop_s25_tunnel
+
+          - type: custom:mushroom-template-card
+            primary: "Force Analyse"
+            secondary: "Déclenche Gemini"
+            icon: mdi:play-circle
+            icon_color: blue
+            tap_action:
+              action: call-service
+              service: automation.trigger
+              service_data:
+                entity_id: automation.s25_kimi_signal_received
+
+      # ─────────────────────────────────────────────────────
+      # ROW 6 — GRAPH CONFIANCE (HISTORIQUE)
+      # ─────────────────────────────────────────────────────
+      - type: history-graph
+        title: "📈 Confiance ARKON-5 (24h)"
+        entities:
+          - entity: sensor.s25_arkon5_conf
+            name: Confiance %
+        hours_to_show: 24
+        refresh_interval: 30
+
+      # ─────────────────────────────────────────────────────
+      # ROW 7 — NOTIFICATIONS ACTIVES
+      # ─────────────────────────────────────────────────────
+      - type: custom:mushroom-template-card
+        primary: "Notifications Actives"
+        secondary: "Signaux ARKON-5 récents"
+        icon: mdi:bell-ring
+        icon_color: yellow
+        tap_action:
+          action: navigate
+          navigation_path: /lovelace/notifications
+
+  # ═══════════════════════════════════════════════════════════
+  # VUE 2 — MARCHÉ CRYPTO (BTC / MEXC)
+  # ═══════════════════════════════════════════════════════════
+  - title: "📊 MARCHÉ"
+    icon: mdi:chart-line
+    path: s25_market
+    cards:
+
+      - type: custom:mushroom-title-card
+        title: "📊 Marché Crypto Live"
+        subtitle: "BTC • ETH • DOGE • AKT • Powered by S25"
+
+      - type: horizontal-stack
+        cards:
+          - type: custom:mushroom-template-card
+            primary: "{{ states('sensor.btc_price') | default('--') }} $"
+            secondary: "₿ Bitcoin"
+            icon: mdi:bitcoin
+            icon_color: orange
+
+          - type: custom:mushroom-template-card
+            primary: "{{ states('sensor.eth_price') | default('--') }} $"
+            secondary: "Ξ Ethereum"
+            icon: mdi:ethereum
+            icon_color: blue
+
+          - type: custom:mushroom-template-card
+            primary: "{{ states('sensor.doge_price') | default('--') }} $"
+            secondary: "Ð Dogecoin"
+            icon: mdi:dog
+            icon_color: yellow
+
+      - type: horizontal-stack
+        cards:
+          - type: custom:mushroom-template-card
+            primary: "{{ states('sensor.akt_price') | default('--') }} $"
+            secondary: "⚓ Akash AKT"
+            icon: mdi:cloud-braces
+            icon_color: red
+
+          - type: custom:mushroom-template-card
+            primary: "{{ states('sensor.mexc_funding_rate') | default('--') }}"
+            secondary: "MEXC Funding Rate"
+            icon: mdi:percent
+            icon_color: cyan
+
+          - type: custom:mushroom-template-card
+            primary: "{{ states('sensor.btc_24h_change') | default('--') }}%"
+            secondary: "BTC 24h Change"
+            icon: mdi:trending-up
+            icon_color: green
+
+  # ═══════════════════════════════════════════════════════════
+  # VUE 3 — INFRA (AKASH + HA + MERLIN)
+  # ═══════════════════════════════════════════════════════════
+  - title: "🖥️ INFRA"
+    icon: mdi:server
+    path: s25_infra
+    cards:
+
+      - type: custom:mushroom-title-card
+        title: "🖥️ Infrastructure S25"
+        subtitle: "Akash • Home Assistant • Merlin • Tunnel"
+
+      - type: entities
+        title: "🔗 Status Agents"
+        entities:
+          - type: custom:mushroom-template-card
+            primary: "Perplexity/Comet"
+            secondary: "Watchman actif — {{ now().strftime('%H:%M') }}"
+            icon: mdi:eye-check
+            icon_color: green
+
+          - type: custom:mushroom-template-card
+            primary: "Gemini"
+            secondary: "Analyseur IA principal"
+            icon: mdi:google
+            icon_color: blue
+
+          - type: custom:mushroom-template-card
+            primary: "Kimi Web3"
+            secondary: "Source signaux crypto"
+            icon: mdi:web
+            icon_color: purple
+
+          - type: custom:mushroom-template-card
+            primary: "MERLIN"
+            secondary: "Risk management"
+            icon: mdi:wizard-hat
+            icon_color: red
+
+      - type: entities
+        title: "⚙️ HA System"
+        entities:
+          - entity: sensor.last_boot
+            name: "Dernier Boot HA"
+            icon: mdi:restart
+          - entity: sensor.processor_use
+            name: "CPU Usage"
+          - entity: sensor.memory_use_percent
+            name: "RAM Usage"
+          - entity: sensor.disk_use_percent
+            name: "Disk Usage"
+
+      - type: custom:mushroom-template-card
+        primary: "Tunnel Cloudflare"
+        secondary: >
+          {% if states('input_text.ai_model_actif') contains 'KIMI' %}
+          🟢 ACTIF — Signal reçu
+          {% else %}
+          🔴 En attente signal Kimi
+          {% endif %}
+        icon: mdi:cloud-check
+        icon_color: >
+          {% if states('input_text.ai_model_actif') contains 'KIMI' %}green{% else %}grey{% endif %}
+
+  # ═══════════════════════════════════════════════════════════
+  # VUE 4 — MINING (Antminer S19j)
+  # ═══════════════════════════════════════════════════════════
+  - title: "⛏️ MINING"
+    icon: mdi:pickaxe
+    path: s25_mining
+    cards:
+
+      - type: custom:mushroom-title-card
+        title: "⛏️ Mining Operations"
+        subtitle: "Antminer S19j Pro • BTC Mining • S25 Revenue"
+
+      - type: horizontal-stack
+        cards:
+          - type: custom:mushroom-template-card
+            primary: "{{ states('sensor.antminer_hashrate') | default('--') }} TH/s"
+            secondary: "Hashrate"
+            icon: mdi:pickaxe
+            icon_color: orange
+
+          - type: custom:mushroom-template-card
+            primary: "{{ states('sensor.antminer_temp') | default('--') }}°C"
+            secondary: "Température"
+            icon: mdi:thermometer
+            icon_color: >
+              {% set t = states('sensor.antminer_temp') | float(0) %}
+              {% if t > 80 %}red{% elif t > 70 %}orange{% else %}green{% endif %}
+
+          - type: custom:mushroom-template-card
+            primary: "{{ states('sensor.antminer_power') | default('--') }} W"
+            secondary: "Consommation"
+            icon: mdi:lightning-bolt
+            icon_color: yellow
+
+      - type: horizontal-stack
+        cards:
+          - type: custom:mushroom-template-card
+            primary: "{{ states('sensor.antminer_uptime') | default('--') }}"
+            secondary: "Uptime"
+            icon: mdi:clock-check
+            icon_color: green
+
+          - type: custom:mushroom-template-card
+            primary: "{{ states('sensor.btc_daily_earnings') | default('--') }} BTC"
+            secondary: "Gains 24h"
+            icon: mdi:bitcoin
+            icon_color: orange
+
+          - type: custom:mushroom-template-card
+            primary: "ONLINE"
+            secondary: "Pool Connection"
+            icon: mdi:connection
+            icon_color: green

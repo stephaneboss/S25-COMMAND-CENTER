@@ -1,0 +1,171 @@
+---
+# ============================================================
+# Akash SDL — Xiaomi-Robotics-0 VLA Inference Server
+# S25 Lumiere Project
+# Model: XiaomiRobotics/Xiaomi-Robotics-0 (4.7B VLA)
+# License: Apache 2.0
+# ============================================================
+
+version: "2.0"
+
+services:
+  xiaomi-robotics-0:
+    image: ghcr.io/s25lumiere/xiaomi-robotics-0:latest
+    # Build locally and push to your registry before deploying:
+    #   docker build -t ghcr.io/s25lumiere/xiaomi-robotics-0:latest .
+    #   docker push ghcr.io/s25lumiere/xiaomi-robotics-0:latest
+    expose:
+      - port: 8000
+        as: 8000
+        to:
+          - global: true
+    env:
+      # --- Model ---
+      - MODEL_ID=XiaomiRobotics/Xiaomi-Robotics-0
+      - HF_HOME=/hf_cache
+      - TRANSFORMERS_CACHE=/hf_cache
+      - TORCH_HOME=/torch_cache
+      # --- CUDA ---
+      - CUDA_VISIBLE_DEVICES=0
+      - PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:512
+      # --- Server ---
+      - UVICORN_WORKERS=1
+      - LOG_LEVEL=info
+      # --- Optional: add HF token for gated models ---
+      # - HF_TOKEN=hf_xxxxxxxxxxxxxxxx
+    params:
+      storage:
+        hf-cache:
+          mount: /hf_cache
+          readOnly: false
+        torch-cache:
+          mount: /torch_cache
+          readOnly: false
+
+profiles:
+  compute:
+    # -------------------------------------------------------
+    # Production profile — NVIDIA A100 80GB
+    # Recommended for full bfloat16 inference at speed
+    # -------------------------------------------------------
+    gpu-a100:
+      resources:
+        cpu:
+          units: 4
+        memory:
+          size: 32Gi
+        storage:
+          - size: 60Gi
+          - name: hf-cache
+            size: 40Gi
+            attributes:
+              persistent: true
+              class: beta3
+          - name: torch-cache
+            size: 5Gi
+            attributes:
+              persistent: true
+              class: beta3
+        gpu:
+          units: 1
+          attributes:
+            vendor:
+              nvidia:
+                - model: a100
+                  ram: 80Gi
+                  interface: pcie
+
+    # -------------------------------------------------------
+    # Budget profile — NVIDIA RTX 3090 24GB
+    # Good for testing; model fits in 24GB with bfloat16
+    # -------------------------------------------------------
+    gpu-budget:
+      resources:
+        cpu:
+          units: 4
+        memory:
+          size: 24Gi
+        storage:
+          - size: 60Gi
+          - name: hf-cache
+            size: 40Gi
+            attributes:
+              persistent: true
+              class: beta3
+          - name: torch-cache
+            size: 5Gi
+            attributes:
+              persistent: true
+              class: beta3
+        gpu:
+          units: 1
+          attributes:
+            vendor:
+              nvidia:
+                - model: rtx3090
+                  ram: 24Gi
+                  interface: pcie
+
+  placement:
+    # -------------------------------------------------------
+    # Production placement — any provider, A100
+    # -------------------------------------------------------
+    akash-prod:
+      attributes:
+        region: us-east
+      signedBy:
+        anyOf:
+          - akash1365yvmc4s7awdyj3n2sav7xfx76adc6dnmlx63
+          - akash18qa2a2jianysebackj2j3zlsk2pc4vkssrufhw
+      pricing:
+        xiaomi-robotics-0:
+          denom: uakt
+          amount: 1500          # ~$0.15 / hr at current AKT price — adjust to market
+
+    # -------------------------------------------------------
+    # Budget placement — RTX 3090 providers
+    # -------------------------------------------------------
+    akash-budget:
+      pricing:
+        xiaomi-robotics-0:
+          denom: uakt
+          amount: 600           # ~$0.06 / hr — budget testing
+
+deployment:
+  # Use gpu-a100 + akash-prod for production
+  # Switch to gpu-budget + akash-budget for dev/testing
+  xiaomi-robotics-0:
+    akash-prod:
+      profile: gpu-a100
+      count: 1
+
+# ============================================================
+# Deployment notes
+# ============================================================
+# 1. Install Akash CLI:
+#      curl https://raw.githubusercontent.com/akash-network/node/master/install.sh | sh
+#
+# 2. Fund wallet with AKT (min ~5 AKT for deployment escrow)
+#
+# 3. Deploy:
+#      akash tx deployment create deploy.yaml --from <wallet> --node https://rpc.akash.network:443
+#
+# 4. Query bids:
+#      akash query market bid list --owner <your-address>
+#
+# 5. Accept bid & get lease:
+#      akash tx market lease create --bid-id <bid-id> --from <wallet>
+#
+# 6. Get service URL:
+#      akash provider lease-status --lease-id <lease-id> --provider <provider-address>
+#
+# 7. Test:
+#      curl https://<akash-url>/health
+#
+# 8. S25 HA integration — add to configuration.yaml:
+#      rest_command:
+#        xiaomi_trading_signal:
+#          url: "https://<akash-url>/trading-signal"
+#          method: POST
+#          content_type: "application/json"
+#          payload: '{"symbol":"{{symbol}}","timeframe":"1h","market_data":{{market_data}}}'

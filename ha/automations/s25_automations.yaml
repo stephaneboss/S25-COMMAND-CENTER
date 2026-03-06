@@ -1,0 +1,91 @@
+# ============================================================
+# S25 LUMIÈRE - Automations ARKON-5
+# Alertes et actions sur signaux trading
+# ============================================================
+
+- alias: "S25 ARKON-5 Signal BUY Alert"
+  id: s25_arkon5_buy_alert
+  description: "Alerte quand ARKON-5 génère un signal BUY avec haute confiance"
+  trigger:
+    - platform: state
+      entity_id: sensor.s25_arkon5_action
+      to: "BUY"
+  condition:
+    - condition: template
+      value_template: "{{ states('sensor.s25_arkon5_conf') | float(0) >= 65 }}"
+  action:
+    - service: persistent_notification.create
+      data:
+        title: "🟢 S25 ARKON-5 — BUY SIGNAL"
+        message: >
+          🎯 Action: BUY
+          📊 Confiance: {{ states('sensor.s25_arkon5_conf') }}%
+          🎯 TP: {{ states('sensor.s25_arkon5_tp') }} USDT
+          🛡️ SL: {{ states('sensor.s25_arkon5_sl') }} USDT
+          💬 Raison: {{ states('sensor.s25_arkon5_reason') }}
+        notification_id: s25_arkon5_signal
+    - service: input_text.set_value
+      target:
+        entity_id: input_text.ai_model_actif
+      data:
+        value: "ARKON5_BUY_CONF{{ states('sensor.s25_arkon5_conf') }}"
+
+- alias: "S25 ARKON-5 Signal SELL Alert"
+  id: s25_arkon5_sell_alert
+  description: "Alerte quand ARKON-5 génère un signal SELL avec haute confiance"
+  trigger:
+    - platform: state
+      entity_id: sensor.s25_arkon5_action
+      to: "SELL"
+  condition:
+    - condition: template
+      value_template: "{{ states('sensor.s25_arkon5_conf') | float(0) >= 65 }}"
+  action:
+    - service: persistent_notification.create
+      data:
+        title: "🔴 S25 ARKON-5 — SELL SIGNAL"
+        message: >
+          🎯 Action: SELL
+          📊 Confiance: {{ states('sensor.s25_arkon5_conf') }}%
+          🎯 TP: {{ states('sensor.s25_arkon5_tp') }} USDT
+          🛡️ SL: {{ states('sensor.s25_arkon5_sl') }} USDT
+          💬 Raison: {{ states('sensor.s25_arkon5_reason') }}
+        notification_id: s25_arkon5_signal
+    - service: input_text.set_value
+      target:
+        entity_id: input_text.ai_model_actif
+      data:
+        value: "ARKON5_SELL_CONF{{ states('sensor.s25_arkon5_conf') }}"
+
+- alias: "S25 ARKON-5 HOLD — Pipeline Standby"
+  id: s25_arkon5_hold
+  description: "Remet le pipeline en standby sur HOLD"
+  trigger:
+    - platform: state
+      entity_id: sensor.s25_arkon5_action
+      to: "HOLD"
+  action:
+    - service: input_text.set_value
+      target:
+        entity_id: input_text.ai_model_actif
+      data:
+        value: "ARKON5_HOLD_STANDBY"
+
+- alias: "S25 Pipeline — Kimi Signal Reçu"
+  id: s25_kimi_signal_received
+  description: "Déclenche le pipeline quand un nouveau signal Kimi arrive"
+  trigger:
+    - platform: state
+      entity_id: input_text.ai_prompt
+  condition:
+    - condition: state
+      entity_id: input_boolean.ai_auto_mode
+      state: "on"
+    - condition: template
+      value_template: "{{ states('input_text.ai_prompt') | length > 10 }}"
+  action:
+    - service: persistent_notification.create
+      data:
+        title: "📡 S25 — Signal Kimi Reçu"
+        message: "Signal: {{ states('input_text.ai_prompt')[:100] }}"
+        notification_id: s25_kimi_signal
