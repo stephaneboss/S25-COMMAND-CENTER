@@ -1,0 +1,181 @@
+name: S25 CI — Validate & Security Scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+
+  # ─── Code Quality ───────────────────────────────────────────────────
+  validate:
+    name: Validate Code
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install flake8 pytest
+
+      - name: Lint (flake8)
+        run: |
+          flake8 agents/ security/ monitoring/ \
+            --max-line-length=120 \
+            --ignore=E501,W503,E302,E303 \
+            --exclude=__pycache__
+          echo "✓ Lint passed"
+
+      - name: Validate YAML configs
+        run: |
+          python3 -c "
+          import yaml, glob, sys
+          files = glob.glob('configs/*.yaml') + glob.glob('akash/**/*.yaml', recursive=True)
+          errors = []
+          for f in files:
+              try:
+                  yaml.safe_load(open(f))
+                  print(f'  ✓ {f}')
+              except Exception as e:
+                  errors.append(f'{f}: {e}')
+                  print(f'  ✗ {f}: {e}')
+          if errors:
+              sys.exit(1)
+          print(f'All {len(files)} YAML files valid')
+          "
+
+      - name: Run tests
+        run: |
+          if [ -d "tests/" ] && [ "$(ls -A tests/*.py 2>/dev/null)" ]; then
+            pytest tests/ -v --tb=short
+          else
+            echo "No tests found — skipping"
+          fi
+
+  # ─── Security Scan ──────────────────────────────────────────────────
+  security:
+    name: Security Audit
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check .env not tracked
+        run: |
+          if git ls-files --error-unmatch .env 2>/dev/null; then
+            echo "ERROR: .env is tracked by git! Remove it immediately."
+            exit 1
+          fi
+          echo "✓ .env not tracked"
+
+      - name: Check .gitignore covers secrets
+        run: |
+          grep -q "^\.env" .gitignore && echo "✓ .env in .gitignore" \
+            || (echo "ERROR: .env not in .gitignore" && exit 1)
+
+      - name: Scan for hardcoded API keys
+        run: |
+          echo "Scanning for hardcoded secrets..."
+          FOUND=0
+
+          # Check for common API key patterns
+          if grep -rn --include="*.py" "sk-[a-zA-Z0-9]\{20\}" agents/ security/ monitoring/ 2>/dev/null; then
+            echo "FOUND: OpenAI key pattern"
+            FOUND=1
+          fi
+
+          # Check for Bearer tokens
+          if grep -rn --include="*.py" "Bearer ey" agents/ security/ monitoring/ 2>/dev/null; then
+            echo "FOUND: Bearer token hardcoded"
+            FOUND=1
+          fi
+
+          # Check for API key assignments
+          if grep -rn --include="*.py" "api_key\s*=\s*['\"][^'\"]\{20\}" agents/ security/ monitoring/ 2>/dev/null; then
+            echo "FOUND: Possible hardcoded API key"
+            FOUND=1
+          fi
+
+          if [ $FOUND -eq 0 ]; then
+            echo "✓ No hardcoded secrets found"
+          else
+            exit 1
+          fi
+
+      - name: Verify vault usage
+        run: |
+          echo "Checking vault usage patterns..."
+          # Agents should use vault.require() not os.environ.get directly
+          python3 -c "
+          import os, re, sys
+          bad = []
+          for root, dirs, files in os.walk('.'):
+              dirs[:] = [d for d in dirs if d not in ['.git', '__pycache__', '.github']]
+              for f in files:
+                  if f.endswith('.py'):
+                      path = os.path.join(root, f)
+                      content = open(path).read()
+                      # Flag if directly using os.environ for secret keys
+                      if re.search(r'os\.environ\.get\([\'\"](HA_TOKEN|GEMINI_API_KEY|MEXC)', content):
+                          bad.append(path)
+          if bad:
+              print(f'WARNING: Direct env access (use vault instead): {bad}')
+          else:
+              print('✓ Vault usage looks correct')
+          "
+
+  # ─── Deployment Check ───────────────────────────────────────────────
+  akash_sdl:
+    name: Validate Akash SDLs
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install PyYAML
+        run: pip install pyyaml
+
+      - name: Validate SDL structure
+        run: |
+          python3 -c "
+          import yaml, glob, sys
+
+          required_keys = ['version', 'services', 'profiles', 'deployment']
+
+          sdls = glob.glob('akash/**/*.yaml', recursive=True)
+          if not sdls:
+              print('No SDL files found')
+              sys.exit(0)
+
+          errors = []
+          for f in sdls:
+              try:
+                  data = yaml.safe_load(open(f))
+                  missing = [k for k in required_keys if k not in data]
+                  if missing:
+                      errors.append(f'{f}: Missing keys: {missing}')
+                  else:
+                      print(f'  ✓ {f}')
+              except Exception as e:
+                  errors.append(f'{f}: {e}')
+
+          if errors:
+              for e in errors:
+                  print(f'  ✗ {e}')
+              sys.exit(1)
+          print(f'All {len(sdls)} SDL files valid')
+          "

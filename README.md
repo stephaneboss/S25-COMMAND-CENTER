@@ -1,11 +1,41 @@
-# ⚡ S25-COMMAND-CENTER — Full Agentique
+# 🚀 S25-COMMAND-CENTER — Lumière
+
+**Autonomous Multi-Agent Crypto Trading Infrastructure**
+
+> *"Un infra multi-agent qui opère — c'est ça."* — Major Stef
+
+[![CI](https://github.com/stephaneboss/S25-COMMAND-CENTER/actions/workflows/ci.yml/badge.svg)](https://github.com/stephaneboss/S25-COMMAND-CENTER/actions/workflows/ci.yml)
+
+---
+
+## Architecture Rapide
 
 ```
-╔═══════════════════════════════════════════════════════╗
-║         S25 LUMIÈRE — ARKON-5 COMMAND CENTER          ║
-║         Major Stef // Build: Claude // 2026           ║
-╚═══════════════════════════════════════════════════════╝
+Kimi Web3 Signal
+  → Cloudflare Tunnel → HA Webhook → Commander
+  ├── ARKON Signal     (validate signal)
+  ├── Risk Guardian    (circuit breaker)
+  ├── MEXC Executor    (place orders)
+  ├── Treasury Engine  (ATOM→AKT recharge)
+  ├── Balance Sentinel (multi-chain monitor)
+  └── Watchdog         (health + auto-restart)
 ```
+
+**Docs complètes:** [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+
+---
+
+## Quick Start
+
+```bash
+make install        # Install deps
+make run            # Cockpit dashboard :7777
+make run-agents     # All agents via Commander
+make health         # System health check
+make audit          # Security audit
+```
+
+---
 
 ## 🏗️ Architecture Multi-Agents
 

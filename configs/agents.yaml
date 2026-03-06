@@ -1,0 +1,121 @@
+# ═══════════════════════════════════════════════════════════════════
+# S25 Lumière — Agent Configuration
+# ═══════════════════════════════════════════════════════════════════
+# All runtime config for agents goes here.
+# Secrets go ONLY in .env or environment variables — NEVER here.
+# ═══════════════════════════════════════════════════════════════════
+
+commander:
+  version: "1.0.0"
+  ha_url: "http://homeassistant.local:8123"  # or 172.30.32.1:8123 from Akash
+  circuit_breaker:
+    max_errors: 3
+    cooldown_seconds: 30
+  signal_queue_size: 1000
+
+# ─── Individual Agent Config ────────────────────────────────────────
+
+agents:
+
+  # ── Treasury Engine: ATOM→AKT auto-recharge ──────────────────────
+  treasury_engine:
+    enabled: true
+    check_interval: 300          # Check every 5 minutes
+    min_akt_balance: 2.0         # AKT — warn below this level
+    critical_akt_balance: 0.5   # AKT — critical, recharge immediately
+    auto_notify_ha: true
+    deployments:
+      - dseq: "25708774"
+        label: "s25-phoenix"
+        priority: 1              # Most important (GPU node)
+      - dseq: "25817341"
+        label: "s25-secondary"
+        priority: 2
+    swap:
+      enabled: false             # Manual swaps for now (enable when ready)
+      dex: "osmosis"
+      slippage_pct: 1.0
+      min_swap_atom: 0.5        # Don't swap less than 0.5 ATOM
+
+  # ── Balance Sentinel: Multi-chain wallet monitoring ───────────────
+  balance_sentinel:
+    enabled: true
+    check_interval: 300
+    wallet: "cosmos1mw0tr5kdnpwdpx88tq8slp4slkfrz9ltqq8vwa"
+    chains:
+      cosmoshub:
+        denom: uatom
+        decimals: 6
+        coingecko_id: cosmos
+        warn_below: 1.0          # ATOM
+      akash:
+        denom: uakt
+        decimals: 6
+        coingecko_id: akash-network
+        warn_below: 2.0          # AKT
+      osmosis:
+        denom: uosmo
+        decimals: 6
+        coingecko_id: osmosis
+        warn_below: 0.5          # OSMO
+
+  # ── ARKON Signal: Trading signal processor ───────────────────────
+  arkon_signal:
+    enabled: true
+    min_confidence: 0.75         # Min confidence to act on signal
+    symbols:
+      - "BTC/USDT"
+      - "ETH/USDT"
+      - "AKT/USDT"
+      - "ATOM/USDT"
+    model: "ARKON-5"
+    gemini_validation: true      # Validate signals with Gemini
+
+  # ── Risk Guardian: Circuit breaker & risk limits ─────────────────
+  risk_guardian:
+    enabled: true
+    max_daily_loss_pct: 5.0      # Max % portfolio loss per day
+    max_position_size_pct: 20.0  # Max % portfolio per position
+    max_open_positions: 5
+    stop_loss_pct: 3.0           # Stop loss per trade
+    take_profit_pct: 6.0         # Take profit per trade
+    max_drawdown_pct: 15.0       # Max portfolio drawdown before halt
+
+  # ── MEXC Executor: Order execution ───────────────────────────────
+  mexc_executor:
+    enabled: false               # Enable when API keys configured
+    dry_run: true                # Paper trading — no real orders
+    base_url: "https://api.mexc.com"
+    default_order_type: "LIMIT"  # LIMIT or MARKET
+    default_size_pct: 5.0        # % of portfolio per trade
+
+  # ── Watchdog: System health & auto-restart ───────────────────────
+  watchdog:
+    enabled: true
+    check_interval: 60           # Every minute
+    restart_on_error: true
+    max_restarts: 3
+    monitor:
+      - "treasury_engine"
+      - "balance_sentinel"
+      - "arkon_signal"
+
+# ─── Monitoring ──────────────────────────────────────────────────────
+
+monitoring:
+  health_check_interval: 120    # Full health check every 2 min
+  ha_update_interval: 60        # HA sensor update every 1 min
+  alert_channels:
+    ha_notification: true       # HA persistent notification
+    telegram: false             # Enable when TELEGRAM_BOT_TOKEN set
+    email: false
+
+# ─── Logging ─────────────────────────────────────────────────────────
+
+logging:
+  level: INFO                   # DEBUG | INFO | WARNING | ERROR | CRITICAL
+  format: "%(asctime)s [%(name)s] %(levelname)s: %(message)s"
+  file: "/tmp/s25_agents.log"
+  max_size_mb: 50
+  backups: 3
+  audit_file: "/tmp/s25_audit.jsonl"

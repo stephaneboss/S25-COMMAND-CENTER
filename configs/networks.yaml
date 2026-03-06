@@ -1,0 +1,134 @@
+# ═══════════════════════════════════════════════════════════════════
+# S25 Lumière — Blockchain Networks Configuration
+# ═══════════════════════════════════════════════════════════════════
+# REST endpoints, chain IDs, denoms for all supported networks.
+# Add new chains here as the multi-chain empire expands.
+# ═══════════════════════════════════════════════════════════════════
+
+# ─── Cosmos Ecosystem ────────────────────────────────────────────────
+
+networks:
+
+  cosmoshub:
+    chain_id: cosmoshub-4
+    symbol: ATOM
+    native_denom: uatom
+    decimals: 6
+    coingecko_id: cosmos
+    lcd: https://rest.cosmos.directory/cosmoshub
+    rpc: https://rpc.cosmos.directory/cosmoshub
+    explorer: https://www.mintscan.io/cosmos
+    wallet_prefix: cosmos
+    active: true
+
+  akash:
+    chain_id: akashnet-2
+    symbol: AKT
+    native_denom: uakt
+    decimals: 6
+    coingecko_id: akash-network
+    lcd: https://rest.cosmos.directory/akash
+    rpc: https://rpc.cosmos.directory/akash
+    explorer: https://www.mintscan.io/akash
+    wallet_prefix: akash
+    console: https://console.akash.network
+    active: true
+
+  osmosis:
+    chain_id: osmosis-1
+    symbol: OSMO
+    native_denom: uosmo
+    decimals: 6
+    coingecko_id: osmosis
+    lcd: https://rest.cosmos.directory/osmosis
+    rpc: https://rpc.cosmos.directory/osmosis
+    explorer: https://www.mintscan.io/osmosis
+    wallet_prefix: osmo
+    dex_url: https://app.osmosis.zone
+    sqs_api: https://sqs.osmosis.zone
+    active: true
+
+  # ─── Future chains (activate as empire expands) ──────────────────
+
+  celestia:
+    chain_id: celestia
+    symbol: TIA
+    native_denom: utia
+    decimals: 6
+    coingecko_id: celestia
+    lcd: https://rest.cosmos.directory/celestia
+    active: false
+
+  injective:
+    chain_id: injective-1
+    symbol: INJ
+    native_denom: inj
+    decimals: 18
+    coingecko_id: injective-protocol
+    lcd: https://rest.cosmos.directory/injective
+    active: false
+
+  stargaze:
+    chain_id: stargaze-1
+    symbol: STARS
+    native_denom: ustars
+    decimals: 6
+    coingecko_id: stargaze
+    active: false
+
+# ─── DEX Swap Routes ──────────────────────────────────────────────────
+
+swap_routes:
+
+  ATOM_to_AKT:
+    dex: osmosis
+    input_denom: uatom
+    output_denom: uakt
+    # Pool route: ATOM/OSMO (pool 1) → OSMO/AKT (pool 3)
+    pools: [1, 3]
+    slippage_tolerance_pct: 1.0
+    min_output_multiplier: 0.99
+
+  OSMO_to_AKT:
+    dex: osmosis
+    input_denom: uosmo
+    output_denom: uakt
+    # Direct OSMO/AKT pool
+    pools: [3]
+    slippage_tolerance_pct: 1.0
+
+  ATOM_to_OSMO:
+    dex: osmosis
+    input_denom: uatom
+    output_denom: uosmo
+    pools: [1]
+    slippage_tolerance_pct: 0.5
+
+# ─── Exchange Connections ─────────────────────────────────────────────
+
+exchanges:
+
+  mexc:
+    base_url: https://api.mexc.com
+    ws_url: wss://wbs.mexc.com/ws
+    active: true
+    pairs:
+      - BTC/USDT
+      - ETH/USDT
+      - AKT/USDT
+      - ATOM/USDT
+
+# ─── Price Feeds ─────────────────────────────────────────────────────
+
+price_feeds:
+
+  coingecko:
+    base_url: https://api.coingecko.com/api/v3
+    rate_limit_per_min: 30
+    batch_size: 20
+    active: true
+
+  binance:
+    base_url: https://api.binance.com/api/v3
+    active: true
+    note: "No API key needed for public endpoints"
