@@ -18,6 +18,17 @@ import requests
 
 app = Flask(__name__)
 
+# Register COMET bridge routes
+try:
+    from agents.comet_bridge import register_comet_routes
+    _comet_routes_registered = True
+except ImportError:
+    try:
+        from comet_bridge import register_comet_routes
+        _comet_routes_registered = True
+    except ImportError:
+        _comet_routes_registered = False
+
 # ─── Config ──────────────────────────────────────────────────────────
 HA_URL      = os.getenv("HA_URL",      "http://homeassistant.local:8123")
 HA_TOKEN    = os.getenv("HA_TOKEN",    "")
@@ -452,6 +463,18 @@ HTML = r"""<!DOCTYPE html>
     </div>
   </div>
 
+  <!-- ── COMET Intel Feed ── -->
+  <div class="card">
+    <div class="card-title">🌐 <span>COMET</span> — PERPLEXITY WATCHMAN INTEL</div>
+    <div class="log-feed" id="comet-feed">
+      <div class="log-entry"><span class="log-ts">[INIT]</span> <span class="log-info">En attente du signal COMET...</span></div>
+    </div>
+    <div style="margin-top:8px;font-size:10px;color:var(--text-dim)">
+      Bridge: <span style="color:var(--blue)" id="comet-ping">CHECKING...</span>
+      &nbsp;|&nbsp; Endpoint: <span style="color:var(--text-dim)">/api/intel</span>
+    </div>
+  </div>
+
   <!-- ── Live Log ── -->
   <div class="card" style="grid-column: span 2">
     <div class="card-title">📋 <span>LIVE FEED</span> — EVENTS S25</div>
@@ -583,6 +606,37 @@ async function triggerKillSwitch() {
     await fetch('/api/kill-switch', { method: 'POST' });
   } catch(e) {}
 }
+
+// ── COMET intel feed ──────────────────────────────────────────────
+async function fetchCometFeed() {
+  try {
+    const r = await fetch('/api/comet/feed?n=10');
+    const d = await r.json();
+    if (!d.ok || !d.feed.length) return;
+
+    const feed = document.getElementById('comet-feed');
+    feed.innerHTML = '';
+    d.feed.forEach(entry => {
+      const div = document.createElement('div');
+      div.className = 'log-entry';
+      const lvl = entry.level === 'CRITICAL' ? 'err'
+                : entry.level === 'ALERT'    ? 'warn'
+                : entry.level === 'WARNING'  ? 'warn'
+                : 'info';
+      const ts = (entry.ts||'').substring(11,19);
+      div.innerHTML = `<span class="log-ts">[${ts}]</span> <span class="log-${lvl}">[${entry.source}] ${entry.summary}</span>`;
+      feed.appendChild(div);
+    });
+
+    document.getElementById('comet-ping').textContent = 'CONNECTED';
+    document.getElementById('comet-ping').style.color = 'var(--green)';
+  } catch(e) {
+    document.getElementById('comet-ping').textContent = 'OFFLINE';
+    document.getElementById('comet-ping').style.color = 'var(--red)';
+  }
+}
+setInterval(fetchCometFeed, 15000);
+fetchCometFeed();
 
 // ── Poll ──────────────────────────────────────────────────────────
 setInterval(fetchStatus, 10000);
@@ -762,6 +816,13 @@ def health():
 # ─── Main ─────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
+    # Register COMET bridge routes
+    if _comet_routes_registered:
+        register_comet_routes(app, state)
+        print("✅ COMET bridge routes registered")
+    else:
+        print("⚠️  COMET bridge not available (comet_bridge.py missing)")
+
     # Start background threads
     threading.Thread(target=check_ha,         daemon=True).start()
     threading.Thread(target=background_tasks, daemon=True).start()
