@@ -1,0 +1,169 @@
+---
+# S25 LUMIÈRE — Multi-Services Deployment (Architecture Micro-conteneurs)
+# 5 petits conteneurs indépendants — chaque agent fait UNE chose
+# Gemini Architecture Plan — "Centrale Télécom IA"
+#
+# Services:
+#   core-dev      :7777  — Cockpit UI + API principale
+#   intel-comet   :7778  — COMET Bridge (Perplexity Watchman)
+#   voice-relay   :7779  — Central Télécom IA (WebSocket)
+#   executor      :7780  — ARKON-5 + Treasury Engine
+#   monitor       :7781  — Watchdog + Health checks
+#
+# Budget estimé: ~$0.80/mois total (5 x ~$0.16)
+version: "2.0"
+
+services:
+
+  # ── 1. CORE-DEV — Cockpit principal ──────────────────────────────
+  core-dev:
+    image: ghcr.io/stephaneboss/s25-command-center:latest
+    expose:
+      - port: 7777
+        as: 80
+        to:
+          - global: true
+    env:
+      - SERVICE=core-dev
+      - PORT=7777
+      - HA_URL=http://homeassistant.local:8123
+      - HA_TOKEN=REPLACE_HA_TOKEN
+      - S25_SHARED_SECRET=REPLACE_SHARED_SECRET
+      - GEMINI_API_KEY=REPLACE_GEMINI_KEY
+      - COMET_URL=http://intel-comet:7778
+      - VOICE_URL=http://voice-relay:7779
+      - EXECUTOR_URL=http://executor:7780
+
+  # ── 2. INTEL-COMET — Perplexity Watchman ─────────────────────────
+  intel-comet:
+    image: ghcr.io/stephaneboss/s25-command-center:latest
+    expose:
+      - port: 7778
+        as: 80
+        to:
+          - global: true
+          - service: core-dev
+          - service: voice-relay
+          - service: executor
+    env:
+      - SERVICE=intel-comet
+      - PORT=7778
+      - S25_SHARED_SECRET=REPLACE_SHARED_SECRET
+      - PERPLEXITY_API_KEY=REPLACE_PERPLEXITY_KEY
+      - COCKPIT_URL=http://core-dev:7777
+
+  # ── 3. VOICE-RELAY — Central Télécom IA (Astérix) ────────────────
+  voice-relay:
+    image: ghcr.io/stephaneboss/s25-command-center:latest
+    expose:
+      - port: 7779
+        as: 80
+        to:
+          - global: true
+          - service: core-dev
+    env:
+      - SERVICE=voice-relay
+      - PORT=7779
+      - VOICE_RELAY_PORT=7779
+      - S25_SHARED_SECRET=REPLACE_SHARED_SECRET
+      - OPENAI_API_KEY=REPLACE_OPENAI_KEY
+      - COCKPIT_URL=http://core-dev:7777
+      - COMET_URL=http://intel-comet:7778
+      - EXECUTOR_URL=http://executor:7780
+      - HA_URL=http://homeassistant.local:8123
+      - HA_TOKEN=REPLACE_HA_TOKEN
+
+  # ── 4. EXECUTOR — ARKON-5 + MEXC Trading ─────────────────────────
+  executor:
+    image: ghcr.io/stephaneboss/s25-command-center:latest
+    expose:
+      - port: 7780
+        as: 80
+        to:
+          - global: false
+          - service: core-dev
+          - service: voice-relay
+          - service: monitor
+    env:
+      - SERVICE=executor
+      - PORT=7780
+      - S25_SHARED_SECRET=REPLACE_SHARED_SECRET
+      - MEXC_API_KEY=REPLACE_MEXC_KEY
+      - MEXC_API_SECRET=REPLACE_MEXC_SECRET
+      - DRY_RUN=true
+      - COCKPIT_URL=http://core-dev:7777
+      - HA_URL=http://homeassistant.local:8123
+      - HA_TOKEN=REPLACE_HA_TOKEN
+      - AKASH_WALLET=REPLACE_AKASH_WALLET
+      - TREASURY_INTERVAL=300
+
+  # ── 5. MONITOR — Watchdog + Health ───────────────────────────────
+  monitor:
+    image: ghcr.io/stephaneboss/s25-command-center:latest
+    expose:
+      - port: 7781
+        as: 80
+        to:
+          - global: false
+          - service: core-dev
+    env:
+      - SERVICE=monitor
+      - PORT=7781
+      - S25_SHARED_SECRET=REPLACE_SHARED_SECRET
+      - COCKPIT_URL=http://core-dev:7777
+      - WATCH_TARGETS=http://core-dev:7777/health,http://intel-comet:7778/health,http://voice-relay:7779,http://executor:7780/health
+      - ALERT_WEBHOOK=REPLACE_HA_WEBHOOK
+
+profiles:
+  compute:
+
+    core-dev:
+      resources:
+        cpu:     {units: 0.25}
+        memory:  {size: 256Mi}
+        storage: {size: 512Mi}
+
+    intel-comet:
+      resources:
+        cpu:     {units: 0.10}
+        memory:  {size: 128Mi}
+        storage: {size: 256Mi}
+
+    voice-relay:
+      resources:
+        cpu:     {units: 0.15}
+        memory:  {size: 192Mi}
+        storage: {size: 256Mi}
+
+    executor:
+      resources:
+        cpu:     {units: 0.15}
+        memory:  {size: 128Mi}
+        storage: {size: 256Mi}
+
+    monitor:
+      resources:
+        cpu:     {units: 0.10}
+        memory:  {size: 128Mi}
+        storage: {size: 128Mi}
+
+  placement:
+    akash:
+      pricing:
+        core-dev:    {denom: uakt, amount: 100}
+        intel-comet: {denom: uakt, amount: 40}
+        voice-relay: {denom: uakt, amount: 60}
+        executor:    {denom: uakt, amount: 50}
+        monitor:     {denom: uakt, amount: 30}
+
+deployment:
+  core-dev:
+    akash: {profile: core-dev,    count: 1}
+  intel-comet:
+    akash: {profile: intel-comet, count: 1}
+  voice-relay:
+    akash: {profile: voice-relay, count: 1}
+  executor:
+    akash: {profile: executor,    count: 1}
+  monitor:
+    akash: {profile: monitor,     count: 1}
