@@ -237,7 +237,40 @@ def register_comet_routes(app, state: Dict):
             "ha_online":    state.get("ha_online", False),
         })
 
-    logger.info("COMET bridge routes registered: /api/intel, /api/comet/feed, /api/comet/ping")
+    @app.route("/api/comet/status-check", methods=["GET"])
+    def api_comet_status_check():
+        """COMET full system status check — Québécois edition."""
+        threat = state.get("threat_level", 0)
+        ha_ok  = state.get("ha_online", False)
+        sig    = state.get("signal", {})
+
+        if threat == 0 and ha_ok:
+            vibe = "TABARNAK — ça roule en crisse ! 🚀"
+            status = "OPTIMAL"
+        elif threat == 1:
+            vibe = "Câline, on surveille... T1 actif."
+            status = "SURVEILLANCE"
+        elif threat == 2:
+            vibe = "Ostie, alerte T2 — on reste sharp !"
+            status = "ALERTE"
+        elif threat == 3:
+            vibe = "CRISSE — T3 CRITIQUE, KILL SWITCH !"
+            status = "CRITIQUE"
+        else:
+            vibe = "En attente boss..."
+            status = "STANDBY"
+
+        return jsonify({
+            "ok":           True,
+            "vibe":         vibe,
+            "status":       status,
+            "threat_level": threat,
+            "ha_online":    ha_ok,
+            "signal":       sig.get("action", "STANDBY"),
+            "ts":           datetime.utcnow().isoformat(),
+        })
+
+    logger.info("COMET bridge routes registered: /api/intel, /api/comet/feed, /api/comet/ping, /api/comet/status-check")
 
 
 # ─── Convenience: send from any agent ────────────────────────────────
