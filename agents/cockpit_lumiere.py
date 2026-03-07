@@ -29,6 +29,17 @@ except ImportError:
     except ImportError:
         _comet_routes_registered = False
 
+# Register TRINITY vocal routes
+try:
+    from agents.trinity_vocal import register_trinity_routes
+    _trinity_routes_registered = True
+except ImportError:
+    try:
+        from trinity_vocal import register_trinity_routes
+        _trinity_routes_registered = True
+    except ImportError:
+        _trinity_routes_registered = False
+
 # ─── Config ──────────────────────────────────────────────────────────
 HA_URL      = os.getenv("HA_URL",      "http://homeassistant.local:8123")
 HA_TOKEN    = os.getenv("HA_TOKEN",    "")
@@ -822,6 +833,13 @@ if __name__ == "__main__":
         print("✅ COMET bridge routes registered")
     else:
         print("⚠️  COMET bridge not available (comet_bridge.py missing)")
+
+    # Register TRINITY vocal routes
+    if _trinity_routes_registered:
+        register_trinity_routes(app, state)
+        print("✅ TRINITY vocal routes registered")
+    else:
+        print("⚠️  TRINITY not available (trinity_vocal.py missing)")
 
     # Start background threads
     threading.Thread(target=check_ha,         daemon=True).start()

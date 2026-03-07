@@ -24,11 +24,12 @@
 | Tâche | Status | Agent |
 |-------|--------|-------|
 | Update Akash → vraie image Docker | 🔄 EN COURS | Claude |
+| ARKON-5 Bridge (scripts/arkon5_bridge.py) | ✅ DONE | Claude |
+| Treasury Engine (scripts/treasury_engine.py) | ✅ DONE | Claude |
 | ARKON-5 sensors HA (ai_analysis.json) | 📋 TODO | Claude + Gemini |
 | Webhook Kimi → Commander → ARKON | 📋 TODO | Claude |
 | Signal flow complet BUY/SELL/HOLD | 📋 TODO | Claude + Gemini |
 | MEXC live mode (dry_run → false) | 📋 TODO | Claude |
-| Treasury Engine ATOM→AKT auto | 📋 TODO | Claude |
 
 ---
 
@@ -37,7 +38,7 @@
 | Tâche | Status | Agent |
 |-------|--------|-------|
 | GOUV4 Planner (GPT governance) | 📋 TODO | GPT |
-| Vocal pipeline TRINITY (TTS) | 📋 TODO | GPT + HA |
+| Vocal pipeline TRINITY (agents/trinity_vocal.py) | ✅ DONE | Claude |
 | MERLIN orchestration (Gemini) | 📋 TODO | Gemini |
 | Balance Sentinel multi-chain | 📋 TODO | Claude |
 | Antminer monitor intégration | 📋 TODO | Claude |
