@@ -24,6 +24,9 @@ psutil>=5.9.0
 schedule>=1.2.0
 apscheduler>=3.10.0
 
+# WebSocket (Voice Relay)
+websockets>=12.0
+
 # Utilities
 python-dotenv>=1.0.0
 pyyaml>=6.0.1
