@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>S25 LUMIÈRE — Command Links</title>
+<style>
+  :root {
+    --bg: #05050f; --bg2: #0a0a1a; --border: #1a1a3a;
+    --green: #00ff88; --blue: #00aaff; --orange: #ff8800;
+    --red: #ff2244; --yellow: #ffdd00; --purple: #aa44ff;
+    --text: #c8d0e8; --dim: #556080; --font: 'Courier New', monospace;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: var(--font); min-height: 100vh;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 32px 16px;
+  }
+  header {
+    text-align: center; margin-bottom: 40px;
+  }
+  .logo {
+    font-size: 28px; font-weight: bold; letter-spacing: 4px;
+    color: var(--green); text-shadow: 0 0 20px rgba(0,255,136,0.5);
+  }
+  .subtitle { color: var(--dim); font-size: 12px; margin-top: 6px; letter-spacing: 2px; }
+  .ts { color: var(--dim); font-size: 11px; margin-top: 4px; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 20px; width: 100%; max-width: 1200px;
+  }
+
+  .card {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 20px;
+    transition: border-color 0.2s;
+  }
+  .card:hover { border-color: var(--green); }
+  .card-title {
+    font-size: 11px; letter-spacing: 2px; color: var(--dim);
+    text-transform: uppercase; margin-bottom: 16px;
+    padding-bottom: 8px; border-bottom: 1px solid var(--border);
+  }
+  .card-title span { margin-right: 8px; }
+
+  .link-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 0; border-bottom: 1px solid rgba(26,26,58,0.5);
+    text-decoration: none; color: var(--text);
+    transition: all 0.15s;
+  }
+  .link-row:last-child { border-bottom: none; }
+  .link-row:hover { color: var(--green); padding-left: 6px; }
+  .link-row:hover .dot { background: var(--green); }
+
+  .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--dim); flex-shrink: 0;
+    transition: background 0.15s;
+  }
+  .dot.green  { background: var(--green); }
+  .dot.blue   { background: var(--blue); }
+  .dot.orange { background: var(--orange); }
+  .dot.yellow { background: var(--yellow); }
+  .dot.purple { background: var(--purple); }
+  .dot.red    { background: var(--red); }
+
+  .link-info { flex: 1; min-width: 0; }
+  .link-name { font-size: 13px; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .link-desc { font-size: 10px; color: var(--dim); margin-top: 2px; }
+  .link-badge {
+    font-size: 9px; padding: 2px 6px; border-radius: 3px;
+    background: rgba(0,255,136,0.1); color: var(--green);
+    border: 1px solid rgba(0,255,136,0.2); flex-shrink: 0;
+  }
+  .badge-blue   { background: rgba(0,170,255,0.1); color: var(--blue);   border-color: rgba(0,170,255,0.2); }
+  .badge-orange { background: rgba(255,136,0,0.1); color: var(--orange); border-color: rgba(255,136,0,0.2); }
+  .badge-purple { background: rgba(170,68,255,0.1); color: var(--purple); border-color: rgba(170,68,255,0.2); }
+
+  footer {
+    margin-top: 40px; color: var(--dim); font-size: 11px; text-align: center;
+  }
+
+  /* Scan line effect */
+  body::before {
+    content: '';
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,255,136,0.01) 2px, rgba(0,255,136,0.01) 4px);
+    pointer-events: none; z-index: 0;
+  }
+  .grid, header, footer { position: relative; z-index: 1; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">⬡ S25 LUMIÈRE</div>
+  <div class="subtitle">COMMAND CENTER — PROJECT LINKS</div>
+  <div class="ts" id="ts"></div>
+</header>
+
+<div class="grid">
+
+  <!-- COCKPIT & INFRA -->
+  <div class="card">
+    <div class="card-title"><span>🚀</span>COCKPIT & INFRA</div>
+
+    <a class="link-row" href="http://kfhsi5oko9dbt3abob51g4s9q0.ingress.cap-test-compute.com" target="_blank">
+      <div class="dot green"></div>
+      <div class="link-info">
+        <div class="link-name">S25 Cockpit — Live UI</div>
+        <div class="link-desc">kfhsi5oko9dbt3abob51g4s9q0.ingress.cap-test-compute.com</div>
+      </div>
+      <span class="link-badge">LIVE</span>
+    </a>
+
+    <a class="link-row" href="http://kfhsi5oko9dbt3abob51g4s9q0.ingress.cap-test-compute.com/api/status" target="_blank">
+      <div class="dot green"></div>
+      <div class="link-info">
+        <div class="link-name">Cockpit API Status</div>
+        <div class="link-desc">/api/status — JSON état du système</div>
+      </div>
+      <span class="link-badge">API</span>
+    </a>
+
+    <a class="link-row" href="http://kfhsi5oko9dbt3abob51g4s9q0.ingress.cap-test-compute.com/api/comet/status-check" target="_blank">
+      <div class="dot green"></div>
+      <div class="link-info">
+        <div class="link-name">COMET Status Check 🍁</div>
+        <div class="link-desc">/api/comet/status-check — TABARNAK ça roule!</div>
+      </div>
+      <span class="link-badge">COMET</span>
+    </a>
+
+    <a class="link-row" href="http://kfhsi5oko9dbt3abob51g4s9q0.ingress.cap-test-compute.com/health" target="_blank">
+      <div class="dot blue"></div>
+      <div class="link-info">
+        <div class="link-name">Cockpit Health Check</div>
+        <div class="link-desc">/health — Ping rapide du service</div>
+      </div>
+      <span class="link-badge badge-blue">HEALTH</span>
+    </a>
+  </div>
+
+  <!-- AKASH NETWORK -->
+  <div class="card">
+    <div class="card-title"><span>⚡</span>AKASH NETWORK</div>
+
+    <a class="link-row" href="https://console.akash.network/deployments/25822281" target="_blank">
+      <div class="dot orange"></div>
+      <div class="link-info">
+        <div class="link-name">DSEQ 25822281 — S25 Cockpit</div>
+        <div class="link-desc">0.25 CPU · 256Mi · $0.38/mois</div>
+      </div>
+      <span class="link-badge badge-orange">COCKPIT</span>
+    </a>
+
+    <a class="link-row" href="https://console.akash.network/deployments/25708774" target="_blank">
+      <div class="dot orange"></div>
+      <div class="link-info">
+        <div class="link-name">DSEQ 25708774 — GPU RTX4090</div>
+        <div class="link-desc">GPU · ~$6-8/mois · Akash Iowa</div>
+      </div>
+      <span class="link-badge badge-orange">GPU</span>
+    </a>
+
+    <a class="link-row" href="https://console.akash.network/new-deployment" target="_blank">
+      <div class="dot yellow"></div>
+      <div class="link-info">
+        <div class="link-name">Nouveau Déploiement Akash</div>
+        <div class="link-desc">Upload SDL → bid → lease</div>
+      </div>
+      <span class="link-badge badge-orange">NEW</span>
+    </a>
+
+    <a class="link-row" href="https://console.akash.network/" target="_blank">
+      <div class="dot yellow"></div>
+      <div class="link-info">
+        <div class="link-name">Akash Console — Dashboard</div>
+        <div class="link-desc">console.akash.network — tous les deployments</div>
+      </div>
+      <span class="link-badge badge-orange">AKASH</span>
+    </a>
+  </div>
+
+  <!-- GITHUB -->
+  <div class="card">
+    <div class="card-title"><span>📦</span>GITHUB — S25-COMMAND-CENTER</div>
+
+    <a class="link-row" href="https://github.com/stephaneboss/S25-COMMAND-CENTER" target="_blank">
+      <div class="dot blue"></div>
+      <div class="link-info">
+        <div class="link-name">Repo Principal</div>
+        <div class="link-desc">stephaneboss/S25-COMMAND-CENTER · Public</div>
+      </div>
+      <span class="link-badge badge-blue">REPO</span>
+    </a>
+
+    <a class="link-row" href="https://github.com/stephaneboss/S25-COMMAND-CENTER/actions" target="_blank">
+      <div class="dot green"></div>
+      <div class="link-info">
+        <div class="link-name">GitHub Actions — CI/CD</div>
+        <div class="link-desc">Docker build → ghcr.io auto push</div>
+      </div>
+      <span class="link-badge">CI/CD</span>
+    </a>
+
+    <a class="link-row" href="https://github.com/stephaneboss/S25-COMMAND-CENTER/pkgs/container/s25-command-center" target="_blank">
+      <div class="dot blue"></div>
+      <div class="link-info">
+        <div class="link-name">Docker Image — ghcr.io</div>
+        <div class="link-desc">ghcr.io/stephaneboss/s25-command-center:latest</div>
+      </div>
+      <span class="link-badge badge-blue">DOCKER</span>
+    </a>
+
+    <a class="link-row" href="https://github.com/stephaneboss/S25-COMMAND-CENTER/blob/master/docs/ROADMAP.md" target="_blank">
+      <div class="dot yellow"></div>
+      <div class="link-info">
+        <div class="link-name">ROADMAP 2026</div>
+        <div class="link-desc">4 sprints → Humanoïde</div>
+      </div>
+      <span class="link-badge badge-orange">ROADMAP</span>
+    </a>
+  </div>
+
+  <!-- HOME ASSISTANT -->
+  <div class="card">
+    <div class="card-title"><span>🏠</span>HOME ASSISTANT</div>
+
+    <a class="link-row" href="http://homeassistant.local:8123" target="_blank">
+      <div class="dot green"></div>
+      <div class="link-info">
+        <div class="link-name">Home Assistant — Dashboard</div>
+        <div class="link-desc">homeassistant.local:8123 — Hub central S25</div>
+      </div>
+      <span class="link-badge">LOCAL</span>
+    </a>
+
+    <a class="link-row" href="http://homeassistant.local:8123/lovelace/0" target="_blank">
+      <div class="dot blue"></div>
+      <div class="link-info">
+        <div class="link-name">HA Lovelace UI</div>
+        <div class="link-desc">Dashboard principal automations</div>
+      </div>
+      <span class="link-badge badge-blue">UI</span>
+    </a>
+
+    <a class="link-row" href="http://homeassistant.local:8123/developer-tools/state" target="_blank">
+      <div class="dot yellow"></div>
+      <div class="link-info">
+        <div class="link-name">Developer Tools — States</div>
+        <div class="link-desc">input_text.arkon5_signal · input_select.s25_threat_level</div>
+      </div>
+      <span class="link-badge badge-orange">DEV</span>
+    </a>
+
+    <a class="link-row" href="http://homeassistant.local:8123/config/automation/dashboard" target="_blank">
+      <div class="dot blue"></div>
+      <div class="link-info">
+        <div class="link-name">Automations S25</div>
+        <div class="link-desc">s25_kimi_webhook_receiver + ARKON-5</div>
+      </div>
+      <span class="link-badge badge-blue">AUTO</span>
+    </a>
+  </div>
+
+  <!-- TRADING & FINANCE -->
+  <div class="card">
+    <div class="card-title"><span>💰</span>TRADING & FINANCE</div>
+
+    <a class="link-row" href="https://www.mexc.com/user/openapi" target="_blank">
+      <div class="dot orange"></div>
+      <div class="link-info">
+        <div class="link-name">MEXC API Keys</div>
+        <div class="link-desc">Gérer les clés API MEXC Executor</div>
+      </div>
+      <span class="link-badge badge-orange">MEXC</span>
+    </a>
+
+    <a class="link-row" href="https://www.mexc.com/exchange/BTC_USDT" target="_blank">
+      <div class="dot green"></div>
+      <div class="link-info">
+        <div class="link-name">MEXC — BTC/USDT</div>
+        <div class="link-desc">Trading pair principal ARKON-5</div>
+      </div>
+      <span class="link-badge">TRADE</span>
+    </a>
+
+    <a class="link-row" href="https://www.coingecko.com/en/coins/akash-network" target="_blank">
+      <div class="dot blue"></div>
+      <div class="link-info">
+        <div class="link-name">AKT Price — CoinGecko</div>
+        <div class="link-desc">Prix AKT pour Treasury Engine</div>
+      </div>
+      <span class="link-badge badge-blue">AKT</span>
+    </a>
+
+    <a class="link-row" href="https://www.mintscan.io/akash" target="_blank">
+      <div class="dot purple"></div>
+      <div class="link-info">
+        <div class="link-name">Mintscan — Akash Explorer</div>
+        <div class="link-desc">Transactions wallet + escrow balances</div>
+      </div>
+      <span class="link-badge badge-purple">CHAIN</span>
+    </a>
+  </div>
+
+  <!-- IA TEAM -->
+  <div class="card">
+    <div class="card-title"><span>🧠</span>ÉQUIPE IA — S25</div>
+
+    <a class="link-row" href="https://claude.ai" target="_blank">
+      <div class="dot orange"></div>
+      <div class="link-info">
+        <div class="link-name">Claude — Builder Principal</div>
+        <div class="link-desc">Architecture · Code · Infra · Tests</div>
+      </div>
+      <span class="link-badge badge-orange">CLAUDE</span>
+    </a>
+
+    <a class="link-row" href="https://gemini.google.com" target="_blank">
+      <div class="dot blue"></div>
+      <div class="link-info">
+        <div class="link-name">Gemini — MERLIN/ARKON-5</div>
+        <div class="link-desc">Analyse · Orchestration · Sheets tactiques</div>
+      </div>
+      <span class="link-badge badge-blue">GEMINI</span>
+    </a>
+
+    <a class="link-row" href="https://chatgpt.com" target="_blank">
+      <div class="dot green"></div>
+      <div class="link-info">
+        <div class="link-name">GPT — GOUV4/TRINITY</div>
+        <div class="link-desc">Gouvernance · Vocal · Stratégie</div>
+      </div>
+      <span class="link-badge">GPT</span>
+    </a>
+
+    <a class="link-row" href="https://www.perplexity.ai" target="_blank">
+      <div class="dot purple"></div>
+      <div class="link-info">
+        <div class="link-name">Perplexity — COMET Watchman</div>
+        <div class="link-desc">Veille marché · Intel · Bridge COMET</div>
+      </div>
+      <span class="link-badge badge-purple">COMET</span>
+    </a>
+  </div>
+
+</div>
+
+<footer>
+  <div>S25 LUMIÈRE · Major Stef · 2026 · "Ce système durera plus longtemps que nous."</div>
+  <div style="margin-top:6px;color:#334">Built by Claude · Architected by Major Stef · Powered by Akash</div>
+</footer>
+
+<script>
+  // Live timestamp
+  function updateTS() {
+    const now = new Date();
+    document.getElementById('ts').textContent =
+      now.toISOString().replace('T', ' ').split('.')[0] + ' UTC';
+  }
+  updateTS();
+  setInterval(updateTS, 1000);
+
+  // Try to ping cockpit
+  fetch('http://kfhsi5oko9dbt3abob51g4s9q0.ingress.cap-test-compute.com/health', {mode:'no-cors'})
+    .catch(() => {});
+</script>
+</body>
+</html>
