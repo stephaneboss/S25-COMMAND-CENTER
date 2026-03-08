@@ -1,0 +1,49 @@
+# ============================================================
+# S25 LUMIERE — Akash SANDBOX SDL
+# Conteneur de test — PROD intact (DSEQ 25838342)
+# Image: ghcr.io/stephaneboss/s25-command-center:main
+# Deploy: akash tx deployment create akash/deploy_sandbox.yaml
+# ============================================================
+---
+version: "2.0"
+
+services:
+  s25-sandbox:
+    image: ghcr.io/stephaneboss/s25-command-center:main
+    expose:
+      - port: 7777
+        as: 80
+        to:
+          - global: true
+    env:
+      - HA_URL=http://10.0.0.136:8123
+      - HA_TOKEN=REPLACE_WITH_HA_TOKEN
+      - GEMINI_API_KEY=REPLACE_WITH_GEMINI_KEY
+      - MEMORY_DIR=/app/memory
+      - PORT=7777
+      - S25_SHARED_SECRET=REPLACE_WITH_SECRET
+      - CHECK_INTERVAL=60
+
+profiles:
+  compute:
+    s25-sandbox:
+      resources:
+        cpu:
+          units: 0.25
+        memory:
+          size: 256Mi
+        storage:
+          size: 512Mi
+
+  placement:
+    akash:
+      pricing:
+        s25-sandbox:
+          denom: uakt
+          amount: 100
+
+deployment:
+  s25-sandbox:
+    akash:
+      profile: s25-sandbox
+      count: 1
