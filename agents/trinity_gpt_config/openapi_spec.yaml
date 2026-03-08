@@ -1,125 +1,87 @@
 openapi: 3.1.0
 info:
-  title: S25 Lumière — TRINITY Command API
-  description: >
-    Interface de commandement S25 multi-agent pour TRINITY (GPT Orchestrateur).
-    Connecte GPT directement au Cockpit Akash pour coordination temps réel:
-    signaux trading, niveaux de menace, kill switch, intel COMET.
-  version: 2.0.0
+  title: S25 Lumière — Cockpit API
+  description: |
+    API du S25 Command Center. Permet à TRINITY (GPT orchestrateur) de contrôler
+    le pipeline S25: signaux, menaces, intel, kill-switch.
+    
+    Serveurs disponibles:
+    - Akash public: https://tlravugbk59r7eqghunmr1u2ks.ingress.akash-palmito.org
+    - DELL-LINUX local: http://10.0.0.202:5000 (réseau LAN)
+  version: 2.1.0
+
 servers:
-  - url: http://kfhsi5oko9dbt3abob51g4s9q0.ingress.cap-test-compute.com
-    description: S25 Cockpit — Akash Cloud (LIVE)
+  - url: https://tlravugbk59r7eqghunmr1u2ks.ingress.akash-palmito.org
+    description: Akash public ingress (accès externe)
+  - url: http://10.0.0.202:5000
+    description: DELL-LINUX local (réseau LAN, plus rapide)
 
 paths:
-  /health:
-    get:
-      operationId: healthCheck
-      summary: Vérifier que le Cockpit S25 est en ligne
-      description: Retourne le statut et la version du Cockpit. Appeler en premier pour confirmer la connexion.
-      responses:
-        "200":
-          description: Cockpit en ligne
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status: { type: string, example: "ok" }
-                  version: { type: string, example: "2.0.0" }
-
   /api/status:
     get:
-      operationId: getSystemStatus
-      summary: Obtenir le statut complet du système S25
-      description: >
-        Retourne l’état en temps réel: signal ARKON actif, niveau de menace T0-T3,
-        connexion HA, CPU, mémoire, prix AKT. Appeler pour briefing avant décision.
+      operationId: healthCheck
+      summary: Status complet du système S25
+      description: Retourne le status de tous les composants (cockpit, agents, loop, MEXC).
       responses:
         "200":
-          description: Statut complet
+          description: Status OK
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   ok: { type: boolean }
-                  version: { type: string }
-                  uptime: { type: integer, description: "Secondes depuis démarrage" }
-                  threat_level:
-                    type: integer
-                    description: "0=Normal, 1=Surveillance, 2=Alerte, 3=Critique"
-                    minimum: 0
-                    maximum: 3
-                  signal:
-                    type: object
-                    properties:
-                      action: { type: string, enum: [BUY, SELL, HOLD, null] }
-                      symbol: { type: string, example: "BTC/USDT" }
-                      confidence: { type: number, minimum: 0, maximum: 1 }
-                      price: { type: number }
-                      ts: { type: string, format: date-time }
-                  ha_online: { type: boolean }
-                  cpu: { type: number, description: "Usage CPU %" }
-                  memory: { type: number, description: "Usage RAM %" }
-                  akt_price: { type: number, description: "Prix AKT en USD" }
+                  threat_level: { type: integer, minimum: 0, maximum: 3 }
+                  mode: { type: string }
+                  dry_run: { type: boolean }
+                  timestamp: { type: string, format: date-time }
 
   /api/signal:
     post:
       operationId: sendTradingSignal
-      summary: Envoyer un signal de trading au système S25
-      description: >
-        Injecte un signal BUY/SELL/HOLD dans le pipeline S25.
-        ARKON et RiskGuardian valideront avant exécution MEXC.
-        Utiliser quand tu analyses le marché et veux déclencher une action.
+      summary: Envoyer un signal de trading
+      description: Push un signal BUY/SELL/HOLD vers le pipeline S25.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [action, symbol]
+              required: [symbol, action, confidence]
               properties:
+                symbol:
+                  type: string
+                  description: Paire de trading (ex. BTCUSDT, ETHUSDT)
+                  example: BTCUSDT
                 action:
                   type: string
                   enum: [BUY, SELL, HOLD]
-                  description: "Direction du trade"
-                symbol:
-                  type: string
-                  example: "BTC/USDT"
-                  description: "Paire de trading MEXC"
                 confidence:
                   type: number
                   minimum: 0
                   maximum: 1
-                  default: 0.85
-                  description: "Niveau de confiance 0-1"
-                price:
-                  type: number
-                  description: "Prix d’entrée suggéré"
+                  description: Score de confiance (0.75+ recommandé)
                 reason:
                   type: string
-                  description: "Justification de la décision (pour audit)"
+                  description: Justification du signal
+                targets:
+                  type: array
+                  items: { type: number }
+                stop_loss:
+                  type: number
                 source:
                   type: string
-                  default: "TRINITY"
-                  description: "Agent source du signal"
+                  default: TRINITY
       responses:
         "200":
-          description: Signal accepté
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  ok: { type: boolean }
+          description: Signal reçu et traité
+
   /api/threat:
     post:
       operationId: setThreatLevel
-      summary: Définir le niveau de menace du système
-      description: >
-        Change le protocole opérationnel: T0=Normal, T1=Surveillance accrue,
-        T2=Alerte (trading réduit), T3=Critique (arrêt d’urgence auto).
-        Utiliser en cas de news importantes, crash marché, anomalie détectée.
+      summary: Définir le niveau de menace T0–T3
+      description: |
+        T0=Normal, T1=Surveillance, T2=Alerte (suspend trades), T3=Critique (kill switch)
       requestBody:
         required: true
         content:
@@ -132,124 +94,118 @@ paths:
                   type: integer
                   minimum: 0
                   maximum: 3
-                  description: "0=T0 Normal, 1=T1 Surveillance, 2=T2 Alerte, 3=T3 Critique"
                 reason:
                   type: string
-                  description: "Raison du changement de niveau"
       responses:
         "200":
-          description: Niveau mis à jour
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  ok: { type: boolean }
+          description: Niveau de menace mis à jour
 
   /api/kill-switch:
     post:
       operationId: activateKillSwitch
-      summary: ARRÊT D’URGENCE — Stopper tous les agents
-      description: >
-        ATTENTION: Action irréversible jusqu’à redémarrage manuel.
-        Active le kill switch d’urgence: arrête tout trading, passe en T3,
-        coupe tous les agents. Utiliser SEULEMENT en cas de crash sévère
-        ou anomalie critique détectée. Stef doit confirmer avant activation.
+      summary: ARRÊT D'URGENCE — Stop tous les trades
+      description: |
+        Active le kill switch d'urgence. Annule tous les ordres ouverts,
+        passe en mode HOLD total. Utiliser seulement en cas critique.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  description: Raison du kill switch
       responses:
         "200":
           description: Kill switch activé
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  ok: { type: boolean }
-                  message: { type: string }
 
   /api/intel:
     post:
       operationId: pushIntel
-      summary: Envoyer une intelligence à COMET
-      description: >
-        Injecte une information de marché ou alerte dans le flux COMET.
-        COMET (Perplexity Watchman) va analyser et escalader si nécessaire.
-        Utiliser pour partager une analyse, news, ou observation importante.
+      summary: Pousser une information/alerte
+      description: Push une intelligence vers le feed du cockpit.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [source, summary, level]
+              required: [message]
               properties:
-                source:
+                message:
                   type: string
-                  default: "TRINITY"
-                  description: "Agent source"
-                summary:
-                  type: string
-                  description: "Résumé de l’information"
                 level:
                   type: string
                   enum: [INFO, WARNING, ALERT, CRITICAL]
-                  description: "Niveau de criticité"
-                details:
+                  default: INFO
+                source:
                   type: string
-                  description: "Détails additionnels"
+                  default: TRINITY
       responses:
-        "200":
-          description: Intel acceptée
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  ok: { type: boolean }
+        "201":
+          description: Intel ajouté au feed
 
   /api/comet/feed:
     get:
       operationId: getCometFeed
-      summary: Lire le fil d’intel COMET récent
-      description: >
-        Récupère les dernières entrées du watchman COMET (Perplexity).
-        Utile pour voir ce que COMET surveille en ce moment avant de prendre une décision.
-      parameters:
-        - name: n
-          in: query
-          schema: { type: integer, default: 10 }
-          description: "Nombre d’entrées à retourner"
+      summary: Feed d'alertes COMET (Perplexity)
+      description: Retourne les dernières alertes poussées par COMET.
       responses:
         "200":
-          description: Fil COMET
+          description: Feed COMET
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  ok: { type: boolean }
-                  feed:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        source: { type: string }
-                        summary: { type: string }
-                        level: { type: string }
-                        ts: { type: string }
+                  feed: { type: array }
+                  count: { type: integer }
 
   /api/comet/status-check:
     get:
       operationId: cometStatusCheck
-      summary: Vérifier le statut de COMET (Perplexity Watchman)
-      description: Ping COMET et retourne son état opérationnel actuel.
+      summary: Health check COMET bridge
+      description: Vérifie que le pont COMET est opérationnel.
       responses:
         "200":
-          description: Statut COMET
+          description: Status COMET bridge
+
+  /api/loop/status:
+    get:
+      operationId: getLoopStatus
+      summary: Status de la boucle autonome
+      description: Retourne l'état de agent_loop.py (cycles, derniers checks, signaux émis).
+      responses:
+        "200":
+          description: Status agent loop
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  ok: { type: boolean }
-                  comet_status: { type: string }
-                  threat_level: { type: integer }
+                  running: { type: boolean }
+                  cycles: { type: integer }
+                  signals_emitted: { type: integer }
+                  last_price_check: { type: string }
+                  last_fear_greed: { type: string }
+                  last_reddit: { type: string }
+                  last_ollama: { type: string }
+
+  /api/loop/force-cycle:
+    post:
+      operationId: forceLoopCycle
+      summary: Forcer un cycle immédiat de la boucle
+      description: Déclenche immédiatement un check prix + Fear&Greed sans attendre le timer.
+      responses:
+        "200":
+          description: Cycle forcé
+
+  /api/ollama/models:
+    get:
+      operationId: getOllamaModels
+      summary: Liste des modèles Ollama disponibles
+      description: Retourne les modèles LLM locaux (major-llama, llama3, etc.) sur DELL-LINUX.
+      responses:
+        "200":
+          description: Liste des modèles Ollama
