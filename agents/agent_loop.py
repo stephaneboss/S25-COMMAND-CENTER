@@ -1,8 +1,9 @@
 '''
-S25 Lumiere -- Agent Loop Backend v1.0
+S25 Lumiere -- Agent Loop Backend v2.0
 ======================================
 Boucle calme de collecte automatique -- ZERO API PAYANTE.
-Sources gratuites: CoinGecko, Fear&Greed, Reddit RSS, Ollama local.
+Sources gratuites: CoinGecko, Fear&Greed, Reddit RSS.
+Analyse IA: Merlin (Gemini) -- cerveau principal S25.
 
 Collecte en boucle -> filtre -> log -> push Cockpit -> agents notifies.
 
@@ -10,7 +11,7 @@ Schedule:
   Toutes les 5 min  -> Prix crypto (CoinGecko)
   Toutes les 15 min -> Fear & Greed Index
   Toutes les 30 min -> Reddit sentiment (top posts)
-  Toutes les 60 min -> Rapport complet Ollama (si dispo)
+  Toutes les 60 min -> Rapport complet Merlin/Gemini (cerveau S25)
 '''
 
 import os
@@ -31,9 +32,10 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
-COCKPIT_URL  = os.getenv("COCKPIT_URL", "http://localhost:7777")
-OLLAMA_URL   = os.getenv("OLLAMA_URL", "http://localhost:11434")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3")
+COCKPIT_URL   = os.getenv("COCKPIT_URL", "http://localhost:7777")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_MODEL  = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+GEMINI_URL    = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
 
 PRICE_CHANGE_WARN     = 3.0
 PRICE_CHANGE_ALERT    = 7.0
@@ -207,40 +209,55 @@ def check_reddit():
     if not bear_hits and not bull_hits:
         log.info("Reddit: no significant signals")
 
-def ollama_analyze(prompt: str, model: str = None) -> str:
-    """Call Ollama local LLM -- completely free, runs on own hardware."""
-    model = model or OLLAMA_MODEL
+def merlin_analyze(prompt: str) -> str:
+    """Call Merlin (Gemini) -- cerveau principal S25 Lumiere."""
+    if not GEMINI_API_KEY:
+        log.warning("GEMINI_API_KEY non set -- Merlin offline")
+        return ""
     try:
         r = requests.post(
-            f"{OLLAMA_URL}/api/generate",
-            json={"model": model, "prompt": prompt, "stream": False},
+            GEMINI_URL,
+            params={"key": GEMINI_API_KEY},
+            json={"contents": [{"parts": [{"text": prompt}]}]},
             timeout=30,
         )
         if r.status_code == 200:
-            return r.json().get("response", "").strip()
+            candidates = r.json().get("candidates", [])
+            if candidates:
+                return candidates[0]["content"]["parts"][0]["text"].strip()
+        else:
+            log.warning(f"Merlin API error: {r.status_code} {r.text[:100]}")
     except Exception as e:
-        log.warning(f"Ollama error: {e}")
+        log.warning(f"Merlin error: {e}")
     return ""
 
 
-def hourly_ollama_report():
-    """Build a market summary using local Ollama -- no paid API."""
+def hourly_merlin_report():
+    """Rapport horaire via Merlin (Gemini) -- cerveau S25, pas le petit Dell."""
     prices = fetch_prices()
-    btc = prices.get("bitcoin", {}).get("usd", 0)
-    btc_change = prices.get("bitcoin", {}).get("usd_24h_change", 0)
-    eth = prices.get("ethereum", {}).get("usd", 0)
-    akt = prices.get("akash-network", {}).get("usd", 0)
-    prompt = f"""Tu es ARKON-5, analyste crypto. Resume le marche en 2 phrases max.
+    btc        = prices.get("bitcoin",       {}).get("usd", 0)
+    btc_change = prices.get("bitcoin",       {}).get("usd_24h_change", 0)
+    eth        = prices.get("ethereum",      {}).get("usd", 0)
+    akt        = prices.get("akash-network", {}).get("usd", 0)
+    atom       = prices.get("cosmos",        {}).get("usd", 0)
+
+    prompt = f"""Tu es MERLIN, analyste senior du systeme S25 Lumiere (trading crypto multi-agent).
+Analyse le marche en 3 lignes max:
+
 BTC: ${btc:,.0f} ({btc_change:+.1f}% 24h)
 ETH: ${eth:,.2f}
-AKT: ${akt:,.3f}
-    Signal recommande? (BUY/HOLD/SELL) et pourquoi en une phrase."""
-    analysis = ollama_analyze(prompt)
+AKT: ${akt:,.4f}
+ATOM: ${atom:,.3f}
+
+Donne: 1) sentiment global (BULL/BEAR/NEUTRE) 2) meilleure opportunite 3) signal (BUY/HOLD/SELL) + asset + raison courte.
+Format: SENTIMENT | OPPORTUNITE | SIGNAL"""
+
+    analysis = merlin_analyze(prompt)
     if analysis:
-        push_intel("OLLAMA_LOCAL", analysis[:300], "INFO", f"model={OLLAMA_MODEL}")
-        log.info(f"Ollama report: {analysis[:80]}...")
+        push_intel("MERLIN_GEMINI", analysis[:400], "INFO", f"model={GEMINI_MODEL}")
+        log.info(f"Merlin report: {analysis[:100]}...")
     else:
-        log.info("Ollama not available -- skipping hourly report")
+        log.info("Merlin non disponible -- rapport horaire skipped")
 
 
 class AgentLoop:
@@ -275,8 +292,8 @@ class AgentLoop:
                     check_reddit()
                     self._t30 = now
                 if now - self._t60 >= 3600:
-                    log.info("-- Cycle 60min: Ollama analyse")
-                    hourly_ollama_report()
+                    log.info("-- Cycle 60min: Merlin analyse")
+                    hourly_merlin_report()
                     self._t60 = now
             except Exception as e:
                 log.error(f"Loop cycle error: {e}")
@@ -320,10 +337,10 @@ if __name__ == "__main__":
 
     log.info("""
 +==========================================+
-|  S25 LUMIERE -- Agent Loop v1.0          |
+|  S25 LUMIERE -- Agent Loop v2.0          |
 |  Sources: CoinGecko + F&G + Reddit       |
-|  Local AI: Ollama (gratuit)              |
-|  Budget API: $0.00                       |
+|  AI Cerveau: MERLIN (Gemini)             |
+|  Sentinel: DELL-Linux (watchdog only)    |
 +==========================================+
     """)
 

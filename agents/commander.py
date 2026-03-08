@@ -282,3 +282,105 @@ class Commander:
             )
         except Exception:
             pass  # Don't crash commander if HA is down
+
+    # ─── TRINITY Bridge ───────────────────────────────────────────────────────
+
+    def register_trinity_routes(self, app):
+        """
+        Enregistre le endpoint HTTP /api/trinity sur l'app Flask.
+
+        TRINITY (GPT Custom Action) envoie:
+        POST /api/trinity
+        {
+            "intent":  "analyse BTC pour un trade",   # voix de Stef traduite
+            "action":  "query" | "signal" | "command",
+            "source":  "TRINITY",
+            "data":    {}                              # payload optionnel
+        }
+
+        Actions supportees:
+          query   -> broadcast intel request a tous les agents -> retourne reponse
+          signal  -> injecte ARKON_SIGNAL dans le pipeline
+          command -> commande directe (circuit_breaker, status, force_cycle)
+        """
+        from flask import request as freq, jsonify
+
+        _shared_secret = self.config.get("shared_secret", "")
+
+        def _auth_ok() -> bool:
+            """Verifie le S25_SHARED_SECRET si configure."""
+            if not _shared_secret:
+                return True
+            return freq.headers.get("X-S25-Secret", "") == _shared_secret
+
+        @app.route("/api/trinity", methods=["POST"])
+        def trinity_dispatch():
+            if not _auth_ok():
+                return jsonify({"ok": False, "error": "Unauthorized"}), 401
+
+            body   = freq.get_json(silent=True) or {}
+            intent = body.get("intent", "").strip()
+            action = body.get("action", "query").lower()
+            source = body.get("source", "TRINITY")
+            data   = body.get("data", {})
+
+            logger.info(f"TRINITY [{action}] from {source}: {intent[:80]}")
+
+            # ── COMMAND: circuit breaker / status ────────────────────────────
+            if action == "command":
+                cmd = intent.lower()
+                if "circuit" in cmd and ("open" in cmd or "trigger" in cmd):
+                    self.trigger_circuit_breaker(f"TRINITY: {intent}")
+                    return jsonify({"ok": True, "result": "Circuit breaker OPENED"})
+                if "reset" in cmd:
+                    self.reset_circuit_breaker()
+                    return jsonify({"ok": True, "result": "Circuit breaker RESET"})
+                if "status" in cmd:
+                    return jsonify({"ok": True, "result": self.get_status()})
+                return jsonify({"ok": False, "error": f"Unknown command: {intent}"})
+
+            # ── SIGNAL: injection directe dans le pipeline ───────────────────
+            if action == "signal":
+                signal = {
+                    "type":   "MANUAL",
+                    "target": data.get("target", "all"),
+                    "source": source,
+                    "data": {
+                        "intent":    intent,
+                        "action":    data.get("trade_action", "HOLD"),
+                        "symbol":    data.get("symbol", ""),
+                        "reason":    intent,
+                        "confidence": data.get("confidence", 0.7),
+                    }
+                }
+                import asyncio
+                loop = asyncio.new_event_loop()
+                loop.run_until_complete(self.dispatch(signal))
+                loop.close()
+                return jsonify({"ok": True, "result": "Signal dispatched", "signal": signal})
+
+            # ── QUERY: broadcast intel request, retourne snapshot ────────────
+            # (default)
+            from agents.ninja_routes import get_full_intel_snapshot
+            snapshot = get_full_intel_snapshot()
+            snapshot["commander_status"] = {
+                "circuit_breaker": self._circuit_breaker,
+                "signals_processed": self._processed,
+                "agents": {
+                    name: agent.get_status()
+                    for name, agent in self.agents.items()
+                } if self.agents else {}
+            }
+            snapshot["intent_received"] = intent
+            return jsonify({"ok": True, "result": snapshot})
+
+        @app.route("/api/trinity/ping", methods=["GET"])
+        def trinity_ping():
+            return jsonify({
+                "ok":      True,
+                "service": "S25 Commander — TRINITY Bridge",
+                "version": self.VERSION,
+                "circuit_breaker": self._circuit_breaker,
+            })
+
+        logger.info("TRINITY bridge routes enregistrees: POST /api/trinity, GET /api/trinity/ping")
