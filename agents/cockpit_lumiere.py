@@ -1,844 +1,636 @@
-"""
-S25 Lumière — Cockpit Web UI
-==============================
-Interface de commandement temps réel pour le système S25.
-Futuriste, dark mode, live updates via SSE.
+#!/usr/bin/env python3
+# ============================================================
+# S25 LUMIÈRE — Cockpit Web UI v1.0
+# Interface visuelle futuriste pour CentOS Akash
+# Accessible via navigateur Web depuis le S25 Ultra
+# PORT: 7777
+# ============================================================
 
-Port: 7777 (configurable via PORT env var)
-"""
+from flask import Flask, render_template_string, jsonify, request
+import os, json, requests, subprocess
+from datetime import datetime, timezone
+from pathlib import Path
 
-import os
-import json
-import time
-import threading
-import subprocess
-from datetime import datetime, timedelta
-from flask import Flask, render_template_string, Response, jsonify
-import requests
+MEMORY_DIR = Path(os.getenv("MEMORY_DIR", "/app/memory"))
+MEMORY_DIR.mkdir(parents=True, exist_ok=True)
+SHARED_MEMORY_FILE = MEMORY_DIR / "SHARED_MEMORY.md"
+AGENTS_STATE_FILE  = MEMORY_DIR / "agents_state.json"
 
 app = Flask(__name__)
+app.secret_key = os.getenv("SECRET_KEY", "s25_lumiere_secret_x100")
 
-# Register COMET bridge routes
-try:
-    from agents.comet_bridge import register_comet_routes
-    _comet_routes_registered = True
-except ImportError:
-    try:
-        from comet_bridge import register_comet_routes
-        _comet_routes_registered = True
-    except ImportError:
-        _comet_routes_registered = False
+HA_URL          = os.getenv("HA_URL", "http://homeassistant.local:8123")
+HA_TOKEN        = os.getenv("HA_TOKEN", "")
+GEMINI_API_KEY  = os.getenv("GEMINI_API_KEY", "")
+GEMINI_MODEL    = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+S25_SECRET      = os.getenv("S25_SHARED_SECRET", "")
 
-# ─── Config ──────────────────────────────────────────────────────────
-HA_URL      = os.getenv("HA_URL",      "http://homeassistant.local:8123")
-HA_TOKEN    = os.getenv("HA_TOKEN",    "")
-PORT        = int(os.getenv("PORT",    "7777"))
-VERSION     = "2.0.0"
-BUILD_DATE  = "2026-03"
-
-# ─── HTML Template ───────────────────────────────────────────────────
-HTML = r"""<!DOCTYPE html>
+HTML = '''<!DOCTYPE html>
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>S25 LUMIÈRE — Command Center</title>
+<title>⚡ S25 LUMIÈRE — COCKPIT</title>
 <style>
-  :root {
-    --bg:        #05050f;
-    --bg2:       #0a0a1a;
-    --bg3:       #0f0f25;
-    --border:    #1a1a3a;
-    --green:     #00ff88;
-    --blue:      #00aaff;
-    --orange:    #ff8800;
-    --red:       #ff2244;
-    --yellow:    #ffdd00;
-    --text:      #c8d0e8;
-    --text-dim:  #556080;
-    --font:      'Courier New', monospace;
-  }
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--font);
-    min-height: 100vh;
-    overflow-x: hidden;
-  }
-
-  /* ── Header ── */
-  header {
-    background: linear-gradient(135deg, #05050f 0%, #0a0a2a 100%);
-    border-bottom: 1px solid var(--border);
-    padding: 12px 24px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    position: sticky; top: 0; z-index: 100;
-  }
-  .logo {
-    display: flex; align-items: center; gap: 12px;
-  }
-  .logo-icon {
-    width: 36px; height: 36px;
-    background: linear-gradient(135deg, var(--green), var(--blue));
-    border-radius: 8px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 18px; font-weight: bold; color: #000;
-  }
-  .logo-text { font-size: 20px; font-weight: bold; letter-spacing: 4px; color: var(--green); }
-  .logo-sub  { font-size: 10px; color: var(--text-dim); letter-spacing: 2px; margin-top: 2px; }
-  .header-right { display: flex; align-items: center; gap: 16px; }
-  .clock { font-size: 14px; color: var(--blue); letter-spacing: 2px; }
-  .version { font-size: 10px; color: var(--text-dim); }
-  .status-dot {
-    width: 8px; height: 8px; border-radius: 50%;
-    background: var(--green);
-    box-shadow: 0 0 8px var(--green);
-    animation: pulse 2s infinite;
-  }
-  @keyframes pulse {
-    0%,100% { opacity:1; } 50% { opacity:0.4; }
-  }
-
-  /* ── Grid ── */
-  .grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 16px;
-    padding: 20px;
-    max-width: 1600px;
-    margin: 0 auto;
-  }
-
-  /* ── Cards ── */
-  .card {
-    background: var(--bg2);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 20px;
-    position: relative;
-    overflow: hidden;
-    transition: border-color .3s;
-  }
-  .card:hover { border-color: #2a2a5a; }
-  .card::before {
-    content: '';
-    position: absolute; top:0; left:0; right:0; height:2px;
-    background: linear-gradient(90deg, var(--green), var(--blue));
-  }
-  .card-title {
-    font-size: 10px; letter-spacing: 3px; color: var(--text-dim);
-    text-transform: uppercase; margin-bottom: 16px;
-    display: flex; align-items: center; gap: 8px;
-  }
-  .card-title span { color: var(--blue); }
-
-  /* ── Threat Level ── */
-  .threat-card { grid-column: span 2; }
-  .threat-levels { display: flex; gap: 12px; margin-top: 8px; }
-  .threat-level {
-    flex: 1; padding: 16px 12px;
-    border-radius: 8px; border: 2px solid transparent;
-    text-align: center; cursor: default;
-    transition: all .3s;
-    position: relative; overflow: hidden;
-  }
-  .threat-level.active { border-color: currentColor; }
-  .threat-level.active::after {
-    content: '';
-    position: absolute; inset: 0;
-    background: currentColor; opacity: 0.08;
-  }
-  .t0 { color: var(--green);  }
-  .t1 { color: var(--yellow); }
-  .t2 { color: var(--orange); }
-  .t3 { color: var(--red);    }
-  .threat-num  { font-size: 28px; font-weight: bold; }
-  .threat-name { font-size: 10px; letter-spacing: 2px; margin-top: 4px; }
-
-  /* ── Signal ── */
-  .signal-big {
-    font-size: 48px; font-weight: bold; letter-spacing: 4px;
-    text-align: center; padding: 20px 0;
-    text-shadow: 0 0 30px currentColor;
-  }
-  .sig-buy  { color: var(--green);  }
-  .sig-sell { color: var(--red);    }
-  .sig-hold { color: var(--yellow); }
-  .sig-none { color: var(--text-dim); font-size: 24px; }
-
-  .confidence-bar {
-    height: 6px; background: var(--border);
-    border-radius: 3px; margin: 8px 0;
-    overflow: hidden;
-  }
-  .confidence-fill {
-    height: 100%;
-    background: linear-gradient(90deg, var(--blue), var(--green));
-    border-radius: 3px;
-    transition: width 1s;
-  }
-
-  /* ── Agents ── */
-  .agent-row {
-    display: flex; align-items: center; gap: 12px;
-    padding: 10px 0;
-    border-bottom: 1px solid var(--border);
-  }
-  .agent-row:last-child { border-bottom: none; }
-  .agent-dot {
-    width: 8px; height: 8px; border-radius: 50%;
-    flex-shrink: 0;
-  }
-  .dot-green  { background: var(--green);  box-shadow: 0 0 6px var(--green);  }
-  .dot-orange { background: var(--orange); box-shadow: 0 0 6px var(--orange); }
-  .dot-red    { background: var(--red);    box-shadow: 0 0 6px var(--red);    }
-  .dot-grey   { background: var(--text-dim); }
-  .agent-name { flex: 1; font-size: 13px; }
-  .agent-status { font-size: 11px; color: var(--text-dim); letter-spacing: 1px; }
-
-  /* ── Metrics ── */
-  .metric-row {
-    display: flex; justify-content: space-between;
-    align-items: center; padding: 8px 0;
-    border-bottom: 1px solid var(--border);
-  }
-  .metric-row:last-child { border-bottom: none; }
-  .metric-label { font-size: 12px; color: var(--text-dim); }
-  .metric-value { font-size: 14px; font-weight: bold; }
-  .val-green  { color: var(--green);  }
-  .val-orange { color: var(--orange); }
-  .val-red    { color: var(--red);    }
-  .val-blue   { color: var(--blue);   }
-
-  /* ── Log feed ── */
-  .log-feed {
-    max-height: 200px; overflow-y: auto;
-    font-size: 11px; line-height: 1.8;
-    color: var(--text-dim);
-  }
-  .log-feed::-webkit-scrollbar { width: 4px; }
-  .log-feed::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-  .log-entry { padding: 2px 0; border-bottom: 1px solid #0f0f25; }
-  .log-ts   { color: #333; }
-  .log-ok   { color: var(--green);  }
-  .log-warn { color: var(--orange); }
-  .log-err  { color: var(--red);    }
-  .log-info { color: var(--blue);   }
-
-  /* ── Big numbers ── */
-  .big-num { font-size: 36px; font-weight: bold; color: var(--green); }
-  .big-unit { font-size: 14px; color: var(--text-dim); margin-left: 4px; }
-
-  /* ── Buttons ── */
-  .btn-row { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
-  .btn {
-    padding: 8px 16px; border-radius: 6px;
-    border: 1px solid; font-family: var(--font);
-    font-size: 11px; letter-spacing: 1px;
-    cursor: pointer; text-transform: uppercase;
-    transition: all .2s; background: transparent;
-  }
-  .btn-green { border-color: var(--green); color: var(--green); }
-  .btn-green:hover { background: rgba(0,255,136,0.1); }
-  .btn-red   { border-color: var(--red);   color: var(--red);   }
-  .btn-red:hover { background: rgba(255,34,68,0.1); }
-  .btn-blue  { border-color: var(--blue);  color: var(--blue);  }
-  .btn-blue:hover { background: rgba(0,170,255,0.1); }
-
-  /* ── Footer ── */
-  footer {
-    text-align: center; padding: 20px;
-    color: var(--text-dim); font-size: 10px;
-    letter-spacing: 2px; border-top: 1px solid var(--border);
-    margin-top: 20px;
-  }
-
-  /* ── Responsive ── */
-  @media (max-width: 768px) {
-    .threat-card { grid-column: span 1; }
-    .threat-levels { flex-wrap: wrap; }
-    .logo-text { font-size: 14px; }
-    .signal-big { font-size: 36px; }
-  }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: radial-gradient(ellipse at top, #0d1b2a 0%, #0a0a0f 100%);
+  color: #e0e6ff; font-family: 'Courier New', monospace;
+  min-height: 100vh; overflow-x: hidden;
+}
+.scanlines {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,255,200,0.015) 2px, rgba(0,255,200,0.015) 4px);
+  pointer-events: none; z-index: 1;
+}
+.container { max-width: 1200px; margin: 0 auto; padding: 20px; position: relative; z-index: 2; }
+.header { text-align: center; margin-bottom: 30px; }
+.header h1 {
+  font-size: 2.5rem; color: #00ffcc;
+  text-shadow: 0 0 20px #00ffcc, 0 0 40px #00ffcc;
+  animation: pulse 2s ease-in-out infinite;
+  letter-spacing: 0.3em;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; } 50% { opacity: 0.8; }
+}
+.subtitle { color: #4fc3f7; font-size: 0.9rem; letter-spacing: 0.2em; margin-top: 5px; }
+.timestamp { color: #546e7a; font-size: 0.75rem; margin-top: 5px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 20px; }
+.card {
+  background: rgba(0, 255, 200, 0.05);
+  border: 1px solid rgba(0, 255, 200, 0.2);
+  border-radius: 12px; padding: 20px;
+  transition: all 0.3s ease;
+  position: relative; overflow: hidden;
+}
+.card:hover { border-color: rgba(0, 255, 200, 0.5); box-shadow: 0 0 20px rgba(0, 255, 200, 0.1); }
+.card::before {
+  content: ''; position: absolute; top: 0; left: -100%;
+  width: 100%; height: 2px;
+  background: linear-gradient(90deg, transparent, #00ffcc, transparent);
+  animation: scan 3s linear infinite;
+}
+@keyframes scan { to { left: 200%; } }
+.card-title { color: #00ffcc; font-size: 0.8rem; letter-spacing: 0.2em; margin-bottom: 10px; }
+.card-value { font-size: 2rem; font-weight: bold; color: #fff; }
+.card-value.green { color: #00ff88; text-shadow: 0 0 10px #00ff88; }
+.card-value.red { color: #ff4444; text-shadow: 0 0 10px #ff4444; }
+.card-value.orange { color: #ff9800; text-shadow: 0 0 10px #ff9800; }
+.card-value.blue { color: #4fc3f7; text-shadow: 0 0 10px #4fc3f7; }
+.card-subtitle { color: #546e7a; font-size: 0.75rem; margin-top: 5px; }
+.status-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  display: inline-block; margin-right: 8px;
+  animation: blink 1s ease-in-out infinite;
+}
+.status-dot.green { background: #00ff88; box-shadow: 0 0 8px #00ff88; }
+.status-dot.red { background: #ff4444; box-shadow: 0 0 8px #ff4444; }
+.status-dot.orange { background: #ff9800; box-shadow: 0 0 8px #ff9800; }
+@keyframes blink { 50% { opacity: 0.3; } }
+.section-title { color: #4fc3f7; font-size: 0.9rem; letter-spacing: 0.2em; margin: 20px 0 10px; border-bottom: 1px solid rgba(79, 195, 247, 0.2); padding-bottom: 5px; }
+.agents-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
+.agent-card {
+  background: rgba(79, 195, 247, 0.05); border: 1px solid rgba(79, 195, 247, 0.2);
+  border-radius: 8px; padding: 15px; text-align: center;
+}
+.agent-name { color: #4fc3f7; font-size: 0.85rem; letter-spacing: 0.15em; margin-bottom: 8px; }
+.agent-status { font-size: 0.75rem; color: #546e7a; }
+.controls { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
+.btn {
+  padding: 10px 20px; border: 1px solid rgba(0, 255, 200, 0.4);
+  background: rgba(0, 255, 200, 0.1); color: #00ffcc;
+  border-radius: 6px; cursor: pointer; font-family: 'Courier New', monospace;
+  font-size: 0.8rem; letter-spacing: 0.1em; transition: all 0.2s;
+}
+.btn:hover { background: rgba(0, 255, 200, 0.2); box-shadow: 0 0 15px rgba(0, 255, 200, 0.3); }
+.btn.red { border-color: rgba(255, 68, 68, 0.4); background: rgba(255, 68, 68, 0.1); color: #ff4444; }
+.btn.red:hover { background: rgba(255, 68, 68, 0.2); }
+.intel-box {
+  background: rgba(0, 0, 0, 0.4); border: 1px solid rgba(0, 255, 200, 0.15);
+  border-radius: 8px; padding: 15px; font-size: 0.8rem; color: #80cbc4;
+  max-height: 150px; overflow-y: auto; white-space: pre-wrap;
+  font-family: 'Courier New', monospace;
+}
+.threat-bar {
+  display: flex; gap: 5px; margin: 10px 0;
+}
+.threat-level {
+  flex: 1; padding: 8px; border-radius: 4px; text-align: center;
+  font-size: 0.7rem; letter-spacing: 0.1em; border: 1px solid transparent;
+}
+.threat-level.active-t0 { background: rgba(0, 255, 136, 0.2); border-color: #00ff88; color: #00ff88; }
+.threat-level.active-t1 { background: rgba(255, 235, 59, 0.2); border-color: #ffeb3b; color: #ffeb3b; }
+.threat-level.active-t2 { background: rgba(255, 152, 0, 0.2); border-color: #ff9800; color: #ff9800; }
+.threat-level.active-t3 { background: rgba(255, 68, 68, 0.2); border-color: #ff4444; color: #ff4444; }
+.threat-level.inactive { background: rgba(255,255,255,0.02); border-color: rgba(255,255,255,0.05); color: #37474f; }
+footer { text-align: center; color: #263238; font-size: 0.7rem; margin-top: 30px; letter-spacing: 0.2em; }
 </style>
 </head>
 <body>
-
-<header>
-  <div class="logo">
-    <div class="logo-icon">S²⁵</div>
-    <div>
-      <div class="logo-text">LUMIÈRE</div>
-      <div class="logo-sub">S25 COMMAND CENTER v{{ version }}</div>
-    </div>
+<div class="scanlines"></div>
+<div class="container">
+  <div class="header">
+    <h1>⚡ S25 LUMIÈRE</h1>
+    <div class="subtitle">ARKON-5 COMMAND CENTER // COCKPIT v1.0</div>
+    <div class="timestamp" id="clock">--</div>
   </div>
-  <div class="header-right">
-    <div class="status-dot" id="conn-dot" title="Live connection"></div>
-    <div>
-      <div class="clock" id="clock">--:--:--</div>
-      <div class="version">{{ build_date }} — AKASH CLOUD</div>
-    </div>
+
+  <!-- THREAT LEVEL BAR -->
+  <div id="threat-bar" class="threat-bar">
+    <div class="threat-level active-t0">T0 🟢 NORMAL</div>
+    <div class="threat-level inactive">T1 🟡 SURVEILLANCE</div>
+    <div class="threat-level inactive">T2 🟠 ALERTE</div>
+    <div class="threat-level inactive">T3 🔴 CRITIQUE</div>
   </div>
-</header>
 
-<div class="grid">
-
-  <!-- ── Threat Level ── -->
-  <div class="card threat-card">
-    <div class="card-title">🛡️ <span>NIVEAU DE MENACE</span> — PROTOCOLE T0/T3</div>
-    <div class="threat-levels">
-      <div class="threat-level t0" id="t0">
-        <div class="threat-num">T0</div>
-        <div class="threat-name">🟢 NORMAL</div>
-      </div>
-      <div class="threat-level t1" id="t1">
-        <div class="threat-num">T1</div>
-        <div class="threat-name">🟡 SURVEILLANCE</div>
-      </div>
-      <div class="threat-level t2" id="t2">
-        <div class="threat-num">T2</div>
-        <div class="threat-name">🟠 ALERTE</div>
-      </div>
-      <div class="threat-level t3" id="t3">
-        <div class="threat-num">T3</div>
-        <div class="threat-name">🔴 CRITIQUE</div>
-      </div>
+  <!-- STATUS CARDS -->
+  <div class="grid" id="status-grid">
+    <div class="card">
+      <div class="card-title">🎯 SIGNAL ARKON-5</div>
+      <div class="card-value" id="arkon-action">--</div>
+      <div class="card-subtitle" id="arkon-conf">Confiance: --</div>
+    </div>
+    <div class="card">
+      <div class="card-title">📊 PIPELINE S25</div>
+      <div class="card-value blue" id="pipeline-status">--</div>
+      <div class="card-subtitle">Modèle actif</div>
+    </div>
+    <div class="card">
+      <div class="card-title">⛏️ HASHRATE</div>
+      <div class="card-value orange" id="hashrate">-- TH/s</div>
+      <div class="card-subtitle" id="temp">Temp: --°C</div>
+    </div>
+    <div class="card">
+      <div class="card-title">🌐 TUNNEL S25</div>
+      <div class="card-value" id="tunnel-status">--</div>
+      <div class="card-subtitle">Cloudflare ↔ Kimi</div>
     </div>
   </div>
 
-  <!-- ── ARKON Signal ── -->
-  <div class="card">
-    <div class="card-title">📡 <span>ARKON-5</span> — SIGNAL TRADING</div>
-    <div class="signal-big sig-none" id="signal-action">STANDBY</div>
-    <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-      <span id="signal-symbol" style="color:var(--blue);font-size:13px">---</span>
-      <span id="signal-price" style="font-size:13px">$ ---</span>
+  <!-- AGENTS STATUS -->
+  <div class="section-title">⟐ AGENTS NETWORK</div>
+  <div class="agents-grid">
+    <div class="agent-card">
+      <div class="agent-name">🤖 MERLIN</div>
+      <div><span class="status-dot green"></span><span class="agent-status">Orchestrateur HA</span></div>
     </div>
-    <div class="confidence-bar">
-      <div class="confidence-fill" id="conf-bar" style="width:0%"></div>
+    <div class="agent-card">
+      <div class="agent-name">🔭 COMET</div>
+      <div><span class="status-dot green"></span><span class="agent-status">Watchman Radar</span></div>
     </div>
-    <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-dim)">
-      <span>Confidence: <span id="signal-conf" style="color:var(--green)">--</span></span>
-      <span id="signal-ts">--:--</span>
+    <div class="agent-card">
+      <div class="agent-name">🧠 GEMINI</div>
+      <div><span class="status-dot green"></span><span class="agent-status">ARKON-5 Analyzer</span></div>
     </div>
-  </div>
-
-  <!-- ── Risk ── -->
-  <div class="card">
-    <div class="card-title">⚡ <span>RISK GUARDIAN</span> — CIRCUIT BREAKER</div>
-    <div class="metric-row">
-      <span class="metric-label">Trading Status</span>
-      <span class="metric-value val-green" id="trading-status">ACTIVE</span>
+    <div class="agent-card">
+      <div class="agent-name">🌐 KIMI Web3</div>
+      <div><span class="status-dot orange"></span><span class="agent-status">Signal Source</span></div>
     </div>
-    <div class="metric-row">
-      <span class="metric-label">Circuit Breaker</span>
-      <span class="metric-value val-green" id="circuit-breaker">CLOSED</span>
+    <div class="agent-card">
+      <div class="agent-name">🤝 GPT</div>
+      <div><span class="status-dot green"></span><span class="agent-status">GOUV4 Planner</span></div>
     </div>
-    <div class="metric-row">
-      <span class="metric-label">Daily P&amp;L</span>
-      <span class="metric-value val-blue" id="daily-pnl">$ 0.00</span>
-    </div>
-    <div class="metric-row">
-      <span class="metric-label">Open Positions</span>
-      <span class="metric-value" id="open-positions">0 / 5</span>
-    </div>
-    <div class="metric-row">
-      <span class="metric-label">Max Daily Loss</span>
-      <span class="metric-value val-orange">5.0%</span>
+    <div class="agent-card">
+      <div class="agent-name">⚡ CLAUDE</div>
+      <div><span class="status-dot green"></span><span class="agent-status">Builder / Deploy</span></div>
     </div>
   </div>
 
-  <!-- ── MEXC ── -->
-  <div class="card">
-    <div class="card-title">💱 <span>MEXC EXECUTOR</span> — ORDRE RÉCENT</div>
-    <div class="metric-row">
-      <span class="metric-label">Mode</span>
-      <span class="metric-value val-orange" id="mexc-mode">DRY RUN</span>
-    </div>
-    <div class="metric-row">
-      <span class="metric-label">Dernier Ordre</span>
-      <span class="metric-value val-blue" id="mexc-last">---</span>
-    </div>
-    <div class="metric-row">
-      <span class="metric-label">Status</span>
-      <span class="metric-value" id="mexc-status">---</span>
-    </div>
-    <div class="metric-row">
-      <span class="metric-label">Total Exécutés</span>
-      <span class="metric-value" id="mexc-total">0</span>
-    </div>
-    <div class="metric-row">
-      <span class="metric-label">API Keys</span>
-      <span class="metric-value val-orange" id="mexc-keys">NOT SET</span>
-    </div>
+  <!-- COMET INTEL -->
+  <div class="section-title">📡 INTEL COMET</div>
+  <div class="intel-box" id="comet-intel">En attente de connexion HA...</div>
+
+  <!-- CONTRÔLES -->
+  <div class="section-title">🎛️ CONTRÔLES</div>
+  <div class="controls">
+    <button class="btn" onclick="startTunnel()">▶ START TUNNEL</button>
+    <button class="btn" onclick="stopTunnel()">⬛ STOP TUNNEL</button>
+    <button class="btn" onclick="refreshData()">⟳ REFRESH</button>
+    <button class="btn" onclick="forceAnalysis()">🧠 FORCE ANALYSE</button>
+    <button class="btn red" onclick="confirmPurge()">🚨 PURGE (KILL)</button>
   </div>
 
-  <!-- ── Agents Network ── -->
-  <div class="card">
-    <div class="card-title">🤖 <span>AGENTS NETWORK</span> — STATUS</div>
-    <div id="agents-list">
-      <div class="agent-row">
-        <div class="agent-dot dot-green"></div>
-        <div class="agent-name">MERLIN (Gemini)</div>
-        <div class="agent-status">ONLINE</div>
-      </div>
-      <div class="agent-row">
-        <div class="agent-dot dot-green"></div>
-        <div class="agent-name">COMET (Perplexity)</div>
-        <div class="agent-status">ACTIVE</div>
-      </div>
-      <div class="agent-row">
-        <div class="agent-dot dot-green"></div>
-        <div class="agent-name">ARKON-5 (Gemini)</div>
-        <div class="agent-status">READY</div>
-      </div>
-      <div class="agent-row">
-        <div class="agent-dot dot-orange"></div>
-        <div class="agent-name">MEXC EXECUTOR</div>
-        <div class="agent-status">DRY RUN</div>
-      </div>
-      <div class="agent-row">
-        <div class="agent-dot dot-green"></div>
-        <div class="agent-name">RISK GUARDIAN</div>
-        <div class="agent-status">IDLE</div>
-      </div>
-      <div class="agent-row">
-        <div class="agent-dot dot-grey"></div>
-        <div class="agent-name">TREASURY ENGINE</div>
-        <div class="agent-status">PENDING</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── System Health ── -->
-  <div class="card">
-    <div class="card-title">❤️ <span>SYSTEM HEALTH</span> — AKASH + HA</div>
-    <div class="metric-row">
-      <span class="metric-label">HA Connection</span>
-      <span class="metric-value" id="ha-status">CHECKING...</span>
-    </div>
-    <div class="metric-row">
-      <span class="metric-label">Akash DSEQ</span>
-      <span class="metric-value val-blue">25822281</span>
-    </div>
-    <div class="metric-row">
-      <span class="metric-label">Uptime</span>
-      <span class="metric-value val-green" id="uptime">---</span>
-    </div>
-    <div class="metric-row">
-      <span class="metric-label">CPU Usage</span>
-      <span class="metric-value" id="cpu-usage">---</span>
-    </div>
-    <div class="metric-row">
-      <span class="metric-label">Memory</span>
-      <span class="metric-value" id="mem-usage">---</span>
-    </div>
-  </div>
-
-  <!-- ── AKT Balance ── -->
-  <div class="card">
-    <div class="card-title">💰 <span>TREASURY</span> — AKT + PORTFOLIO</div>
-    <div style="padding:12px 0 8px">
-      <span class="big-num" id="akt-balance">~20</span>
-      <span class="big-unit">AKT</span>
-    </div>
-    <div class="metric-row">
-      <span class="metric-label">Valeur AKT</span>
-      <span class="metric-value val-green" id="akt-usd">$ --</span>
-    </div>
-    <div class="metric-row">
-      <span class="metric-label">Akash Escrow</span>
-      <span class="metric-value val-blue">~5 mois</span>
-    </div>
-    <div class="metric-row">
-      <span class="metric-label">GPU Node (DSEQ 25708774)</span>
-      <span class="metric-value val-orange">~1 jour</span>
-    </div>
-    <div class="metric-row">
-      <span class="metric-label">Auto-Treasury (ATOM→AKT)</span>
-      <span class="metric-value val-orange">DISABLED</span>
-    </div>
-  </div>
-
-  <!-- ── COMET Intel Feed ── -->
-  <div class="card">
-    <div class="card-title">🌐 <span>COMET</span> — PERPLEXITY WATCHMAN INTEL</div>
-    <div class="log-feed" id="comet-feed">
-      <div class="log-entry"><span class="log-ts">[INIT]</span> <span class="log-info">En attente du signal COMET...</span></div>
-    </div>
-    <div style="margin-top:8px;font-size:10px;color:var(--text-dim)">
-      Bridge: <span style="color:var(--blue)" id="comet-ping">CHECKING...</span>
-      &nbsp;|&nbsp; Endpoint: <span style="color:var(--text-dim)">/api/intel</span>
-    </div>
-  </div>
-
-  <!-- ── Live Log ── -->
-  <div class="card" style="grid-column: span 2">
-    <div class="card-title">📋 <span>LIVE FEED</span> — EVENTS S25</div>
-    <div class="log-feed" id="log-feed">
-      <div class="log-entry"><span class="log-ts">[BOOT]</span> <span class="log-ok">S25 Lumière Cockpit v{{ version }} démarré</span></div>
-      <div class="log-entry"><span class="log-ts">[BOOT]</span> <span class="log-info">Connexion HA en cours...</span></div>
-    </div>
-    <div class="btn-row">
-      <button class="btn btn-green" onclick="addLog('MANUAL', 'info', 'Rafraîchissement manuel')">↻ Refresh</button>
-      <button class="btn btn-red"   onclick="triggerKillSwitch()">🚨 KILL SWITCH</button>
-      <button class="btn btn-blue"  onclick="window.open('{{ ha_url }}','_blank')">🏠 Open HA</button>
-    </div>
-  </div>
-
+  <footer>S25 LUMIÈRE COCKPIT v1.0 // AKASH CENTOS // CLAUDE BUILD // {{ now }}</footer>
 </div>
 
-<footer>
-  S25 LUMIÈRE COMMAND CENTER — AKASH CLOUD — BUILT BY CLAUDE FOR MAJOR STEF — {{ build_date }}
-</footer>
-
 <script>
-const HA_URL = "{{ ha_url }}";
+// Auto-refresh toutes les 30s
+let refreshTimer = setInterval(refreshData, 30000);
 
-// ── Clock ──────────────────────────────────────────────────────────
 function updateClock() {
-  const now = new Date();
-  const t = now.toISOString().replace('T',' ').substring(0,19) + ' UTC';
-  document.getElementById('clock').textContent = t;
+  document.getElementById('clock').textContent = new Date().toLocaleString('fr-CA');
 }
 setInterval(updateClock, 1000);
 updateClock();
 
-// ── Uptime ────────────────────────────────────────────────────────
-const startTime = Date.now();
-setInterval(() => {
-  const s = Math.floor((Date.now() - startTime) / 1000);
-  const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60;
-  document.getElementById('uptime').textContent =
-    `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
-}, 1000);
-
-// ── Log feed ──────────────────────────────────────────────────────
-function addLog(ts, level, msg) {
-  const feed = document.getElementById('log-feed');
-  const div  = document.createElement('div');
-  div.className = 'log-entry';
-  const now = new Date().toTimeString().substring(0,8);
-  div.innerHTML = `<span class="log-ts">[${ts||now}]</span> <span class="log-${level}">${msg}</span>`;
-  feed.insertBefore(div, feed.firstChild);
-  while (feed.children.length > 50) feed.removeChild(feed.lastChild);
-}
-
-// ── Set threat level ──────────────────────────────────────────────
-function setThreat(level) {
-  ['t0','t1','t2','t3'].forEach(t => document.getElementById(t).classList.remove('active'));
-  const el = document.getElementById('t'+level);
-  if (el) el.classList.add('active');
-}
-setThreat(0);
-
-// ── Set signal ────────────────────────────────────────────────────
-function setSignal(action, symbol, confidence, price) {
-  const el = document.getElementById('signal-action');
-  el.className = 'signal-big';
-  if      (action === 'BUY')  { el.classList.add('sig-buy');  el.textContent = '▲ BUY'; }
-  else if (action === 'SELL') { el.classList.add('sig-sell'); el.textContent = '▼ SELL'; }
-  else if (action === 'HOLD') { el.classList.add('sig-hold'); el.textContent = '◆ HOLD'; }
-  else                        { el.classList.add('sig-none'); el.textContent = 'STANDBY'; }
-
-  if (symbol)     document.getElementById('signal-symbol').textContent = symbol;
-  if (price)      document.getElementById('signal-price').textContent  = '$ '+price.toLocaleString();
-  if (confidence !== undefined) {
-    document.getElementById('signal-conf').textContent = (confidence*100).toFixed(0)+'%';
-    document.getElementById('conf-bar').style.width = (confidence*100)+'%';
-  }
-  document.getElementById('signal-ts').textContent = new Date().toTimeString().substring(0,8);
-}
-
-// ── Fetch status from cockpit API ─────────────────────────────────
-async function fetchStatus() {
+async function refreshData() {
   try {
     const r = await fetch('/api/status');
-    const d = await r.json();
+    const data = await r.json();
 
-    // Threat
-    setThreat(d.threat_level || 0);
+    // Arkon action
+    const action = data.arkon5_action || 'HOLD';
+    const actionEl = document.getElementById('arkon-action');
+    actionEl.textContent = action;
+    actionEl.className = 'card-value ' + (action === 'BUY' ? 'green' : action === 'SELL' ? 'red' : 'orange');
 
-    // Signal
-    if (d.signal) {
-      setSignal(d.signal.action, d.signal.symbol, d.signal.confidence, d.signal.price);
-      if (d.signal.action && d.signal.action !== 'HOLD') {
-        addLog(null, d.signal.action==='BUY'?'ok':'err',
-          `${d.signal.action} ${d.signal.symbol} @ ${d.signal.price} conf=${Math.round((d.signal.confidence||0)*100)}%`);
-      }
-    }
+    document.getElementById('arkon-conf').textContent = 'Confiance: ' + (data.arkon5_conf || '--') + '%';
+    document.getElementById('pipeline-status').textContent = (data.pipeline_status || '--').substring(0, 20);
+    document.getElementById('hashrate').textContent = (data.hashrate || '--') + ' TH/s';
+    document.getElementById('temp').textContent = 'Temp: ' + (data.temp || '--') + '°C';
+    document.getElementById('comet-intel').textContent = data.comet_intel || '--';
 
-    // HA status
-    const haEl = document.getElementById('ha-status');
-    if (d.ha_online) {
-      haEl.textContent = 'CONNECTED';
-      haEl.className   = 'metric-value val-green';
-    } else {
-      haEl.textContent = 'OFFLINE';
-      haEl.className   = 'metric-value val-red';
-    }
+    const tunnelEl = document.getElementById('tunnel-status');
+    tunnelEl.textContent = data.tunnel_active ? '🟢 ACTIF' : '🔴 INACTIF';
+    tunnelEl.className = 'card-value ' + (data.tunnel_active ? 'green' : 'red');
 
-    // CPU/Mem
-    if (d.cpu !== undefined)
-      document.getElementById('cpu-usage').textContent = d.cpu.toFixed(1) + '%';
-    if (d.memory !== undefined)
-      document.getElementById('mem-usage').textContent = d.memory.toFixed(1) + '%';
-
-    // AKT price
-    if (d.akt_price)
-      document.getElementById('akt-usd').textContent = '$ '+d.akt_price.toFixed(3);
-
-    document.getElementById('conn-dot').style.background = 'var(--green)';
   } catch(e) {
-    document.getElementById('conn-dot').style.background = 'var(--red)';
-    addLog(null, 'err', 'API status error: '+e.message);
+    console.error('Refresh error:', e);
   }
 }
 
-// ── Kill switch ───────────────────────────────────────────────────
-async function triggerKillSwitch() {
-  if (!confirm('⚠️ ACTIVER LE KILL SWITCH S25 ?\nCela va arrêter tous les agents.')) return;
-  addLog(null, 'err', '🚨 KILL SWITCH activé par opérateur');
-  try {
-    await fetch('/api/kill-switch', { method: 'POST' });
-  } catch(e) {}
+async function startTunnel() {
+  await fetch('/api/action', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({action: 'start_tunnel'}) });
+  refreshData();
 }
-
-// ── COMET intel feed ──────────────────────────────────────────────
-async function fetchCometFeed() {
-  try {
-    const r = await fetch('/api/comet/feed?n=10');
-    const d = await r.json();
-    if (!d.ok || !d.feed.length) return;
-
-    const feed = document.getElementById('comet-feed');
-    feed.innerHTML = '';
-    d.feed.forEach(entry => {
-      const div = document.createElement('div');
-      div.className = 'log-entry';
-      const lvl = entry.level === 'CRITICAL' ? 'err'
-                : entry.level === 'ALERT'    ? 'warn'
-                : entry.level === 'WARNING'  ? 'warn'
-                : 'info';
-      const ts = (entry.ts||'').substring(11,19);
-      div.innerHTML = `<span class="log-ts">[${ts}]</span> <span class="log-${lvl}">[${entry.source}] ${entry.summary}</span>`;
-      feed.appendChild(div);
-    });
-
-    document.getElementById('comet-ping').textContent = 'CONNECTED';
-    document.getElementById('comet-ping').style.color = 'var(--green)';
-  } catch(e) {
-    document.getElementById('comet-ping').textContent = 'OFFLINE';
-    document.getElementById('comet-ping').style.color = 'var(--red)';
+async function stopTunnel() {
+  await fetch('/api/action', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({action: 'stop_tunnel'}) });
+  refreshData();
+}
+async function forceAnalysis() {
+  await fetch('/api/action', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({action: 'force_analysis'}) });
+  alert('Analyse ARKON-5 déclenchée!');
+}
+function confirmPurge() {
+  if (confirm('⚠️ CONFIRMER LA PURGE TOTALE S25? Cette action coupe toutes les opérations critiques.')) {
+    fetch('/api/action', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({action: 'purge'}) });
+    alert('🚨 PURGE EXÉCUTÉE');
   }
 }
-setInterval(fetchCometFeed, 15000);
-fetchCometFeed();
-
-// ── Poll ──────────────────────────────────────────────────────────
-setInterval(fetchStatus, 10000);
-fetchStatus();
-addLog('INIT', 'ok', 'Cockpit connecté — polling toutes les 10s');
+refreshData();
 </script>
 </body>
-</html>
-"""
+</html>'''
 
-# ─── State (in-memory, simple) ───────────────────────────────────────
-state = {
-    "threat_level": 0,
-    "signal": {
-        "action": None,
-        "symbol": None,
-        "confidence": 0,
-        "price": 0,
-        "ts": None,
-    },
-    "ha_online": False,
-    "boot_time": time.time(),
-    "logs": [],
-}
+@app.route('/')
+def index():
+    return render_template_string(HTML, now=datetime.now().strftime('%Y-%m-%d'))
 
-# ─── Background: HA health check ────────────────────────────────────
-def check_ha():
-    while True:
-        try:
-            r = requests.get(
-                f"{HA_URL}/api/",
-                headers={"Authorization": f"Bearer {HA_TOKEN}"},
-                timeout=5
-            )
-            state["ha_online"] = (r.status_code == 200)
-        except Exception:
-            state["ha_online"] = False
-        time.sleep(30)
+@app.route('/api/status')
+def api_status():
+    """Retourne l'état du système S25 depuis HA"""
+    status = {
+        "timestamp": datetime.utcnow().isoformat(),
+        "arkon5_action": "HOLD",
+        "arkon5_conf": 0,
+        "pipeline_status": "INIT",
+        "hashrate": "--",
+        "temp": "--",
+        "comet_intel": "En attente...",
+        "tunnel_active": False
+    }
 
-
-def fetch_ha_entities():
-    """Pull relevant HA entities for dashboard."""
     if not HA_TOKEN:
-        return
+        return jsonify(status)
+
     try:
-        r = requests.get(
-            f"{HA_URL}/api/states",
-            headers={"Authorization": f"Bearer {HA_TOKEN}"},
-            timeout=10
-        )
-        if r.status_code != 200:
-            return
-        entities = {e["entity_id"]: e for e in r.json()}
+        headers = {"Authorization": f"Bearer {HA_TOKEN}"}
+        entities = ["sensor.s25_arkon5_action", "sensor.s25_arkon5_conf",
+                    "input_text.ai_model_actif", "sensor.antminer_hashrate",
+                    "sensor.antminer_temp", "input_text.s25_comet_intel"]
 
-        # Threat level
-        threat_map = {"T0": 0, "T1": 1, "T2": 2, "T3": 3}
-        threat_ent = entities.get("input_select.s25_threat_level")
-        if threat_ent:
-            state["threat_level"] = threat_map.get(
-                threat_ent["state"].upper(), 0
-            )
+        for entity in entities:
+            r = requests.get(f"{HA_URL}/api/states/{entity}", headers=headers, timeout=5)
+            if r.status_code == 200:
+                state = r.json().get("state", "--")
+                if "arkon5_action" in entity: status["arkon5_action"] = state
+                elif "arkon5_conf" in entity: status["arkon5_conf"] = state
+                elif "ai_model_actif" in entity: status["pipeline_status"] = state
+                elif "antminer_hashrate" in entity: status["hashrate"] = state
+                elif "antminer_temp" in entity: status["temp"] = state
+                elif "comet_intel" in entity: status["comet_intel"] = state
 
-        # ARKON signal
-        for eid in ["sensor.arkon5_signal", "input_text.arkon5_signal"]:
-            sig_ent = entities.get(eid)
-            if sig_ent:
-                try:
-                    sig = json.loads(sig_ent["state"])
-                    state["signal"].update(sig)
-                except Exception:
-                    pass
-                break
+        # Check tunnel
+        result = subprocess.run(["pgrep", "-f", "cloudflared"], capture_output=True)
+        status["tunnel_active"] = result.returncode == 0
 
-    except Exception:
-        pass
+    except Exception as e:
+        status["error"] = str(e)
 
+    return jsonify(status)
 
-def fetch_akt_price():
-    """Get AKT price from CoinGecko."""
+@app.route('/api/action', methods=['POST'])
+def api_action():
+    """Exécute une action sur le système S25"""
+    data = request.get_json()
+    action = data.get('action', '')
+    headers = {"Authorization": f"Bearer {HA_TOKEN}", "Content-Type": "application/json"}
+
+    if action == 'start_tunnel':
+        subprocess.Popen(["bash", "/config/scripts/start_s25_tunnel.sh"])
+        return jsonify({"ok": True, "msg": "Tunnel démarré"})
+
+    elif action == 'stop_tunnel':
+        subprocess.run(["pkill", "-f", "cloudflared"])
+        return jsonify({"ok": True, "msg": "Tunnel arrêté"})
+
+    elif action == 'force_analysis':
+        requests.post(f"{HA_URL}/api/services/automation/trigger",
+                     headers=headers, json={"entity_id": "automation.s25_arkon5_buy_alert"})
+        return jsonify({"ok": True, "msg": "Analyse déclenchée"})
+
+    elif action == 'purge':
+        requests.post(f"{HA_URL}/api/services/input_boolean/turn_on",
+                     headers=headers, json={"entity_id": "input_boolean.s25_kill_switch"})
+        return jsonify({"ok": True, "msg": "PURGE EXÉCUTÉE"})
+
+    return jsonify({"ok": False, "msg": "Action inconnue"})
+
+@app.route('/api/watchdog')
+def api_watchdog():
+    """Retourne le statut du watchdog"""
     try:
-        r = requests.get(
-            "https://api.coingecko.com/api/v3/simple/price"
-            "?ids=akash-network&vs_currencies=usd",
-            timeout=10
+        with open('/tmp/s25_watchdog_status.json') as f:
+            return jsonify(json.load(f))
+    except:
+        return jsonify({"error": "Watchdog status unavailable"})
+
+
+# ═══════════════════════════════════════════════════════════════
+#  TRINITY BRIDGE — GPT Custom Action endpoint
+#  TRINITY (GPT) parle ici -> S25 reseau repond
+# ═══════════════════════════════════════════════════════════════
+
+def _trinity_auth() -> bool:
+    """Verifie S25_SHARED_SECRET si configure."""
+    if not S25_SECRET:
+        return True
+    return request.headers.get("X-S25-Secret", "") == S25_SECRET
+
+def _merlin_query(prompt: str) -> str:
+    """Appel direct Merlin (Gemini) pour reponse intelligente."""
+    if not GEMINI_API_KEY:
+        return "MERLIN OFFLINE: GEMINI_API_KEY non configuree"
+    try:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
+        r = requests.post(
+            url,
+            params={"key": GEMINI_API_KEY},
+            json={"contents": [{"parts": [{"text": prompt}]}]},
+            timeout=30,
         )
         if r.status_code == 200:
-            state["akt_price"] = r.json().get(
-                "akash-network", {}
-            ).get("usd", 0)
-    except Exception:
-        pass
+            candidates = r.json().get("candidates", [])
+            if candidates:
+                return candidates[0]["content"]["parts"][0]["text"].strip()
+    except Exception as e:
+        return f"Merlin error: {e}"
+    return "Merlin: pas de reponse"
 
-
-def background_tasks():
-    """Run periodic background fetches."""
-    while True:
-        fetch_ha_entities()
-        fetch_akt_price()
-        time.sleep(60)
-
-
-# ─── Routes ──────────────────────────────────────────────────────────
-
-@app.route("/")
-def index():
-    return render_template_string(
-        HTML,
-        version=VERSION,
-        build_date=BUILD_DATE,
-        ha_url=HA_URL,
-    )
-
-
-@app.route("/api/status")
-def api_status():
+def _market_snapshot() -> dict:
+    """Snapshot marche crypto gratuit via CoinGecko + Fear&Greed."""
+    snapshot = {"timestamp": datetime.utcnow().isoformat(), "prices": {}, "fear_greed": {}, "source": "ninja_free"}
     try:
-        import psutil
-        cpu = psutil.cpu_percent(interval=0.5)
-        mem = psutil.virtual_memory().percent
-    except ImportError:
-        cpu, mem = 0.0, 0.0
+        r = requests.get(
+            "https://api.coingecko.com/api/v3/simple/price",
+            params={"ids": "bitcoin,ethereum,akash-network,cosmos,solana",
+                    "vs_currencies": "usd", "include_24hr_change": "true"},
+            timeout=10)
+        if r.status_code == 200:
+            snapshot["prices"] = r.json()
+    except:
+        pass
+    try:
+        r = requests.get("https://api.alternative.me/fng/?limit=1", timeout=5)
+        if r.status_code == 200:
+            d = r.json()["data"][0]
+            snapshot["fear_greed"] = {"value": d["value"], "label": d["value_classification"]}
+    except:
+        pass
+    return snapshot
+
+@app.route('/api/trinity/ping', methods=['GET'])
+def trinity_ping():
+    """Healthcheck pour GPT Custom Action."""
+    return jsonify({
+        "ok": True,
+        "service": "S25 Lumiere — TRINITY Bridge",
+        "version": "2.0.0",
+        "merlin": "online" if GEMINI_API_KEY else "offline",
+        "ha": "connected" if HA_TOKEN else "disconnected",
+    })
+
+@app.route('/api/trinity', methods=['POST'])
+def trinity_dispatch():
+    """
+    Endpoint principal TRINITY (GPT).
+    Body JSON:
+      intent  : texte de l'intention de Stef
+      action  : "query" | "signal" | "analyze" | "status"
+      data    : {} payload optionnel
+    """
+    if not _trinity_auth():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+
+    body   = request.get_json(silent=True) or {}
+    intent = body.get("intent", "").strip()
+    action = body.get("action", "query").lower()
+    data   = body.get("data", {})
+
+    # ── STATUS: etat du systeme ──────────────────────────────────────
+    if action == "status":
+        snap = _market_snapshot()
+        return jsonify({
+            "ok": True,
+            "action": "status",
+            "system": {
+                "ha_connected": bool(HA_TOKEN),
+                "merlin_online": bool(GEMINI_API_KEY),
+                "cockpit": "ACTIVE",
+            },
+            "market": snap,
+        })
+
+    # ── ANALYZE: Merlin analyse un intent specifique ─────────────────
+    if action == "analyze":
+        snap = _market_snapshot()
+        prices = snap.get("prices", {})
+        btc = prices.get("bitcoin", {}).get("usd", 0)
+        eth = prices.get("ethereum", {}).get("usd", 0)
+        fg  = snap.get("fear_greed", {})
+        prompt = f"""Tu es MERLIN, analyste senior du reseau S25 Lumiere (multi-agent crypto trading).
+Stef te demande: "{intent}"
+
+Contexte marche actuel:
+- BTC: ${btc:,.0f} USD
+- ETH: ${eth:,.2f} USD
+- Fear & Greed: {fg.get('value','?')}/100 ({fg.get('label','?')})
+
+Reponds de facon concise et actionnable. Donne une recommandation claire (BUY/HOLD/SELL/WATCH) si applicable."""
+        analysis = _merlin_query(prompt)
+        return jsonify({
+            "ok": True,
+            "action": "analyze",
+            "intent": intent,
+            "merlin_response": analysis,
+            "market_context": snap,
+        })
+
+    # ── SIGNAL: injection d'un signal de trade ───────────────────────
+    if action == "signal":
+        signal_data = {
+            "type":   "MANUAL",
+            "source": "TRINITY_GPT",
+            "data": {
+                "intent":     intent,
+                "trade_action": data.get("trade_action", "HOLD"),
+                "symbol":     data.get("symbol", ""),
+                "confidence": data.get("confidence", 0.7),
+                "reason":     intent,
+            },
+            "ts": datetime.utcnow().isoformat(),
+        }
+        # Push vers HA si connecte
+        if HA_TOKEN:
+            try:
+                requests.post(
+                    f"{HA_URL}/api/states/sensor.s25_trinity_signal",
+                    headers={"Authorization": f"Bearer {HA_TOKEN}", "Content-Type": "application/json"},
+                    json={"state": data.get("trade_action", "HOLD"),
+                          "attributes": {"intent": intent, "source": "TRINITY", "ts": signal_data["ts"]}},
+                    timeout=5)
+            except:
+                pass
+        return jsonify({"ok": True, "action": "signal", "signal": signal_data})
+
+    # ── QUERY: snapshot intel + reponse Merlin (default) ────────────
+    snap = _market_snapshot()
+    prices = snap.get("prices", {})
+    btc = prices.get("bitcoin", {}).get("usd", 0)
+    btc_chg = prices.get("bitcoin", {}).get("usd_24h_change", 0)
+    eth = prices.get("ethereum", {}).get("usd", 0)
+    fg  = snap.get("fear_greed", {})
+
+    merlin_prompt = f"""Tu es MERLIN du reseau S25 Lumiere. Stef dit: "{intent or 'Donne-moi un update marche'}"
+
+BTC: ${btc:,.0f} ({btc_chg:+.1f}% 24h) | ETH: ${eth:,.2f} | F&G: {fg.get('value','?')}/100 {fg.get('label','')}
+
+Reponds en 2-3 phrases max, direct et actionnable."""
+
+    merlin_resp = _merlin_query(merlin_prompt) if intent else "Pret a recevoir tes ordres, Stef."
 
     return jsonify({
-        "ok":           True,
-        "version":      VERSION,
-        "uptime":       int(time.time() - state["boot_time"]),
-        "threat_level": state["threat_level"],
-        "signal":       state["signal"],
-        "ha_online":    state["ha_online"],
-        "cpu":          cpu,
-        "memory":       mem,
-        "akt_price":    state.get("akt_price", 0),
+        "ok": True,
+        "action": "query",
+        "intent": intent,
+        "merlin_response": merlin_resp,
+        "market": snap,
     })
 
 
-@app.route("/api/signal", methods=["POST"])
-def api_signal():
-    """Receive signal from ARKON-5 / HA webhook."""
-    from flask import request
-    data = request.json or {}
-    state["signal"].update({
-        "action":     data.get("action"),
-        "symbol":     data.get("symbol"),
-        "confidence": data.get("confidence", 0),
-        "price":      data.get("price", 0),
-        "ts":         datetime.utcnow().isoformat(),
+
+
+# ═══════════════════════════════════════════════════════════════
+#  MEMORY SYSTEM — Mémoire persistante centralisée S25
+#  Tous les agents lisent/écrivent ici
+#  GET  /api/memory         → contexte complet
+#  GET  /api/memory/state   → état runtime agents_state.json
+#  POST /api/memory/state   → mise à jour état par un agent
+# ═══════════════════════════════════════════════════════════════
+
+def _load_agents_state() -> dict:
+    """Charge agents_state.json depuis disque."""
+    try:
+        if AGENTS_STATE_FILE.exists():
+            return json.loads(AGENTS_STATE_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        pass
+    return {}
+
+def _save_agents_state(state: dict):
+    """Sauvegarde agents_state.json sur disque."""
+    state.setdefault("_meta", {})["updated_at"] = datetime.now(timezone.utc).isoformat()
+    AGENTS_STATE_FILE.write_text(json.dumps(state, indent=2, ensure_ascii=False), encoding="utf-8")
+
+
+@app.route('/api/memory', methods=['GET'])
+def api_memory_get():
+    """Retourne le contexte partagé complet (SHARED_MEMORY.md + agents_state.json)."""
+    if not _trinity_auth():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+
+    shared_md = ""
+    if SHARED_MEMORY_FILE.exists():
+        shared_md = SHARED_MEMORY_FILE.read_text(encoding="utf-8")
+
+    state = _load_agents_state()
+
+    return jsonify({
+        "ok": True,
+        "shared_memory": shared_md,
+        "agents_state": state,
+        "fetched_at": datetime.now(timezone.utc).isoformat(),
     })
-    return jsonify({"ok": True})
 
 
-@app.route("/api/threat", methods=["POST"])
-def api_threat():
-    """Update threat level."""
-    from flask import request
-    level = request.json.get("level", 0)
-    state["threat_level"] = int(level)
-    return jsonify({"ok": True})
+@app.route('/api/memory/state', methods=['GET'])
+def api_memory_state_get():
+    """Retourne uniquement agents_state.json (léger, pour polling fréquent)."""
+    if not _trinity_auth():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+    return jsonify({"ok": True, "state": _load_agents_state()})
 
 
-@app.route("/api/kill-switch", methods=["POST"])
-def api_kill_switch():
-    """Emergency kill switch endpoint."""
-    state["threat_level"] = 3
-    state["logs"].append({
-        "ts": datetime.utcnow().isoformat(),
-        "event": "KILL_SWITCH",
-        "operator": "cockpit_ui"
-    })
-    return jsonify({"ok": True, "message": "Kill switch activated"})
+@app.route('/api/memory/state', methods=['POST'])
+def api_memory_state_post():
+    """
+    Un agent met à jour son état ou une section du state.
+    Body JSON attendu:
+      agent   : "TRINITY" | "ARKON" | "MERLIN" | "COMET" | "KIMI"
+      updates : dict — champs à fusionner dans agents[agent]
+      pipeline: dict (optionnel) — champs pipeline à mettre à jour
+    """
+    if not _trinity_auth():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+
+    body = request.get_json(silent=True) or {}
+    agent   = body.get("agent", "").upper()
+    updates = body.get("updates", {})
+    pipeline_updates = body.get("pipeline", {})
+
+    state = _load_agents_state()
+
+    if agent and agent in state.get("agents", {}):
+        state["agents"][agent].update(updates)
+        state["agents"][agent]["last_seen"] = datetime.now(timezone.utc).isoformat()
+
+    if pipeline_updates and "pipeline" in state:
+        state["pipeline"].update(pipeline_updates)
+
+    _save_agents_state(state)
+
+    return jsonify({"ok": True, "agent": agent, "state": state["agents"].get(agent, {})})
 
 
-@app.route("/health")
-def health():
-    return jsonify({"status": "ok", "version": VERSION})
+@app.route('/api/memory/ping', methods=['POST'])
+def api_memory_ping():
+    """Agent envoie un heartbeat — met à jour last_seen seulement."""
+    if not _trinity_auth():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
 
+    body  = request.get_json(silent=True) or {}
+    agent = body.get("agent", "").upper()
+    state = _load_agents_state()
 
-# ─── Main ─────────────────────────────────────────────────────────────
+    if agent in state.get("agents", {}):
+        state["agents"][agent]["last_seen"] = datetime.now(timezone.utc).isoformat()
+        state["agents"][agent]["status"] = "online"
+        _save_agents_state(state)
+        return jsonify({"ok": True, "agent": agent, "ts": datetime.now(timezone.utc).isoformat()})
 
-if __name__ == "__main__":
-    # Register COMET bridge routes
-    if _comet_routes_registered:
-        register_comet_routes(app, state)
-        print("✅ COMET bridge routes registered")
-    else:
-        print("⚠️  COMET bridge not available (comet_bridge.py missing)")
+    return jsonify({"ok": False, "error": f"Agent {agent} inconnu"}), 404
 
-    # Start background threads
-    threading.Thread(target=check_ha,         daemon=True).start()
-    threading.Thread(target=background_tasks, daemon=True).start()
-
-    print(f"""
-╔══════════════════════════════════════════╗
-║   S25 LUMIÈRE — Cockpit v{VERSION}          ║
-║   Port:    {PORT}                           ║
-║   HA URL:  {HA_URL[:30]}...  ║
-║   Mode:    {'LIVE' if HA_TOKEN else 'DEMO (no HA token)'}                      ║
-╚══════════════════════════════════════════╝
-""")
-
-    app.run(
-        host="0.0.0.0",
-        port=PORT,
-        debug=False,
-        threaded=True,
-    )
+if __name__ == '__main__':
+    port = int(os.getenv("PORT", "7777"))
+    app.run(host='0.0.0.0', port=port, debug=False)
