@@ -8,7 +8,13 @@
 
 from flask import Flask, render_template_string, jsonify, request
 import os, json, requests, subprocess
-from datetime import datetime
+from datetime import datetime, timezone
+from pathlib import Path
+
+MEMORY_DIR = Path(os.getenv("MEMORY_DIR", "/app/memory"))
+MEMORY_DIR.mkdir(parents=True, exist_ok=True)
+SHARED_MEMORY_FILE = MEMORY_DIR / "SHARED_MEMORY.md"
+AGENTS_STATE_FILE  = MEMORY_DIR / "agents_state.json"
 
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "s25_lumiere_secret_x100")
@@ -522,6 +528,108 @@ Reponds en 2-3 phrases max, direct et actionnable."""
         "market": snap,
     })
 
+
+
+
+# ═══════════════════════════════════════════════════════════════
+#  MEMORY SYSTEM — Mémoire persistante centralisée S25
+#  Tous les agents lisent/écrivent ici
+#  GET  /api/memory         → contexte complet
+#  GET  /api/memory/state   → état runtime agents_state.json
+#  POST /api/memory/state   → mise à jour état par un agent
+# ═══════════════════════════════════════════════════════════════
+
+def _load_agents_state() -> dict:
+    """Charge agents_state.json depuis disque."""
+    try:
+        if AGENTS_STATE_FILE.exists():
+            return json.loads(AGENTS_STATE_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        pass
+    return {}
+
+def _save_agents_state(state: dict):
+    """Sauvegarde agents_state.json sur disque."""
+    state.setdefault("_meta", {})["updated_at"] = datetime.now(timezone.utc).isoformat()
+    AGENTS_STATE_FILE.write_text(json.dumps(state, indent=2, ensure_ascii=False), encoding="utf-8")
+
+
+@app.route('/api/memory', methods=['GET'])
+def api_memory_get():
+    """Retourne le contexte partagé complet (SHARED_MEMORY.md + agents_state.json)."""
+    if not _trinity_auth():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+
+    shared_md = ""
+    if SHARED_MEMORY_FILE.exists():
+        shared_md = SHARED_MEMORY_FILE.read_text(encoding="utf-8")
+
+    state = _load_agents_state()
+
+    return jsonify({
+        "ok": True,
+        "shared_memory": shared_md,
+        "agents_state": state,
+        "fetched_at": datetime.now(timezone.utc).isoformat(),
+    })
+
+
+@app.route('/api/memory/state', methods=['GET'])
+def api_memory_state_get():
+    """Retourne uniquement agents_state.json (léger, pour polling fréquent)."""
+    if not _trinity_auth():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+    return jsonify({"ok": True, "state": _load_agents_state()})
+
+
+@app.route('/api/memory/state', methods=['POST'])
+def api_memory_state_post():
+    """
+    Un agent met à jour son état ou une section du state.
+    Body JSON attendu:
+      agent   : "TRINITY" | "ARKON" | "MERLIN" | "COMET" | "KIMI"
+      updates : dict — champs à fusionner dans agents[agent]
+      pipeline: dict (optionnel) — champs pipeline à mettre à jour
+    """
+    if not _trinity_auth():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+
+    body = request.get_json(silent=True) or {}
+    agent   = body.get("agent", "").upper()
+    updates = body.get("updates", {})
+    pipeline_updates = body.get("pipeline", {})
+
+    state = _load_agents_state()
+
+    if agent and agent in state.get("agents", {}):
+        state["agents"][agent].update(updates)
+        state["agents"][agent]["last_seen"] = datetime.now(timezone.utc).isoformat()
+
+    if pipeline_updates and "pipeline" in state:
+        state["pipeline"].update(pipeline_updates)
+
+    _save_agents_state(state)
+
+    return jsonify({"ok": True, "agent": agent, "state": state["agents"].get(agent, {})})
+
+
+@app.route('/api/memory/ping', methods=['POST'])
+def api_memory_ping():
+    """Agent envoie un heartbeat — met à jour last_seen seulement."""
+    if not _trinity_auth():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+
+    body  = request.get_json(silent=True) or {}
+    agent = body.get("agent", "").upper()
+    state = _load_agents_state()
+
+    if agent in state.get("agents", {}):
+        state["agents"][agent]["last_seen"] = datetime.now(timezone.utc).isoformat()
+        state["agents"][agent]["status"] = "online"
+        _save_agents_state(state)
+        return jsonify({"ok": True, "agent": agent, "ts": datetime.now(timezone.utc).isoformat()})
+
+    return jsonify({"ok": False, "error": f"Agent {agent} inconnu"}), 404
 
 if __name__ == '__main__':
     port = int(os.getenv("PORT", "7777"))
