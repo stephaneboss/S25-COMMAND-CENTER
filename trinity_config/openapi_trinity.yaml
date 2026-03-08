@@ -42,14 +42,9 @@ paths:
       operationId: trinityDispatch
       summary: Envoyer une intention ou commande au reseau S25
       description: >
-        Point d'entree principal. TRINITY traduit la voix de Stef en JSON
-        et dispatch au reseau multi-agent. Merlin analyse et repond.
-
-        Actions disponibles:
-        - query   : Question generale, snapshot marche + reponse Merlin
-        - analyze : Analyse approfondie d'un actif ou situation
-        - signal  : Injecter un signal de trade dans le pipeline
-        - status  : Etat complet du systeme S25
+        Dispatch une intention au reseau S25 multi-agent.
+        Actions: query (snapshot marche + Merlin), analyze (analyse approfondie),
+        signal (injection trade BUY/SELL/HOLD), status (etat systeme complet).
       requestBody:
         required: true
         content:
