@@ -13,8 +13,11 @@ from datetime import datetime
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "s25_lumiere_secret_x100")
 
-HA_URL   = os.getenv("HA_URL", "http://homeassistant.local:8123")
-HA_TOKEN = os.getenv("HA_TOKEN", "")
+HA_URL          = os.getenv("HA_URL", "http://homeassistant.local:8123")
+HA_TOKEN        = os.getenv("HA_TOKEN", "")
+GEMINI_API_KEY  = os.getenv("GEMINI_API_KEY", "")
+GEMINI_MODEL    = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+S25_SECRET      = os.getenv("S25_SHARED_SECRET", "")
 
 HTML = '''<!DOCTYPE html>
 <html lang="fr">
@@ -346,6 +349,179 @@ def api_watchdog():
             return jsonify(json.load(f))
     except:
         return jsonify({"error": "Watchdog status unavailable"})
+
+
+# ═══════════════════════════════════════════════════════════════
+#  TRINITY BRIDGE — GPT Custom Action endpoint
+#  TRINITY (GPT) parle ici -> S25 reseau repond
+# ═══════════════════════════════════════════════════════════════
+
+def _trinity_auth() -> bool:
+    """Verifie S25_SHARED_SECRET si configure."""
+    if not S25_SECRET:
+        return True
+    return request.headers.get("X-S25-Secret", "") == S25_SECRET
+
+def _merlin_query(prompt: str) -> str:
+    """Appel direct Merlin (Gemini) pour reponse intelligente."""
+    if not GEMINI_API_KEY:
+        return "MERLIN OFFLINE: GEMINI_API_KEY non configuree"
+    try:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
+        r = requests.post(
+            url,
+            params={"key": GEMINI_API_KEY},
+            json={"contents": [{"parts": [{"text": prompt}]}]},
+            timeout=30,
+        )
+        if r.status_code == 200:
+            candidates = r.json().get("candidates", [])
+            if candidates:
+                return candidates[0]["content"]["parts"][0]["text"].strip()
+    except Exception as e:
+        return f"Merlin error: {e}"
+    return "Merlin: pas de reponse"
+
+def _market_snapshot() -> dict:
+    """Snapshot marche crypto gratuit via CoinGecko + Fear&Greed."""
+    snapshot = {"timestamp": datetime.utcnow().isoformat(), "prices": {}, "fear_greed": {}, "source": "ninja_free"}
+    try:
+        r = requests.get(
+            "https://api.coingecko.com/api/v3/simple/price",
+            params={"ids": "bitcoin,ethereum,akash-network,cosmos,solana",
+                    "vs_currencies": "usd", "include_24hr_change": "true"},
+            timeout=10)
+        if r.status_code == 200:
+            snapshot["prices"] = r.json()
+    except:
+        pass
+    try:
+        r = requests.get("https://api.alternative.me/fng/?limit=1", timeout=5)
+        if r.status_code == 200:
+            d = r.json()["data"][0]
+            snapshot["fear_greed"] = {"value": d["value"], "label": d["value_classification"]}
+    except:
+        pass
+    return snapshot
+
+@app.route('/api/trinity/ping', methods=['GET'])
+def trinity_ping():
+    """Healthcheck pour GPT Custom Action."""
+    return jsonify({
+        "ok": True,
+        "service": "S25 Lumiere — TRINITY Bridge",
+        "version": "2.0.0",
+        "merlin": "online" if GEMINI_API_KEY else "offline",
+        "ha": "connected" if HA_TOKEN else "disconnected",
+    })
+
+@app.route('/api/trinity', methods=['POST'])
+def trinity_dispatch():
+    """
+    Endpoint principal TRINITY (GPT).
+    Body JSON:
+      intent  : texte de l'intention de Stef
+      action  : "query" | "signal" | "analyze" | "status"
+      data    : {} payload optionnel
+    """
+    if not _trinity_auth():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+
+    body   = request.get_json(silent=True) or {}
+    intent = body.get("intent", "").strip()
+    action = body.get("action", "query").lower()
+    data   = body.get("data", {})
+
+    # ── STATUS: etat du systeme ──────────────────────────────────────
+    if action == "status":
+        snap = _market_snapshot()
+        return jsonify({
+            "ok": True,
+            "action": "status",
+            "system": {
+                "ha_connected": bool(HA_TOKEN),
+                "merlin_online": bool(GEMINI_API_KEY),
+                "cockpit": "ACTIVE",
+            },
+            "market": snap,
+        })
+
+    # ── ANALYZE: Merlin analyse un intent specifique ─────────────────
+    if action == "analyze":
+        snap = _market_snapshot()
+        prices = snap.get("prices", {})
+        btc = prices.get("bitcoin", {}).get("usd", 0)
+        eth = prices.get("ethereum", {}).get("usd", 0)
+        fg  = snap.get("fear_greed", {})
+        prompt = f"""Tu es MERLIN, analyste senior du reseau S25 Lumiere (multi-agent crypto trading).
+Stef te demande: "{intent}"
+
+Contexte marche actuel:
+- BTC: ${btc:,.0f} USD
+- ETH: ${eth:,.2f} USD
+- Fear & Greed: {fg.get('value','?')}/100 ({fg.get('label','?')})
+
+Reponds de facon concise et actionnable. Donne une recommandation claire (BUY/HOLD/SELL/WATCH) si applicable."""
+        analysis = _merlin_query(prompt)
+        return jsonify({
+            "ok": True,
+            "action": "analyze",
+            "intent": intent,
+            "merlin_response": analysis,
+            "market_context": snap,
+        })
+
+    # ── SIGNAL: injection d'un signal de trade ───────────────────────
+    if action == "signal":
+        signal_data = {
+            "type":   "MANUAL",
+            "source": "TRINITY_GPT",
+            "data": {
+                "intent":     intent,
+                "trade_action": data.get("trade_action", "HOLD"),
+                "symbol":     data.get("symbol", ""),
+                "confidence": data.get("confidence", 0.7),
+                "reason":     intent,
+            },
+            "ts": datetime.utcnow().isoformat(),
+        }
+        # Push vers HA si connecte
+        if HA_TOKEN:
+            try:
+                requests.post(
+                    f"{HA_URL}/api/states/sensor.s25_trinity_signal",
+                    headers={"Authorization": f"Bearer {HA_TOKEN}", "Content-Type": "application/json"},
+                    json={"state": data.get("trade_action", "HOLD"),
+                          "attributes": {"intent": intent, "source": "TRINITY", "ts": signal_data["ts"]}},
+                    timeout=5)
+            except:
+                pass
+        return jsonify({"ok": True, "action": "signal", "signal": signal_data})
+
+    # ── QUERY: snapshot intel + reponse Merlin (default) ────────────
+    snap = _market_snapshot()
+    prices = snap.get("prices", {})
+    btc = prices.get("bitcoin", {}).get("usd", 0)
+    btc_chg = prices.get("bitcoin", {}).get("usd_24h_change", 0)
+    eth = prices.get("ethereum", {}).get("usd", 0)
+    fg  = snap.get("fear_greed", {})
+
+    merlin_prompt = f"""Tu es MERLIN du reseau S25 Lumiere. Stef dit: "{intent or 'Donne-moi un update marche'}"
+
+BTC: ${btc:,.0f} ({btc_chg:+.1f}% 24h) | ETH: ${eth:,.2f} | F&G: {fg.get('value','?')}/100 {fg.get('label','')}
+
+Reponds en 2-3 phrases max, direct et actionnable."""
+
+    merlin_resp = _merlin_query(merlin_prompt) if intent else "Pret a recevoir tes ordres, Stef."
+
+    return jsonify({
+        "ok": True,
+        "action": "query",
+        "intent": intent,
+        "merlin_response": merlin_resp,
+        "market": snap,
+    })
+
 
 if __name__ == '__main__':
     port = int(os.getenv("PORT", "7777"))

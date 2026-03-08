@@ -1,0 +1,111 @@
+openapi: 3.1.0
+info:
+  title: S25 Lumiere — TRINITY Bridge
+  description: >
+    Interface entre TRINITY (GPT) et le reseau multi-agent S25 Lumiere.
+    Permet a Stef de parler a GPT qui dispatch ses intentions au reseau de trading.
+  version: 2.0.0
+
+servers:
+  - url: https://uoqlngdqqlc29fhg8l78qt80d8.ingress.akashprovid.com
+    description: S25 Cockpit Akash (Production)
+
+paths:
+  /api/trinity/ping:
+    get:
+      operationId: trinityPing
+      summary: Verifier que le reseau S25 est en ligne
+      description: Healthcheck rapide — retourne le status de Merlin et HA
+      responses:
+        "200":
+          description: Systeme en ligne
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  service:
+                    type: string
+                  version:
+                    type: string
+                  merlin:
+                    type: string
+                    description: '"online" ou "offline"'
+                  ha:
+                    type: string
+                    description: '"connected" ou "disconnected"'
+
+  /api/trinity:
+    post:
+      operationId: trinityDispatch
+      summary: Envoyer une intention ou commande au reseau S25
+      description: >
+        Point d'entree principal. TRINITY traduit la voix de Stef en JSON
+        et dispatch au reseau multi-agent. Merlin analyse et repond.
+
+        Actions disponibles:
+        - query   : Question generale, snapshot marche + reponse Merlin
+        - analyze : Analyse approfondie d'un actif ou situation
+        - signal  : Injecter un signal de trade dans le pipeline
+        - status  : Etat complet du systeme S25
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - intent
+              properties:
+                intent:
+                  type: string
+                  description: L'intention de Stef traduite en texte par TRINITY
+                  example: "Analyse BTC pour un trade long aujourd'hui"
+                action:
+                  type: string
+                  enum: [query, analyze, signal, status]
+                  default: query
+                  description: Type d'action a executer
+                data:
+                  type: object
+                  description: Payload optionnel selon l'action
+                  properties:
+                    trade_action:
+                      type: string
+                      enum: [BUY, SELL, HOLD]
+                      description: Direction du trade (pour action=signal)
+                    symbol:
+                      type: string
+                      description: Symbole crypto (ex BTC, ETH, AKT)
+                    confidence:
+                      type: number
+                      minimum: 0
+                      maximum: 1
+                      description: Niveau de confiance du signal (0.0 a 1.0)
+      responses:
+        "200":
+          description: Reponse du reseau S25
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  action:
+                    type: string
+                  intent:
+                    type: string
+                  merlin_response:
+                    type: string
+                    description: Analyse de Merlin (Gemini) en langage naturel
+                  market:
+                    type: object
+                    description: Snapshot marche en temps reel
+                  signal:
+                    type: object
+                    description: Signal injecte dans le pipeline (si action=signal)
+        "401":
+          description: Secret invalide
