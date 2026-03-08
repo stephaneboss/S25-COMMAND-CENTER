@@ -1,21 +1,21 @@
 openapi: 3.1.0
 info:
-  title: S25 Lumiere — TRINITY Bridge
+  title: S25 Lumiere - TRINITY Bridge
   description: >
-    Interface entre TRINITY (GPT) et le reseau multi-agent S25 Lumiere.
-    Permet a Stef de parler a GPT qui dispatch ses intentions au reseau de trading.
+    Interface entre TRINITY GPT et le reseau S25 Lumiere.
+    Permet a Stef de parler a GPT qui dispatch au reseau de trading.
   version: 2.0.0
 
 servers:
   - url: https://uoqlngdqqlc29fhg8l78qt80d8.ingress.akashprovid.com
-    description: S25 Cockpit Akash (Production)
+    description: S25 Cockpit Akash Production
 
 paths:
-  /api/trinity/ping:
+  /api/vocal/status:
     get:
       operationId: trinityPing
       summary: Verifier que le reseau S25 est en ligne
-      description: Healthcheck rapide — retourne le status de Merlin et HA
+      description: Healthcheck - retourne le status TRINITY et HA
       responses:
         "200":
           description: Systeme en ligne
@@ -26,25 +26,19 @@ paths:
                 properties:
                   ok:
                     type: boolean
-                  service:
+                  trinity:
                     type: string
-                  version:
+                  ha_token:
+                    type: boolean
+                  ts:
                     type: string
-                  merlin:
-                    type: string
-                    description: '"online" ou "offline"'
-                  ha:
-                    type: string
-                    description: '"connected" ou "disconnected"'
 
-  /api/trinity:
+  /api/vocal/say:
     post:
       operationId: trinityDispatch
-      summary: Envoyer une intention ou commande au reseau S25
+      summary: Envoyer un message vocal via Home Assistant TTS
       description: >
-        Dispatch une intention au reseau S25 multi-agent.
-        Actions: query (snapshot marche + Merlin), analyze (analyse approfondie),
-        signal (injection trade BUY/SELL/HOLD), status (etat systeme complet).
+        Prononce un message via le TTS de Home Assistant.
       requestBody:
         required: true
         content:
@@ -52,55 +46,19 @@ paths:
             schema:
               type: object
               required:
-                - intent
+                - message
               properties:
-                intent:
+                message:
                   type: string
-                  description: L'intention de Stef traduite en texte par TRINITY
-                  example: "Analyse BTC pour un trade long aujourd'hui"
-                action:
+                  description: Message a prononcer via TTS
+                language:
                   type: string
-                  enum: [query, analyze, signal, status]
-                  default: query
-                  description: Type d'action a executer
-                data:
-                  type: object
-                  description: Payload optionnel selon l'action
-                  properties:
-                    trade_action:
-                      type: string
-                      enum: [BUY, SELL, HOLD]
-                      description: Direction du trade (pour action=signal)
-                    symbol:
-                      type: string
-                      description: Symbole crypto (ex BTC, ETH, AKT)
-                    confidence:
-                      type: number
-                      minimum: 0
-                      maximum: 1
-                      description: Niveau de confiance du signal (0.0 a 1.0)
+                  default: fr-CA
+                urgent:
+                  type: boolean
+                  default: false
       responses:
         "200":
-          description: Reponse du reseau S25
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  ok:
-                    type: boolean
-                  action:
-                    type: string
-                  intent:
-                    type: string
-                  merlin_response:
-                    type: string
-                    description: Analyse de Merlin (Gemini) en langage naturel
-                  market:
-                    type: object
-                    description: Snapshot marche en temps reel
-                  signal:
-                    type: object
-                    description: Signal injecte dans le pipeline (si action=signal)
+          description: Message envoye avec succes
         "401":
-          description: Secret invalide
+          description: Cle API invalide X-S25-Key
