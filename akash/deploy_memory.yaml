@@ -1,0 +1,50 @@
+# ============================================================
+# S25 LUMIERE - Memory API Deployment (Akash)
+# Image: ghcr.io/stephaneboss/s25-command-center:main
+# IMPORTANT: Choisir le provider akashprovid.com pour HTTPS valide
+# (akashprovid.com = HTTPS auto avec cert Let's Encrypt valide)
+# Routes: /api/memory | /api/memory/state | /api/memory/ping
+# Secret: X-S25-Secret: REDACTED_SECRET
+# ============================================================
+---
+version: "2.0"
+
+services:
+  s25-memory:
+    image: ghcr.io/stephaneboss/s25-command-center:main
+    expose:
+      - port: 7777
+        as: 80
+        to:
+          - global: true
+    env:
+      - HA_URL=http://10.0.0.136:8123
+      - HA_TOKEN=
+      - GEMINI_API_KEY=
+      - MEMORY_DIR=/app/memory
+      - PORT=7777
+      - S25_SHARED_SECRET=REDACTED_SECRET
+
+profiles:
+  compute:
+    s25-memory:
+      resources:
+        cpu:
+          units: 0.25
+        memory:
+          size: 256Mi
+        storage:
+          size: 512Mi
+
+  placement:
+    akash:
+      pricing:
+        s25-memory:
+          denom: uakt
+          amount: 150
+
+deployment:
+  s25-memory:
+    akash:
+      profile: s25-memory
+      count: 1
