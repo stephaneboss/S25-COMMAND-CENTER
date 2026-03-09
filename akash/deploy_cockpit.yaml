@@ -9,7 +9,7 @@ version: "2.0"
 
 services:
   s25-cockpit:
-    image: ghcr.io/stephaneboss/s25-command-center@sha256:2d34a339b2fee3c6a0058521b8b8c0f29ff096280bd62f08fa945c399e409f90
+    image: ghcr.io/stephaneboss/s25-command-center@sha256:1dc62f77aa15769871b7369fcabea29e4715c295a7d300e5ab4ac13176d50411
     expose:
       - port: 7777
         as: 80
@@ -23,7 +23,7 @@ services:
       - PORT=7777
       - CHECK_INTERVAL=60
       - S25_SHARED_SECRET=REDACTED_SECRET
-      - BUILD=20260309d
+      - BUILD=20260309e
 
 profiles:
   compute:
