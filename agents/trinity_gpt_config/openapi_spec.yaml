@@ -39,13 +39,6 @@ components:
           type: object
         pipeline:
           type: object
-  securitySchemes:
-    S25Secret:
-      type: apiKey
-      in: header
-      name: X-S25-Secret
-      description: Secret partage S25 pour routes protegees
-
 paths:
   /api/version:
     get:
@@ -75,8 +68,6 @@ paths:
     post:
       operationId: trinityDispatch
       summary: Endpoint principal de TRINITY pour status, analyse, query et signal
-      security:
-        - S25Secret: []
       requestBody:
         required: true
         content:
@@ -92,8 +83,6 @@ paths:
       operationId: getSharedMemory
       summary: "[BOOT] Lire la memoire partagee S25"
       description: Appeler au debut de chaque session TRINITY apres le heartbeat.
-      security:
-        - S25Secret: []
       responses:
         "200":
           description: Memoire complete
@@ -102,16 +91,12 @@ paths:
     get:
       operationId: getAgentsState
       summary: Etat runtime leger des agents
-      security:
-        - S25Secret: []
       responses:
         "200":
           description: Etat agents
     post:
       operationId: updateAgentState
       summary: Mettre a jour l etat de TRINITY
-      security:
-        - S25Secret: []
       requestBody:
         required: true
         content:
@@ -127,8 +112,6 @@ paths:
       operationId: agentHeartbeat
       summary: "[BOOT] Heartbeat de presence"
       description: Appeler en premier au debut de chaque session TRINITY.
-      security:
-        - S25Secret: []
       requestBody:
         required: true
         content:

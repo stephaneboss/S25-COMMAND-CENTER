@@ -25,6 +25,7 @@ GEMINI_API_KEY  = os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL    = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
 S25_SECRET      = os.getenv("S25_SHARED_SECRET", "")
 APP_BUILD_SHA   = os.getenv("APP_BUILD_SHA", "dev")
+ALLOW_PUBLIC_ACTIONS = os.getenv("ALLOW_PUBLIC_ACTIONS", "true").lower() in {"1", "true", "yes", "on"}
 
 
 def _process_running(process_name: str) -> bool:
@@ -384,6 +385,17 @@ def api_version():
     })
 
 
+@app.route('/health', methods=['GET'])
+@app.route('/api/health', methods=['GET'])
+def api_health():
+    """Compat health endpoint for providers and external checks."""
+    return jsonify({
+        "status": "ok",
+        "version": "2.0.0",
+        "build_sha": APP_BUILD_SHA,
+    })
+
+
 # ═══════════════════════════════════════════════════════════════
 #  TRINITY BRIDGE — GPT Custom Action endpoint
 #  TRINITY (GPT) parle ici -> S25 reseau repond
@@ -391,7 +403,7 @@ def api_version():
 
 def _trinity_auth() -> bool:
     """Verifie S25_SHARED_SECRET si configure."""
-    if not S25_SECRET:
+    if ALLOW_PUBLIC_ACTIONS or not S25_SECRET:
         return True
     return request.headers.get("X-S25-Secret", "") == S25_SECRET
 
