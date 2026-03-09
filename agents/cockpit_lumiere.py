@@ -43,6 +43,34 @@ def _process_running(process_name: str) -> bool:
 
     return process_name in result.stdout
 
+
+def _status_summary(status: dict) -> dict:
+    """Normalize status for GPT-friendly summaries."""
+    pipeline_status = (status.get("pipeline_status") or "INIT").strip() or "INIT"
+    action = (status.get("arkon5_action") or "HOLD").strip() or "HOLD"
+    confidence = status.get("arkon5_conf") or 0
+    tunnel_state = "online" if status.get("tunnel_active") else "offline"
+
+    return {
+        "ok": True,
+        "availability": "available",
+        "status": "online",
+        "service": "S25 Lumiere Status",
+        "summary_fr": (
+            f"S25 en ligne. Pipeline {pipeline_status}. "
+            f"Signal {action} ({confidence}). Tunnel {tunnel_state}."
+        ),
+        "system": {
+            "pipeline": pipeline_status,
+            "signal": action,
+            "confidence": confidence,
+            "tunnel": tunnel_state,
+            "hashrate": status.get("hashrate", "--"),
+            "temperature": status.get("temp", "--"),
+            "intel": status.get("comet_intel", "En attente..."),
+        },
+    }
+
 HTML = '''<!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -310,6 +338,7 @@ def api_status():
     }
 
     if not HA_TOKEN:
+        status.update(_status_summary(status))
         return jsonify(status)
 
     try:
@@ -335,6 +364,7 @@ def api_status():
     except Exception as e:
         status["error"] = str(e)
 
+    status.update(_status_summary(status))
     return jsonify(status)
 
 @app.route('/api/action', methods=['POST'])
@@ -480,14 +510,18 @@ def trinity_dispatch():
     # ── STATUS: etat du systeme ──────────────────────────────────────
     if action == "status":
         snap = _market_snapshot()
+        live_status = api_status().get_json()
         return jsonify({
             "ok": True,
             "action": "status",
+            "availability": "available",
+            "summary_fr": live_status.get("summary_fr", "S25 en ligne."),
             "system": {
                 "ha_connected": bool(HA_TOKEN),
                 "merlin_online": bool(GEMINI_API_KEY),
                 "cockpit": "ACTIVE",
             },
+            "status_payload": live_status,
             "market": snap,
         })
 
