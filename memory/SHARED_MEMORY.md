@@ -18,6 +18,12 @@
 - Cockpit v2: http://uoqlngdqqlc29fhg8l78qt80d8.ingress.akashprovid.com
 - DSEQ: 25838342 | Provider: akashprovid.com | Cost: $0.48/mois
 
+### Akash (Sandbox — ACTIF 2026-03-09)
+- S25-SANDBOX-MEMORY-v1: http://59cpn50vq1alv5ls5sdu37d7vs.ingress.akash.sthlm-host.top
+- DSEQ: 25851041 | Provider: akash.sthlm-host.top | Cost: $0.37/mois
+- Image: ghcr.io/stephaneboss/s25-command-center:main
+- Memory API: /api/memory | /api/memory/state | /api/memory/ping
+
 ### Home Assistant (Hub Central)
 - URL: http://10.0.0.136:8123
 - MQTT: 10.0.0.136:1883
