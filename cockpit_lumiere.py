@@ -24,6 +24,7 @@ HA_TOKEN        = os.getenv("HA_TOKEN", "")
 GEMINI_API_KEY  = os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL    = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
 S25_SECRET      = os.getenv("S25_SHARED_SECRET", "")
+APP_BUILD_SHA   = os.getenv("APP_BUILD_SHA", "dev")
 
 HTML = '''<!DOCTYPE html>
 <html lang="fr">
@@ -355,6 +356,17 @@ def api_watchdog():
             return jsonify(json.load(f))
     except:
         return jsonify({"error": "Watchdog status unavailable"})
+
+@app.route('/api/version', methods=['GET'])
+def api_version():
+    """Expose la version runtime pour verifier l'image active sur Akash."""
+    return jsonify({
+        "service": "S25 Lumiere Cockpit",
+        "version": "2.0.0",
+        "build_sha": APP_BUILD_SHA,
+        "memory_routes": True,
+        "secret_configured": bool(S25_SECRET),
+    })
 
 
 # ═══════════════════════════════════════════════════════════════

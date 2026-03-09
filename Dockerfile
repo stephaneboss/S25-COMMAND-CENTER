@@ -6,9 +6,12 @@
 # ============================================================
 FROM python:3.11-slim
 
+ARG BUILD_SHA=dev
+
 LABEL maintainer="Major Stef <stephaneboss>"
 LABEL description="S25 Lumière — Command Center Cockpit"
 LABEL version="2.0.0"
+LABEL org.opencontainers.image.revision="${BUILD_SHA}"
 
 # Install system deps
 RUN apt-get update -qq && \
@@ -18,6 +21,7 @@ RUN apt-get update -qq && \
 
 # Set workdir
 WORKDIR /app
+ENV APP_BUILD_SHA="${BUILD_SHA}"
 
 # Copy requirements first (cache layer)
 COPY requirements.txt .
