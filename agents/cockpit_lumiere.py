@@ -26,6 +26,22 @@ GEMINI_MODEL    = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
 S25_SECRET      = os.getenv("S25_SHARED_SECRET", "")
 APP_BUILD_SHA   = os.getenv("APP_BUILD_SHA", "dev")
 
+
+def _process_running(process_name: str) -> bool:
+    """Portable process check that works on slim images without pgrep."""
+    try:
+        result = subprocess.run(
+            ["ps", "-ef"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+    except Exception:
+        return False
+
+    return process_name in result.stdout
+
 HTML = '''<!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -312,9 +328,8 @@ def api_status():
                 elif "antminer_temp" in entity: status["temp"] = state
                 elif "comet_intel" in entity: status["comet_intel"] = state
 
-        # Check tunnel
-        result = subprocess.run(["pgrep", "-f", "cloudflared"], capture_output=True)
-        status["tunnel_active"] = result.returncode == 0
+        # Check tunnel without depending on pgrep, which is absent on slim images.
+        status["tunnel_active"] = _process_running("cloudflared")
 
     except Exception as e:
         status["error"] = str(e)
