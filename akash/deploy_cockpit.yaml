@@ -1,8 +1,8 @@
 # ============================================================
-# S25 LUMIÈRE — Akash Deployment SDL v2
+# S25 LUMIERE - Akash Deployment SDL v2
 # Image: ghcr.io/stephaneboss/s25-command-center:latest
 # Auto-built by GitHub Actions on every push to main
-# Update deployment: akash/scripts/update_cockpit.sh
+# Prod cockpit with TRINITY + memory routes
 # ============================================================
 ---
 version: "2.0"
@@ -16,14 +16,14 @@ services:
         to:
           - global: true
     env:
-      - HA_URL=http://homeassistant.local:8123
-      - HA_TOKEN=REPLACE_WITH_HA_TOKEN
-      - GEMINI_API_KEY=REPLACE_WITH_GEMINI_KEY
+      - HA_URL=https://6p2zycvv0xvyjzzgxprj3u5n7r8p3eoq.ui.nabu.casa
+      - HA_TOKEN=
+      - GEMINI_API_KEY=
       - MEMORY_DIR=/app/memory
       - PORT=7777
       - CHECK_INTERVAL=60
       - S25_SHARED_SECRET=s25sandbox2026
-      - BUILD=20260309a
+      - BUILD=20260309b
 
 profiles:
   compute:
