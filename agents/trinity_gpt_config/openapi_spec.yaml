@@ -1,172 +1,107 @@
 openapi: 3.1.0
 info:
-  title: S25 Lumiere - Cockpit API
-  description: API du S25 Command Center. TRINITY controle le pipeline S25 via cet OpenAPI.
-  version: 2.3.0
+  title: S25 Lumiere - Trinity Bridge API
+  description: OpenAPI minimale et verifiee pour TRINITY vers le cockpit S25 en production.
+  version: 2.5.0
 
 servers:
   - url: https://uoqlngdqqlc29fhg8l78qt80d8.ingress.akashprovid.com
-    description: S25 Cockpit v2 - PROD (HTTPS valide, Memory API actif apres update)
+    description: S25 Cockpit PROD sur Akash
 
 components:
-  schemas: {}
+  schemas:
+    TrinityRequest:
+      type: object
+      properties:
+        intent:
+          type: string
+        action:
+          type: string
+          enum: [query, status, analyze, signal]
+        data:
+          type: object
+    AgentHeartbeat:
+      type: object
+      required: [agent]
+      properties:
+        agent:
+          type: string
+          enum: [TRINITY, ARKON, MERLIN, COMET, KIMI]
+        note:
+          type: string
+    AgentStateUpdate:
+      type: object
+      properties:
+        agent:
+          type: string
+          enum: [TRINITY, ARKON, MERLIN, COMET, KIMI]
+        updates:
+          type: object
+        pipeline:
+          type: object
   securitySchemes:
     S25Secret:
       type: apiKey
       in: header
       name: X-S25-Secret
-      description: Secret partage S25 (configure dans GPT Custom Actions)
+      description: Secret partage S25 pour routes protegees
 
 paths:
+  /api/version:
+    get:
+      operationId: getVersion
+      summary: Version runtime du cockpit deploye
+      responses:
+        "200":
+          description: Version active
+
   /api/status:
     get:
-      operationId: healthCheck
-      summary: Status complet du systeme S25
+      operationId: getSystemStatus
+      summary: Etat live du systeme S25
       responses:
         "200":
-          description: Status OK
+          description: Etat courant
 
-  /api/signal:
+  /api/trinity/ping:
+    get:
+      operationId: trinityPing
+      summary: Ping public du bridge TRINITY
+      responses:
+        "200":
+          description: Bridge disponible
+
+  /api/trinity:
     post:
-      operationId: sendTradingSignal
-      summary: Envoyer un signal de trading
+      operationId: trinityDispatch
+      summary: Endpoint principal de TRINITY pour status, analyse, query et signal
+      security:
+        - S25Secret: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              required: [symbol, action, confidence]
-              properties:
-                symbol: {type: string, example: BTCUSDT}
-                action: {type: string, enum: [BUY, SELL, HOLD]}
-                confidence: {type: number, minimum: 0, maximum: 1}
-                reason: {type: string}
-                source: {type: string, default: TRINITY}
+              $ref: "#/components/schemas/TrinityRequest"
       responses:
         "200":
-          description: Signal recu
-
-  /api/threat:
-    post:
-      operationId: setThreatLevel
-      summary: Definir le niveau de menace T0-T3
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [level]
-              properties:
-                level: {type: integer, minimum: 0, maximum: 3}
-                reason: {type: string}
-      responses:
-        "200":
-          description: Niveau mis a jour
-
-  /api/kill-switch:
-    post:
-      operationId: activateKillSwitch
-      summary: ARRET URGENCE - Stop tous les trades
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                reason: {type: string}
-      responses:
-        "200":
-          description: Kill switch active
-
-  /api/intel:
-    post:
-      operationId: pushIntel
-      summary: Pousser une information ou alerte
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [message]
-              properties:
-                message: {type: string}
-                level: {type: string, enum: [INFO, WARNING, ALERT, CRITICAL], default: INFO}
-                source: {type: string, default: TRINITY}
-      responses:
-        "201":
-          description: Intel ajoute
-
-  /api/comet/feed:
-    get:
-      operationId: getCometFeed
-      summary: Feed alertes COMET (Perplexity)
-      responses:
-        "200":
-          description: Feed COMET
-
-  /api/comet/status-check:
-    get:
-      operationId: cometStatusCheck
-      summary: Health check COMET bridge
-      responses:
-        "200":
-          description: Status COMET
-
-  /api/loop/status:
-    get:
-      operationId: getLoopStatus
-      summary: Status de la boucle autonome
-      responses:
-        "200":
-          description: Status loop
-
-  /api/loop/force-cycle:
-    post:
-      operationId: forceLoopCycle
-      summary: Forcer un cycle immediat
-      responses:
-        "200":
-          description: Cycle force
-
-  /api/ollama/models:
-    get:
-      operationId: getOllamaModels
-      summary: Liste des modeles Ollama disponibles
-      responses:
-        "200":
-          description: Liste modeles
+          description: Reponse du bridge TRINITY
 
   /api/memory:
     get:
       operationId: getSharedMemory
       summary: "[BOOT] Lire la memoire partagee S25"
-      description: |
-        APPELER EN PREMIER a chaque session TRINITY.
-        Retourne SHARED_MEMORY.md + agents_state.json - tout le contexte S25.
-        Donne a TRINITY la vision, l infra, l etat des agents et la roadmap active.
+      description: Appeler au debut de chaque session TRINITY apres le heartbeat.
       security:
         - S25Secret: []
       responses:
         "200":
           description: Memoire complete
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  ok: {type: boolean}
-                  shared_memory: {type: string, description: Contenu SHARED_MEMORY.md}
-                  agents_state: {type: object, description: Etat runtime de tous les agents}
-                  fetched_at: {type: string, format: date-time}
 
   /api/memory/state:
     get:
       operationId: getAgentsState
-      summary: Etat runtime des agents (leger)
-      description: Version legere - retourne uniquement agents_state.json.
+      summary: Etat runtime leger des agents
       security:
         - S25Secret: []
       responses:
@@ -175,7 +110,6 @@ paths:
     post:
       operationId: updateAgentState
       summary: Mettre a jour l etat de TRINITY
-      description: Appeler apres chaque action importante pour logger dans la memoire partagee.
       security:
         - S25Secret: []
       requestBody:
@@ -183,17 +117,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                agent:
-                  type: string
-                  enum: [TRINITY, ARKON, MERLIN, COMET, KIMI]
-                updates:
-                  type: object
-                  description: Champs a fusionner dans l etat de l agent
-                pipeline:
-                  type: object
-                  description: Champs pipeline a mettre a jour
+              $ref: "#/components/schemas/AgentStateUpdate"
       responses:
         "200":
           description: Etat mis a jour
@@ -201,8 +125,8 @@ paths:
   /api/memory/ping:
     post:
       operationId: agentHeartbeat
-      summary: "[BOOT] Heartbeat TRINITY - annonce de presence"
-      description: APPELER EN TOUT PREMIER a chaque session. Enregistre TRINITY comme actif.
+      summary: "[BOOT] Heartbeat de presence"
+      description: Appeler en premier au debut de chaque session TRINITY.
       security:
         - S25Secret: []
       requestBody:
@@ -210,13 +134,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required: [agent]
-              properties:
-                agent:
-                  type: string
-                  enum: [TRINITY, ARKON, MERLIN, COMET, KIMI]
-                note: {type: string, description: Note optionnelle de debut de session}
+              $ref: "#/components/schemas/AgentHeartbeat"
       responses:
         "200":
           description: Heartbeat recu
