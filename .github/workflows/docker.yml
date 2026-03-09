@@ -41,14 +41,14 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set tags (branch push = :main, release = :latest)
+      - name: Set tags (branch push = :main + :latest, release = semver)
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=raw,value=main,enable=${{ github.event_name == 'push' }}
-            type=raw,value=latest,enable=${{ github.event_name == 'release' }}
+            type=raw,value=main,enable=${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
+            type=raw,value=latest,enable=${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'release' }}
             type=sha,prefix=sha-
             type=semver,pattern={{version}},enable=${{ github.event_name == 'release' }}
 
@@ -71,8 +71,7 @@ jobs:
           echo "**Tags:**" >> $GITHUB_STEP_SUMMARY
           echo "${{ steps.meta.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**BOTH** :main + :latest updated — sandbox + prod en sync" >> $GITHUB_STEP_SUMMARY
           if [ "${{ github.event_name }}" == "release" ]; then
-            echo "**PROD** :latest updated — ready to akash update" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "**SANDBOX** :main updated — test avant prod" >> $GITHUB_STEP_SUMMARY
+            echo "**RELEASE** semver tag pushed" >> $GITHUB_STEP_SUMMARY
           fi
