@@ -2,15 +2,14 @@ openapi: 3.1.0
 info:
   title: S25 Lumiere - Cockpit API
   description: API du S25 Command Center. TRINITY controle le pipeline S25 via cet OpenAPI.
-  version: 2.2.0
+  version: 2.3.0
 
 servers:
-  - url: http://59cpn50vq1alv5ls5sdu37d7vs.ingress.akash.sthlm-host.top
+  - url: https://59cpn50vq1alv5ls5sdu37d7vs.ingress.akash.sthlm-host.top
     description: Sandbox S25-SANDBOX-MEMORY-v1 (Memory API LIVE)
-  - url: http://uoqlngdqqlc29fhg8l78qt80d8.ingress.akashprovid.com
-    description: Production Cockpit v2
 
 components:
+  schemas: {}
   securitySchemes:
     S25Secret:
       type: apiKey
@@ -192,11 +191,9 @@ paths:
                 updates:
                   type: object
                   description: Champs a fusionner dans l etat de l agent
-                  example: {last_intent: Status marche, session_count: 5}
                 pipeline:
                   type: object
                   description: Champs pipeline a mettre a jour
-                  example: {threat_level: T1}
       responses:
         "200":
           description: Etat mis a jour
