@@ -11,7 +11,10 @@ info:
   version: 2.1.0
 
 servers:
+  - url: http://59cpn50vq1alv5ls5sdu37d7vs.ingress.akash.sthlm-host.top
+    description: Sandbox (S25-SANDBOX-MEMORY-v1) — Memory API LIVE
   - url: http://uoqlngdqqlc29fhg8l78qt80d8.ingress.akashprovid.com
+    description: Production (Cockpit v2)
     description: Akash public ingress (accès externe)
   - url: http://10.0.0.202:5000
     description: DELL-LINUX local (réseau LAN, plus rapide)
