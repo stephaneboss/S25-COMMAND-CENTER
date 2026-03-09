@@ -5,8 +5,8 @@ info:
   version: 2.3.0
 
 servers:
-  - url: https://59cpn50vq1alv5ls5sdu37d7vs.ingress.akash.sthlm-host.top
-    description: Sandbox S25-SANDBOX-MEMORY-v1 (Memory API LIVE)
+  - url: https://uoqlngdqqlc29fhg8l78qt80d8.ingress.akashprovid.com
+    description: S25 Cockpit v2 - PROD (HTTPS valide, Memory API actif apres update)
 
 components:
   schemas: {}
