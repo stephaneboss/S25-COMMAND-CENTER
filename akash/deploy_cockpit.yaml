@@ -19,8 +19,11 @@ services:
       - HA_URL=http://homeassistant.local:8123
       - HA_TOKEN=REPLACE_WITH_HA_TOKEN
       - GEMINI_API_KEY=REPLACE_WITH_GEMINI_KEY
+      - MEMORY_DIR=/app/memory
       - PORT=7777
       - CHECK_INTERVAL=60
+      - S25_SHARED_SECRET=s25sandbox2026
+      - BUILD=20260309a
 
 profiles:
   compute:
