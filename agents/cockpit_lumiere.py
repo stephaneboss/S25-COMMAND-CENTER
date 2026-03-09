@@ -7,9 +7,11 @@
 # ============================================================
 
 from flask import Flask, render_template_string, jsonify, request
-import os, json, requests, subprocess
+import os, json, requests, subprocess, uuid
 from datetime import datetime, timezone
 from pathlib import Path
+
+from agents.gouv4_planner import GOUV4Router
 
 MEMORY_DIR = Path(os.getenv("MEMORY_DIR", "/app/memory"))
 MEMORY_DIR.mkdir(parents=True, exist_ok=True)
@@ -26,6 +28,171 @@ GEMINI_MODEL    = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
 S25_SECRET      = os.getenv("S25_SHARED_SECRET", "")
 APP_BUILD_SHA   = os.getenv("APP_BUILD_SHA", "dev")
 ALLOW_PUBLIC_ACTIONS = os.getenv("ALLOW_PUBLIC_ACTIONS", "true").lower() in {"1", "true", "yes", "on"}
+gouv4_router = GOUV4Router()
+
+
+def _utcnow_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _default_agents_state() -> dict:
+    """Runtime state skeleton shared by all agents."""
+    return {
+        "_meta": {
+            "description": "Runtime state de chaque agent S25",
+            "version": "1.1.0",
+            "updated_at": None,
+        },
+        "agents": {
+            "TRINITY": {
+                "status": "online",
+                "last_seen": None,
+                "last_intent": None,
+                "session_count": 0,
+                "notes": "Vocal controller teste. Memoire persistante via /api/memory",
+            },
+            "ARKON": {
+                "status": "online",
+                "last_seen": None,
+                "last_task": None,
+                "notes": "Claude Code - builder principal",
+            },
+            "MERLIN": {
+                "status": "online",
+                "last_seen": None,
+                "last_query": None,
+                "notes": "Gemini validateur",
+            },
+            "COMET": {
+                "status": "online",
+                "last_seen": None,
+                "last_report": None,
+                "notes": "Perplexity watchman - comet_bridge.py v2.1",
+            },
+            "KIMI": {
+                "status": "standby",
+                "last_seen": None,
+                "last_scan": None,
+                "notes": "Tunnel cloudflare requis pour activation",
+            },
+        },
+        "pipeline": {
+            "mode": "dry_run",
+            "active_model": "INIT",
+            "threat_level": "T0",
+            "kill_switch": False,
+            "last_signal": None,
+        },
+        "market": {
+            "btc_usd": None,
+            "eth_usd": None,
+            "fear_greed": None,
+            "last_fetch": None,
+        },
+        "missions": {
+            "active": [],
+            "history": [],
+        },
+        "intel": {
+            "comet_feed": [],
+        },
+    }
+
+
+def _ensure_state_shape(state: dict | None) -> dict:
+    """Backfill missing runtime sections so new features remain compatible."""
+    base = _default_agents_state()
+    state = state or {}
+
+    for key, value in base.items():
+        if key not in state:
+            state[key] = value
+        elif isinstance(value, dict):
+            for nested_key, nested_value in value.items():
+                if nested_key not in state[key]:
+                    state[key][nested_key] = nested_value
+                elif isinstance(nested_value, dict):
+                    for leaf_key, leaf_value in nested_value.items():
+                        state[key][nested_key].setdefault(leaf_key, leaf_value)
+
+    return state
+
+
+def _mission_payload(body: dict) -> dict:
+    """Normalize mission payload stored in shared runtime memory."""
+    mission_id = body.get("mission_id") or f"mission-{uuid.uuid4().hex[:10]}"
+    target = body.get("target", "COMET")
+    task_type = body.get("task_type", "infra_monitoring")
+    intent = body.get("intent", "").strip()
+    now = _utcnow_iso()
+
+    return {
+        "mission_id": mission_id,
+        "created_at": now,
+        "updated_at": now,
+        "created_by": body.get("created_by", "TRINITY"),
+        "target": target,
+        "task_type": task_type,
+        "priority": body.get("priority", "normal"),
+        "status": body.get("status", "queued"),
+        "intent": intent,
+        "context": body.get("context", {}),
+        "recommended_agent": gouv4_router.route(task_type),
+        "result": body.get("result"),
+    }
+
+
+def _upsert_mission(state: dict, mission: dict) -> dict:
+    """Insert or replace a mission in active/history state."""
+    missions = state["missions"]["active"]
+    for index, current in enumerate(missions):
+        if current.get("mission_id") == mission["mission_id"]:
+            missions[index] = mission
+            break
+    else:
+        missions.insert(0, mission)
+    return mission
+
+
+def _archive_mission(state: dict, mission: dict):
+    """Move completed mission from active queue to history."""
+    state["missions"]["active"] = [
+        item for item in state["missions"]["active"]
+        if item.get("mission_id") != mission.get("mission_id")
+    ]
+    history = state["missions"]["history"]
+    history.insert(0, mission)
+    state["missions"]["history"] = history[:50]
+
+
+def _build_mesh_status(state: dict) -> dict:
+    """Expose a single GPT-friendly view of agent mesh and routing capacity."""
+    report = gouv4_router.report()
+    return {
+        "ok": True,
+        "mesh": {
+            "agents": state.get("agents", {}),
+            "pipeline": state.get("pipeline", {}),
+            "missions_active": len(state.get("missions", {}).get("active", [])),
+            "intel_entries": len(state.get("intel", {}).get("comet_feed", [])),
+        },
+        "gouv4": report,
+        "updated_at": state.get("_meta", {}).get("updated_at"),
+    }
+
+
+def _record_comet_intel(state: dict, summary: str, level: str = "INFO", source: str = "TRINITY") -> dict:
+    """Persist COMET-style intel into shared memory for cross-agent consumption."""
+    entry = {
+        "ts": _utcnow_iso(),
+        "source": source,
+        "level": level,
+        "summary": summary,
+    }
+    feed = state["intel"]["comet_feed"]
+    feed.insert(0, entry)
+    state["intel"]["comet_feed"] = feed[:50]
+    return entry
 
 
 def _process_running(process_name: str) -> bool:
@@ -511,6 +678,7 @@ def trinity_dispatch():
     if action == "status":
         snap = _market_snapshot()
         live_status = api_status().get_json()
+        state = _load_agents_state()
         return jsonify({
             "ok": True,
             "action": "status",
@@ -522,6 +690,7 @@ def trinity_dispatch():
                 "cockpit": "ACTIVE",
             },
             "status_payload": live_status,
+            "mesh": _build_mesh_status(state)["mesh"],
             "market": snap,
         })
 
@@ -577,6 +746,46 @@ Reponds de facon concise et actionnable. Donne une recommandation claire (BUY/HO
                 pass
         return jsonify({"ok": True, "action": "signal", "signal": signal_data})
 
+    if action == "mission":
+        state = _load_agents_state()
+        mission = _mission_payload({
+            "created_by": "TRINITY",
+            "target": data.get("target", "COMET"),
+            "task_type": data.get("task_type", "infra_monitoring"),
+            "priority": data.get("priority", "normal"),
+            "intent": intent,
+            "context": data.get("context", {}),
+        })
+        _upsert_mission(state, mission)
+        state["agents"]["TRINITY"]["last_intent"] = intent
+        if mission["target"] in state["agents"]:
+            state["agents"][mission["target"]]["last_task"] = intent
+        _record_comet_intel(
+            state,
+            summary=f"Mission queued for {mission['target']}: {intent}",
+            level="INFO",
+            source="TRINITY",
+        )
+        _save_agents_state(state)
+        return jsonify({
+            "ok": True,
+            "action": "mission",
+            "mission": mission,
+            "mesh": _build_mesh_status(state)["mesh"],
+        })
+
+    if action == "route":
+        task_type = data.get("task_type", "strategy_planning")
+        chosen = gouv4_router.route(task_type)
+        report = gouv4_router.report()
+        return jsonify({
+            "ok": True,
+            "action": "route",
+            "task_type": task_type,
+            "recommended_agent": chosen,
+            "gouv4": report,
+        })
+
     # ── QUERY: snapshot intel + reponse Merlin (default) ────────────
     snap = _market_snapshot()
     prices = snap.get("prices", {})
@@ -598,6 +807,7 @@ Reponds en 2-3 phrases max, direct et actionnable."""
         "action": "query",
         "intent": intent,
         "merlin_response": merlin_resp,
+        "mesh_hint": _build_mesh_status(_load_agents_state())["mesh"],
         "market": snap,
     })
 
@@ -616,14 +826,15 @@ def _load_agents_state() -> dict:
     """Charge agents_state.json depuis disque."""
     try:
         if AGENTS_STATE_FILE.exists():
-            return json.loads(AGENTS_STATE_FILE.read_text(encoding="utf-8"))
+            return _ensure_state_shape(json.loads(AGENTS_STATE_FILE.read_text(encoding="utf-8")))
     except Exception:
         pass
-    return {}
+    return _ensure_state_shape({})
 
 def _save_agents_state(state: dict):
     """Sauvegarde agents_state.json sur disque."""
-    state.setdefault("_meta", {})["updated_at"] = datetime.now(timezone.utc).isoformat()
+    state = _ensure_state_shape(state)
+    state.setdefault("_meta", {})["updated_at"] = _utcnow_iso()
     AGENTS_STATE_FILE.write_text(json.dumps(state, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
@@ -684,6 +895,143 @@ def api_memory_state_post():
     _save_agents_state(state)
 
     return jsonify({"ok": True, "agent": agent, "state": state["agents"].get(agent, {})})
+
+
+@app.route('/api/mesh/status', methods=['GET'])
+def api_mesh_status():
+    """Vue unifiee du reseau d'agents, du pipeline et des quotas GOUV4."""
+    if not _trinity_auth():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+    return jsonify(_build_mesh_status(_load_agents_state()))
+
+
+@app.route('/api/router/report', methods=['GET'])
+def api_router_report():
+    """Expose le rapport de quotas/routage GOUV4."""
+    if not _trinity_auth():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+    return jsonify({
+        "ok": True,
+        "router": "GOUV4",
+        "report": gouv4_router.report(),
+    })
+
+
+@app.route('/api/router/route', methods=['POST'])
+def api_router_route():
+    """Choisit l'agent recommande pour un type de tache."""
+    if not _trinity_auth():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+
+    body = request.get_json(silent=True) or {}
+    task_type = body.get("task_type", "strategy_planning")
+    chosen = gouv4_router.route(task_type)
+    return jsonify({
+        "ok": True,
+        "task_type": task_type,
+        "recommended_agent": chosen,
+        "report": gouv4_router.report(),
+    })
+
+
+@app.route('/api/missions', methods=['GET'])
+def api_missions_get():
+    """Liste les missions actives et l'historique recent."""
+    if not _trinity_auth():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+
+    state = _load_agents_state()
+    missions = state.get("missions", {})
+    return jsonify({
+        "ok": True,
+        "active": missions.get("active", []),
+        "history": missions.get("history", [])[:10],
+    })
+
+
+@app.route('/api/missions', methods=['POST'])
+def api_missions_post():
+    """Cree une mission multi-agent persistante pour COMET, MERLIN, ARKON ou KIMI."""
+    if not _trinity_auth():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+
+    body = request.get_json(silent=True) or {}
+    state = _load_agents_state()
+    mission = _mission_payload(body)
+    _upsert_mission(state, mission)
+
+    target = mission["target"]
+    state["agents"].setdefault(target, {})
+    state["agents"][target]["last_task"] = mission["intent"]
+    state["agents"][target]["last_seen"] = _utcnow_iso()
+    _record_comet_intel(
+        state,
+        summary=f"Mission queued for {target}: {mission['intent']}",
+        level="INFO",
+        source=mission["created_by"],
+    )
+    _save_agents_state(state)
+
+    return jsonify({
+        "ok": True,
+        "mission": mission,
+        "mesh": _build_mesh_status(state)["mesh"],
+    })
+
+
+@app.route('/api/missions/update', methods=['POST'])
+def api_missions_update():
+    """Met a jour le statut d'une mission et l'archive si terminee."""
+    if not _trinity_auth():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+
+    body = request.get_json(silent=True) or {}
+    mission_id = body.get("mission_id", "")
+    state = _load_agents_state()
+    missions = state.get("missions", {}).get("active", [])
+    mission = next((item for item in missions if item.get("mission_id") == mission_id), None)
+
+    if not mission:
+        return jsonify({"ok": False, "error": f"Mission {mission_id} inconnue"}), 404
+
+    mission["status"] = body.get("status", mission.get("status", "queued"))
+    mission["updated_at"] = _utcnow_iso()
+    mission["result"] = body.get("result", mission.get("result"))
+    mission["context"] = {**mission.get("context", {}), **body.get("context", {})}
+
+    actor = body.get("actor", mission.get("target", "TRINITY"))
+    if actor in state.get("agents", {}):
+        state["agents"][actor]["last_seen"] = _utcnow_iso()
+        state["agents"][actor]["last_task"] = mission.get("intent")
+
+    if mission["status"] in {"done", "completed", "failed", "cancelled"}:
+        _archive_mission(state, mission)
+
+    _record_comet_intel(
+        state,
+        summary=f"Mission {mission_id} -> {mission['status']}",
+        level="INFO" if mission["status"] in {"done", "completed"} else "WARNING",
+        source=actor,
+    )
+    _save_agents_state(state)
+
+    return jsonify({"ok": True, "mission": mission})
+
+
+@app.route('/api/comet/feed', methods=['GET'])
+def api_comet_feed():
+    """Retourne le feed COMET/intel conserve en memoire partagee."""
+    if not _trinity_auth():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+
+    state = _load_agents_state()
+    feed = state.get("intel", {}).get("comet_feed", [])
+    n = int(request.args.get("n", 20))
+    return jsonify({
+        "ok": True,
+        "feed": feed[:n],
+        "count": len(feed),
+    })
 
 
 @app.route('/api/memory/ping', methods=['POST'])
