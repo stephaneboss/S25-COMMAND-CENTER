@@ -15,8 +15,10 @@
 ## INFRASTRUCTURE
 
 ### Akash (Production)
-- Cockpit v2: http://uoqlngdqqlc29fhg8l78qt80d8.ingress.akashprovid.com
+- Cockpit public stable: https://trinity-s25-proxy.trinitys25steph.workers.dev
+- Origin Akash corrige: http://kfhsi5oko9dbt3abob51g4s9q0.ingress.cap-test-compute.com
 - DSEQ: 25838342 | Provider: akashprovid.com | Cost: $0.48/mois
+- Doctrine: endpoint public stable devant Akash, pas de dependance laptop pour TRINITY
 
 ### Akash (Sandbox — ACTIF 2026-03-09)
 - S25-SANDBOX-MEMORY-v1: http://59cpn50vq1alv5ls5sdu37d7vs.ingress.akash.sthlm-host.top
@@ -46,7 +48,7 @@
 | ARKON  | Claude Code| Analyste / Builder       | Actif                         |
 | MERLIN | Gemini     | Validateur web           | Online                        |
 | COMET  | Perplexity | Watchman temps reel      | Bridge v2.1                   |
-| KIMI   | Kimi Web3  | Scanner 1M tokens        | Tunnel requis                 |
+| KIMI   | Kimi Web3  | Scanner 1M tokens        | A migrer hors tunnel manuel   |
 
 ---
 
@@ -80,6 +82,7 @@
 3. [IN PROGRESS] Memoire persistante centralisee
 4. [TODO] Deployer oracle-agent + onchain-guardian sur Akash
 5. [TODO] HA_TOKEN dans env vars Akash
-6. [TODO] Pipeline end-to-end dry_run
-7. [TODO] agent_loop.py -> DELL-LINUX (Ollama pret)
-8. [TODO] MEXC Sunday series live
+6. [TODO] KIMI sur endpoint stable public
+7. [TODO] Pipeline end-to-end dry_run
+8. [TODO] agent_loop.py -> DELL-LINUX uniquement en fallback
+9. [TODO] MEXC Sunday series live
