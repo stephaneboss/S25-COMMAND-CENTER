@@ -2,7 +2,7 @@
 
 ## But
 
-Transformer KIMI d'un scanner dependant d'un tunnel manuel en agent Web3 stable du mesh S25.
+Transformer KIMI d'un scanner dependant d'un tunnel manuel en agent Web3 stable du mesh S25, sans lui donner le role de cerveau principal.
 
 ## Etat actuel
 
@@ -19,6 +19,11 @@ KIMI doit:
 - mettre a jour `memory/state`
 - alimenter COMET et ARKON
 - ne pas tomber si le laptop est ferme
+
+KIMI ne doit pas:
+- decider seul d'un trade
+- bypasser TRINITY, GOUV4, ARKON ou MERLIN
+- devenir un point unique de decision
 
 ## Strategie de migration
 
@@ -42,6 +47,8 @@ KIMI doit remonter au moins:
 - `scan_window`
 - `top_hits`
 - `threats`
+- `market_bias`
+- `raw_observations`
 
 Canaux cibles:
 - `POST /api/memory/ping`
@@ -56,6 +63,13 @@ Quand KIMI detecte quelque chose:
 3. creer ou mettre a jour une mission
 4. pousser un resume intel vers COMET feed
 5. laisser ARKON ou MERLIN valider si besoin
+
+Role exact:
+- KIMI collecte
+- COMET enrichit
+- ARKON juge
+- MERLIN confirme
+- TRINITY orchestre
 
 ## Definition de done
 
