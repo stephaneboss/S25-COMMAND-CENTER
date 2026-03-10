@@ -58,6 +58,22 @@ python -m agents.oracle_agent
 python -m agents.onchain_guardian
 ```
 
+Mode Akash actuel:
+
+- un seul conteneur `s25-cockpit`
+- `scripts/start_cockpit_stack.sh` lance:
+  - cockpit Flask
+  - `oracle_agent` si `RUN_ORACLE_AGENT=true`
+  - `onchain_guardian` si `RUN_ONCHAIN_GUARDIAN=true`
+
+Variables SDL ajoutees:
+- `RUN_ORACLE_AGENT`
+- `RUN_ONCHAIN_GUARDIAN`
+- `ORACLE_POLL_SECONDS`
+- `ORACLE_SYMBOLS`
+- `ONCHAIN_POLL_SECONDS`
+- `ONCHAIN_TOKEN_LIST`
+
 ## Armer les missions
 
 Oracle:

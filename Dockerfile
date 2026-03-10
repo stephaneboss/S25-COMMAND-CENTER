@@ -31,6 +31,8 @@ RUN pip install --no-cache-dir -r requirements.txt && \
 # Copy full repo
 COPY . .
 
+RUN chmod +x /app/scripts/start_cockpit_stack.sh
+
 # Non-root user for security
 RUN useradd -m -u 1000 s25 && chown -R s25:s25 /app
 USER s25
@@ -42,6 +44,5 @@ EXPOSE 7777
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD curl -f http://localhost:7777/api/version || exit 1
 
-# Start cockpit as a package module so absolute imports like
-# `from agents...` resolve correctly in the container.
-CMD ["python", "-m", "agents.cockpit_lumiere"]
+# Start the cockpit plus optional background workers from one Akash container.
+CMD ["/app/scripts/start_cockpit_stack.sh"]

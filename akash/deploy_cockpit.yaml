@@ -24,15 +24,21 @@ services:
       - CHECK_INTERVAL=60
       - S25_SHARED_SECRET=s25sandbox2026
       - BUILD=20260309g
+      - RUN_ORACLE_AGENT=true
+      - RUN_ONCHAIN_GUARDIAN=true
+      - ORACLE_POLL_SECONDS=300
+      - ORACLE_SYMBOLS=BTC,ETH,AKT,ATOM
+      - ONCHAIN_POLL_SECONDS=420
+      - ONCHAIN_TOKEN_LIST=
 
 profiles:
   compute:
     s25-cockpit:
       resources:
         cpu:
-          units: 0.25
+          units: 0.5
         memory:
-          size: 256Mi
+          size: 512Mi
         storage:
           size: 512Mi
 

@@ -16,15 +16,21 @@ services:
       - MEMORY_DIR=/app/memory
       - PORT=7777
       - S25_SHARED_SECRET=s25sandbox2026
+      - RUN_ORACLE_AGENT=true
+      - RUN_ONCHAIN_GUARDIAN=true
+      - ORACLE_POLL_SECONDS=300
+      - ORACLE_SYMBOLS=BTC,ETH,AKT,ATOM
+      - ONCHAIN_POLL_SECONDS=420
+      - ONCHAIN_TOKEN_LIST=
 
 profiles:
   compute:
     s25-sandbox:
       resources:
         cpu:
-          units: 0.25
+          units: 0.5
         memory:
-          size: 256Mi
+          size: 512Mi
         storage:
           size: 512Mi
 
