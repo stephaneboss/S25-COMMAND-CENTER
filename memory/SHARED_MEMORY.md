@@ -26,6 +26,24 @@
 - Image: ghcr.io/stephaneboss/s25-command-center:main
 - Memory API: /api/memory | /api/memory/state | /api/memory/ping
 
+### Akash (MERLIN MCP LIVE 2026-03-10)
+- Service: s25-merlin-mesh
+- DSEQ: 25878071
+- Provider: provider.akashprovid.com
+- MCP ingress live: https://da0m4r4tu5ctn0ja9r2t9c2vho.ingress.akashprovid.com/mcp
+- Etat: handshake public OK, conteneur running
+- Limite actuelle: Gemini Interactions + mcp_server reste bloque cote Google
+
+### Commandes operateur a retenir
+- Test handshake MCP:
+  - python scripts/test_merlin_mcp_handshake.py https://da0m4r4tu5ctn0ja9r2t9c2vho.ingress.akashprovid.com/mcp
+- Test Gemini live:
+  - python scripts/run_gemini_merlin_interaction.py --endpoint https://da0m4r4tu5ctn0ja9r2t9c2vho.ingress.akashprovid.com/mcp
+- Writeback MCP direct:
+  - python scripts/write_merlin_mcp_feedback.py --endpoint https://da0m4r4tu5ctn0ja9r2t9c2vho.ingress.akashprovid.com/mcp --summary "MERLIN MCP bridge live on Akash. Public handshake validated on dseq 25878071."
+- Preparation manifest Akash:
+  - powershell -ExecutionPolicy Bypass -File scripts/prepare_merlin_mesh_deploy.ps1
+
 ### Home Assistant (Hub Central)
 - URL: http://10.0.0.136:8123
 - MQTT: 10.0.0.136:1883

@@ -55,11 +55,16 @@ Etat:
 - fondation embeddings ajoutee
 - GOUV4 connait retrieval / semantic memory
 - provider watch indexable dans la memoire Gemini
+- bridge MCP live sur Akash:
+  - `https://da0m4r4tu5ctn0ja9r2t9c2vho.ingress.akashprovid.com/mcp`
+- writeback MCP direct fonctionne
+- Gemini `Interactions + mcp_server` encore bloque cote Google
 
 Next:
 - brancher retrieval a TRINITY / MERLIN
 - indexer docs, logs, missions
 - exploiter `PROVIDER_WATCH` et `PROVIDER_INTELLIGENCE` dans MERLIN
+- debloquer quota/projet Google pour `Interactions`
 
 ### WS4 - KIMI
 
