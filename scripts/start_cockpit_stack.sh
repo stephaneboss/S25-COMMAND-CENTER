@@ -13,5 +13,15 @@ if [ "${RUN_ONCHAIN_GUARDIAN:-false}" = "true" ]; then
   python -m agents.onchain_guardian &
 fi
 
+if [ "${RUN_MERLIN_MCP_BRIDGE:-false}" = "true" ]; then
+  echo "[S25] starting merlin mcp bridge"
+  python -m agents.merlin_mcp_bridge &
+fi
+
+if [ "${RUN_MERLIN_FEEDBACK_LOOP:-false}" = "true" ]; then
+  echo "[S25] starting merlin feedback loop"
+  python -m agents.merlin_feedback_loop &
+fi
+
 echo "[S25] starting cockpit web"
 exec python -m agents.cockpit_lumiere

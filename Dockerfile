@@ -37,8 +37,8 @@ RUN chmod +x /app/scripts/start_cockpit_stack.sh
 RUN useradd -m -u 1000 s25 && chown -R s25:s25 /app
 USER s25
 
-# Expose cockpit port
-EXPOSE 7777
+# Expose cockpit and MCP bridge ports
+EXPOSE 7777 8000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
