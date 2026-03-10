@@ -4,11 +4,15 @@ S25 Lumiere security vault.
 Priority order:
 1. Runtime environment variables
 2. OS keyring / credential manager
-3. Local .env fallback
+3. Encrypted sync bundle
+4. Local .env fallback
 """
 
 from __future__ import annotations
 
+import base64
+import hashlib
+import json
 import logging
 import os
 from datetime import datetime
@@ -25,6 +29,12 @@ except Exception:  # pragma: no cover - optional dependency
 
     class KeyringError(Exception):
         pass
+
+try:
+    from cryptography.fernet import Fernet, InvalidToken
+except Exception:  # pragma: no cover - optional dependency
+    Fernet = None
+    InvalidToken = Exception
 
 
 class S25Vault:
@@ -47,6 +57,7 @@ class S25Vault:
         "TELEGRAM_BOT_TOKEN": "Telegram bot token",
         "TELEGRAM_CHAT_ID": "Telegram chat id",
         "OSMOSIS_MNEMONIC": "Osmosis wallet mnemonic",
+        "S25_SECRETS_BUNDLE_KEY": "Master key for encrypted sync bundle",
     }
 
     PLACEHOLDER_VALUES = {
@@ -62,6 +73,12 @@ class S25Vault:
     def __init__(self, env_file: str = ".env"):
         self._env_file = Path(env_file)
         self._service_name = os.getenv("S25_VAULT_SERVICE", "S25-LUMIERE")
+        self._bundle_path = Path(
+            os.getenv(
+                "S25_SECRETS_BUNDLE_PATH",
+                str(Path.home() / "Google Drive" / "S25" / "secrets.bundle"),
+            )
+        )
         self._secrets: Dict[str, str] = {}
         self._sources: Dict[str, str] = {}
         self._load_all()
@@ -83,6 +100,7 @@ class S25Vault:
         if self._env_file.exists():
             self._load_env_file()
         self._load_keyring()
+        self._load_bundle()
         self._load_environment()
 
         logger.info("Vault initialized with %s secrets", len(self._secrets))
@@ -125,6 +143,56 @@ class S25Vault:
                 self._secrets[key] = value.strip()
                 self._sources[key] = "env_var"
 
+    def _bundle_master_secret(self) -> Optional[str]:
+        raw = os.getenv("S25_SECRETS_BUNDLE_KEY")
+        if self._is_real(raw):
+            return raw.strip()
+        if keyring:
+            try:
+                raw = keyring.get_password(self._service_name, "S25_SECRETS_BUNDLE_KEY")
+            except Exception:
+                raw = None
+            if self._is_real(raw):
+                return raw.strip()
+        return self._secrets.get("S25_SECRETS_BUNDLE_KEY")
+
+    def _bundle_fernet_key(self) -> Optional[bytes]:
+        if not Fernet:
+            return None
+        secret = self._bundle_master_secret()
+        if not self._is_real(secret):
+            return None
+        digest = hashlib.sha256(secret.encode("utf-8")).digest()
+        return base64.urlsafe_b64encode(digest)
+
+    def _load_bundle(self) -> None:
+        if not self._bundle_path.exists():
+            return
+        if not Fernet:
+            logger.warning("cryptography missing; cannot load encrypted bundle")
+            return
+
+        fernet_key = self._bundle_fernet_key()
+        if not fernet_key:
+            logger.debug("No bundle key available; skipping encrypted bundle")
+            return
+
+        try:
+            payload = self._bundle_path.read_bytes()
+            decrypted = Fernet(fernet_key).decrypt(payload)
+            data = json.loads(decrypted.decode("utf-8"))
+        except InvalidToken:
+            logger.warning("Encrypted bundle exists but key is invalid")
+            return
+        except Exception as exc:
+            logger.warning("Could not read encrypted bundle %s: %s", self._bundle_path, exc)
+            return
+
+        for key_name, value in data.items():
+            if self._is_real(value):
+                self._secrets[key_name] = value.strip()
+                self._sources[key_name] = "bundle"
+
     def get(self, key: str, default: Optional[str] = None) -> Optional[str]:
         return self._secrets.get(key, default)
 
@@ -135,7 +203,7 @@ class S25Vault:
         desc = self.all_known_keys.get(key, "Unknown key")
         raise ValueError(
             f"Required secret '{key}' not set. Description: {desc}. "
-            f"Add it to runtime env, OS keyring, or {self._env_file}."
+            f"Add it to runtime env, OS keyring, encrypted bundle, or {self._env_file}."
         )
 
     def has(self, key: str) -> bool:
@@ -177,6 +245,9 @@ class S25Vault:
         self._sources[key] = ".env"
         return ".env"
 
+    def set_bundle_key(self, value: str, prefer_keyring: bool = True) -> str:
+        return self.set_local("S25_SECRETS_BUNDLE_KEY", value, prefer_keyring=prefer_keyring)
+
     def delete_local(self, key: str) -> list[str]:
         removed = []
         if keyring:
@@ -209,10 +280,33 @@ class S25Vault:
             keys.update(self.OPTIONAL_KEYS)
         return {key: self._secrets[key] for key in keys if key in self._secrets}
 
+    def bundle_status(self) -> Dict[str, object]:
+        return {
+            "path": str(self._bundle_path),
+            "exists": self._bundle_path.exists(),
+            "crypto_ready": Fernet is not None,
+            "master_key_ready": self._bundle_fernet_key() is not None,
+        }
+
+    def write_bundle(self, include_optional: bool = True) -> str:
+        if not Fernet:
+            raise RuntimeError("cryptography is required for encrypted bundle support")
+        fernet_key = self._bundle_fernet_key()
+        if not fernet_key:
+            raise RuntimeError("Missing S25_SECRETS_BUNDLE_KEY in keyring, env, or .env")
+
+        payload = self.export_env_map(include_optional=include_optional)
+        payload.pop("S25_SECRETS_BUNDLE_KEY", None)
+        self._bundle_path.parent.mkdir(parents=True, exist_ok=True)
+        token = Fernet(fernet_key).encrypt(json.dumps(payload, indent=2).encode("utf-8"))
+        self._bundle_path.write_bytes(token)
+        return str(self._bundle_path)
+
     def audit(self) -> Dict[str, object]:
         return {
             "timestamp": datetime.utcnow().isoformat(),
             "total_loaded": len(self._secrets),
+            "bundle": self.bundle_status(),
             "loaded": {
                 key: {
                     "present": True,
@@ -233,6 +327,7 @@ class S25Vault:
             "ha_ready": "HA_TOKEN" in self._secrets,
             "ai_ready": "GEMINI_API_KEY" in self._secrets,
             "mexc_ready": all(key in self._secrets for key in self.TRADING_KEYS),
+            "bundle_ready": self.bundle_status()["exists"] and self.bundle_status()["master_key_ready"],
         }
 
 
