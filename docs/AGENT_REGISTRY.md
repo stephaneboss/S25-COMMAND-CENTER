@@ -23,7 +23,7 @@ Registre unique des agents S25 avec:
 | ARKON | Builder / analyste infra | Claude Code | Akash cible | laptop outillage | B |
 | MERLIN | Validateur / analyse web | Gemini | Akash cible | API distante | B |
 | COMET | Watchman intel temps reel | Perplexity | Cockpit Akash + missions | aucun local requis | A |
-| KIMI | Scanner Web3 / memecoins | Kimi | a migrer vers endpoint stable | tunnel manuel HA | C |
+| KIMI | Pompe a data Web3 / memecoins | Kimi | a migrer vers endpoint stable | tunnel manuel HA | C |
 | GOUV4 | Routeur et gouvernance quota/cout | logique Python | Cockpit Akash | aucun | A |
 
 ## Agents et sous-agents a deployer sur Akash
@@ -48,6 +48,7 @@ Registre unique des agents S25 avec:
 
 - sortir du tunnel manuel
 - donner un endpoint stable ou un bridge Akash
+- le garder comme capteur et pompe a data, pas comme cerveau du systeme
 - journaliser ses scans dans `memory/state` et `comet_feed`
 
 ### 2. MERLIN

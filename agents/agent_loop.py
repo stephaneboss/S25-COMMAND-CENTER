@@ -3,7 +3,7 @@ S25 Lumiere -- Agent Loop Backend v2.0
 ======================================
 Boucle calme de collecte automatique -- ZERO API PAYANTE.
 Sources gratuites: CoinGecko, Fear&Greed, Reddit RSS.
-Analyse IA: Merlin (Gemini) -- cerveau principal S25.
+Analyse IA: Merlin (Gemini) -- validateur/synthetiseur du command center, pas cerveau principal.
 
 Collecte en boucle -> filtre -> log -> push Cockpit -> agents notifies.
 
@@ -210,7 +210,7 @@ def check_reddit():
         log.info("Reddit: no significant signals")
 
 def merlin_analyze(prompt: str) -> str:
-    """Call Merlin (Gemini) -- cerveau principal S25 Lumiere."""
+    """Call Merlin (Gemini) -- validateur/synthetiseur du command center."""
     if not GEMINI_API_KEY:
         log.warning("GEMINI_API_KEY non set -- Merlin offline")
         return ""
@@ -233,7 +233,7 @@ def merlin_analyze(prompt: str) -> str:
 
 
 def hourly_merlin_report():
-    """Rapport horaire via Merlin (Gemini) -- cerveau S25, pas le petit Dell."""
+    """Rapport horaire via Merlin (Gemini) -- synthese externe pour le command center."""
     prices = fetch_prices()
     btc        = prices.get("bitcoin",       {}).get("usd", 0)
     btc_change = prices.get("bitcoin",       {}).get("usd_24h_change", 0)
