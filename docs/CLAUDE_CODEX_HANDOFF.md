@@ -46,6 +46,10 @@ Ce document est la passerelle de travail entre:
 
 - endpoint public stable:
   - `https://trinity-s25-proxy.trinitys25steph.workers.dev`
+- bridge MCP MERLIN live:
+  - `https://da0m4r4tu5ctn0ja9r2t9c2vho.ingress.akashprovid.com/mcp`
+- DSEQ merlin-mesh:
+  - `25878071`
 - runtime cible:
   - Akash first
 - GPT:
@@ -64,6 +68,16 @@ Ce document est la passerelle de travail entre:
 3. ORACLE et ONCHAIN_GUARDIAN en live sur Akash
 4. KIMI hors tunnel manuel
 5. Gemini semantic memory reliee a TRINITY / MERLIN
+6. debloquer Gemini `Interactions + mcp_server` sur le projet Google courant
+
+## Commandes operateur
+
+- handshake MCP:
+  - `python scripts/test_merlin_mcp_handshake.py https://da0m4r4tu5ctn0ja9r2t9c2vho.ingress.akashprovid.com/mcp`
+- Gemini live:
+  - `python scripts/run_gemini_merlin_interaction.py --endpoint https://da0m4r4tu5ctn0ja9r2t9c2vho.ingress.akashprovid.com/mcp`
+- writeback MCP:
+  - `python scripts/write_merlin_mcp_feedback.py --endpoint https://da0m4r4tu5ctn0ja9r2t9c2vho.ingress.akashprovid.com/mcp --summary "MERLIN MCP bridge live on Akash. Public handshake validated on dseq 25878071."`
 
 ## Anti-duplication
 
