@@ -7,7 +7,7 @@ info:
   version: 2.0.0
 
 servers:
-  - url: https://uoqlngdqqlc29fhg8l78qt80d8.ingress.akashprovid.com
+  - url: http://kfhsi5oko9dbt3abob51g4s9q0.ingress.cap-test-compute.com
     description: S25 Cockpit Akash Production
 
 paths:
