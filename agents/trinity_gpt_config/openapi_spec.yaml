@@ -5,7 +5,7 @@ info:
   version: 2.5.0
 
 servers:
-  - url: https://uoqlngdqqlc29fhg8l78qt80d8.ingress.akashprovid.com
+  - url: https://expressions-decision-fat-anna.trycloudflare.com
     description: S25 Cockpit PROD sur Akash
 
 components:
