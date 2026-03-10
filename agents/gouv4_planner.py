@@ -23,7 +23,7 @@ AGENTS = {
         "quota_daily": 1500,    # Requêtes/jour gratuites
         "quota_minute": 15,
         "cost_per_1k": 0.0,
-        "best_for": ["trading", "analysis", "json"],
+        "best_for": ["trading", "analysis", "json", "retrieval", "embedding", "memory"],
         "key_env": "GEMINI_API_KEY",
     },
     "perplexity": {
@@ -71,6 +71,8 @@ AGENTS = {
 # Tâches → meilleur agent
 TASK_ROUTING = {
     "trading_analysis":  "gemini",
+    "knowledge_retrieval":"gemini",
+    "semantic_memory":   "gemini",
     "market_news":       "perplexity",
     "code_generation":   "claude",
     "strategy_planning": "gpt",
