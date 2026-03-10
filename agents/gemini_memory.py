@@ -14,8 +14,23 @@ log = logging.getLogger("s25.gemini_memory")
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_EMBED_MODEL = os.getenv("GEMINI_EMBED_MODEL", "gemini-embedding-001")
-MEMORY_DIR = Path(os.getenv("MEMORY_DIR", "/app/memory"))
+DEFAULT_ROOT_DIR = Path(__file__).resolve().parents[1]
+MEMORY_DIR = Path(os.getenv("MEMORY_DIR", str(DEFAULT_ROOT_DIR / "memory")))
+ROOT_DIR = Path(os.getenv("S25_ROOT_DIR", str(DEFAULT_ROOT_DIR)))
+DOCS_DIR = ROOT_DIR / "docs"
 MEMORY_INDEX_FILE = MEMORY_DIR / "gemini_memory_index.json"
+
+INDEX_TARGETS = [
+    ("shared_memory", MEMORY_DIR / "SHARED_MEMORY.md"),
+    ("agents_state", MEMORY_DIR / "agents_state.json"),
+    ("provider_watch", MEMORY_DIR / "PROVIDER_WATCH.md"),
+    ("provider_watch_snapshot", MEMORY_DIR / "provider_watch_snapshot.json"),
+    ("provider_intelligence", DOCS_DIR / "PROVIDER_INTELLIGENCE.md"),
+    ("comet_work_system", DOCS_DIR / "COMET_WORK_SYSTEM.md"),
+    ("gemini_foundation", DOCS_DIR / "GEMINI_FOUNDATION.md"),
+    ("agent_registry", DOCS_DIR / "AGENT_REGISTRY.md"),
+    ("workstream_board", DOCS_DIR / "WORKSTREAM_BOARD.md"),
+]
 
 
 def _embed_text(text: str) -> List[float]:
@@ -46,13 +61,9 @@ def _cosine_similarity(a: List[float], b: List[float]) -> float:
 
 def _load_documents() -> List[Dict[str, str]]:
     docs: List[Dict[str, str]] = []
-    shared_memory = MEMORY_DIR / "SHARED_MEMORY.md"
-    agents_state = MEMORY_DIR / "agents_state.json"
-
-    if shared_memory.exists():
-        docs.append({"id": "shared_memory", "text": shared_memory.read_text(encoding="utf-8")})
-    if agents_state.exists():
-        docs.append({"id": "agents_state", "text": agents_state.read_text(encoding="utf-8")})
+    for doc_id, path in INDEX_TARGETS:
+        if path.exists():
+            docs.append({"id": doc_id, "path": str(path), "text": path.read_text(encoding="utf-8")})
 
     return docs
 
@@ -64,6 +75,7 @@ def rebuild_index() -> Dict[str, object]:
         try:
             embeddings.append({
                 "id": doc["id"],
+                "path": doc.get("path", ""),
                 "embedding": _embed_text(doc["text"]),
                 "preview": doc["text"][:500],
             })
@@ -82,6 +94,8 @@ def rebuild_index() -> Dict[str, object]:
 def search(query: str, top_k: int = 3) -> List[Dict[str, object]]:
     if not MEMORY_INDEX_FILE.exists():
         rebuild_index()
+    if not GEMINI_API_KEY:
+        raise RuntimeError("GEMINI_API_KEY missing")
     index = json.loads(MEMORY_INDEX_FILE.read_text(encoding="utf-8"))
     query_embedding = _embed_text(query)
     scored = []
@@ -89,6 +103,7 @@ def search(query: str, top_k: int = 3) -> List[Dict[str, object]]:
         score = _cosine_similarity(query_embedding, doc.get("embedding", []))
         scored.append({
             "id": doc["id"],
+            "path": doc.get("path", ""),
             "score": round(score, 4),
             "preview": doc.get("preview", ""),
         })
@@ -96,7 +111,50 @@ def search(query: str, top_k: int = 3) -> List[Dict[str, object]]:
     return scored[:top_k]
 
 
+def search_to_markdown(query: str, top_k: int = 5) -> str:
+    if not GEMINI_API_KEY:
+        return "\n".join(
+            [
+                "# Gemini Memory Search",
+                "",
+                f"- Query: `{query}`",
+                "- Error: `GEMINI_API_KEY missing`",
+                "- Action: set `GEMINI_API_KEY` before semantic search.",
+            ]
+        )
+
+    results = search(query, top_k=top_k)
+    lines = [
+        "# Gemini Memory Search",
+        "",
+        f"- Query: `{query}`",
+        f"- Model: `{GEMINI_EMBED_MODEL}`",
+        "",
+    ]
+    if not results:
+        lines.append("- No results")
+        return "\n".join(lines)
+
+    for item in results:
+        lines.append(f"- `{item['id']}` score=`{item['score']}`")
+        if item.get("path"):
+            lines.append(f"  path: {item['path']}")
+        preview = item["preview"].replace("\n", " ")[:260]
+        lines.append(f"  preview: {preview}")
+    return "\n".join(lines)
+
+
 if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="S25 Gemini semantic memory")
+    parser.add_argument("--query", help="Semantic search query")
+    parser.add_argument("--top-k", type=int, default=5, help="Number of results to return")
+    args = parser.parse_args()
+
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [GEMINI_MEMORY] %(levelname)s %(message)s")
-    index = rebuild_index()
-    print(json.dumps({"ok": True, "model": index["model"], "documents": len(index["documents"])}, indent=2))
+    if args.query:
+        print(search_to_markdown(args.query, top_k=args.top_k))
+    else:
+        index = rebuild_index()
+        print(json.dumps({"ok": True, "model": index["model"], "documents": len(index["documents"])}, indent=2))

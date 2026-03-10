@@ -54,10 +54,12 @@ But:
 Etat:
 - fondation embeddings ajoutee
 - GOUV4 connait retrieval / semantic memory
+- provider watch indexable dans la memoire Gemini
 
 Next:
 - brancher retrieval a TRINITY / MERLIN
 - indexer docs, logs, missions
+- exploiter `PROVIDER_WATCH` et `PROVIDER_INTELLIGENCE` dans MERLIN
 
 ### WS4 - KIMI
 
