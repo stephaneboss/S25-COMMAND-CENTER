@@ -22,7 +22,7 @@ Registre unique des agents S25 avec:
 | TRINITY | Orchestrateur vocal et texte | GPT | GPT Actions + cockpit Akash | aucun local requis | A |
 | ARKON | Builder / analyste infra | Claude Code | Akash cible | laptop outillage | B |
 | MERLIN | Validateur / analyse web | Gemini | Akash cible | API distante | B |
-| COMET | Watchman intel temps reel | Perplexity | Cockpit Akash + missions | aucun local requis | A |
+| COMET | Watchman intel temps reel et veille provider | Perplexity | Cockpit Akash + missions | aucun local requis | A |
 | KIMI | Pompe a data Web3 / memecoins | Kimi | a migrer vers endpoint stable | tunnel manuel HA | C |
 | GOUV4 | Routeur et gouvernance quota/cout | logique Python | Cockpit Akash | aucun | A |
 
