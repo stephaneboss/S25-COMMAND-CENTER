@@ -3,7 +3,7 @@
 # Lance TRINITY via Codex CLI sur le laptop Windows (Git Bash)
 # Usage: ./codex_runner.sh "status du cockpit S25"
 
-COCKPIT_URL="${COCKPIT_URL:-https://uoqlngdqqlc29fhg8l78qt80d8.ingress.akashprovid.com}"
+COCKPIT_URL="${COCKPIT_URL:-http://kfhsi5oko9dbt3abob51g4s9q0.ingress.cap-test-compute.com}"
 LOG_FILE="${TRINITY_LOG_FILE:-/tmp/trinity_codex.log}"
 
 echo "[TRINITY] $(date) -- Invocation Codex" >> "$LOG_FILE"
