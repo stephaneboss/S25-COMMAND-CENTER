@@ -9,7 +9,7 @@ version: "2.0"
 
 services:
   s25-cockpit:
-    image: ghcr.io/stephaneboss/s25-command-center@sha256:ad17327b1c96169c121c6bfc0afe142e9d6eaca2a2cc808bd383816fd04c4af8
+    image: ghcr.io/stephaneboss/s25-command-center@sha256:8253bc79a3f3276dfb56686ca9a856932e5a8a69a0a4c9d894b4a5ba1d8ff5c0
     expose:
       - port: 7777
         as: 80
