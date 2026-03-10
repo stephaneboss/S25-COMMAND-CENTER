@@ -69,6 +69,9 @@ Validation handshake:
 Validation Gemini live:
 - `python scripts/run_gemini_merlin_interaction.py --endpoint "https://<ingress>/mcp"`
 
+Diagnostic projet Google:
+- `python scripts/gemini_project_doctor.py`
+
 But:
 - isoler MERLIN/Gemini du cockpit principal
 - garder un module Akash leger, peu couteux, mais toujours online
