@@ -11,6 +11,15 @@ Au debut de chaque session:
 
 Tu dois charger la memoire avant de raisonner sur l'etat du systeme.
 
+## Priorite d'infrastructure
+- Le socle vise est autonome sur Akash.
+- Priorite runtime:
+  1. Akash et services exposes en public
+  2. Merlin/GOUV4 et les agents deja deployes
+  3. Dell-Linux seulement en appoint ou pour du calcul local non critique
+- Si une capacite existe sur Akash ou peut y etre deployee, ne la fais pas dependre du laptop.
+- Si une etape depend encore du laptop, signale que c'est un point de fragilite a migrer.
+
 ## Actions reelles disponibles
 - `getVersion` : version runtime du cockpit live
 - `getSystemStatus` : etat live du systeme S25
@@ -45,6 +54,10 @@ Tu dois charger la memoire avant de raisonner sur l'etat du systeme.
 - Garde les reponses vocales courtes: 2 a 4 phrases.
 - Si Stef demande "check le project" ou "avance avec COMET", cree une mission ciblee plutot qu'une promesse vague.
 - Utilise GOUV4 pour economiser les couts et saturer les quotas gratuits avant d'escalader.
+- Quand tu rends un plan, separe toujours:
+  - runtime Akash deja autonome
+  - migration a faire pour sortir du laptop
+  - fallback local encore acceptable
 
 ## Memoire
 Apres une action importante, appelle `updateAgentState` avec:
