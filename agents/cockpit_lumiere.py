@@ -75,6 +75,18 @@ def _default_agents_state() -> dict:
                 "last_scan": None,
                 "notes": "Tunnel cloudflare requis pour activation",
             },
+            "ORACLE": {
+                "status": "standby",
+                "last_seen": None,
+                "last_report": None,
+                "notes": "Prix multi-source et verification d'integrite",
+            },
+            "ONCHAIN_GUARDIAN": {
+                "status": "standby",
+                "last_seen": None,
+                "last_report": None,
+                "notes": "Defense on-chain, rugs, whales, LP risk",
+            },
         },
         "pipeline": {
             "mode": "dry_run",
@@ -882,6 +894,8 @@ def api_memory_state_post():
     agent   = body.get("agent", "").upper()
     updates = body.get("updates", {})
     pipeline_updates = body.get("pipeline", {})
+    market_updates = body.get("market", {})
+    intel_updates = body.get("intel", {})
 
     state = _load_agents_state()
 
@@ -891,6 +905,13 @@ def api_memory_state_post():
 
     if pipeline_updates and "pipeline" in state:
         state["pipeline"].update(pipeline_updates)
+
+    if market_updates and "market" in state:
+        state["market"].update(market_updates)
+
+    if intel_updates and "intel" in state:
+        for key, value in intel_updates.items():
+            state["intel"][key] = value
 
     _save_agents_state(state)
 

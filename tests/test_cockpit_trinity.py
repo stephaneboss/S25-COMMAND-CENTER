@@ -21,6 +21,8 @@ def test_mesh_status_and_router_report(tmp_path):
     payload = mesh.get_json()
     assert payload["ok"] is True
     assert "TRINITY" in payload["mesh"]["agents"]
+    assert "ORACLE" in payload["mesh"]["agents"]
+    assert "ONCHAIN_GUARDIAN" in payload["mesh"]["agents"]
     assert "gpt" in payload["gouv4"]
 
     router = client.post("/api/router/route", json={"task_type": "infra_monitoring"})
@@ -93,3 +95,32 @@ def test_trinity_dispatch_mission_and_comet_feed(tmp_path):
     feed = client.get("/api/comet/feed").get_json()
     assert feed["count"] >= 1
     assert "Mission queued for COMET" in feed["feed"][0]["summary"]
+
+
+def test_memory_state_accepts_market_and_intel_patches(tmp_path):
+    cockpit = _load_cockpit_module(tmp_path)
+    client = cockpit.app.test_client()
+
+    updated = client.post(
+        "/api/memory/state",
+        json={
+            "agent": "ORACLE",
+            "updates": {
+                "status": "online",
+                "last_report": "2026-03-10T15:00:00Z",
+            },
+            "market": {
+                "btc_usd": 84234.5,
+                "oracle_reports": {"BTC": {"validated_price": 84234.5}},
+            },
+            "intel": {
+                "oracle_latest": {"asset": "BTC/USDT", "validated_price": 84234.5},
+            },
+        },
+    )
+    assert updated.status_code == 200
+
+    memory = client.get("/api/memory").get_json()
+    assert memory["agents_state"]["agents"]["ORACLE"]["status"] == "online"
+    assert memory["agents_state"]["market"]["btc_usd"] == 84234.5
+    assert memory["agents_state"]["intel"]["oracle_latest"]["asset"] == "BTC/USDT"
