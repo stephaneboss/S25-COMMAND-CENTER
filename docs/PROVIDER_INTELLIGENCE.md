@@ -39,17 +39,32 @@ On suit uniquement les sources officielles ou primaires:
 - Gemini est une base long terme stable
 - `gemini-embedding-001` est la brique memoire la plus interessante pour S25
 - Google pousse aussi fort l'audio, les tools multiples et les context tools
+- Google pousse une vraie pile web-native:
+  - `Interactions API`
+  - `mcp_server`
+  - `google_search`
+  - `url_context`
+  - `Live API`
 
 ### Sources
 
 - Release notes: [Gemini API changelog](https://ai.google.dev/gemini-api/docs/changelog)
 - Embeddings GA: [Gemini Embedding now generally available](https://developers.googleblog.com/en/gemini-embedding-available-gemini-api/)
+- Interactions API: [Interactions API](https://ai.google.dev/gemini-api/docs/interactions)
+- URL context: [URL context](https://ai.google.dev/gemini-api/docs/url-context)
+- Google Search grounding: [Grounding with Google Search](https://ai.google.dev/gemini-api/docs/google-search)
+- Live API tools: [Tool use with Live API](https://ai.google.dev/gemini-api/docs/live-api/tools)
+- Official SDK: [Gemini API libraries](https://ai.google.dev/gemini-api/docs/libraries)
 
 ### Lecture S25
 
 - MERLIN doit etre plus qu'un validateur secondaire
 - Gemini doit tenir la memoire semantique, la validation et le retrieval
 - c'est un investissement durable
+- le bon modele pour `remote MCP` aujourd'hui est `gemini-2.5-flash`
+- `Gemini 3` ne doit pas etre la base MCP tant que Google ne l'a pas ouvert
+- `google_search + url_context` est une combinaison forte pour la veille provider
+- `Live API` est la bonne cible pour les futures surfaces vocales temps reel
 
 ## Anthropic / Claude
 
