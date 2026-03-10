@@ -5,3 +5,6 @@ workers_dev = true
 
 [vars]
 ORIGIN_BASE = "http://kfhsi5oko9dbt3abob51g4s9q0.ingress.cap-test-compute.com"
+ORIGIN_HOST_HEADER = "kfhsi5oko9dbt3abob51g4s9q0.ingress.cap-test-compute.com"
+PROXY_TIMEOUT_MS = "15000"
+PROXY_RETRIES = "1"
