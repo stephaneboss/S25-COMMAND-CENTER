@@ -7,6 +7,7 @@ Arreter de courir apres les cles.
 ## Regle simple
 
 - laptop operateur: OS keyring
+- Google Drive: bundle chiffre synchronise entre machines
 - Akash et GitHub: env vars injectees au runtime
 - `.env`: fallback local seulement
 
@@ -14,7 +15,8 @@ Arreter de courir apres les cles.
 
 1. environment variables
 2. OS keyring
-3. `.env`
+3. bundle chiffre Google Drive
+4. `.env`
 
 ## Commandes
 
@@ -36,6 +38,12 @@ Stocker une cle locale:
 python scripts/manage_secrets.py set GEMINI_API_KEY
 ```
 
+Definir la cle maitre du bundle synchronise:
+
+```powershell
+python scripts/manage_secrets.py set-bundle-key
+```
+
 Verifier une cle sans l'afficher:
 
 ```powershell
@@ -52,6 +60,18 @@ Exporter les secrets a injecter en prod:
 
 ```powershell
 python scripts/manage_secrets.py export --include-optional
+```
+
+Verifier le bundle:
+
+```powershell
+python scripts/manage_secrets.py bundle-status
+```
+
+Ecrire le bundle chiffre:
+
+```powershell
+python scripts/manage_secrets.py write-bundle --include-optional
 ```
 
 ## Mode production
@@ -80,3 +100,10 @@ Quand tu dis "ok vrai production":
 
 - `MEXC_API_KEY`
 - `MEXC_SECRET_KEY`
+
+## Google Drive
+
+Mode recommande:
+- le fichier chiffre vit dans Google Drive
+- la cle maitre reste dans le keyring Windows
+- les machines autorisees lisent le meme bundle sans stocker les secrets en clair

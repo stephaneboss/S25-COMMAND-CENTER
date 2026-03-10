@@ -31,11 +31,19 @@ def build_parser() -> argparse.ArgumentParser:
     set_cmd.add_argument("--value")
     set_cmd.add_argument("--no-keyring", action="store_true")
 
+    bundle_key_cmd = sub.add_parser("set-bundle-key", help="Store bundle master key")
+    bundle_key_cmd.add_argument("--value")
+    bundle_key_cmd.add_argument("--no-keyring", action="store_true")
+
     delete_cmd = sub.add_parser("delete", help="Delete a secret from local stores")
     delete_cmd.add_argument("key")
 
     export_cmd = sub.add_parser("export", help="Export env lines for runtime injection")
     export_cmd.add_argument("--include-optional", action="store_true")
+
+    sub.add_parser("bundle-status", help="Show encrypted bundle readiness")
+    write_bundle_cmd = sub.add_parser("write-bundle", help="Write encrypted sync bundle")
+    write_bundle_cmd.add_argument("--include-optional", action="store_true")
     return parser
 
 
@@ -86,6 +94,12 @@ def main() -> int:
         print(json.dumps({"ok": True, "key": args.key, "stored_in": source}, indent=2))
         return 0
 
+    if args.command == "set-bundle-key":
+        value = args.value or getpass.getpass("Bundle master key: ")
+        source = vault.set_bundle_key(value, prefer_keyring=not args.no_keyring)
+        print(json.dumps({"ok": True, "stored_in": source}, indent=2))
+        return 0
+
     if args.command == "delete":
         removed = vault.delete_local(args.key)
         print(json.dumps({"ok": True, "key": args.key, "removed_from": removed}, indent=2))
@@ -94,6 +108,15 @@ def main() -> int:
     if args.command == "export":
         for key, value in vault.export_env_map(include_optional=args.include_optional).items():
             print(f"{key}={value}")
+        return 0
+
+    if args.command == "bundle-status":
+        print(json.dumps(vault.bundle_status(), indent=2))
+        return 0
+
+    if args.command == "write-bundle":
+        path = vault.write_bundle(include_optional=args.include_optional)
+        print(json.dumps({"ok": True, "path": path}, indent=2))
         return 0
 
     parser.error("Unknown command")
