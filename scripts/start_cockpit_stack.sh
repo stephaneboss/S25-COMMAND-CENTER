@@ -23,5 +23,10 @@ if [ "${RUN_MERLIN_FEEDBACK_LOOP:-false}" = "true" ]; then
   python -m agents.merlin_feedback_loop &
 fi
 
+if [ "${RUN_TREASURY_AUTOPILOT:-false}" = "true" ]; then
+  echo "[S25] starting treasury autopilot"
+  python -m agents.treasury_autopilot &
+fi
+
 echo "[S25] starting cockpit web"
 exec python -m agents.cockpit_lumiere
