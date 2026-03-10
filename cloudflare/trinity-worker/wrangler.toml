@@ -1,0 +1,7 @@
+name = "trinity-s25-proxy"
+main = "src/index.js"
+compatibility_date = "2026-03-10"
+workers_dev = true
+
+[vars]
+ORIGIN_BASE = "http://kfhsi5oko9dbt3abob51g4s9q0.ingress.cap-test-compute.com"

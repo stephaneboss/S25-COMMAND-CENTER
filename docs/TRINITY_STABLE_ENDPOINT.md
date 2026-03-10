@@ -3,14 +3,19 @@
 ## Etat actuel
 
 - Backend corrige actif sur `kfhsi5oko9dbt3abob51g4s9q0.ingress.cap-test-compute.com`
-- GPT live depannee via un `trycloudflare`
-- Ce mode n'est pas acceptable en production car l'URL est ephemere
+- GPT live publiee sur `https://trinity-s25-proxy.trinitys25steph.workers.dev`
+- Le mode `trycloudflare` n'est plus qu'un fallback de depannage
 
 ## Architecture recommandee
 
-Utiliser un tunnel Cloudflare nomme devant le backend Akash corrige.
+Sans achat de domaine, la meilleure option est un Cloudflare Worker en `workers.dev`
+qui proxy vers le backend Akash corrige.
 
-Flux cible:
+Flux cible gratuit:
+
+`TRINITY GPT -> https://trinity-s25-proxy.trinitys25steph.workers.dev -> Cloudflare Worker -> backend Akash -> /api/status|/api/memory|/api/mesh/status|/api/router/report`
+
+Flux cible premium:
 
 `TRINITY GPT -> https://trinity.s25lumiere.net -> Cloudflare Tunnel -> backend Akash -> /api/status|/api/memory|/api/mesh/status|/api/router/report`
 
@@ -19,10 +24,18 @@ Flux cible:
 - URL stable pour la GPT
 - HTTPS valide et gere par Cloudflare
 - Aucun besoin d'attendre un provider Akash avec certificat correct
-- Possibilite de faire tourner le tunnel comme service Windows ou Linux
-- Permet ensuite de brancher un domaine officiel S25
+- Aucun achat de domaine necessaire en mode `workers.dev`
+- Permet ensuite de migrer vers un domaine officiel S25 si besoin
 
 ## Mise en place conseillee
+
+### Option gratuite immediate
+
+1. Deployer `cloudflare/trinity-worker`
+2. Verifier `https://trinity-s25-proxy.trinitys25steph.workers.dev/api/version`
+3. Repointer la GPT vers cette URL
+
+### Option premium ensuite
 
 1. Authentifier `cloudflared` avec le compte Cloudflare
 2. Creer un tunnel nomme `trinity-s25`
@@ -32,6 +45,15 @@ Flux cible:
 6. Repointer la GPT vers `https://trinity.s25lumiere.net`
 
 ## Commandes de reference
+
+### Worker gratuit
+
+```powershell
+cd cloudflare/trinity-worker
+npx wrangler deploy
+```
+
+### Tunnel nomme avec domaine
 
 ```powershell
 cloudflared login
