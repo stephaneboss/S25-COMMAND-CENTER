@@ -5,7 +5,7 @@ info:
   version: 2.5.0
 
 servers:
-  - url: https://expressions-decision-fat-anna.trycloudflare.com
+  - url: https://trinity-s25-proxy.trinitys25steph.workers.dev
     description: S25 Cockpit PROD sur Akash
 
 components:
