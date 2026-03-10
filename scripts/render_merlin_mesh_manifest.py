@@ -20,6 +20,13 @@ from security.vault import S25Vault
 REQUIRED_KEYS = ("GEMINI_API_KEY", "S25_SHARED_SECRET")
 
 
+def normalize_secret(key: str, value: str) -> str:
+    cleaned = value.strip()
+    if "\r" in cleaned or "\n" in cleaned:
+        raise ValueError(f"{key} contains line breaks; re-store it cleanly in the vault")
+    return cleaned
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Render Akash merlin-mesh manifest with secrets from the S25 vault")
     parser.add_argument(
@@ -59,8 +66,8 @@ def main() -> int:
         env_map[key] = value
 
     env_map["COCKPIT_URL"] = args.cockpit_url
-    env_map["GEMINI_API_KEY"] = vault.require("GEMINI_API_KEY")
-    env_map["S25_SHARED_SECRET"] = vault.require("S25_SHARED_SECRET")
+    env_map["GEMINI_API_KEY"] = normalize_secret("GEMINI_API_KEY", vault.require("GEMINI_API_KEY"))
+    env_map["S25_SHARED_SECRET"] = normalize_secret("S25_SHARED_SECRET", vault.require("S25_SHARED_SECRET"))
 
     payload["services"]["s25-merlin-mesh"]["env"] = [f"{key}={value}" for key, value in env_map.items()]
 
