@@ -31,6 +31,9 @@ Fichier:
 Role:
 - indexer `memory/SHARED_MEMORY.md`
 - indexer `memory/agents_state.json`
+- indexer `memory/PROVIDER_WATCH.md`
+- indexer `memory/provider_watch_snapshot.json`
+- indexer les docs structurantes `PROVIDER_INTELLIGENCE`, `COMET_WORK_SYSTEM`, `AGENT_REGISTRY`, `WORKSTREAM_BOARD`
 - produire un index local `memory/gemini_memory_index.json`
 - permettre une recherche semantique basique
 
@@ -47,6 +50,12 @@ Rebuild index:
 python -m agents.gemini_memory
 ```
 
+Search memory:
+
+```bash
+python -m agents.gemini_memory --query "provider watch gemini embeddings" --top-k 5
+```
+
 ## Prochaines etapes
 
 1. brancher ce retrieval dans TRINITY / MERLIN
@@ -56,3 +65,4 @@ python -m agents.gemini_memory
    - missions history
    - docs architecture
 3. faire tourner cette indexation sur Akash plutot que sur laptop
+4. utiliser cette memoire pour la veille provider et les validations MERLIN
