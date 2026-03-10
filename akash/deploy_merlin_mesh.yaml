@@ -19,10 +19,14 @@ services:
       - RUN_ONCHAIN_GUARDIAN=false
       - RUN_MERLIN_MCP_BRIDGE=true
       - RUN_MERLIN_FEEDBACK_LOOP=true
+      - RUN_GEMINI_OPS_DAEMON=true
       - RUN_TREASURY_AUTOPILOT=false
       - MERLIN_MCP_PORT=8000
       - MERLIN_MCP_PATH=/mcp
       - MERLIN_FEEDBACK_SECONDS=180
+      - GEMINI_OPS_POLL_SECONDS=600
+      - GEMINI_MCP_ENDPOINT=https://da0m4r4tu5ctn0ja9r2t9c2vho.ingress.akashprovid.com/mcp
+      - RUN_GEMINI_MEMORY_REBUILD=false
       - GEMINI_EMBED_MODEL=gemini-embedding-001
 
 profiles:
