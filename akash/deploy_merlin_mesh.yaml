@@ -1,0 +1,50 @@
+---
+version: "2.0"
+
+services:
+  s25-merlin-mesh:
+    image: ghcr.io/stephaneboss/s25-command-center@sha256:48e9a6b0c8da12f474a8ec12ec995987cf1eeb4eb6d9852ba7c7fdb7fde0e508
+    expose:
+      - port: 8000
+        as: 80
+        to:
+          - global: true
+    env:
+      - COCKPIT_URL=https://trinity-s25-proxy.trinitys25steph.workers.dev
+      - GEMINI_API_KEY=
+      - S25_SHARED_SECRET=
+      - MEMORY_DIR=/app/memory
+      - PORT=7777
+      - RUN_ORACLE_AGENT=false
+      - RUN_ONCHAIN_GUARDIAN=false
+      - RUN_MERLIN_MCP_BRIDGE=true
+      - RUN_MERLIN_FEEDBACK_LOOP=true
+      - RUN_TREASURY_AUTOPILOT=false
+      - MERLIN_MCP_PORT=8000
+      - MERLIN_MCP_PATH=/mcp
+      - MERLIN_FEEDBACK_SECONDS=180
+      - GEMINI_EMBED_MODEL=gemini-embedding-001
+
+profiles:
+  compute:
+    s25-merlin-mesh:
+      resources:
+        cpu:
+          units: 0.25
+        memory:
+          size: 256Mi
+        storage:
+          size: 512Mi
+
+  placement:
+    akash:
+      pricing:
+        s25-merlin-mesh:
+          denom: uakt
+          amount: 100
+
+deployment:
+  s25-merlin-mesh:
+    akash:
+      profile: s25-merlin-mesh
+      count: 1

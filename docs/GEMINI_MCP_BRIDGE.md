@@ -55,6 +55,16 @@ Variables:
 - `MERLIN_MCP_PATH=/mcp`
 - `MERLIN_FEEDBACK_SECONDS=300`
 
+## Mode dedie recommande
+
+Fichier:
+- `akash/deploy_merlin_mesh.yaml`
+
+But:
+- isoler MERLIN/Gemini du cockpit principal
+- garder un module Akash leger, peu couteux, mais toujours online
+- permettre un endpoint MCP stable sans gonfler le service central
+
 ## Role dans S25
 
 - Gemini/MERLIN ne protege pas les serveurs par magie
