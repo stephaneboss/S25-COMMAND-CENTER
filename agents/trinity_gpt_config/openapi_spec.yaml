@@ -32,10 +32,10 @@ components:
       properties:
         created_by:
           type: string
-          enum: [TRINITY, ARKON, MERLIN, COMET, KIMI]
+          enum: [TRINITY, ARKON, MERLIN, COMET, KIMI, ORACLE, ONCHAIN_GUARDIAN]
         target:
           type: string
-          enum: [TRINITY, ARKON, MERLIN, COMET, KIMI]
+          enum: [TRINITY, ARKON, MERLIN, COMET, KIMI, ORACLE, ONCHAIN_GUARDIAN]
         task_type:
           type: string
           enum: [trading_analysis, market_news, code_generation, strategy_planning, infra_monitoring, automation_yaml, fallback]
@@ -58,7 +58,7 @@ components:
           enum: [queued, active, completed, failed, cancelled, done]
         actor:
           type: string
-          enum: [TRINITY, ARKON, MERLIN, COMET, KIMI]
+          enum: [TRINITY, ARKON, MERLIN, COMET, KIMI, ORACLE, ONCHAIN_GUARDIAN]
         result:
           type: object
           additionalProperties: true
@@ -78,7 +78,7 @@ components:
       properties:
         agent:
           type: string
-          enum: [TRINITY, ARKON, MERLIN, COMET, KIMI]
+          enum: [TRINITY, ARKON, MERLIN, COMET, KIMI, ORACLE, ONCHAIN_GUARDIAN]
         note:
           type: string
           description: Note courte de contexte de session.
@@ -88,11 +88,17 @@ components:
       properties:
         agent:
           type: string
-          enum: [TRINITY, ARKON, MERLIN, COMET, KIMI]
+          enum: [TRINITY, ARKON, MERLIN, COMET, KIMI, ORACLE, ONCHAIN_GUARDIAN]
         updates:
           type: object
           additionalProperties: true
         pipeline:
+          type: object
+          additionalProperties: true
+        market:
+          type: object
+          additionalProperties: true
+        intel:
           type: object
           additionalProperties: true
 paths:

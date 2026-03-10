@@ -250,6 +250,49 @@ def _status_summary(status: dict) -> dict:
         },
     }
 
+
+def _hydrate_status_from_memory(status: dict) -> dict:
+    """Backfill status from shared memory when HA data is absent or incomplete."""
+    state = _load_agents_state()
+    pipeline = state.get("pipeline", {})
+    missions = state.get("missions", {}).get("active", [])
+    feed = state.get("intel", {}).get("comet_feed", [])
+    market = state.get("market", {})
+    agents = state.get("agents", {})
+
+    last_signal = pipeline.get("last_signal") or {}
+    status["arkon5_action"] = str(
+        last_signal.get("trade_action")
+        or last_signal.get("action")
+        or status.get("arkon5_action")
+        or "HOLD"
+    )
+    status["arkon5_conf"] = last_signal.get("confidence", status.get("arkon5_conf", 0)) or 0
+
+    active_model = str(pipeline.get("active_model") or "").strip()
+    pipeline_mode = str(pipeline.get("mode") or "").strip()
+    if active_model and active_model != "INIT":
+        status["pipeline_status"] = active_model
+    elif missions:
+        status["pipeline_status"] = "MESH_READY"
+    elif pipeline_mode:
+        status["pipeline_status"] = pipeline_mode.upper()
+
+    if feed:
+        status["comet_intel"] = feed[0].get("summary", status.get("comet_intel"))
+
+    kimi_status = agents.get("KIMI", {}).get("status")
+    status["tunnel_active"] = bool(status.get("tunnel_active")) or kimi_status == "online"
+    status["missions_active"] = len(missions)
+    status["ha_connected"] = bool(HA_TOKEN)
+
+    if market.get("btc_usd") is not None:
+        status["btc_usd"] = market.get("btc_usd")
+    if market.get("eth_usd") is not None:
+        status["eth_usd"] = market.get("eth_usd")
+
+    return status
+
 HTML = '''<!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -513,10 +556,13 @@ def api_status():
         "hashrate": "--",
         "temp": "--",
         "comet_intel": "En attente...",
-        "tunnel_active": False
+        "tunnel_active": False,
+        "missions_active": 0,
+        "ha_connected": bool(HA_TOKEN)
     }
 
     if not HA_TOKEN:
+        _hydrate_status_from_memory(status)
         status.update(_status_summary(status))
         return jsonify(status)
 
@@ -543,6 +589,7 @@ def api_status():
     except Exception as e:
         status["error"] = str(e)
 
+    _hydrate_status_from_memory(status)
     status.update(_status_summary(status))
     return jsonify(status)
 
