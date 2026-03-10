@@ -9,6 +9,10 @@ services:
         as: 80
         to:
           - global: true
+      - port: 8000
+        as: 8000
+        to:
+          - global: true
     env:
       - HA_URL=http://10.0.0.136:8123
       - HA_TOKEN=
@@ -18,6 +22,11 @@ services:
       - S25_SHARED_SECRET=s25sandbox2026
       - RUN_ORACLE_AGENT=true
       - RUN_ONCHAIN_GUARDIAN=true
+      - RUN_MERLIN_MCP_BRIDGE=true
+      - RUN_MERLIN_FEEDBACK_LOOP=true
+      - MERLIN_MCP_PORT=8000
+      - MERLIN_MCP_PATH=/mcp
+      - MERLIN_FEEDBACK_SECONDS=300
       - ORACLE_POLL_SECONDS=300
       - ORACLE_SYMBOLS=BTC,ETH,AKT,ATOM
       - ONCHAIN_POLL_SECONDS=420

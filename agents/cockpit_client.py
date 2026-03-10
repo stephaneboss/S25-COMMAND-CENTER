@@ -80,6 +80,41 @@ class CockpitClient:
     def get_missions(self) -> Optional[Dict[str, Any]]:
         return self._get("/api/missions")
 
+    def get_shared_memory(self) -> Optional[Dict[str, Any]]:
+        return self._get("/api/memory")
+
+    def get_agents_state(self) -> Optional[Dict[str, Any]]:
+        return self._get("/api/memory/state")
+
+    def get_mesh_status(self) -> Optional[Dict[str, Any]]:
+        return self._get("/api/mesh/status")
+
+    def get_router_report(self) -> Optional[Dict[str, Any]]:
+        return self._get("/api/router/report")
+
+    def route_task(self, task_type: str) -> Optional[Dict[str, Any]]:
+        return self._post("/api/router/route", {"task_type": task_type})
+
+    def create_mission(
+        self,
+        created_by: str,
+        target: str,
+        task_type: str,
+        intent: str,
+        priority: str = "normal",
+        context: Optional[Dict[str, Any]] = None,
+    ) -> Optional[Dict[str, Any]]:
+        payload: Dict[str, Any] = {
+            "created_by": created_by,
+            "target": target,
+            "task_type": task_type,
+            "intent": intent,
+            "priority": priority,
+        }
+        if context is not None:
+            payload["context"] = context
+        return self._post("/api/missions", payload)
+
     def update_mission(
         self,
         mission_id: str,
