@@ -15,6 +15,19 @@
 - SANDBOX = terrain de jeu, peut exploser, c'est correct
 - Jamais de deploy direct en prod depuis un commit non teste
 
+## REGLE #1B - AKASH D'ABORD, LAPTOP ENSUITE
+
+- Toute fonction critique doit survivre a la fermeture du laptop Dell.
+- Si un composant est necessaire pour le boot, la memoire, les missions, le routage ou les signaux, il doit vivre sur Akash ou derriere un endpoint public stable.
+- Le laptop peut servir a developper, debugger et lancer des capacites locales non critiques.
+- Le laptop ne doit pas etre l'unique runtime pour:
+  - TRINITY bridge
+  - memory API
+  - missions API
+  - COMET feed
+  - routage GOUV4
+  - signaux Home Assistant
+
 ---
 
 ## REGLE #2 — FLOW OBLIGATOIRE
@@ -60,6 +73,23 @@ Jamais sauter une etape. Meme si c'est urgent.
 - Modifier via PR seulement (pas de push direct sur ce fichier en prod)
 - `agents_state.json` = runtime, peut changer en live via /api/memory/state
 - Backup memory = toujours dans GitHub (synce apres chaque session importante)
+
+## REGLE #5B - CLASSE DES DEPENDANCES
+
+- Niveau A = doit tourner sans laptop:
+  - cockpit Akash
+  - endpoint public TRINITY
+  - memory API
+  - missions API
+  - feed COMET
+- Niveau B = acceptable en fallback:
+  - Dell-Linux Ollama
+  - scripts de debug
+  - outils CLI locaux
+- Niveau C = a migrer hors laptop:
+  - tunnels manuels
+  - boucles locales necessaires au pipeline principal
+  - tout composant qui bloque S25 si le laptop s'eteint
 
 ---
 
