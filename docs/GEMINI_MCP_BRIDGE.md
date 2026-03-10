@@ -66,6 +66,9 @@ Preparation operateur:
 Validation handshake:
 - `pwsh -File scripts/test_merlin_mcp_handshake.ps1 -Endpoint "http://<ingress>/mcp"`
 
+Validation Gemini live:
+- `python scripts/run_gemini_merlin_interaction.py --endpoint "https://<ingress>/mcp"`
+
 But:
 - isoler MERLIN/Gemini du cockpit principal
 - garder un module Akash leger, peu couteux, mais toujours online
