@@ -126,6 +126,13 @@ Helper local:
 pwsh -File scripts/arm_provider_watch_mission.ps1
 ```
 
+Rail deployment Gemini/MERLIN:
+
+```powershell
+pwsh -File scripts/prepare_merlin_mesh_deploy.ps1
+pwsh -File scripts/test_merlin_mcp_handshake.ps1 -Endpoint "http://<ingress>/mcp"
+```
+
 ## Done
 
 Le systeme est bien configure quand:
