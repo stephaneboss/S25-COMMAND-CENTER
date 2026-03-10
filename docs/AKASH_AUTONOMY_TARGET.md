@@ -26,6 +26,7 @@ En moins de 120 secondes apres un redemarrage Akash, le systeme doit pouvoir:
 Doit vivre sur Akash ou derriere un endpoint public stable:
 - cockpit S25
 - TRINITY bridge public
+- MERLIN MCP bridge public
 - memory API
 - mission queue
 - feed COMET
@@ -72,6 +73,7 @@ Encore dependants a reduire:
 
 1. Deployer `oracle-agent` sur Akash
 2. Deployer `onchain-guardian` sur Akash
-3. Donner a COMET une boucle plus autonome que la simple mission queue
-4. Mettre KIMI derriere un endpoint stable au lieu d'un tunnel manuel
-5. Garder Dell-Linux uniquement pour l'inference locale additionnelle
+3. Deployer `merlin-mesh` comme module Akash separe
+4. Donner a COMET une boucle plus autonome que la simple mission queue
+5. Mettre KIMI derriere un endpoint stable au lieu d'un tunnel manuel
+6. Garder Dell-Linux uniquement pour l'inference locale additionnelle
