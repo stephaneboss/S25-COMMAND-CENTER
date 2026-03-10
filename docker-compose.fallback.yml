@@ -1,0 +1,29 @@
+services:
+  s25-cockpit:
+    image: ghcr.io/stephaneboss/s25-command-center:main
+    restart: unless-stopped
+    ports:
+      - "7777:7777"
+    env_file:
+      - .env
+    environment:
+      PORT: "7777"
+      MEMORY_DIR: /app/memory
+      RUN_ORACLE_AGENT: "true"
+      RUN_ONCHAIN_GUARDIAN: "true"
+      ORACLE_POLL_SECONDS: "300"
+      ORACLE_SYMBOLS: "BTC,ETH,AKT,ATOM"
+      ONCHAIN_POLL_SECONDS: "420"
+      ONCHAIN_TOKEN_LIST: ""
+      GEMINI_EMBED_MODEL: "gemini-embedding-001"
+    volumes:
+      - s25_memory:/app/memory
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7777/api/version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  s25_memory:
