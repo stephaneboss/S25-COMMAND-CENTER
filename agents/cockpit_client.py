@@ -5,6 +5,7 @@ import os
 from typing import Any, Dict, Optional
 
 import requests
+from security.vault import vault_get
 
 
 log = logging.getLogger("s25.cockpit_client")
@@ -13,7 +14,11 @@ log = logging.getLogger("s25.cockpit_client")
 class CockpitClient:
     def __init__(self, base_url: Optional[str] = None, shared_secret: Optional[str] = None, timeout: int = 15):
         self.base_url = (base_url or os.getenv("COCKPIT_URL", "http://localhost:7777")).rstrip("/")
-        self.shared_secret = shared_secret if shared_secret is not None else os.getenv("S25_SHARED_SECRET", "")
+        self.shared_secret = (
+            shared_secret
+            if shared_secret is not None
+            else (vault_get("S25_SHARED_SECRET", os.getenv("S25_SHARED_SECRET", "")) or "")
+        )
         self.timeout = timeout
 
     def _headers(self) -> Dict[str, str]:

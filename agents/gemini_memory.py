@@ -8,11 +8,12 @@ from pathlib import Path
 from typing import Dict, List
 
 import requests
+from security.vault import vault_get
 
 
 log = logging.getLogger("s25.gemini_memory")
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_API_KEY = vault_get("GEMINI_API_KEY", os.getenv("GEMINI_API_KEY", "")) or ""
 GEMINI_EMBED_MODEL = os.getenv("GEMINI_EMBED_MODEL", "gemini-embedding-001")
 DEFAULT_ROOT_DIR = Path(__file__).resolve().parents[1]
 MEMORY_DIR = Path(os.getenv("MEMORY_DIR", str(DEFAULT_ROOT_DIR / "memory")))
