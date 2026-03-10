@@ -1,0 +1,9 @@
+tunnel: trinity-s25
+credentials-file: C:\cloudflared\trinity-s25.json
+
+ingress:
+  - hostname: trinity.s25lumiere.net
+    service: http://kfhsi5oko9dbt3abob51g4s9q0.ingress.cap-test-compute.com
+    originRequest:
+      httpHostHeader: kfhsi5oko9dbt3abob51g4s9q0.ingress.cap-test-compute.com
+  - service: http_status:404
