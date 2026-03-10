@@ -92,6 +92,24 @@ Next:
 - tuning sources
 - enrichissement risk model
 
+### WS6 - Provider Intel
+
+Owner:
+- Codex + COMET + MERLIN
+
+But:
+- suivre les nouveautes critiques providers sans attendre les surprises
+
+Etat:
+- doctrine provider intelligence posee
+- snapshot local provider a present generable
+- mission COMET provider-watch a present armable
+
+Next:
+- armer la mission COMET provider-watch
+- relire les impacts Gemini / OpenAI / Comet dans TRINITY
+- brancher le snapshot provider dans la memoire semantique Gemini
+
 ## Blockers
 
 - editeur GPT ChatGPT instable dans le navigateur pilote

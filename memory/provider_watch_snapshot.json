@@ -1,0 +1,78 @@
+{
+  "generated_at": "2026-03-10T17:06:18.172103+00:00",
+  "status": "partial",
+  "checks": [
+    {
+      "provider": "OpenAI",
+      "category": "changelog",
+      "url": "https://platform.openai.com/docs/changelog",
+      "title": "Changelog | OpenAI API",
+      "status": "ok",
+      "checked_at": "2026-03-10T17:06:18.172103+00:00",
+      "note": "Track Responses API, tools, MCP, background mode, and GPT-compatible patterns."
+    },
+    {
+      "provider": "OpenAI",
+      "category": "responses_news",
+      "url": "https://openai.com/index/new-tools-and-features-in-the-responses-api/",
+      "title": "New tools and features in the Responses API",
+      "status": "ok",
+      "checked_at": "2026-03-10T17:06:18.172103+00:00",
+      "note": "Use as product direction for agent tooling and future TRINITY upgrades."
+    },
+    {
+      "provider": "Google",
+      "category": "gemini_changelog",
+      "url": "https://ai.google.dev/gemini-api/docs/changelog",
+      "title": "Release notes \u00a0|\u00a0 Gemini API \u00a0|\u00a0 Google AI for Developers",
+      "status": "ok",
+      "checked_at": "2026-03-10T17:06:18.172103+00:00",
+      "note": "Gemini remains the long-term memory and retrieval pillar for S25."
+    },
+    {
+      "provider": "Google",
+      "category": "embedding_ga",
+      "url": "https://developers.googleblog.com/en/gemini-embedding-available-gemini-api/",
+      "title": "Gemini Embedding now generally available in the Gemini API- Google Developers Blog",
+      "status": "ok",
+      "checked_at": "2026-03-10T17:06:18.172103+00:00",
+      "note": "Watch embedding updates and retirement windows for legacy embedding models."
+    },
+    {
+      "provider": "Anthropic",
+      "category": "release_notes",
+      "url": "https://docs.anthropic.com/en/release-notes/api",
+      "title": "Claude Developer Platform",
+      "status": "ok",
+      "checked_at": "2026-03-10T17:06:18.172103+00:00",
+      "note": "Watch compatibility features, model lifecycle, and code/backend primitives."
+    },
+    {
+      "provider": "Perplexity",
+      "category": "comet_shortcuts",
+      "url": "https://www.perplexity.ai/help-center/en/articles/11897890-comet-shortcuts",
+      "title": "comet_shortcuts",
+      "status": "restricted",
+      "checked_at": "2026-03-10T17:06:18.172103+00:00",
+      "note": "Shortcuts are the best current lever for repeatable provider-watch workflows in Comet."
+    },
+    {
+      "provider": "Perplexity",
+      "category": "assistant_permissions",
+      "url": "https://comet-help.perplexity.ai/en/articles/12658082-control-what-comet-assistant-can-use",
+      "title": "assistant_permissions",
+      "status": "restricted",
+      "checked_at": "2026-03-10T17:06:18.172103+00:00",
+      "note": "Use to keep Comet useful but constrained when it touches account surfaces."
+    },
+    {
+      "provider": "Perplexity",
+      "category": "work_guide",
+      "url": "https://r2cdn.perplexity.ai/pdf/pplx-at-work.pdf",
+      "title": "work_guide_pdf",
+      "status": "ok",
+      "checked_at": "2026-03-10T17:06:18.172103+00:00",
+      "note": "Use Work patterns to turn provider watch into a repeatable operating routine."
+    }
+  ]
+}

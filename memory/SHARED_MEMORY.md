@@ -86,3 +86,4 @@
 7. [TODO] Pipeline end-to-end dry_run
 8. [TODO] agent_loop.py -> DELL-LINUX uniquement en fallback
 9. [TODO] MEXC Sunday series live
+10. [IN PROGRESS] Provider watch structure via COMET Work + snapshot local
