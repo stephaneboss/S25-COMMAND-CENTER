@@ -77,3 +77,4 @@ Encore dependants a reduire:
 4. Donner a COMET une boucle plus autonome que la simple mission queue
 5. Mettre KIMI derriere un endpoint stable au lieu d'un tunnel manuel
 6. Garder Dell-Linux uniquement pour l'inference locale additionnelle
+7. Faire tourner `Gemini Ops Daemon` sur Akash pour surveiller `Interactions + MCP` sans laptop
