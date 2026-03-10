@@ -60,6 +60,12 @@ Variables:
 Fichier:
 - `akash/deploy_merlin_mesh.yaml`
 
+Preparation operateur:
+- `pwsh -File scripts/prepare_merlin_mesh_deploy.ps1`
+
+Validation handshake:
+- `pwsh -File scripts/test_merlin_mcp_handshake.ps1 -Endpoint "http://<ingress>/mcp"`
+
 But:
 - isoler MERLIN/Gemini du cockpit principal
 - garder un module Akash leger, peu couteux, mais toujours online
