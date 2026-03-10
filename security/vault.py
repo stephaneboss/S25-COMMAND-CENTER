@@ -1,217 +1,245 @@
 """
-S25 Lumière — Security Vault
-=============================
-Encrypted API key management. Zero leaks.
+S25 Lumiere security vault.
 
-Key loading priority (highest → lowest):
-1. Environment variables (Akash container env → safest)
-2. .env file (local dev only — NEVER commit)
-3. Raise ValueError if required key missing
-
-NEVER hardcode secrets in source code.
-NEVER log secret values.
+Priority order:
+1. Runtime environment variables
+2. OS keyring / credential manager
+3. Local .env fallback
 """
 
-import os
-import json
+from __future__ import annotations
+
 import logging
+import os
 from datetime import datetime
-from typing import Dict, Optional
 from pathlib import Path
+from typing import Dict, Optional
 
 logger = logging.getLogger("s25.vault")
 
+try:
+    import keyring
+    from keyring.errors import KeyringError
+except Exception:  # pragma: no cover - optional dependency
+    keyring = None
+
+    class KeyringError(Exception):
+        pass
+
 
 class S25Vault:
-    """
-    Secure API key vault for S25 agents.
-
-    Usage:
-        vault = S25Vault()
-        ha_token   = vault.require("HA_TOKEN")
-        gemini_key = vault.require("GEMINI_API_KEY")
-        mexc_key   = vault.get("MEXC_API_KEY")  # Optional — returns None if missing
-    """
-
-    # Keys that MUST be present for core system to function
     REQUIRED_KEYS: Dict[str, str] = {
-        "HA_TOKEN":       "Home Assistant Long-Lived API Token",
-        "GEMINI_API_KEY": "Google Gemini API Key (main AI model)",
+        "HA_TOKEN": "Home Assistant long-lived API token",
+        "GEMINI_API_KEY": "Google Gemini API key",
+        "S25_SHARED_SECRET": "Shared secret for cockpit public actions",
     }
 
-    # Keys needed for trading operations
     TRADING_KEYS: Dict[str, str] = {
-        "MEXC_API_KEY":    "MEXC Exchange API Key",
-        "MEXC_SECRET_KEY": "MEXC Exchange Secret Key",
+        "MEXC_API_KEY": "MEXC exchange API key",
+        "MEXC_SECRET_KEY": "MEXC exchange secret key",
     }
 
-    # Optional enhancement keys
     OPTIONAL_KEYS: Dict[str, str] = {
-        "OPENAI_API_KEY":       "OpenAI GPT API Key (backup AI)",
-        "PERPLEXITY_API_KEY":   "Perplexity AI API Key",
-        "KIMI_API_KEY":         "Kimi Web3 API Key",
-        "TELEGRAM_BOT_TOKEN":   "Telegram Notification Bot Token",
-        "TELEGRAM_CHAT_ID":     "Telegram Chat ID for alerts",
-        "OSMOSIS_MNEMONIC":     "Osmosis Wallet Mnemonic (auto-swap)",
+        "OPENAI_API_KEY": "OpenAI API key",
+        "ANTHROPIC_API_KEY": "Anthropic API key",
+        "PERPLEXITY_API_KEY": "Perplexity API key",
+        "KIMI_API_KEY": "Kimi API key",
+        "TELEGRAM_BOT_TOKEN": "Telegram bot token",
+        "TELEGRAM_CHAT_ID": "Telegram chat id",
+        "OSMOSIS_MNEMONIC": "Osmosis wallet mnemonic",
     }
 
-    # Values that indicate a placeholder (not a real key)
     PLACEHOLDER_VALUES = {
-        "REPLACE_WITH_TOKEN",
-        "REPLACE_WITH_KEY",
-        "YOUR_KEY_HERE",
-        "TODO",
         "",
+        "TODO",
+        "YOUR_KEY_HERE",
+        "REPLACE_WITH_KEY",
+        "REPLACE_WITH_TOKEN",
+        "change_me_x100",
+        "change_me_s25_secret",
     }
 
     def __init__(self, env_file: str = ".env"):
-        self._secrets:     Dict[str, str] = {}
-        self._sources:     Dict[str, str] = {}
-        self._env_file     = Path(env_file)
+        self._env_file = Path(env_file)
+        self._service_name = os.getenv("S25_VAULT_SERVICE", "S25-LUMIERE")
+        self._secrets: Dict[str, str] = {}
+        self._sources: Dict[str, str] = {}
         self._load_all()
 
-    def _load_all(self):
-        """Load from .env then override with real env vars."""
-        # Step 1: .env file (lowest priority — dev only)
-        if self._env_file.exists():
-            self._load_env_file()
-
-        # Step 2: Real environment variables (override .env)
-        all_known = {
+    @property
+    def all_known_keys(self) -> Dict[str, str]:
+        return {
             **self.REQUIRED_KEYS,
             **self.TRADING_KEYS,
-            **self.OPTIONAL_KEYS
+            **self.OPTIONAL_KEYS,
         }
-        for key in all_known:
-            val = os.environ.get(key, "").strip()
-            if val and val not in self.PLACEHOLDER_VALUES:
-                self._secrets[key] = val
+
+    def _is_real(self, value: Optional[str]) -> bool:
+        if value is None:
+            return False
+        return value.strip() not in self.PLACEHOLDER_VALUES
+
+    def _load_all(self) -> None:
+        if self._env_file.exists():
+            self._load_env_file()
+        self._load_keyring()
+        self._load_environment()
+
+        logger.info("Vault initialized with %s secrets", len(self._secrets))
+        missing = [key for key in self.REQUIRED_KEYS if key not in self._secrets]
+        if missing:
+            logger.warning("Missing required keys: %s", missing)
+
+    def _load_env_file(self) -> None:
+        try:
+            for raw in self._env_file.read_text(encoding="utf-8").splitlines():
+                line = raw.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, _, value = line.partition("=")
+                key = key.strip()
+                value = value.strip().strip('"').strip("'")
+                if self._is_real(value):
+                    self._secrets[key] = value
+                    self._sources[key] = ".env"
+        except Exception as exc:
+            logger.warning("Could not read %s: %s", self._env_file, exc)
+
+    def _load_keyring(self) -> None:
+        if not keyring:
+            return
+        for key in self.all_known_keys:
+            try:
+                value = keyring.get_password(self._service_name, key)
+            except KeyringError as exc:
+                logger.warning("Keyring read failed for %s: %s", key, exc)
+                return
+            if self._is_real(value):
+                self._secrets[key] = value.strip()
+                self._sources[key] = "keyring"
+
+    def _load_environment(self) -> None:
+        for key in self.all_known_keys:
+            value = os.getenv(key)
+            if self._is_real(value):
+                self._secrets[key] = value.strip()
                 self._sources[key] = "env_var"
 
-        loaded_count = len(self._secrets)
-        logger.info(f"Vault initialized: {loaded_count} secrets loaded")
-
-        # Log missing required keys (without values)
-        missing = [k for k in self.REQUIRED_KEYS if k not in self._secrets]
-        if missing:
-            logger.warning(f"Missing required keys: {missing}")
-
-    def _load_env_file(self):
-        """Parse .env file into secrets dict."""
-        try:
-            with open(self._env_file, encoding="utf-8") as f:
-                for line in f:
-                    line = line.strip()
-                    # Skip comments and empty lines
-                    if not line or line.startswith("#") or "=" not in line:
-                        continue
-
-                    key, _, value = line.partition("=")
-                    key   = key.strip()
-                    value = value.strip().strip('"').strip("'")
-
-                    if value and value not in self.PLACEHOLDER_VALUES:
-                        self._secrets[key] = value
-                        self._sources[key] = ".env"
-
-            logger.debug(f"Loaded .env: {self._env_file}")
-        except Exception as e:
-            logger.warning(f"Could not read .env: {e}")
-
-    # ─── Public API ──────────────────────────────────────────────────────────
-
     def get(self, key: str, default: Optional[str] = None) -> Optional[str]:
-        """
-        Get a secret by key. Returns default if not found.
-        Safe to call for optional keys.
-        """
         return self._secrets.get(key, default)
 
     def require(self, key: str) -> str:
-        """
-        Get a required secret. Raises ValueError if missing.
-        Use for keys that the system cannot operate without.
-        """
-        val = self._secrets.get(key)
-        if not val:
-            desc = {
-                **self.REQUIRED_KEYS,
-                **self.TRADING_KEYS,
-                **self.OPTIONAL_KEYS
-            }.get(key, "Unknown key")
-            raise ValueError(
-                f"Required secret '{key}' not set.\n"
-                f"Description: {desc}\n"
-                f"Fix: Add '{key}=your_value' to .env or set as environment variable."
-            )
-        return val
+        value = self._secrets.get(key)
+        if value:
+            return value
+        desc = self.all_known_keys.get(key, "Unknown key")
+        raise ValueError(
+            f"Required secret '{key}' not set. Description: {desc}. "
+            f"Add it to runtime env, OS keyring, or {self._env_file}."
+        )
 
     def has(self, key: str) -> bool:
-        """Check if a key is available."""
         return key in self._secrets
 
+    def source(self, key: str) -> str:
+        return self._sources.get(key, "missing")
+
     def mask(self, key: str) -> str:
-        """Return masked value for safe logging. Never logs real values."""
-        val = self._secrets.get(key, "")
-        if not val:
+        value = self._secrets.get(key, "")
+        if not value:
             return "[NOT SET]"
-        if len(val) <= 8:
+        if len(value) <= 8:
             return "****"
-        return val[:4] + "****" + val[-4:]
+        return value[:4] + "****" + value[-4:]
 
-    # ─── Audit ───────────────────────────────────────────────────────────────
+    def set_local(self, key: str, value: str, prefer_keyring: bool = True) -> str:
+        value = value.strip()
+        if not self._is_real(value):
+            raise ValueError(f"Secret '{key}' is empty or placeholder")
 
-    def audit(self) -> Dict:
-        """
-        Security audit report — shows presence/source but NEVER values.
-        Safe to log/store.
-        """
-        all_keys = {
-            **self.REQUIRED_KEYS,
-            **self.TRADING_KEYS,
-            **self.OPTIONAL_KEYS
-        }
+        if prefer_keyring and keyring:
+            keyring.set_password(self._service_name, key, value)
+            self._secrets[key] = value
+            self._sources[key] = "keyring"
+            return "keyring"
 
+        current = {}
+        if self._env_file.exists():
+            for raw in self._env_file.read_text(encoding="utf-8").splitlines():
+                if "=" not in raw or raw.strip().startswith("#"):
+                    continue
+                name, _, existing = raw.partition("=")
+                current[name.strip()] = existing.strip()
+        current[key] = value
+        rendered = "\n".join(f"{name}={current[name]}" for name in sorted(current))
+        self._env_file.write_text(rendered + "\n", encoding="utf-8")
+        self._secrets[key] = value
+        self._sources[key] = ".env"
+        return ".env"
+
+    def delete_local(self, key: str) -> list[str]:
+        removed = []
+        if keyring:
+            try:
+                keyring.delete_password(self._service_name, key)
+                removed.append("keyring")
+            except Exception:
+                pass
+
+        if self._env_file.exists():
+            kept = []
+            changed = False
+            for raw in self._env_file.read_text(encoding="utf-8").splitlines():
+                if raw.strip().startswith(f"{key}="):
+                    changed = True
+                    continue
+                kept.append(raw)
+            if changed:
+                text = "\n".join(kept).strip()
+                self._env_file.write_text((text + "\n") if text else "", encoding="utf-8")
+                removed.append(".env")
+
+        self._secrets.pop(key, None)
+        self._sources.pop(key, None)
+        return removed
+
+    def export_env_map(self, include_optional: bool = False) -> Dict[str, str]:
+        keys = {**self.REQUIRED_KEYS, **self.TRADING_KEYS}
+        if include_optional:
+            keys.update(self.OPTIONAL_KEYS)
+        return {key: self._secrets[key] for key in keys if key in self._secrets}
+
+    def audit(self) -> Dict[str, object]:
         return {
-            "timestamp":        datetime.utcnow().isoformat(),
-            "total_loaded":     len(self._secrets),
+            "timestamp": datetime.utcnow().isoformat(),
+            "total_loaded": len(self._secrets),
             "loaded": {
                 key: {
                     "present": True,
-                    "source":  self._sources.get(key, "unknown"),
-                    "masked":  self.mask(key)
+                    "source": self._sources.get(key, "unknown"),
+                    "masked": self.mask(key),
                 }
-                for key in self._secrets
+                for key in sorted(self._secrets)
             },
-            "missing_required": [
-                k for k in self.REQUIRED_KEYS if k not in self._secrets
-            ],
-            "missing_trading":  [
-                k for k in self.TRADING_KEYS  if k not in self._secrets
-            ],
-            "missing_optional": [
-                k for k in self.OPTIONAL_KEYS if k not in self._secrets
-            ],
+            "missing_required": [key for key in self.REQUIRED_KEYS if key not in self._secrets],
+            "missing_trading": [key for key in self.TRADING_KEYS if key not in self._secrets],
+            "missing_optional": [key for key in self.OPTIONAL_KEYS if key not in self._secrets],
         }
 
     def check_ready(self) -> Dict[str, bool]:
-        """Quick readiness check for all key categories."""
         return {
-            "core_ready":    all(k in self._secrets for k in self.REQUIRED_KEYS),
-            "trading_ready": all(k in self._secrets for k in self.TRADING_KEYS),
-            "ha_ready":      "HA_TOKEN" in self._secrets,
-            "ai_ready":      "GEMINI_API_KEY" in self._secrets,
-            "mexc_ready":    all(k in self._secrets for k in ["MEXC_API_KEY", "MEXC_SECRET_KEY"]),
+            "core_ready": all(key in self._secrets for key in self.REQUIRED_KEYS),
+            "trading_ready": all(key in self._secrets for key in self.TRADING_KEYS),
+            "ha_ready": "HA_TOKEN" in self._secrets,
+            "ai_ready": "GEMINI_API_KEY" in self._secrets,
+            "mexc_ready": all(key in self._secrets for key in self.TRADING_KEYS),
         }
 
-
-# ─── Singleton ───────────────────────────────────────────────────────────────
 
 _vault: Optional[S25Vault] = None
 
 
 def get_vault(env_file: str = ".env") -> S25Vault:
-    """Get or create the global vault instance."""
     global _vault
     if _vault is None:
         _vault = S25Vault(env_file)
@@ -219,10 +247,8 @@ def get_vault(env_file: str = ".env") -> S25Vault:
 
 
 def vault_get(key: str, default: Optional[str] = None) -> Optional[str]:
-    """Shorthand: get a secret from global vault."""
     return get_vault().get(key, default)
 
 
 def vault_require(key: str) -> str:
-    """Shorthand: require a secret from global vault."""
     return get_vault().require(key)

@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from agents.gouv4_planner import GOUV4Router
+from security.vault import vault_get
 
 MEMORY_DIR = Path(os.getenv("MEMORY_DIR", "/app/memory"))
 MEMORY_DIR.mkdir(parents=True, exist_ok=True)
@@ -22,10 +23,10 @@ app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "s25_lumiere_secret_x100")
 
 HA_URL          = os.getenv("HA_URL", "http://homeassistant.local:8123")
-HA_TOKEN        = os.getenv("HA_TOKEN", "")
-GEMINI_API_KEY  = os.getenv("GEMINI_API_KEY", "")
+HA_TOKEN        = vault_get("HA_TOKEN", os.getenv("HA_TOKEN", "")) or ""
+GEMINI_API_KEY  = vault_get("GEMINI_API_KEY", os.getenv("GEMINI_API_KEY", "")) or ""
 GEMINI_MODEL    = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
-S25_SECRET      = os.getenv("S25_SHARED_SECRET", "")
+S25_SECRET      = vault_get("S25_SHARED_SECRET", os.getenv("S25_SHARED_SECRET", "")) or ""
 APP_BUILD_SHA   = os.getenv("APP_BUILD_SHA", "dev")
 ALLOW_PUBLIC_ACTIONS = os.getenv("ALLOW_PUBLIC_ACTIONS", "true").lower() in {"1", "true", "yes", "on"}
 gouv4_router = GOUV4Router()

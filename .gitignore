@@ -82,3 +82,4 @@ data/
 *.db
 *.sqlite
 portfolio_data/
+memory/gemini_memory_index.json

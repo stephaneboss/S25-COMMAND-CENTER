@@ -15,7 +15,7 @@
 
 .PHONY: all install run run-agents run-treasury run-sentinel \
         health audit test lint clean deploy-ha sync akash-status \
-        akash-fund vault-check
+        akash-fund vault-check secrets-doctor secrets-export
 
 PYTHON  = python3
 PIP     = pip3
@@ -138,6 +138,12 @@ for k, v in ready.items():
 "
 
 vault-check: audit
+
+secrets-doctor:
+	@$(PYTHON) scripts/manage_secrets.py doctor
+
+secrets-export:
+	@$(PYTHON) scripts/manage_secrets.py export --include-optional
 
 # ─── Testing ────────────────────────────────────────────────────────
 
