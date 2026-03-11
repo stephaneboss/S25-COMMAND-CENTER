@@ -48,6 +48,9 @@ function copyRequestHeaders(headers, requestId, env, clientIp) {
   if (env.ORIGIN_HOST_HEADER) {
     out.set("host", env.ORIGIN_HOST_HEADER);
   }
+  if (env.S25_SHARED_SECRET) {
+    out.set("x-s25-secret", env.S25_SHARED_SECRET);
+  }
   out.set("x-trinity-request-id", requestId);
   if (clientIp) {
     out.set("x-forwarded-for", clientIp);
@@ -81,6 +84,7 @@ function buildProxyMeta(env, requestId, targetUrl) {
     target_url: targetUrl.toString(),
     timeout_ms: Number(env.PROXY_TIMEOUT_MS || 15000),
     retries: Number(env.PROXY_RETRIES || 1),
+    shared_secret_configured: Boolean(env.S25_SHARED_SECRET),
   };
 }
 
