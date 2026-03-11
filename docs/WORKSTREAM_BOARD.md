@@ -18,6 +18,7 @@ Etat:
 - endpoint Worker stable en place
 - cockpit Akash principal present: `25838342`
 - cockpit Akash secondaire conserve: `25822281`
+- cockpit Akash secondaire v2 cree: `25882621`
 - module `merlin-mesh` officiel live: `25878071`
 - module GPU conserve: `25708774`
 
