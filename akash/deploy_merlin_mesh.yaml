@@ -3,7 +3,7 @@ version: "2.0"
 
 services:
   s25-merlin-mesh:
-    image: ghcr.io/stephaneboss/s25-command-center@sha256:48e9a6b0c8da12f474a8ec12ec995987cf1eeb4eb6d9852ba7c7fdb7fde0e508
+    image: ghcr.io/stephaneboss/s25-command-center:main
     expose:
       - port: 8000
         as: 80
