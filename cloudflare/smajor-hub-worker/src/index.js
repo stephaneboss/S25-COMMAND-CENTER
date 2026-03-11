@@ -930,6 +930,91 @@ const STAFF_DASHBOARD_MODEL = {
   ],
 };
 
+const CLIENT_REGISTRY_LIVE_MODEL = {
+  title: "Client registry live",
+  summary: "Premiers comptes vivants pour piloter le portail client, la facturation et les services actives.",
+  columns: [
+    {
+      label: "Active clients",
+      items: [
+        "client-alpha-001 | Alpha Yard Services | active",
+        "client-major-lab-001 | Major AI Lab Pilot | pilot_active",
+      ],
+    },
+    {
+      label: "Bindings",
+      items: [
+        "client_contact -> client_badge -> client_scope_alpha",
+        "client_contact -> client_badge -> client_scope_major_lab",
+      ],
+    },
+    {
+      label: "Commercial",
+      items: [
+        "invoice_ready",
+        "quote_prepared",
+        "portal_state pending_secure_access/live",
+      ],
+    },
+  ],
+};
+
+const JOB_REGISTRY_LIVE_MODEL = {
+  title: "Job registry live",
+  summary: "Premiers jobs vivants relies a des equipes, des scopes et des fenetres d'intervention.",
+  columns: [
+    {
+      label: "Field jobs",
+      items: [
+        "job-alpha-yard-001 | excavation | crew-east-01",
+        "2026-03-13 AM | mini-excavator-02 | scheduled",
+      ],
+    },
+    {
+      label: "AI jobs",
+      items: [
+        "job-major-lab-ops-001 | ai_automation | ai-ops-s25",
+        "2026-03-14 PM | trinity, merlin, comet | briefing",
+      ],
+    },
+    {
+      label: "Scopes",
+      items: [
+        "field_scope_east",
+        "ai_scope_smajor",
+      ],
+    },
+  ],
+};
+
+const QUOTES_INVOICES_LIVE_MODEL = {
+  title: "Quotes and invoices live",
+  summary: "Premiers devis et factures vivants pour valider le tunnel commercial sans ouvrir la vraie data critique.",
+  columns: [
+    {
+      label: "Quote lane",
+      items: [
+        "quote-major-lab-001 | 3200 CAD",
+        "quote_prepared | client-major-lab-001",
+      ],
+    },
+    {
+      label: "Invoice lane",
+      items: [
+        "invoice-alpha-001 | 4800 CAD",
+        "awaiting_collection | client-alpha-001",
+      ],
+    },
+    {
+      label: "Links",
+      items: [
+        "quote-alpha-001 -> job-alpha-yard-001",
+        "quote-major-lab-001 -> job-major-lab-ops-001",
+      ],
+    },
+  ],
+};
+
 const ALPHA_CLIENT_PILOT_MODEL = {
   title: "Alpha client pilot",
   summary: "Premier client de reference pour valider le tunnel intake -> quote -> invoice -> payment sans exposer les details sensibles au public.",
@@ -1270,6 +1355,34 @@ function layout({
         </div>
         <div class="module-grid">
           ${moduleSection.mvpRegistries.columns
+            .map(
+              (column) => `
+                <article class="module-card">
+                  <div class="label">${column.label}</div>
+                  <ul>
+                    ${column.items.map((item) => `<li>${item}</li>`).join("")}
+                  </ul>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
+  const liveRegistryHtml = moduleSection && moduleSection.liveRegistries
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Live data</div>
+            <h2>${moduleSection.liveRegistries.title}</h2>
+          </div>
+          <p>${moduleSection.liveRegistries.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.liveRegistries.columns
             .map(
               (column) => `
                 <article class="module-card">
@@ -1976,6 +2089,7 @@ function layout({
       ${accessHtml}
       ${registryHtml}
       ${mvpRegistryHtml}
+      ${liveRegistryHtml}
       ${controlPlaneHtml}
       ${roleGovernanceHtml}
       ${identityRegistryHtml}
@@ -2247,6 +2361,25 @@ function mvpRegistrySection(pathname) {
   };
 }
 
+function liveRegistrySection(pathname) {
+  const mapping = {
+    "/clients": [CLIENT_REGISTRY_LIVE_MODEL, JOB_REGISTRY_LIVE_MODEL, QUOTES_INVOICES_LIVE_MODEL],
+    "/admin": [CLIENT_REGISTRY_LIVE_MODEL, JOB_REGISTRY_LIVE_MODEL, QUOTES_INVOICES_LIVE_MODEL],
+  };
+  const registries = mapping[pathname];
+  if (!registries) {
+    return null;
+  }
+  return {
+    title: "Live registries",
+    intro: "Premieres entrees vivantes pour sortir des schemas seuls et preparer la vraie operation business.",
+    columns: registries.map((registry) => ({
+      label: registry.title,
+      items: registry.columns.flatMap((column) => column.items.slice(0, 2)),
+    })),
+  };
+}
+
 function controlPlaneSection(pathname) {
   if (!["/", "/admin", "/ai"].includes(pathname)) {
     return null;
@@ -2446,6 +2579,7 @@ function renderApp(env, pathname, hostname, snapshot) {
     blueprint: blueprintFromPath(pathname),
     accessModel: accessSectionFromPath(pathname),
     mvpRegistries: mvpRegistrySection(pathname),
+    liveRegistries: liveRegistrySection(pathname),
     controlPlane: controlPlaneSection(pathname),
     roleGovernance: roleGovernanceSection(pathname),
     identityRegistry: identityRegistrySection(pathname),
@@ -2623,6 +2757,33 @@ export default {
         domain: "smajor.org",
         source_of_truth: "api.smajor.org staff dashboard facade + staff portal",
         ...STAFF_DASHBOARD_MODEL,
+      });
+    }
+
+    if (url.pathname === "/models/client-registry-live.json") {
+      return jsonResponse({
+        ok: true,
+        domain: "smajor.org",
+        source_of_truth: "api.smajor.org client-registry-live",
+        ...CLIENT_REGISTRY_LIVE_MODEL,
+      });
+    }
+
+    if (url.pathname === "/models/job-registry-live.json") {
+      return jsonResponse({
+        ok: true,
+        domain: "smajor.org",
+        source_of_truth: "api.smajor.org job-registry-live",
+        ...JOB_REGISTRY_LIVE_MODEL,
+      });
+    }
+
+    if (url.pathname === "/models/quotes-invoices-live.json") {
+      return jsonResponse({
+        ok: true,
+        domain: "smajor.org",
+        source_of_truth: "api.smajor.org quotes-invoices-live",
+        ...QUOTES_INVOICES_LIVE_MODEL,
       });
     }
 
