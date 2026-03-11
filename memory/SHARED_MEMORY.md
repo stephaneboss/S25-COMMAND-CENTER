@@ -17,15 +17,20 @@
 
 ### Akash (Cockpit principal)
 - Cockpit public stable: https://trinity-s25-proxy.trinitys25steph.workers.dev
-- Origin Akash principal: https://uoqlngdqqlc29fhg8l78qt80d8.ingress.akashprovid.com
-- DSEQ: 25838342 | Provider: provider.akashprovid.com
-- Role: cockpit principal derriere le Worker public
+- Origin Akash public courant: http://fpog7pbvepbkrfae1529ics23k.ingress.cap-test-compute.com
+- DSEQ: 25883220 | Provider: provider.cap-test-compute.com
+- Role: cockpit public courant derriere le Worker, build 8978177 et status mesh corrige
 - Doctrine: endpoint public stable devant Akash, pas de dependance laptop pour TRINITY
+
+### Akash (Cockpit principal historique)
+- Origin Akash principal historique: https://uoqlngdqqlc29fhg8l78qt80d8.ingress.akashprovid.com
+- DSEQ: 25838342 | Provider: provider.akashprovid.com
+- Role: ancien cockpit principal conserve tant que la base 25883220 reste en observation
 
 ### Akash (Cockpit secondaire / separation des pouvoirs)
 - Origin Akash secondaire: http://kfhsi5oko9dbt3abob51g4s9q0.ingress.cap-test-compute.com
 - DSEQ: 25822281 | Provider: provider.cap-test-compute.com
-- Role: cockpit secondaire conserve comme sandbox / plan B
+- Role: cockpit secondaire historique, utilise pour restaurer le contexte vers 25883220
 - Note: l'ancien sandbox `25851041` a ete ferme pendant le cleanup du 10 mars 2026
 
 ### Akash (Cockpit secondaire v2)
@@ -113,9 +118,10 @@
 3. [IN PROGRESS] Memoire persistante centralisee
 4. [TODO] Deployer oracle-agent + onchain-guardian sur Akash
 5. [DONE] Cleanup Akash termine, base conservee = 25878071 / 25838342 / 25822281 / 25708774
-6. [DONE] Nouveau cockpit secondaire cree: 25882621 -> provider.dal.leet.haus
-7. [TODO] HA_TOKEN dans env vars Akash
-8. [TODO] KIMI sur endpoint stable public
-9. [TODO] Realigner `api/status` public avec l'etat mesh reel
-10. [TODO] agent_loop.py -> DELL-LINUX uniquement en fallback
-11. [IN PROGRESS] Provider watch structure via COMET Work + snapshot local
+6. [DONE] Nouveau cockpit public cree et hydrate: 25883220 -> provider.cap-test-compute.com
+7. [DONE] Nouveau cockpit secondaire cree: 25882621 -> provider.dal.leet.haus
+8. [TODO] HA_TOKEN dans env vars Akash
+9. [TODO] KIMI sur endpoint stable public
+10. [DONE] `api/status` public realigne avec l'etat mesh reel via 25883220
+11. [TODO] agent_loop.py -> DELL-LINUX uniquement en fallback
+12. [IN PROGRESS] Provider watch structure via COMET Work + snapshot local
