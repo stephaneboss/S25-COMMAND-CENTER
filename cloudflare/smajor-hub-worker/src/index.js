@@ -500,6 +500,51 @@ const ACCESS_MODEL = {
   ],
 };
 
+const SYSTEM_AXES = {
+  title: "Smajor three-axis system",
+  summary: "Le systeme doit tenir en meme temps le business terrain, l'administration stricte et le backend IA multi-agent.",
+  axes: [
+    {
+      key: "field_business",
+      label: "Business terrain",
+      scope: [
+        "excavation",
+        "deneigement",
+        "services exterieurs",
+        "clients actifs",
+        "camions, pelle, equipes, jobs",
+      ],
+      target: "Recevoir une demande, planifier, envoyer les hommes, executer, facturer et cloturer proprement.",
+    },
+    {
+      key: "strict_administration",
+      label: "Administration temps reel",
+      scope: [
+        "identites",
+        "roles",
+        "services actives",
+        "acces portail",
+        "dispatch",
+        "suivi fournisseurs et employes",
+      ],
+      target: "Controler qui accede a quoi, quel service est actif, et quelle chaine humaine ou IA porte l'action.",
+    },
+    {
+      key: "ai_backend",
+      label: "Backend IA / S25",
+      scope: [
+        "S25 cockpit",
+        "missions",
+        "MERLIN MCP",
+        "TRINITY",
+        "COMET",
+        "mesh Akash",
+      ],
+      target: "Orchestrer, memoriser, surveiller et stabiliser l'infra sans casser le business reel.",
+    },
+  ],
+};
+
 function navigation(hostname) {
   const appBase = hostname === "app.smajor.org" ? "" : "https://app.smajor.org";
   return [
@@ -1193,6 +1238,17 @@ function accessSectionFromPath(pathname) {
   };
 }
 
+function systemAxesSection() {
+  return {
+    title: SYSTEM_AXES.title,
+    intro: SYSTEM_AXES.summary,
+    columns: SYSTEM_AXES.axes.map((axis) => ({
+      label: axis.label,
+      items: [...axis.scope, axis.target],
+    })),
+  };
+}
+
 function renderPublic(env) {
   return layout({
     title: "Smajor",
@@ -1240,7 +1296,7 @@ function renderPublic(env) {
 function renderApp(env, pathname, hostname, snapshot) {
   const section = APP_SECTIONS[pathname] || APP_SECTIONS["/"];
   const moduleSection = {
-    ...(WORKBENCH_SECTIONS[pathname] || WORKBENCH_SECTIONS["/"]),
+    ...(pathname === "/" ? systemAxesSection() : (WORKBENCH_SECTIONS[pathname] || WORKBENCH_SECTIONS["/"])),
     blueprint: blueprintFromPath(pathname),
     accessModel: accessSectionFromPath(pathname),
   };
@@ -1316,6 +1372,15 @@ export default {
         domain: "smajor.org",
         source_of_truth: "admin_console + api.smajor.org + S25 missions",
         ...ACCESS_MODEL,
+      });
+    }
+
+    if (url.pathname === "/models/system-axes.json") {
+      return jsonResponse({
+        ok: true,
+        domain: "smajor.org",
+        source_of_truth: "business + admin + S25 mesh",
+        ...SYSTEM_AXES,
       });
     }
 
