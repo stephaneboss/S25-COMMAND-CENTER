@@ -57,9 +57,16 @@ Peut rester local tant que le coeur tient sans lui:
 
 ## Etat actuel
 
+Base officielle conservee sur Akash:
+- `25878071` = `s25-merlin-mesh` officiel
+- `25838342` = cockpit principal derriere le Worker public
+- `25822281` = cockpit secondaire / sandbox de pouvoir
+- `25708774` = module GPU laisse intact
+
 Deja autonomes:
 - cockpit Akash
 - endpoint stable `workers.dev`
+- bridge MCP MERLIN live sur Akash
 - GPT TRINITY live
 - memory, mesh, router, missions, COMET feed
 
@@ -67,13 +74,13 @@ Encore dependants a reduire:
 - KIMI tunnel / scanner
 - Dell-Linux `agent_loop.py`
 - injection et verification continue de `HA_TOKEN`
-- agents critiques Akash non encore deployes
+- alignement du `api/status` public avec l'etat mesh reel
 
 ## Prochaines migrations recommandees
 
 1. Deployer `oracle-agent` sur Akash
 2. Deployer `onchain-guardian` sur Akash
-3. Deployer `merlin-mesh` comme module Akash separe
+3. Garder `merlin-mesh` (`25878071`) comme module Akash separe officiel
 4. Donner a COMET une boucle plus autonome que la simple mission queue
 5. Mettre KIMI derriere un endpoint stable au lieu d'un tunnel manuel
 6. Garder Dell-Linux uniquement pour l'inference locale additionnelle

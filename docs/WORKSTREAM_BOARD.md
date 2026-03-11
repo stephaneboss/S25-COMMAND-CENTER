@@ -16,14 +16,15 @@ But:
 
 Etat:
 - endpoint Worker stable en place
-- cockpit Akash present
-- stack `cockpit + oracle + guardian` codee
-- sandbox update encore a finaliser
+- cockpit Akash principal present: `25838342`
+- cockpit Akash secondaire conserve: `25822281`
+- module `merlin-mesh` officiel live: `25878071`
+- module GPU conserve: `25708774`
 
 Next:
-- update sandbox
+- garder la separation prod / sandbox sans multiplier les faux builds
 - verifier `mesh/status`
-- verifier `status`
+- realigner `status` public avec le mesh reel
 
 ### WS2 - GPT / TRINITY
 
@@ -38,6 +39,7 @@ Etat:
 - spec `x-openai-isConsequential: false`
 - backend status corrige en code
 - republish UI a refaire si l'editeur repond
+- endpoint cockpit stable toujours derriere `workers.dev`
 
 Next:
 - republier GPT
@@ -111,6 +113,7 @@ Etat:
 - doctrine provider intelligence posee
 - snapshot local provider a present generable
 - mission COMET provider-watch a present armable
+- base Akash nettoyee, sans les DSEQ `Unknown` recents
 
 Next:
 - armer la mission COMET provider-watch
