@@ -105,6 +105,51 @@ const BUSINESS_ONBOARDING = {
   },
 };
 
+const BUSINESS_ROLE_GOVERNANCE = {
+  title: "Business role governance",
+  summary: "Les identites passent par des roles modeles, des scopes et des services actives. Aucun acces ne depend de la confiance seule.",
+  doctrine: [
+    "Le role definit les pouvoirs.",
+    "Le scope limite la surface reelle.",
+    "Les services actives suivent le role, pas l'inverse.",
+    "Toute elevation de pouvoir laisse une trace d'audit.",
+  ],
+  role_templates: [
+    {
+      key: "operator_admin",
+      audience: "Direction et admins",
+      services: ["admin_console", "billing_access", "ai_services"],
+      powers: ["identity_control", "finance_approval", "policy_admin"],
+    },
+    {
+      key: "staff_member",
+      audience: "Employes terrain",
+      services: ["staff_portal", "snow_ops", "excavation_ops"],
+      powers: ["job_execution", "field_reports"],
+    },
+    {
+      key: "client_contact",
+      audience: "Clients",
+      services: ["client_portal", "billing_access"],
+      powers: ["service_requests", "quote_review", "invoice_review"],
+    },
+    {
+      key: "vendor_contact",
+      audience: "Fournisseurs",
+      services: ["vendor_portal", "billing_access"],
+      powers: ["po_review", "delivery_confirmation", "document_exchange"],
+    },
+  ],
+  activation_flow: [
+    "identity_created",
+    "role_template_selected",
+    "scope_assigned",
+    "services_enabled",
+    "credentials_issued",
+    "audit_watch_started",
+  ],
+};
+
 const BUSINESS_REGISTRY_MAP = {
   title: "Smajor business registry map",
   source_of_truth: "api.smajor.org facade + S25 governance",
@@ -113,6 +158,7 @@ const BUSINESS_REGISTRY_MAP = {
     { key: "jobs", path: `${BUSINESS_PREFIX}/jobs`, purpose: "Field operations and execution" },
     { key: "quotes_invoices", path: `${BUSINESS_PREFIX}/quotes-invoices`, purpose: "Commercial and billing flow" },
     { key: "onboarding", path: `${BUSINESS_PREFIX}/onboarding`, purpose: "Strict actor activation chain" },
+    { key: "role_governance", path: `${BUSINESS_PREFIX}/role-governance`, purpose: "Role templates, powers and service enablement" },
   ],
 };
 
@@ -155,6 +201,9 @@ function handleBusinessRequest(pathname, requestId) {
   }
   if (pathname === `${BUSINESS_PREFIX}/onboarding`) {
     return businessResponse(requestId, pathname, BUSINESS_ONBOARDING);
+  }
+  if (pathname === `${BUSINESS_PREFIX}/role-governance`) {
+    return businessResponse(requestId, pathname, BUSINESS_ROLE_GOVERNANCE);
   }
   return null;
 }

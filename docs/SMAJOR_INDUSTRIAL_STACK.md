@@ -131,6 +131,12 @@ Doctrine:
 - chaque identite recoit un role
 - chaque role recoit seulement les services actives
 - l'admin reste le point de controle de la chaine
+- les pouvoirs sont limites par design, pas par confiance
+- les templates de roles et leur activation doivent rester exposes via `api.smajor.org`
+
+Modele public de gouvernance:
+- `/models/role-governance.json`
+- `/api/business/role-governance`
 
 ## Plan de construction
 
