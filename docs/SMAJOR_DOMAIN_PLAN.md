@@ -51,6 +51,18 @@ Cloudflare devient la couche stable de presentation.
 - `s25.smajor.org/*` -> Worker `trinity-s25-proxy`
 - `api.smajor.org/*` -> Worker `trinity-s25-proxy`
 - `merlin.smajor.org/*` -> Worker `merlin-s25-proxy`
+- `smajor.org` -> Worker `smajor-hub`
+- `www.smajor.org` -> Worker `smajor-hub`
+- `app.smajor.org` -> Worker `smajor-hub`
+
+## Etat du 2026-03-11
+
+- `s25.smajor.org`, `api.smajor.org`, `merlin.smajor.org`
+  - custom domains Cloudflare deployes
+  - DNS public vu via `1.1.1.1` pour `s25/api/merlin`
+- `smajor.org`, `www.smajor.org`, `app.smajor.org`
+  - hub Cloudflare deploye
+  - propagation DNS encore en cours au moment du commit
 
 ## Cible
 
