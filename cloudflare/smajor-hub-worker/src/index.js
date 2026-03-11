@@ -500,6 +500,47 @@ const ACCESS_MODEL = {
   ],
 };
 
+const ROLE_GOVERNANCE = {
+  title: "Role governance model",
+  summary: "Le systeme ne repose pas sur la confiance humaine. Il repose sur des roles, des scopes, des services actives et une chaine d'audit.",
+  doctrine: [
+    "Le role passe avant la personne.",
+    "Chaque pouvoir doit venir d'un role publie et traçable.",
+    "Aucune elevation de privilege sans validation admin.",
+    "Les services actives sont limites par role, scope et portail.",
+  ],
+  layers: [
+    {
+      label: "Direction",
+      roles: ["founder", "executive_operator", "operator_admin"],
+      powers: ["identity_control", "finance_approval", "governance", "agent_policies"],
+    },
+    {
+      label: "Operations",
+      roles: ["dispatcher", "field_manager", "staff_member", "contractor"],
+      powers: ["job_dispatch", "field_reports", "schedule_visibility", "equipment_tracking"],
+    },
+    {
+      label: "External",
+      roles: ["client_owner", "client_contact", "vendor_manager", "vendor_contact"],
+      powers: ["portal_access", "document_exchange", "limited_approvals", "billing_visibility"],
+    },
+    {
+      label: "AI",
+      roles: ["trinity_orchestrator", "merlin_validator", "comet_watch", "kimi_sensor"],
+      powers: ["observe", "route", "validate", "record"],
+    },
+  ],
+  enforcement_chain: [
+    "identity_created",
+    "role_template_selected",
+    "scope_assigned",
+    "services_enabled",
+    "credentials_issued",
+    "audit_watch_started",
+  ],
+};
+
 const SYSTEM_AXES = {
   title: "Smajor three-axis system",
   summary: "Le systeme doit tenir en meme temps le business terrain, l'administration stricte et le backend IA multi-agent.",
@@ -1083,6 +1124,49 @@ function layout({
     `
     : "";
 
+  const roleGovernanceHtml = moduleSection && moduleSection.roleGovernance
+    ? `
+      <section class="blueprint-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Role governance</div>
+            <h2>${moduleSection.roleGovernance.title}</h2>
+          </div>
+          <p>${moduleSection.roleGovernance.intro}</p>
+        </div>
+        <div class="blueprint-grid">
+          <article class="blueprint-card">
+            <div class="label">Role layers</div>
+            ${moduleSection.roleGovernance.columns
+              .map(
+                (column) => `
+                  <div style="margin-bottom: 16px;">
+                    <div class="label" style="margin-bottom:8px;">${column.label}</div>
+                    <div class="pill-row">
+                      ${column.items.map((item) => `<span class="pill">${item}</span>`).join("")}
+                    </div>
+                  </div>
+                `,
+              )
+              .join("")}
+          </article>
+          <article class="blueprint-card">
+            <div class="label">Doctrine</div>
+            <ul class="stack-list">
+              ${moduleSection.roleGovernance.doctrine.map((item) => `<li>${item}</li>`).join("")}
+            </ul>
+          </article>
+          <article class="blueprint-card">
+            <div class="label">Enforcement</div>
+            <ol class="stack-list">
+              ${moduleSection.roleGovernance.enforcement_chain.map((item) => `<li>${item}</li>`).join("")}
+            </ol>
+          </article>
+        </div>
+      </section>
+    `
+    : "";
+
   const foundationHtml = moduleSection && moduleSection.foundationStack
     ? `
       <section class="module-panel">
@@ -1467,6 +1551,7 @@ function layout({
       ${registryHtml}
       ${mvpRegistryHtml}
       ${controlPlaneHtml}
+      ${roleGovernanceHtml}
       ${foundationHtml}
       <div class="footer">Smajor est la facade. S25 Lumiere reste le backend central multi-agent.</div>
     </main>
@@ -1659,6 +1744,32 @@ function accessSectionFromPath(pathname) {
   };
 }
 
+function roleGovernanceSection(pathname) {
+  if (!["/", "/admin", "/clients", "/staff", "/vendors", "/ai"].includes(pathname)) {
+    return null;
+  }
+
+  const focusByPath = {
+    "/": ROLE_GOVERNANCE.layers.slice(0, 3),
+    "/admin": ROLE_GOVERNANCE.layers,
+    "/clients": ROLE_GOVERNANCE.layers.filter((layer) => ["External", "Direction"].includes(layer.label)),
+    "/staff": ROLE_GOVERNANCE.layers.filter((layer) => ["Operations", "Direction"].includes(layer.label)),
+    "/vendors": ROLE_GOVERNANCE.layers.filter((layer) => ["External", "Direction"].includes(layer.label)),
+    "/ai": ROLE_GOVERNANCE.layers.filter((layer) => ["AI", "Direction"].includes(layer.label)),
+  };
+
+  return {
+    title: ROLE_GOVERNANCE.title,
+    intro: ROLE_GOVERNANCE.summary,
+    columns: focusByPath[pathname].map((layer) => ({
+      label: layer.label,
+      items: [...layer.roles, ...layer.powers],
+    })),
+    doctrine: ROLE_GOVERNANCE.doctrine,
+    enforcement_chain: ROLE_GOVERNANCE.enforcement_chain,
+  };
+}
+
 function systemAxesSection() {
   return {
     title: SYSTEM_AXES.title,
@@ -1800,6 +1911,7 @@ function renderApp(env, pathname, hostname, snapshot) {
     accessModel: accessSectionFromPath(pathname),
     mvpRegistries: mvpRegistrySection(pathname),
     controlPlane: controlPlaneSection(pathname),
+    roleGovernance: roleGovernanceSection(pathname),
     foundationStack: foundationStackSection(pathname),
   };
   if (registrySection) {
@@ -1922,6 +2034,15 @@ export default {
         domain: "smajor.org",
         source_of_truth: "open-source backbone selection",
         ...FOUNDATION_STACK,
+      });
+    }
+
+    if (url.pathname === "/models/role-governance.json") {
+      return jsonResponse({
+        ok: true,
+        domain: "smajor.org",
+        source_of_truth: "strict administration chain + role templates + service enablement",
+        ...ROLE_GOVERNANCE,
       });
     }
 
