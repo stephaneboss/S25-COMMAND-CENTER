@@ -837,7 +837,8 @@ function hasBusinessWrites(state) {
     state?.last_write_at ||
     (Array.isArray(state?.clients) && state.clients.some((item) => item?.created_at)) ||
     (Array.isArray(state?.jobs) && state.jobs.some((item) => item?.created_at)) ||
-    (Array.isArray(state?.quotes_invoices) && state.quotes_invoices.some((item) => item?.created_at)),
+    (Array.isArray(state?.quotes_invoices) && state.quotes_invoices.some((item) => item?.created_at)) ||
+    (Array.isArray(state?.identities) && state.identities.some((item) => item?.created_at || item?.identity_id)),
   );
 }
 
@@ -1224,7 +1225,7 @@ async function fetchOriginJson(pathname, env, requestId) {
 }
 
 async function fetchPublicRuntimeJson(pathname, env, requestId) {
-  const target = new URL(pathname, env.PUBLIC_GATEWAY_URL || env.PUBLIC_RUNTIME_URL);
+  const target = new URL(pathname, env.PUBLIC_RUNTIME_URL || env.PUBLIC_GATEWAY_URL);
   target.searchParams.set("_r", requestId);
   const headers = new Headers({
     accept: "application/json",
