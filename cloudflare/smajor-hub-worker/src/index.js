@@ -655,6 +655,43 @@ const MVP_REGISTRIES = {
   },
 };
 
+const MAJOR_CONTROL_PLANE = {
+  title: "Major control plane",
+  summary: "Le site doit agir comme un boss d'entreprise: controler le business terrain, les humains, les fournisseurs, les agents et les surfaces critiques.",
+  towers: [
+    {
+      key: "customer_success",
+      label: "Customer success",
+      scope: ["lead intake", "client registry", "quotes", "contracts", "invoices", "payment follow-up"],
+    },
+    {
+      key: "field_ops",
+      label: "Field ops",
+      scope: ["dispatch", "crews", "trucks", "excavator", "weather pressure", "job reports"],
+    },
+    {
+      key: "admin_governance",
+      label: "Admin governance",
+      scope: ["identity access", "service entitlements", "audit", "policies", "critical approvals"],
+    },
+    {
+      key: "vendor_finance",
+      label: "Vendor finance",
+      scope: ["purchase orders", "vendor costs", "margin", "cash snapshot", "billing controls"],
+    },
+    {
+      key: "ai_ops",
+      label: "AI ops",
+      scope: ["TRINITY", "MERLIN", "COMET", "KIMI", "MCP", "missions", "intel"],
+    },
+    {
+      key: "secure_growth",
+      label: "Secure growth",
+      scope: ["secret governance", "runtime isolation", "domain surfaces", "trade readiness", "operator review"],
+    },
+  ],
+};
+
 function navigation(hostname) {
   const appBase = hostname === "app.smajor.org" ? "" : "https://app.smajor.org";
   return [
@@ -903,6 +940,34 @@ function layout({
         </div>
         <div class="module-grid">
           ${moduleSection.mvpRegistries.columns
+            .map(
+              (column) => `
+                <article class="module-card">
+                  <div class="label">${column.label}</div>
+                  <ul>
+                    ${column.items.map((item) => `<li>${item}</li>`).join("")}
+                  </ul>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
+  const controlPlaneHtml = moduleSection && moduleSection.controlPlane
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Control plane</div>
+            <h2>${moduleSection.controlPlane.title}</h2>
+          </div>
+          <p>${moduleSection.controlPlane.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.controlPlane.columns
             .map(
               (column) => `
                 <article class="module-card">
@@ -1215,6 +1280,7 @@ function layout({
       ${accessHtml}
       ${registryHtml}
       ${mvpRegistryHtml}
+      ${controlPlaneHtml}
       <div class="footer">Smajor est la facade. S25 Lumiere reste le backend central multi-agent.</div>
     </main>
   </body>
@@ -1447,6 +1513,26 @@ function mvpRegistrySection(pathname) {
   };
 }
 
+function controlPlaneSection(pathname) {
+  if (!["/", "/admin", "/ai"].includes(pathname)) {
+    return null;
+  }
+  const slices = {
+    "/": [0, 3],
+    "/admin": [0, 5],
+    "/ai": [4, 6],
+  };
+  const [start, end] = slices[pathname];
+  return {
+    title: MAJOR_CONTROL_PLANE.title,
+    intro: MAJOR_CONTROL_PLANE.summary,
+    columns: MAJOR_CONTROL_PLANE.towers.slice(start, end).map((tower) => ({
+      label: tower.label,
+      items: tower.scope,
+    })),
+  };
+}
+
 function renderPublic(env) {
   return layout({
     title: "Smajor",
@@ -1510,6 +1596,7 @@ function renderApp(env, pathname, hostname, snapshot) {
     blueprint: blueprintFromPath(pathname),
     accessModel: accessSectionFromPath(pathname),
     mvpRegistries: mvpRegistrySection(pathname),
+    controlPlane: controlPlaneSection(pathname),
   };
   if (registrySection) {
     moduleSection.registry = registrySection;
@@ -1613,6 +1700,15 @@ export default {
         domain: "smajor.org",
         source_of_truth: "future api.smajor.org business facade",
         registries: MVP_REGISTRIES,
+      });
+    }
+
+    if (url.pathname === "/models/control-plane.json") {
+      return jsonResponse({
+        ok: true,
+        domain: "smajor.org",
+        source_of_truth: "business + admin + ai ops",
+        ...MAJOR_CONTROL_PLANE,
       });
     }
 
