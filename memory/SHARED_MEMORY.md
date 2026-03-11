@@ -21,6 +21,11 @@
 - DSEQ: 25883220 | Provider: provider.cap-test-compute.com
 - Role: cockpit public courant derriere le Worker, build 8978177 et status mesh corrige
 - Doctrine: endpoint public stable devant Akash, pas de dependance laptop pour TRINITY
+- Domaine en cours de mise en place:
+  - `s25.smajor.org`
+  - `api.smajor.org`
+  - routes/custom domains Cloudflare deployes le 2026-03-11
+  - DNS public visible via `1.1.1.1`, propagation locale Windows encore en retard
 
 ### Akash (Cockpit principal historique)
 - Origin Akash principal historique: https://uoqlngdqqlc29fhg8l78qt80d8.ingress.akashprovid.com
@@ -46,6 +51,10 @@
 - MCP ingress live: https://da0m4r4tu5ctn0ja9r2t9c2vho.ingress.akashprovid.com/mcp
 - Etat: handshake public OK, conteneur running
 - Limite actuelle: Gemini Interactions + mcp_server reste bloque cote Google
+- Domaine en cours de mise en place:
+  - `merlin.smajor.org`
+  - custom domain Cloudflare deploye le 2026-03-11
+  - DNS public visible via `1.1.1.1`, verification TLS finale a refaire apres propagation
 
 ### Akash (GPU)
 - DSEQ: 25708774

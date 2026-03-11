@@ -5,6 +5,10 @@
 - Backend corrige actif sur `kfhsi5oko9dbt3abob51g4s9q0.ingress.cap-test-compute.com`
 - GPT live publiee sur `https://trinity-s25-proxy.trinitys25steph.workers.dev`
 - Le mode `trycloudflare` n'est plus qu'un fallback de depannage
+- Domaine propre en cours d'activation:
+  - `https://s25.smajor.org`
+  - `https://api.smajor.org`
+  - routes Cloudflare deployees, attente de propagation / TLS final sur le poste local
 
 ## Architecture recommandee
 

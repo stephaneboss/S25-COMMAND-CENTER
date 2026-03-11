@@ -1,0 +1,13 @@
+name = "merlin-s25-proxy"
+main = "src/index.js"
+compatibility_date = "2026-03-11"
+workers_dev = true
+routes = [
+  { pattern = "merlin.smajor.org", custom_domain = true }
+]
+
+[vars]
+ORIGIN_BASE = "https://da0m4r4tu5ctn0ja9r2t9c2vho.ingress.akashprovid.com"
+ORIGIN_HOST_HEADER = "da0m4r4tu5ctn0ja9r2t9c2vho.ingress.akashprovid.com"
+PROXY_TIMEOUT_MS = "30000"
+PROXY_RETRIES = "0"
