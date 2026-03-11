@@ -545,6 +545,53 @@ const SYSTEM_AXES = {
   ],
 };
 
+const MASTER_REGISTRY = {
+  title: "Smajor master registry",
+  summary: "Une colonne vertebrale de registres pour pouvoir gerer plusieurs entreprises, plusieurs clients, plusieurs equipes et plusieurs services.",
+  registries: [
+    {
+      key: "organization_registry",
+      label: "Organizations",
+      records: ["holding", "division", "brand", "operating_entity", "site"],
+    },
+    {
+      key: "identity_registry",
+      label: "Identities",
+      records: ["client_contact", "employee", "contractor", "vendor_contact", "admin_operator"],
+    },
+    {
+      key: "service_registry",
+      label: "Services",
+      records: ["snow_contract", "excavation_job", "exterior_service", "ai_consulting", "ai_automation"],
+    },
+    {
+      key: "asset_registry",
+      label: "Assets",
+      records: ["truck", "excavator", "attachment", "equipment", "availability"],
+    },
+    {
+      key: "job_registry",
+      label: "Jobs",
+      records: ["request", "quote", "work_order", "schedule", "completion"],
+    },
+    {
+      key: "finance_registry",
+      label: "Finance",
+      records: ["invoice", "payment", "margin", "vendor_cost", "cash_snapshot"],
+    },
+    {
+      key: "vendor_registry",
+      label: "Vendors",
+      records: ["vendor", "vendor_contact", "purchase_order", "delivery_receipt", "approval"],
+    },
+    {
+      key: "ai_registry",
+      label: "AI agents",
+      records: ["agent", "role", "permission", "surface", "cost", "criticality"],
+    },
+  ],
+};
+
 function navigation(hostname) {
   const appBase = hostname === "app.smajor.org" ? "" : "https://app.smajor.org";
   return [
@@ -748,6 +795,34 @@ function layout({
               ${moduleSection.accessModel.core_records.map((item) => `<li>${item}</li>`).join("")}
             </ul>
           </article>
+        </div>
+      </section>
+    `
+    : "";
+
+  const registryHtml = moduleSection && moduleSection.registry
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Master registry</div>
+            <h2>${moduleSection.registry.title}</h2>
+          </div>
+          <p>${moduleSection.registry.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.registry.columns
+            .map(
+              (column) => `
+                <article class="module-card">
+                  <div class="label">${column.label}</div>
+                  <ul>
+                    ${column.items.map((item) => `<li>${item}</li>`).join("")}
+                  </ul>
+                </article>
+              `,
+            )
+            .join("")}
         </div>
       </section>
     `
@@ -1047,6 +1122,7 @@ function layout({
       ${moduleSectionHtml}
       ${blueprintHtml}
       ${accessHtml}
+      ${registryHtml}
       <div class="footer">Smajor est la facade. S25 Lumiere reste le backend central multi-agent.</div>
     </main>
   </body>
@@ -1249,6 +1325,17 @@ function systemAxesSection() {
   };
 }
 
+function masterRegistrySection() {
+  return {
+    title: MASTER_REGISTRY.title,
+    intro: MASTER_REGISTRY.summary,
+    columns: MASTER_REGISTRY.registries.slice(0, 3).map((registry) => ({
+      label: registry.label,
+      items: registry.records,
+    })),
+  };
+}
+
 function renderPublic(env) {
   return layout({
     title: "Smajor",
@@ -1295,11 +1382,26 @@ function renderPublic(env) {
 
 function renderApp(env, pathname, hostname, snapshot) {
   const section = APP_SECTIONS[pathname] || APP_SECTIONS["/"];
+  const registrySection = pathname === "/" || pathname === "/admin"
+    ? {
+        title: MASTER_REGISTRY.title,
+        intro: MASTER_REGISTRY.summary,
+        columns: MASTER_REGISTRY.registries
+          .slice(pathname === "/admin" ? 0 : 0, pathname === "/admin" ? 6 : 3)
+          .map((registry) => ({
+            label: registry.label,
+            items: registry.records,
+          })),
+      }
+    : null;
   const moduleSection = {
     ...(pathname === "/" ? systemAxesSection() : (WORKBENCH_SECTIONS[pathname] || WORKBENCH_SECTIONS["/"])),
     blueprint: blueprintFromPath(pathname),
     accessModel: accessSectionFromPath(pathname),
   };
+  if (registrySection) {
+    moduleSection.registry = registrySection;
+  }
   return layout({
     title: `Smajor Ops - ${section.label}`,
     eyebrow: section.eyebrow,
@@ -1381,6 +1483,15 @@ export default {
         domain: "smajor.org",
         source_of_truth: "business + admin + S25 mesh",
         ...SYSTEM_AXES,
+      });
+    }
+
+    if (url.pathname === "/models/master-registry.json") {
+      return jsonResponse({
+        ok: true,
+        domain: "smajor.org",
+        source_of_truth: "api.smajor.org future facade + S25 governance",
+        ...MASTER_REGISTRY,
       });
     }
 
