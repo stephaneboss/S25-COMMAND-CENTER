@@ -15,6 +15,9 @@ Le front doit rester simple.
 Le backend doit rester robuste.
 Le mesh S25 doit rester la source de verite.
 
+Reference de cadrage:
+- voir `docs/SMAJOR_SYSTEM_AXES.md`
+
 ## Noyau minimum obligatoire
 
 ### 1. CRM / clients
