@@ -143,12 +143,18 @@ Modele public de gouvernance:
 - `/models/portal-activation.json`
 - `/models/client-form.json`
 - `/models/staff-dashboard.json`
+- `/models/alpha-client-pilot.json`
+- `/models/secure-routes.json`
 - `/api/business/role-governance`
 - `/api/business/identities`
 - `/api/business/rbac-matrix`
 - `/api/business/portal-activation`
 - `/api/business/client-form`
 - `/api/business/staff-dashboard`
+- `/api/business/alpha-pilot`
+- `/api/business/billing-tunnel`
+- `/api/business/secure/alpha-client`
+- `/api/business/secure/billing-tunnel`
 
 ## Plan de construction
 
