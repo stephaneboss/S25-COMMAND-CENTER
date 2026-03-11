@@ -19,6 +19,7 @@ Reference de cadrage:
 - voir `docs/SMAJOR_SYSTEM_AXES.md`
 - voir `docs/SMAJOR_MASTER_REGISTRY.md`
 - voir `docs/SMAJOR_CONTROL_PLANE.md`
+- voir `docs/SMAJOR_FOUNDATION_STACK.md`
 
 ## Noyau minimum obligatoire
 
