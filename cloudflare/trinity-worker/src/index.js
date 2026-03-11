@@ -98,6 +98,93 @@ const BUSINESS_REGISTRIES = {
   },
 };
 
+const BUSINESS_CLIENT_REGISTRY_LIVE = {
+  title: "Client registry live",
+  summary: "Premier registre vivant pour porter de vrais comptes client au-dessus du RBAC Smajor.",
+  records: [
+    {
+      client_id: "client-alpha-001",
+      organization_id: "org-alpha-001",
+      organization_name: "Alpha Yard Services",
+      identity_id: "ident-alpha-contact-001",
+      role_id: "client_contact",
+      badge_id: "client_badge",
+      scope_id: "client_scope_alpha",
+      service_mix: ["deneigement", "excavation", "multi_service_exterior"],
+      account_status: "active",
+      portal_state: "pending_secure_access",
+      billing_state: "invoice_ready",
+    },
+    {
+      client_id: "client-major-lab-001",
+      organization_id: "org-major-lab-001",
+      organization_name: "Major AI Lab Pilot",
+      identity_id: "ident-major-lab-contact-001",
+      role_id: "client_contact",
+      badge_id: "client_badge",
+      scope_id: "client_scope_major_lab",
+      service_mix: ["ai_automation", "ops_design"],
+      account_status: "pilot_active",
+      portal_state: "live",
+      billing_state: "quote_prepared",
+    },
+  ],
+};
+
+const BUSINESS_JOB_REGISTRY_LIVE = {
+  title: "Job registry live",
+  summary: "Premier registre vivant pour porter les jobs terrain et les jobs IA dans le meme cadre de gouvernance.",
+  records: [
+    {
+      job_id: "job-alpha-yard-001",
+      client_id: "client-alpha-001",
+      service_type: "excavation",
+      assigned_team: "crew-east-01",
+      equipment_required: ["truck-07", "mini-excavator-02"],
+      scheduled_window: "2026-03-13 AM",
+      job_status: "scheduled",
+      dispatch_scope: "field_scope_east",
+    },
+    {
+      job_id: "job-major-lab-ops-001",
+      client_id: "client-major-lab-001",
+      service_type: "ai_automation",
+      assigned_team: "ai-ops-s25",
+      equipment_required: ["trinity", "merlin", "comet"],
+      scheduled_window: "2026-03-14 PM",
+      job_status: "briefing",
+      dispatch_scope: "ai_scope_smajor",
+    },
+  ],
+};
+
+const BUSINESS_QUOTES_INVOICES_LIVE = {
+  title: "Quotes and invoices live",
+  summary: "Premier registre vivant pour devis, factures et tunnel de paiement sur les comptes actifs.",
+  records: [
+    {
+      quote_id: "quote-alpha-001",
+      invoice_id: "invoice-alpha-001",
+      client_id: "client-alpha-001",
+      job_id: "job-alpha-yard-001",
+      amount: 4800,
+      currency: "CAD",
+      payment_status: "awaiting_collection",
+      billing_stage: "invoice_issued",
+    },
+    {
+      quote_id: "quote-major-lab-001",
+      invoice_id: null,
+      client_id: "client-major-lab-001",
+      job_id: "job-major-lab-ops-001",
+      amount: 3200,
+      currency: "CAD",
+      payment_status: "quote_pending",
+      billing_stage: "quote_prepared",
+    },
+  ],
+};
+
 const BUSINESS_ONBOARDING = {
   title: "Business onboarding chain",
   summary: "Tout nouvel acteur doit entrer par une chaine stricte: identite, role, services, acces.",
@@ -203,6 +290,9 @@ const BUSINESS_REGISTRY_MAP = {
     { key: "agent_catalog", path: `${BUSINESS_PREFIX}/agent-catalog`, purpose: "Live activable agent catalog" },
     { key: "agent_service_matrix", path: `${BUSINESS_PREFIX}/agent-service-matrix`, purpose: "Agent to service activation map" },
     { key: "agent_action_trail", path: `${BUSINESS_PREFIX}/agent-action-trail`, purpose: "Audit fields for agent actions" },
+    { key: "client_registry_live", path: `${BUSINESS_PREFIX}/client-registry-live`, purpose: "Seeded client accounts ready for portal activation" },
+    { key: "job_registry_live", path: `${BUSINESS_PREFIX}/job-registry-live`, purpose: "Seeded operations jobs aligned with dispatch scopes" },
+    { key: "quotes_invoices_live", path: `${BUSINESS_PREFIX}/quotes-invoices-live`, purpose: "Seeded commercial and billing records" },
     { key: "secure_alpha_client", path: `${BUSINESS_PREFIX}/secure/alpha-client`, purpose: "Protected alpha client detail route" },
     { key: "secure_billing_tunnel", path: `${BUSINESS_PREFIX}/secure/billing-tunnel`, purpose: "Protected billing tunnel detail route" },
   ],
@@ -586,6 +676,15 @@ function handleBusinessRequest(request, pathname, requestId, env) {
   }
   if (pathname === `${BUSINESS_PREFIX}/agent-action-trail`) {
     return businessResponse(requestId, pathname, BUSINESS_AGENT_ACTION_TRAIL);
+  }
+  if (pathname === `${BUSINESS_PREFIX}/client-registry-live`) {
+    return businessResponse(requestId, pathname, BUSINESS_CLIENT_REGISTRY_LIVE);
+  }
+  if (pathname === `${BUSINESS_PREFIX}/job-registry-live`) {
+    return businessResponse(requestId, pathname, BUSINESS_JOB_REGISTRY_LIVE);
+  }
+  if (pathname === `${BUSINESS_PREFIX}/quotes-invoices-live`) {
+    return businessResponse(requestId, pathname, BUSINESS_QUOTES_INVOICES_LIVE);
   }
   if (pathname === `${BUSINESS_PREFIX}/secure/alpha-client`) {
     const denied = requireBusinessSecret(request, env, requestId, pathname);

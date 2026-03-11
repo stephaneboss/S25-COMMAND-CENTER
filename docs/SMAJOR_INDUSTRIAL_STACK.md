@@ -158,6 +158,9 @@ Modele public de gouvernance:
 - `/api/business/agent-catalog`
 - `/api/business/agent-service-matrix`
 - `/api/business/agent-action-trail`
+- `/api/business/client-registry-live`
+- `/api/business/job-registry-live`
+- `/api/business/quotes-invoices-live`
 - `/api/business/secure/alpha-client`
 - `/api/business/secure/billing-tunnel`
 
