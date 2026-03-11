@@ -455,6 +455,51 @@ const MODULE_BLUEPRINTS = {
   },
 };
 
+const ACCESS_MODEL = {
+  title: "Strict administration chain",
+  doctrine: [
+    "Chaque personne ou organisation existe comme identite gerable dans le systeme.",
+    "Chaque identite recoit un role, un scope et des services actives.",
+    "Aucun acces implicite: tout acces doit etre assigne puis revele dans l'admin.",
+  ],
+  identity_types: [
+    "client_org",
+    "client_contact",
+    "employee",
+    "contractor",
+    "vendor_org",
+    "vendor_contact",
+    "operator_admin",
+  ],
+  core_records: [
+    "identity",
+    "organization",
+    "membership",
+    "service_entitlement",
+    "credential_state",
+    "policy_scope",
+    "audit_log",
+  ],
+  activation_flow: [
+    "identity_created",
+    "linked_to_org",
+    "role_assigned",
+    "services_enabled",
+    "credentials_issued",
+    "portal_access_live",
+  ],
+  service_catalog: [
+    "snow_ops",
+    "excavation_ops",
+    "client_portal",
+    "staff_portal",
+    "vendor_portal",
+    "billing_access",
+    "ai_services",
+    "admin_console",
+  ],
+};
+
 function navigation(hostname) {
   const appBase = hostname === "app.smajor.org" ? "" : "https://app.smajor.org";
   return [
@@ -614,6 +659,48 @@ function layout({
             <div class="label">Automations</div>
             <ul class="stack-list">
               ${moduleSection.blueprint.automations.map((item) => `<li>${item}</li>`).join("")}
+            </ul>
+          </article>
+        </div>
+      </section>
+    `
+    : "";
+
+  const accessHtml = moduleSection && moduleSection.accessModel
+    ? `
+      <section class="blueprint-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Administration</div>
+            <h2>${moduleSection.accessModel.title}</h2>
+          </div>
+          <p>${moduleSection.accessModel.summary}</p>
+        </div>
+        <div class="blueprint-grid">
+          <article class="blueprint-card">
+            <div class="label">Roles</div>
+            <div class="pill-row">
+              ${moduleSection.accessModel.highlighted_roles.map((item) => `<span class="pill">${item}</span>`).join("")}
+            </div>
+            <div class="label" style="margin-top:18px;">Doctrine</div>
+            <ul class="stack-list">
+              ${moduleSection.accessModel.doctrine.map((item) => `<li>${item}</li>`).join("")}
+            </ul>
+          </article>
+          <article class="blueprint-card">
+            <div class="label">Activation flow</div>
+            <ol class="stack-list">
+              ${moduleSection.accessModel.activation_flow.map((item) => `<li>${item}</li>`).join("")}
+            </ol>
+          </article>
+          <article class="blueprint-card">
+            <div class="label">Services enabled</div>
+            <div class="pill-row">
+              ${moduleSection.accessModel.highlighted_services.map((item) => `<span class="pill">${item}</span>`).join("")}
+            </div>
+            <div class="label" style="margin-top:18px;">Core records</div>
+            <ul class="stack-list">
+              ${moduleSection.accessModel.core_records.map((item) => `<li>${item}</li>`).join("")}
             </ul>
           </article>
         </div>
@@ -914,6 +1001,7 @@ function layout({
       ${liveBlocksHtml}
       ${moduleSectionHtml}
       ${blueprintHtml}
+      ${accessHtml}
       <div class="footer">Smajor est la facade. S25 Lumiere reste le backend central multi-agent.</div>
     </main>
   </body>
@@ -1067,6 +1155,44 @@ function blueprintFromPath(pathname) {
   return MODULE_BLUEPRINTS[key] || null;
 }
 
+function accessSectionFromPath(pathname) {
+  if (!["/clients", "/admin", "/staff", "/vendors"].includes(pathname)) {
+    return null;
+  }
+
+  const focusByPath = {
+    "/clients": {
+      title: "Client access chain",
+      summary: "Chaque client et contact doit etre rattache a une organisation, puis recevoir seulement les services achetes.",
+      highlighted_roles: ["client_org", "client_contact"],
+      highlighted_services: ["client_portal", "billing_access", "snow_ops", "excavation_ops", "ai_services"],
+    },
+    "/admin": {
+      title: "Admin access chain",
+      summary: "L'admin est la seule vue qui peut creer des identites, attribuer des roles et activer les services.",
+      highlighted_roles: ["operator_admin", "employee", "contractor"],
+      highlighted_services: ["admin_console", "staff_portal", "billing_access", "ai_services"],
+    },
+    "/staff": {
+      title: "Staff access chain",
+      summary: "Les employes et sous-traitants doivent recevoir un portail de travail, pas un acces global au systeme.",
+      highlighted_roles: ["employee", "contractor"],
+      highlighted_services: ["staff_portal", "snow_ops", "excavation_ops"],
+    },
+    "/vendors": {
+      title: "Vendor access chain",
+      summary: "Les fournisseurs doivent voir seulement les flux necessaires: commandes, livraisons, factures et documents.",
+      highlighted_roles: ["vendor_org", "vendor_contact"],
+      highlighted_services: ["vendor_portal", "billing_access"],
+    },
+  };
+
+  return {
+    ...ACCESS_MODEL,
+    ...focusByPath[pathname],
+  };
+}
+
 function renderPublic(env) {
   return layout({
     title: "Smajor",
@@ -1116,6 +1242,7 @@ function renderApp(env, pathname, hostname, snapshot) {
   const moduleSection = {
     ...(WORKBENCH_SECTIONS[pathname] || WORKBENCH_SECTIONS["/"]),
     blueprint: blueprintFromPath(pathname),
+    accessModel: accessSectionFromPath(pathname),
   };
   return layout({
     title: `Smajor Ops - ${section.label}`,
@@ -1180,6 +1307,15 @@ export default {
         domain: "smajor.org",
         source_of_truth: "S25 mesh + api.smajor.org",
         ...blueprint,
+      });
+    }
+
+    if (url.pathname === "/models/access-control.json") {
+      return jsonResponse({
+        ok: true,
+        domain: "smajor.org",
+        source_of_truth: "admin_console + api.smajor.org + S25 missions",
+        ...ACCESS_MODEL,
       });
     }
 

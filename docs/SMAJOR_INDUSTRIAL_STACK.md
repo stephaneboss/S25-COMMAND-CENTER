@@ -117,6 +117,15 @@ But:
 - fixer les pipelines de travail
 - preparer le branchement futur sur `api.smajor.org`
 
+Modele d'acces strict expose publiquement:
+- `/models/access-control.json`
+
+Doctrine:
+- chaque client, fournisseur et employe devient une identite gerable
+- chaque identite recoit un role
+- chaque role recoit seulement les services actives
+- l'admin reste le point de controle de la chaine
+
 ## Plan de construction
 
 ### Phase 1
