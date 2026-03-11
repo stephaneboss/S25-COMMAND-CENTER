@@ -141,10 +141,14 @@ Modele public de gouvernance:
 - `/models/role-governance.json`
 - `/models/identity-registry.json`
 - `/models/portal-activation.json`
+- `/models/client-form.json`
+- `/models/staff-dashboard.json`
 - `/api/business/role-governance`
 - `/api/business/identities`
 - `/api/business/rbac-matrix`
 - `/api/business/portal-activation`
+- `/api/business/client-form`
+- `/api/business/staff-dashboard`
 
 ## Plan de construction
 
