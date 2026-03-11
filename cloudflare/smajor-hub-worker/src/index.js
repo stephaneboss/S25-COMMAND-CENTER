@@ -724,6 +724,71 @@ const FOUNDATION_STACK = {
   ],
 };
 
+const VISITOR_STRUCTURE = {
+  title: "Smajor visitor structure",
+  intro: "Un visiteur doit comprendre en quelques secondes ou il entre, a quoi sert le portail et quel service il peut activer.",
+  columns: [
+    {
+      label: "Clients",
+      items: [
+        "Demander un service.",
+        "Recevoir un devis.",
+        "Suivre un job.",
+        "Consulter facture et statut.",
+      ],
+    },
+    {
+      label: "Employes",
+      items: [
+        "Voir les taches.",
+        "Recevoir le dispatch.",
+        "Envoyer un rapport terrain.",
+        "Suivre l'organisation quotidienne.",
+      ],
+    },
+    {
+      label: "Fournisseurs",
+      items: [
+        "Recevoir les bons de commande.",
+        "Confirmer livraison ou disponibilite.",
+        "Echanger les documents utiles.",
+        "Rattacher les couts aux jobs.",
+      ],
+    },
+  ],
+};
+
+const PORTAL_MATRIX = {
+  title: "Portal matrix",
+  summary: "Chaque type d'acteur entre par un portail clair, avec des services actives selon son role.",
+  portals: [
+    {
+      key: "clients_portal",
+      label: "Client portal",
+      audience: "Clients actifs",
+      services: ["snow_ops", "excavation_ops", "billing_access", "ai_services"],
+    },
+    {
+      key: "staff_portal",
+      label: "Staff portal",
+      audience: "Employes et sous-traitants",
+      services: ["dispatch", "job_execution", "field_reports", "staff_portal"],
+    },
+    {
+      key: "vendor_portal",
+      label: "Vendor portal",
+      audience: "Fournisseurs",
+      services: ["purchase_orders", "delivery_flow", "vendor_portal", "billing_access"],
+    },
+    {
+      key: "admin_console",
+      label: "Admin console",
+      audience: "Stef et operateurs admin",
+      services: ["identity_access", "finance", "governance", "ai_ops", "trade_readiness"],
+    },
+  ],
+};
+
 function navigation(hostname) {
   const appBase = hostname === "app.smajor.org" ? "" : "https://app.smajor.org";
   return [
@@ -745,6 +810,8 @@ function layout({
   blocks,
   liveBlocks = [],
   moduleSection = null,
+  visitorSection = null,
+  portalMatrix = null,
   tone = "public",
   nav = [],
   activePath = "/",
@@ -1035,6 +1102,63 @@ function layout({
                   <ul>
                     ${column.items.map((item) => `<li>${item}</li>`).join("")}
                   </ul>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
+  const visitorHtml = visitorSection
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Visitor map</div>
+            <h2>${visitorSection.title}</h2>
+          </div>
+          <p>${visitorSection.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${visitorSection.columns
+            .map(
+              (column) => `
+                <article class="module-card">
+                  <div class="label">${column.label}</div>
+                  <ul>
+                    ${column.items.map((item) => `<li>${item}</li>`).join("")}
+                  </ul>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
+  const portalMatrixHtml = portalMatrix
+    ? `
+      <section class="blueprint-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Portal matrix</div>
+            <h2>${portalMatrix.title}</h2>
+          </div>
+          <p>${portalMatrix.summary}</p>
+        </div>
+        <div class="blueprint-grid">
+          ${portalMatrix.portals
+            .map(
+              (portal) => `
+                <article class="blueprint-card">
+                  <div class="label">${portal.label}</div>
+                  <p style="margin:0 0 14px; color: var(--muted); line-height: 1.55;">${portal.audience}</p>
+                  <div class="pill-row">
+                    ${portal.services.map((service) => `<span class="pill">${service}</span>`).join("")}
+                  </div>
                 </article>
               `,
             )
@@ -1336,6 +1460,8 @@ function layout({
       <section class="grid">${blocksHtml}</section>
       ${liveBlocksHtml}
       ${moduleSectionHtml}
+      ${visitorHtml}
+      ${portalMatrixHtml}
       ${blueprintHtml}
       ${accessHtml}
       ${registryHtml}
@@ -1649,6 +1775,8 @@ function renderPublic(env) {
         ],
       },
     ],
+    visitorSection: VISITOR_STRUCTURE,
+    portalMatrix: PORTAL_MATRIX,
   });
 }
 
@@ -1794,6 +1922,24 @@ export default {
         domain: "smajor.org",
         source_of_truth: "open-source backbone selection",
         ...FOUNDATION_STACK,
+      });
+    }
+
+    if (url.pathname === "/models/visitor-structure.json") {
+      return jsonResponse({
+        ok: true,
+        domain: "smajor.org",
+        source_of_truth: "public facade + portal onboarding",
+        ...VISITOR_STRUCTURE,
+      });
+    }
+
+    if (url.pathname === "/models/portal-matrix.json") {
+      return jsonResponse({
+        ok: true,
+        domain: "smajor.org",
+        source_of_truth: "strict administration chain + service enablement",
+        ...PORTAL_MATRIX,
       });
     }
 
