@@ -12,6 +12,9 @@ Faire de `smajor.org` la couche visible et industrielle du systeme:
 Le domaine devient la facade.
 Le mesh S25 sur Akash reste le coeur operationnel.
 
+Reference de construction business:
+- voir `docs/SMAJOR_INDUSTRIAL_STACK.md`
+
 ## Principe directeur
 
 - `smajor.org` = presentation, acces, marque, portail
