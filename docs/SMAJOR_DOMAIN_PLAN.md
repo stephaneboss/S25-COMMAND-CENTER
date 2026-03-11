@@ -14,6 +14,7 @@
 - le backoffice
 - l'infra S25
 - les agents IA
+- la carte d'entree visiteurs et la matrice des portails
 
 Le mesh Akash reste le compute.
 Cloudflare devient la couche stable de presentation.
@@ -64,6 +65,14 @@ Cloudflare devient la couche stable de presentation.
   - hub Cloudflare deploye
   - root et `www` repondent en `200`
   - `app.smajor.org` repond en `200`
+  - `smajor.org` explique maintenant les portes d'entree:
+    - clients
+    - employes
+    - fournisseurs
+    - admin
+  - les modeles publics suivants doivent rester exposes:
+    - `visitor-structure`
+    - `portal-matrix`
   - le shell `app` affiche maintenant des panneaux live S25:
     - `pipeline_status`
     - missions
