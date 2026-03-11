@@ -2,6 +2,10 @@ name = "trinity-s25-proxy"
 main = "src/index.js"
 compatibility_date = "2026-03-10"
 workers_dev = true
+routes = [
+  { pattern = "s25.smajor.org", custom_domain = true },
+  { pattern = "api.smajor.org", custom_domain = true }
+]
 
 [vars]
 ORIGIN_BASE = "http://fpog7pbvepbkrfae1529ics23k.ingress.cap-test-compute.com"
