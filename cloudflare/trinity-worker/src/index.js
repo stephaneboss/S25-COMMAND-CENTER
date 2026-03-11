@@ -189,6 +189,7 @@ const BUSINESS_COLLECTION_KEYS = {
   clients: "clients",
   jobs: "jobs",
   quotes_invoices: "quotes_invoices",
+  identities: "identities",
 };
 
 const BUSINESS_EMPIRE_MANIFEST = {
@@ -233,11 +234,13 @@ const BUSINESS_EMPIRE_MANIFEST = {
     `${BUSINESS_PREFIX}/client-registry-live`,
     `${BUSINESS_PREFIX}/job-registry-live`,
     `${BUSINESS_PREFIX}/quotes-invoices-live`,
+    `${BUSINESS_PREFIX}/identity-registry-live`,
     `${BUSINESS_PREFIX}/internal-ops`,
     `${BUSINESS_PREFIX}/role-governance`,
     `${BUSINESS_PREFIX}/rbac-matrix`,
     `${BUSINESS_PREFIX}/agent-catalog`,
     `${BUSINESS_PREFIX}/secure/live-registries`,
+    `${BUSINESS_PREFIX}/secure/operator-roster`,
     `${BUSINESS_PREFIX}/secure/alpha-client`,
     `${BUSINESS_PREFIX}/secure/billing-tunnel`,
   ],
@@ -459,10 +462,12 @@ const BUSINESS_REGISTRY_MAP = {
     { key: "client_registry_live", path: `${BUSINESS_PREFIX}/client-registry-live`, purpose: "Seeded client accounts ready for portal activation" },
     { key: "job_registry_live", path: `${BUSINESS_PREFIX}/job-registry-live`, purpose: "Seeded operations jobs aligned with dispatch scopes" },
     { key: "quotes_invoices_live", path: `${BUSINESS_PREFIX}/quotes-invoices-live`, purpose: "Seeded commercial and billing records" },
+    { key: "identity_registry_live", path: `${BUSINESS_PREFIX}/identity-registry-live`, purpose: "Live identities bound to role, badge, scope and services" },
     { key: "internal_ops", path: `${BUSINESS_PREFIX}/internal-ops`, purpose: "Public operating summary for Smajor internal account" },
     { key: "empire_manifest", path: `${BUSINESS_PREFIX}/empire-manifest`, purpose: "Unified manifest of domains, towers, registries and command chain" },
     { key: "total_mesh_protocol", path: `${BUSINESS_PREFIX}/total-mesh-protocol`, purpose: "Protocol de synchronisation totale des agents vers le hub" },
     { key: "secure_live_registries", path: `${BUSINESS_PREFIX}/secure/live-registries`, purpose: "Protected admin view of all live business registries" },
+    { key: "secure_operator_roster", path: `${BUSINESS_PREFIX}/secure/operator-roster`, purpose: "Protected operator roster and founder chain" },
     { key: "secure_alpha_client", path: `${BUSINESS_PREFIX}/secure/alpha-client`, purpose: "Protected alpha client detail route" },
     { key: "secure_billing_tunnel", path: `${BUSINESS_PREFIX}/secure/billing-tunnel`, purpose: "Protected billing tunnel detail route" },
   ],
@@ -772,6 +777,7 @@ function buildBusinessState(seed) {
     clients: [...BUSINESS_CLIENT_REGISTRY_LIVE.records],
     jobs: [...BUSINESS_JOB_REGISTRY_LIVE.records],
     quotes_invoices: [...BUSINESS_QUOTES_INVOICES_LIVE.records],
+    identities: [],
     last_write_at: null,
     ...(seed || {}),
   };
@@ -805,6 +811,18 @@ function deriveInternalOpsSummary(business) {
       : null,
     jobs_open: jobs.length,
     finance_entries: quotes.length,
+    last_write_at: business.last_write_at,
+  };
+}
+
+function buildOperatorRoster(business) {
+  const identities = business.identities || [];
+  const operators = identities.filter((record) => record.badge_id === "major_badge");
+  return {
+    title: "Operator roster",
+    summary: "Racine humaine de gouvernance: les comptes major entrent dans la meme matrice RBAC que le reste du systeme.",
+    total_operator_identities: operators.length,
+    identities: operators,
     last_write_at: business.last_write_at,
   };
 }
@@ -910,6 +928,22 @@ function buildCreatedRecord(kind, body) {
       created_at: now,
     };
   }
+  if (kind === "identity") {
+    return {
+      identity_id: body.identity_id || createRecordId("ident"),
+      organization_id: body.organization_id || "",
+      identity_type: body.identity_type || "human_operator",
+      display_name: body.display_name || "Unnamed Operator",
+      role_id: body.role_id || "operator_admin",
+      badge_id: body.badge_id || "major_badge",
+      scope_id: body.scope_id || "governance_scope",
+      service_entitlements: Array.isArray(body.service_entitlements) ? body.service_entitlements : ["admin_console"],
+      credential_state: body.credential_state || "issued",
+      portal_state: body.portal_state || "live",
+      audit_state: body.audit_state || "watching",
+      created_at: now,
+    };
+  }
   return {
     quote_id: body.quote_id || createRecordId("quote"),
     invoice_id: body.invoice_id || null,
@@ -934,7 +968,9 @@ async function handleBusinessCreate(request, pathname, requestId, env, kind) {
       ? BUSINESS_COLLECTION_KEYS.clients
       : kind === "job"
         ? BUSINESS_COLLECTION_KEYS.jobs
-        : BUSINESS_COLLECTION_KEYS.quotes_invoices;
+        : kind === "identity"
+          ? BUSINESS_COLLECTION_KEYS.identities
+          : BUSINESS_COLLECTION_KEYS.quotes_invoices;
   const created = buildCreatedRecord(kind, body);
   business[collectionKey] = [created, ...(business[collectionKey] || [])];
   business.last_write_at = new Date().toISOString();
@@ -1071,6 +1107,20 @@ function handleBusinessRequest(request, pathname, requestId, env) {
       }),
     );
   }
+  if (pathname === `${BUSINESS_PREFIX}/identity-registry-live`) {
+    if (request.method === "POST") {
+      return handleBusinessCreate(request, pathname, requestId, env, "identity");
+    }
+    return readBusinessState(env, requestId).then((business) =>
+      businessResponse(requestId, pathname, {
+        title: "Identity registry live",
+        summary: "Identites vivantes reliees aux roles, badges, scopes et services actives.",
+        records: business.identities,
+        live_store: true,
+        last_write_at: business.last_write_at,
+      }),
+    );
+  }
   if (pathname === `${BUSINESS_PREFIX}/internal-ops`) {
     return readBusinessState(env, requestId).then((business) =>
       businessResponse(requestId, pathname, deriveInternalOpsSummary(business)),
@@ -1093,6 +1143,17 @@ function handleBusinessRequest(request, pathname, requestId, env) {
         clients: business.clients,
         jobs: business.jobs,
         quotes_invoices: business.quotes_invoices,
+        identities: business.identities,
+      }),
+    );
+  }
+  if (pathname === `${BUSINESS_PREFIX}/secure/operator-roster`) {
+    const denied = requireBusinessSecret(request, env, requestId, pathname);
+    if (denied) return denied;
+    return readBusinessState(env, requestId).then((business) =>
+      businessResponse(requestId, pathname, {
+        secure: true,
+        ...buildOperatorRoster(business),
       }),
     );
   }

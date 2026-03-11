@@ -1158,6 +1158,7 @@ const SECURE_ROUTE_MODEL = {
       label: "Protected",
       items: [
         "/api/business/secure/live-registries",
+        "/api/business/secure/operator-roster",
         "/api/business/secure/alpha-client",
         "/api/business/secure/billing-tunnel",
         "header x-s25-secret requis",
@@ -1194,6 +1195,25 @@ const INTERNAL_OPS_MODEL = {
         "full details via secure live registries",
         "same RBAC chain as external clients",
       ],
+    },
+  ],
+};
+
+const OPERATOR_ACCOUNT_MODEL = {
+  title: "Operator account",
+  summary: "Le Major entre lui aussi dans le pipeline: identite, role, badge, scope et services actives.",
+  columns: [
+    {
+      label: "Identity",
+      items: ["ident-major-stef-001", "Stephane Major", "human_operator"],
+    },
+    {
+      label: "Authority",
+      items: ["executive_operator", "major_badge", "founder_scope"],
+    },
+    {
+      label: "Services",
+      items: ["admin_console", "finance_approval", "ai_control_plane", "governance"],
     },
   ],
 };
@@ -2055,6 +2075,32 @@ function layout({
     `
     : "";
 
+  const operatorAccountHtml = moduleSection && moduleSection.operatorAccount
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Operator account</div>
+            <h2>${moduleSection.operatorAccount.title}</h2>
+          </div>
+          <p>${moduleSection.operatorAccount.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.operatorAccount.columns
+            .map(
+              (column) => `
+                <article class="module-card">
+                  <div class="label">${column.label}</div>
+                  <ul>${column.items.map((item) => `<li>${item}</li>`).join("")}</ul>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
   const visitorHtml = visitorSection
     ? `
       <section class="module-panel">
@@ -2498,6 +2544,7 @@ function layout({
       ${foundationHtml}
       ${registryWriteContractHtml}
       ${internalOpsHtml}
+      ${operatorAccountHtml}
       <div class="footer">Smajor est la facade. S25 Lumiere reste le backend central multi-agent.</div>
     </main>
   </body>
@@ -3069,6 +3116,17 @@ function internalOpsSection(pathname, snapshot) {
   };
 }
 
+function operatorAccountSection(pathname) {
+  if (!["/admin", "/ai"].includes(pathname)) {
+    return null;
+  }
+  return {
+    title: OPERATOR_ACCOUNT_MODEL.title,
+    intro: OPERATOR_ACCOUNT_MODEL.summary,
+    columns: OPERATOR_ACCOUNT_MODEL.columns,
+  };
+}
+
 function agentActivationSection(pathname) {
   if (!["/admin", "/ai"].includes(pathname)) {
     return null;
@@ -3168,6 +3226,7 @@ function renderApp(env, pathname, hostname, snapshot) {
     alphaPilot: alphaPilotSection(pathname),
     secureRoutes: secureRoutesSection(pathname),
     internalOps: internalOpsSection(pathname, snapshot),
+    operatorAccount: operatorAccountSection(pathname),
     agentActivation: agentActivationSection(pathname),
     agentServiceBindings: agentServiceBindingsSection(pathname),
     foundationStack: foundationStackSection(pathname),
@@ -3411,6 +3470,15 @@ export default {
         domain: "smajor.org",
         source_of_truth: "api.smajor.org internal ops summary + secure live registries",
         ...INTERNAL_OPS_MODEL,
+      });
+    }
+
+    if (url.pathname === "/models/operator-account.json") {
+      return jsonResponse({
+        ok: true,
+        domain: "smajor.org",
+        source_of_truth: "api.smajor.org identity-registry-live + secure operator roster",
+        ...OPERATOR_ACCOUNT_MODEL,
       });
     }
 
