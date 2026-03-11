@@ -62,7 +62,13 @@ Cloudflare devient la couche stable de presentation.
   - DNS public vu via `1.1.1.1` pour `s25/api/merlin`
 - `smajor.org`, `www.smajor.org`, `app.smajor.org`
   - hub Cloudflare deploye
-  - propagation DNS encore en cours au moment du commit
+  - root et `www` repondent en `200`
+  - `app.smajor.org` repond en `200`
+  - le shell `app` affiche maintenant des panneaux live S25:
+    - `pipeline_status`
+    - missions
+    - intel COMET
+    - lecture mesh / resilience
 
 ## Cible
 
