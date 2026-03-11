@@ -185,6 +185,64 @@ const BUSINESS_QUOTES_INVOICES_LIVE = {
   ],
 };
 
+const BUSINESS_EMPIRE_MANIFEST = {
+  title: "Smajor empire manifest",
+  summary: "Manifeste central de l'entreprise: business reel, administration stricte, backend IA et routes critiques.",
+  doctrine: [
+    "S25 mesh reste la source de verite operationnelle.",
+    "smajor.org est la facade business et admin de l'empire.",
+    "Toute autorite passe par identity_id -> role_id -> badge_id -> scope_id -> service_entitlements.",
+    "Les agents servent les operations; ils ne remplacent pas la gouvernance.",
+  ],
+  domains: {
+    public: ["smajor.org", "www.smajor.org", "app.smajor.org"],
+    business_api: ["api.smajor.org"],
+    runtime: ["s25.smajor.org"],
+    validation: ["merlin.smajor.org"],
+  },
+  control_towers: [
+    "customer_success",
+    "field_ops",
+    "admin_governance",
+    "vendor_finance",
+    "ai_ops",
+    "secure_growth",
+  ],
+  registries: [
+    "organization_registry",
+    "identity_registry",
+    "service_registry",
+    "asset_registry",
+    "job_registry",
+    "finance_registry",
+    "vendor_registry",
+    "agent_registry",
+  ],
+  live_business: [
+    "client-registry-live",
+    "job-registry-live",
+    "quotes-invoices-live",
+  ],
+  critical_routes: [
+    `${BUSINESS_PREFIX}/client-registry-live`,
+    `${BUSINESS_PREFIX}/job-registry-live`,
+    `${BUSINESS_PREFIX}/quotes-invoices-live`,
+    `${BUSINESS_PREFIX}/role-governance`,
+    `${BUSINESS_PREFIX}/rbac-matrix`,
+    `${BUSINESS_PREFIX}/agent-catalog`,
+    `${BUSINESS_PREFIX}/secure/alpha-client`,
+    `${BUSINESS_PREFIX}/secure/billing-tunnel`,
+  ],
+  command_chain: [
+    "TRINITY -> mission_control",
+    "MERLIN -> validation + memory",
+    "COMET -> provider_watch + ops_followup",
+    "KIMI/ORACLE/ONCHAIN_GUARDIAN -> sensor lanes",
+    "GOUV4 -> policy + arbitration",
+    "ARKON -> build + runtime wiring",
+  ],
+};
+
 const BUSINESS_ONBOARDING = {
   title: "Business onboarding chain",
   summary: "Tout nouvel acteur doit entrer par une chaine stricte: identite, role, services, acces.",
@@ -293,6 +351,7 @@ const BUSINESS_REGISTRY_MAP = {
     { key: "client_registry_live", path: `${BUSINESS_PREFIX}/client-registry-live`, purpose: "Seeded client accounts ready for portal activation" },
     { key: "job_registry_live", path: `${BUSINESS_PREFIX}/job-registry-live`, purpose: "Seeded operations jobs aligned with dispatch scopes" },
     { key: "quotes_invoices_live", path: `${BUSINESS_PREFIX}/quotes-invoices-live`, purpose: "Seeded commercial and billing records" },
+    { key: "empire_manifest", path: `${BUSINESS_PREFIX}/empire-manifest`, purpose: "Unified manifest of domains, towers, registries and command chain" },
     { key: "secure_alpha_client", path: `${BUSINESS_PREFIX}/secure/alpha-client`, purpose: "Protected alpha client detail route" },
     { key: "secure_billing_tunnel", path: `${BUSINESS_PREFIX}/secure/billing-tunnel`, purpose: "Protected billing tunnel detail route" },
   ],
@@ -685,6 +744,9 @@ function handleBusinessRequest(request, pathname, requestId, env) {
   }
   if (pathname === `${BUSINESS_PREFIX}/quotes-invoices-live`) {
     return businessResponse(requestId, pathname, BUSINESS_QUOTES_INVOICES_LIVE);
+  }
+  if (pathname === `${BUSINESS_PREFIX}/empire-manifest`) {
+    return businessResponse(requestId, pathname, BUSINESS_EMPIRE_MANIFEST);
   }
   if (pathname === `${BUSINESS_PREFIX}/secure/alpha-client`) {
     const denied = requireBusinessSecret(request, env, requestId, pathname);

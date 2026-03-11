@@ -1015,6 +1015,44 @@ const QUOTES_INVOICES_LIVE_MODEL = {
   ],
 };
 
+const EMPIRE_MANIFEST_MODEL = {
+  title: "Empire manifest",
+  summary: "Vue unifiee de la facade, des tours de controle, des registres, des agents et des routes critiques.",
+  columns: [
+    {
+      label: "Domains",
+      items: [
+        "smajor.org | public facade",
+        "app.smajor.org | control shell",
+        "api.smajor.org | business API",
+        "s25.smajor.org | runtime cockpit",
+        "merlin.smajor.org | validation bridge",
+      ],
+    },
+    {
+      label: "Control towers",
+      items: [
+        "customer_success",
+        "field_ops",
+        "admin_governance",
+        "vendor_finance",
+        "ai_ops",
+        "secure_growth",
+      ],
+    },
+    {
+      label: "Command chain",
+      items: [
+        "TRINITY -> mission_control",
+        "MERLIN -> validation + memory",
+        "COMET -> provider_watch + ops_followup",
+        "GOUV4 -> policy + arbitration",
+        "ARKON -> build + runtime wiring",
+      ],
+    },
+  ],
+};
+
 const ALPHA_CLIENT_PILOT_MODEL = {
   title: "Alpha client pilot",
   summary: "Premier client de reference pour valider le tunnel intake -> quote -> invoice -> payment sans exposer les details sensibles au public.",
@@ -1383,6 +1421,34 @@ function layout({
         </div>
         <div class="module-grid">
           ${moduleSection.liveRegistries.columns
+            .map(
+              (column) => `
+                <article class="module-card">
+                  <div class="label">${column.label}</div>
+                  <ul>
+                    ${column.items.map((item) => `<li>${item}</li>`).join("")}
+                  </ul>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
+  const empireManifestHtml = moduleSection && moduleSection.empireManifest
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Empire manifest</div>
+            <h2>${moduleSection.empireManifest.title}</h2>
+          </div>
+          <p>${moduleSection.empireManifest.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.empireManifest.columns
             .map(
               (column) => `
                 <article class="module-card">
@@ -2090,6 +2156,7 @@ function layout({
       ${registryHtml}
       ${mvpRegistryHtml}
       ${liveRegistryHtml}
+      ${empireManifestHtml}
       ${controlPlaneHtml}
       ${roleGovernanceHtml}
       ${identityRegistryHtml}
@@ -2380,6 +2447,17 @@ function liveRegistrySection(pathname) {
   };
 }
 
+function empireManifestSection(pathname) {
+  if (!["/", "/admin", "/ai"].includes(pathname)) {
+    return null;
+  }
+  return {
+    title: EMPIRE_MANIFEST_MODEL.title,
+    intro: EMPIRE_MANIFEST_MODEL.summary,
+    columns: EMPIRE_MANIFEST_MODEL.columns,
+  };
+}
+
 function controlPlaneSection(pathname) {
   if (!["/", "/admin", "/ai"].includes(pathname)) {
     return null;
@@ -2580,6 +2658,7 @@ function renderApp(env, pathname, hostname, snapshot) {
     accessModel: accessSectionFromPath(pathname),
     mvpRegistries: mvpRegistrySection(pathname),
     liveRegistries: liveRegistrySection(pathname),
+    empireManifest: empireManifestSection(pathname),
     controlPlane: controlPlaneSection(pathname),
     roleGovernance: roleGovernanceSection(pathname),
     identityRegistry: identityRegistrySection(pathname),
@@ -2784,6 +2863,15 @@ export default {
         domain: "smajor.org",
         source_of_truth: "api.smajor.org quotes-invoices-live",
         ...QUOTES_INVOICES_LIVE_MODEL,
+      });
+    }
+
+    if (url.pathname === "/models/empire-manifest.json") {
+      return jsonResponse({
+        ok: true,
+        domain: "smajor.org",
+        source_of_truth: "api.smajor.org empire-manifest + control plane",
+        ...EMPIRE_MANIFEST_MODEL,
       });
     }
 

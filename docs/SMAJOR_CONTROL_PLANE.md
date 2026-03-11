@@ -59,3 +59,16 @@ Faire de `app.smajor.org` un vrai centre de commandement:
 - domaines
 - readiness trade
 - revue operateur
+
+## Manifeste de l'empire
+
+Le manifeste central doit tenir:
+- les domaines publics et runtime
+- les tours de controle
+- les registres maitres
+- la chaine de commandement agentique
+- les routes critiques de business et de securite
+
+Exposition cible:
+- `app.smajor.org/models/empire-manifest.json`
+- `api.smajor.org/api/business/empire-manifest`
