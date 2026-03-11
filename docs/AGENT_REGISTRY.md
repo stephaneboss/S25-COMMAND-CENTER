@@ -9,6 +9,9 @@ Registre unique des agents S25 avec:
 - niveau d'autonomie
 - prochaine migration
 
+Reference hierarchique:
+- voir `docs/SMAJOR_AGENT_HIERARCHY.md`
+
 ## Regles
 
 - Un agent critique doit avoir un runtime principal public ou Akash.
