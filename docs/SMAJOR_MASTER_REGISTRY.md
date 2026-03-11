@@ -127,3 +127,10 @@ Ils sont la premiere tranche realiste pour:
 - prendre un nouveau client
 - ouvrir un job
 - emettre devis et facture
+
+Facade publique MVP:
+- `/api/business/registry-map`
+- `/api/business/clients`
+- `/api/business/jobs`
+- `/api/business/quotes-invoices`
+- `/api/business/onboarding`

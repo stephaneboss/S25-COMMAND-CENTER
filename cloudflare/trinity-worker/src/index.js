@@ -12,6 +12,109 @@ const HOP_BY_HOP_HEADERS = new Set([
 
 const RETRYABLE_STATUS_CODES = new Set([502, 503, 504]);
 const ALLOWED_PATH_PREFIXES = ["/api/", "/health", "/favicon.ico"];
+const BUSINESS_PREFIX = "/api/business";
+
+const BUSINESS_REGISTRIES = {
+  clients: {
+    title: "Clients registry MVP",
+    description: "Registre minimum pour nouveaux clients, sans reprendre l'ancien hiver.",
+    records: [
+      "client_id",
+      "organization_name",
+      "contact_name",
+      "contact_channel",
+      "service_address",
+      "service_type",
+      "account_status",
+    ],
+    workflows: [
+      "create_client",
+      "activate_services",
+      "attach_quote",
+      "attach_job",
+      "invoice_and_collect",
+    ],
+  },
+  jobs: {
+    title: "Jobs registry MVP",
+    description: "Registre des interventions terrain en execution.",
+    records: [
+      "job_id",
+      "client_id",
+      "service_type",
+      "assigned_team",
+      "equipment_required",
+      "scheduled_window",
+      "job_status",
+    ],
+    workflows: [
+      "open_job",
+      "dispatch_team",
+      "track_execution",
+      "capture_report",
+      "close_job",
+    ],
+  },
+  quotes_invoices: {
+    title: "Quotes and invoices registry MVP",
+    description: "Registre devis, factures et suivi paiements.",
+    records: [
+      "quote_id",
+      "invoice_id",
+      "client_id",
+      "job_id",
+      "amount",
+      "payment_status",
+      "billing_stage",
+    ],
+    workflows: [
+      "issue_quote",
+      "approve_quote",
+      "issue_invoice",
+      "track_payment",
+      "report_margin",
+    ],
+  },
+};
+
+const BUSINESS_ONBOARDING = {
+  title: "Business onboarding chain",
+  summary: "Tout nouvel acteur doit entrer par une chaine stricte: identite, role, services, acces.",
+  tracks: {
+    client: [
+      "create_client_identity",
+      "link_to_organization",
+      "activate_service_contract",
+      "issue_portal_access",
+      "attach_quote_and_job",
+    ],
+    employee: [
+      "create_employee_identity",
+      "assign_role",
+      "enable_staff_portal",
+      "attach_shift_and_dispatch_scope",
+      "issue_secure_credentials",
+    ],
+    vendor: [
+      "create_vendor_identity",
+      "link_vendor_org",
+      "enable_vendor_portal",
+      "attach_purchase_scope",
+      "issue_document_access",
+    ],
+  },
+};
+
+const BUSINESS_REGISTRY_MAP = {
+  title: "Smajor business registry map",
+  source_of_truth: "api.smajor.org facade + S25 governance",
+  registries: [
+    { key: "clients", path: `${BUSINESS_PREFIX}/clients`, purpose: "Customer and account intake" },
+    { key: "jobs", path: `${BUSINESS_PREFIX}/jobs`, purpose: "Field operations and execution" },
+    { key: "quotes_invoices", path: `${BUSINESS_PREFIX}/quotes-invoices`, purpose: "Commercial and billing flow" },
+    { key: "onboarding", path: `${BUSINESS_PREFIX}/onboarding`, purpose: "Strict actor activation chain" },
+  ],
+};
 
 function buildTargetUrl(requestUrl, originBase) {
   const incoming = new URL(requestUrl);
@@ -19,6 +122,41 @@ function buildTargetUrl(requestUrl, originBase) {
   origin.pathname = incoming.pathname;
   origin.search = incoming.search;
   return origin;
+}
+
+function businessResponse(requestId, pathname, payload, status = 200) {
+  return jsonResponse(
+    {
+      ok: true,
+      service: "trinity-s25-proxy",
+      request_id: requestId,
+      pathname,
+      ...payload,
+    },
+    { status },
+  );
+}
+
+function handleBusinessRequest(pathname, requestId) {
+  if (pathname === `${BUSINESS_PREFIX}` || pathname === `${BUSINESS_PREFIX}/`) {
+    return businessResponse(requestId, pathname, BUSINESS_REGISTRY_MAP);
+  }
+  if (pathname === `${BUSINESS_PREFIX}/registry-map`) {
+    return businessResponse(requestId, pathname, BUSINESS_REGISTRY_MAP);
+  }
+  if (pathname === `${BUSINESS_PREFIX}/clients`) {
+    return businessResponse(requestId, pathname, BUSINESS_REGISTRIES.clients);
+  }
+  if (pathname === `${BUSINESS_PREFIX}/jobs`) {
+    return businessResponse(requestId, pathname, BUSINESS_REGISTRIES.jobs);
+  }
+  if (pathname === `${BUSINESS_PREFIX}/quotes-invoices`) {
+    return businessResponse(requestId, pathname, BUSINESS_REGISTRIES.quotes_invoices);
+  }
+  if (pathname === `${BUSINESS_PREFIX}/onboarding`) {
+    return businessResponse(requestId, pathname, BUSINESS_ONBOARDING);
+  }
+  return null;
 }
 
 function shouldProxyPath(pathname) {
@@ -145,6 +283,11 @@ export default {
 
     if (incoming.pathname === "/health" || incoming.pathname === "/api/health") {
       return jsonResponse(buildProxyMeta(env, requestId, buildTargetUrl(request.url, env.ORIGIN_BASE)));
+    }
+
+    const businessRoute = handleBusinessRequest(incoming.pathname, requestId);
+    if (businessRoute) {
+      return businessRoute;
     }
 
     if (!shouldProxyPath(incoming.pathname)) {
