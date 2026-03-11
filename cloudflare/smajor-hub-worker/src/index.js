@@ -2577,8 +2577,9 @@ async function fetchJson(url) {
       accept: "application/json",
       "user-agent": "smajor-hub/1.0",
     },
+    cache: "no-store",
     cf: {
-      cacheTtl: 15,
+      cacheTtl: 0,
       cacheEverything: false,
     },
   });
@@ -2587,6 +2588,35 @@ async function fetchJson(url) {
     throw new Error(`upstream_${response.status}`);
   }
 
+  return response.json();
+}
+
+async function fetchSecureJson(url, env, method = "GET", body = null) {
+  if (!env.S25_SHARED_SECRET) {
+    throw new Error("shared_secret_missing");
+  }
+  const headers = {
+    accept: "application/json",
+    "user-agent": "smajor-hub/1.0",
+    "x-s25-secret": env.S25_SHARED_SECRET,
+  };
+  if (body) {
+    headers["content-type"] = "application/json";
+  }
+  const response = await fetch(url, {
+    method,
+    headers,
+    body,
+    cache: "no-store",
+    cf: {
+      cacheTtl: 0,
+      cacheEverything: false,
+    },
+  });
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`secure_upstream_${response.status}:${text}`);
+  }
   return response.json();
 }
 
@@ -2619,6 +2649,57 @@ async function fetchOpsSnapshot(env) {
       .filter((result) => result.status === "rejected")
       .map((result) => result.reason?.message || "upstream_error"),
   };
+}
+
+async function fetchAdminSnapshot(env) {
+  const [memoryResult] = await Promise.allSettled([
+    fetchSecureJson(`${env.PUBLIC_S25_URL}/api/memory/state`, env),
+  ]);
+  const registry = memoryResult.status === "fulfilled"
+    ? memoryResult.value?.state?.intel?.business_registry || {}
+    : {};
+  const business = {
+    title: "Live business registries",
+    secure: true,
+    clients: Array.isArray(registry.clients) ? registry.clients : [],
+    jobs: Array.isArray(registry.jobs) ? registry.jobs : [],
+    quotes_invoices: Array.isArray(registry.quotes_invoices) ? registry.quotes_invoices : [],
+    identities: Array.isArray(registry.identities) ? registry.identities : [],
+    last_write_at: registry.last_write_at || null,
+  };
+  const operatorRoster = {
+    secure: true,
+    title: "Operator roster",
+    summary: "Racine humaine de gouvernance: les comptes major entrent dans la meme matrice RBAC que le reste du systeme.",
+    identities: business.identities.filter((identity) => identity.badge_id === "major_badge"),
+    total_operator_identities: business.identities.filter((identity) => identity.badge_id === "major_badge").length,
+    last_write_at: business.last_write_at,
+  };
+  return {
+    liveRegistries: business,
+    operatorRoster,
+    errors: [memoryResult]
+      .filter((result) => result.status === "rejected")
+      .map((result) => result.reason?.message || "secure_memory_upstream_error"),
+  };
+}
+
+function requireHubSecret(request, env) {
+  if (!env.S25_SHARED_SECRET) {
+    return jsonResponse({
+      ok: false,
+      error: "hub_secret_missing",
+    }, 500);
+  }
+  const provided = request.headers.get("x-s25-secret");
+  if (!provided || provided !== env.S25_SHARED_SECRET) {
+    return jsonResponse({
+      ok: false,
+      error: "unauthorized",
+      required_header: "x-s25-secret",
+    }, 401);
+  }
+  return null;
 }
 
 function buildOmegaDeck(env, snapshot) {
@@ -2922,9 +3003,10 @@ function liveRegistrySection(pathname, snapshot) {
   if (!["/clients", "/admin"].includes(pathname)) {
     return null;
   }
-  const clients = snapshot.business?.clients?.records || [];
-  const jobs = snapshot.business?.jobs?.records || [];
-  const quotes = snapshot.business?.quotes_invoices?.records || [];
+  const secure = snapshot.admin?.liveRegistries;
+  const clients = secure?.clients || snapshot.business?.clients?.records || [];
+  const jobs = secure?.jobs || snapshot.business?.jobs?.records || [];
+  const quotes = secure?.quotes_invoices || snapshot.business?.quotes_invoices?.records || [];
   return {
     title: "Live registries",
     intro: "Premieres entrees vivantes pour sortir des schemas seuls et preparer la vraie operation business.",
@@ -3127,6 +3209,53 @@ function operatorAccountSection(pathname) {
   };
 }
 
+function operatorRosterSection(pathname, snapshot) {
+  if (!["/admin", "/ai"].includes(pathname)) {
+    return null;
+  }
+  const identities = snapshot.admin?.operatorRoster?.identities || [];
+  if (!identities.length) {
+    return null;
+  }
+  return {
+    title: "Operator roster live",
+    intro: "Lecture admin protegee des comptes major qui portent la gouvernance reelle.",
+    columns: identities.map((identity) => ({
+      label: identity.display_name || identity.identity_id,
+      items: [
+        identity.identity_id,
+        identity.role_id,
+        identity.badge_id,
+        identity.scope_id,
+      ],
+    })),
+  };
+}
+
+function adminActionSection(pathname) {
+  if (pathname !== "/admin") {
+    return null;
+  }
+  return {
+    title: "Admin live actions",
+    intro: "Endpoints operables du hub pour creer des clients, jobs et factures sans sortir du portail.",
+    columns: [
+      {
+        label: "Read",
+        items: ["/admin/api/live-registries", "/admin/api/operator-roster"],
+      },
+      {
+        label: "Write",
+        items: ["/admin/api/create-client", "/admin/api/create-job", "/admin/api/issue-invoice"],
+      },
+      {
+        label: "Rule",
+        items: ["server-side secret only", "same RBAC chain", "audit-first"],
+      },
+    ],
+  };
+}
+
 function agentActivationSection(pathname) {
   if (!["/admin", "/ai"].includes(pathname)) {
     return null;
@@ -3227,10 +3356,12 @@ function renderApp(env, pathname, hostname, snapshot) {
     secureRoutes: secureRoutesSection(pathname),
     internalOps: internalOpsSection(pathname, snapshot),
     operatorAccount: operatorAccountSection(pathname),
+    operatorRoster: operatorRosterSection(pathname, snapshot),
     agentActivation: agentActivationSection(pathname),
     agentServiceBindings: agentServiceBindingsSection(pathname),
     foundationStack: foundationStackSection(pathname),
     registryWriteContract: registryWriteContractSection(pathname),
+    adminActions: adminActionSection(pathname),
   };
   if (registrySection) {
     moduleSection.registry = registrySection;
@@ -3285,6 +3416,67 @@ export default {
         background_color: "#071311",
         theme_color: "#7cf6d4",
       });
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/live-registries") {
+      const denied = requireHubSecret(request, env);
+      if (denied) return denied;
+      try {
+        const snapshot = await fetchAdminSnapshot(env);
+        return jsonResponse(snapshot.liveRegistries);
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "admin_live_registries_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/operator-roster") {
+      const denied = requireHubSecret(request, env);
+      if (denied) return denied;
+      try {
+        const snapshot = await fetchAdminSnapshot(env);
+        return jsonResponse(snapshot.operatorRoster);
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "admin_operator_roster_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/create-client") {
+      const denied = requireHubSecret(request, env);
+      if (denied) return denied;
+      if (request.method !== "POST") {
+        return jsonResponse({ ok: false, error: "method_not_allowed" }, 405);
+      }
+      try {
+        return jsonResponse(await fetchSecureJson(`${env.PUBLIC_API_URL}/api/business/client-registry-live`, env, "POST", await request.text()));
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "admin_create_client_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/create-job") {
+      const denied = requireHubSecret(request, env);
+      if (denied) return denied;
+      if (request.method !== "POST") {
+        return jsonResponse({ ok: false, error: "method_not_allowed" }, 405);
+      }
+      try {
+        return jsonResponse(await fetchSecureJson(`${env.PUBLIC_API_URL}/api/business/job-registry-live`, env, "POST", await request.text()));
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "admin_create_job_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/issue-invoice") {
+      const denied = requireHubSecret(request, env);
+      if (denied) return denied;
+      if (request.method !== "POST") {
+        return jsonResponse({ ok: false, error: "method_not_allowed" }, 405);
+      }
+      try {
+        return jsonResponse(await fetchSecureJson(`${env.PUBLIC_API_URL}/api/business/quotes-invoices-live`, env, "POST", await request.text()));
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "admin_issue_invoice_failed", detail: String(error?.message || error) }, 500);
+      }
     }
 
     if (url.pathname.startsWith("/blueprints/") && url.pathname.endsWith(".json")) {
@@ -3528,7 +3720,18 @@ export default {
     }
 
     if (hostname === "app.smajor.org") {
-      const snapshot = await fetchOpsSnapshot(env);
+      const [ops, admin] = await Promise.all([
+        fetchOpsSnapshot(env),
+        fetchAdminSnapshot(env).catch((error) => ({
+          liveRegistries: null,
+          operatorRoster: null,
+          errors: [error?.message || "admin_snapshot_failed"],
+        })),
+      ]);
+      const snapshot = {
+        ...ops,
+        admin,
+      };
       return responseHtml(renderApp(env, url.pathname, hostname, snapshot));
     }
 
