@@ -75,6 +75,27 @@ const BUSINESS_REGISTRIES = {
       "report_margin",
     ],
   },
+  identities: {
+    title: "Identity registry MVP",
+    description: "Registre des identites reliees aux roles, badges, scopes et portails.",
+    records: [
+      "identity_id",
+      "organization_id",
+      "identity_type",
+      "role_id",
+      "badge_id",
+      "scope_id",
+      "credential_state",
+      "portal_state",
+    ],
+    workflows: [
+      "create_identity",
+      "assign_badge_template",
+      "assign_role_scope",
+      "enable_portal",
+      "rotate_credential",
+    ],
+  },
 };
 
 const BUSINESS_ONBOARDING = {
@@ -170,9 +191,11 @@ const BUSINESS_REGISTRY_MAP = {
     { key: "clients", path: `${BUSINESS_PREFIX}/clients`, purpose: "Customer and account intake" },
     { key: "jobs", path: `${BUSINESS_PREFIX}/jobs`, purpose: "Field operations and execution" },
     { key: "quotes_invoices", path: `${BUSINESS_PREFIX}/quotes-invoices`, purpose: "Commercial and billing flow" },
+    { key: "identities", path: `${BUSINESS_PREFIX}/identities`, purpose: "Identity to role to badge activation" },
     { key: "onboarding", path: `${BUSINESS_PREFIX}/onboarding`, purpose: "Strict actor activation chain" },
     { key: "role_governance", path: `${BUSINESS_PREFIX}/role-governance`, purpose: "Role templates, powers and service enablement" },
     { key: "rbac_matrix", path: `${BUSINESS_PREFIX}/rbac-matrix`, purpose: "Identity to role to badge to entitlement model" },
+    { key: "portal_activation", path: `${BUSINESS_PREFIX}/portal-activation`, purpose: "Portal enablement chain by audience" },
   ],
 };
 
@@ -193,6 +216,37 @@ const BUSINESS_RBAC_MATRIX = {
     "les permissions viennent du role_id",
     "le badge_id sert de moule d'acces operatoire",
     "la rotation humaine remplace la credential, pas la structure",
+  ],
+};
+
+const BUSINESS_PORTAL_ACTIVATION = {
+  title: "Portal activation plan",
+  summary: "Chaque portail s'ouvre a partir d'une identite, d'un role, d'un badge, d'un scope et de services actives.",
+  portals: [
+    {
+      key: "client_portal",
+      audience: "Clients",
+      required_chain: ["identity_id", "client_badge", "client_contact", "client_scope", "billing_access"],
+      onboarding: ["create_client_identity", "bind_role", "enable_services", "issue_access"],
+    },
+    {
+      key: "staff_portal",
+      audience: "Employes et sous-traitants",
+      required_chain: ["identity_id", "employee_badge", "staff_member", "field_scope", "staff_portal"],
+      onboarding: ["create_employee_identity", "bind_role", "attach_dispatch_scope", "issue_access"],
+    },
+    {
+      key: "vendor_portal",
+      audience: "Fournisseurs",
+      required_chain: ["identity_id", "vendor_badge", "vendor_contact", "vendor_scope", "vendor_portal"],
+      onboarding: ["create_vendor_identity", "bind_role", "attach_purchase_scope", "issue_access"],
+    },
+    {
+      key: "admin_console",
+      audience: "Direction et operateurs admin",
+      required_chain: ["identity_id", "major_badge", "operator_admin", "governance_scope", "admin_console"],
+      onboarding: ["create_admin_identity", "bind_role", "enable_admin_services", "issue_hardened_access"],
+    },
   ],
 };
 
@@ -233,6 +287,9 @@ function handleBusinessRequest(pathname, requestId) {
   if (pathname === `${BUSINESS_PREFIX}/quotes-invoices`) {
     return businessResponse(requestId, pathname, BUSINESS_REGISTRIES.quotes_invoices);
   }
+  if (pathname === `${BUSINESS_PREFIX}/identities`) {
+    return businessResponse(requestId, pathname, BUSINESS_REGISTRIES.identities);
+  }
   if (pathname === `${BUSINESS_PREFIX}/onboarding`) {
     return businessResponse(requestId, pathname, BUSINESS_ONBOARDING);
   }
@@ -241,6 +298,9 @@ function handleBusinessRequest(pathname, requestId) {
   }
   if (pathname === `${BUSINESS_PREFIX}/rbac-matrix`) {
     return businessResponse(requestId, pathname, BUSINESS_RBAC_MATRIX);
+  }
+  if (pathname === `${BUSINESS_PREFIX}/portal-activation`) {
+    return businessResponse(requestId, pathname, BUSINESS_PORTAL_ACTIVATION);
   }
   return null;
 }

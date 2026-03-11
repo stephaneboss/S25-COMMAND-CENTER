@@ -139,8 +139,12 @@ Doctrine:
 
 Modele public de gouvernance:
 - `/models/role-governance.json`
+- `/models/identity-registry.json`
+- `/models/portal-activation.json`
 - `/api/business/role-governance`
+- `/api/business/identities`
 - `/api/business/rbac-matrix`
+- `/api/business/portal-activation`
 
 ## Plan de construction
 
