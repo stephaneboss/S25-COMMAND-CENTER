@@ -185,6 +185,12 @@ const BUSINESS_QUOTES_INVOICES_LIVE = {
   ],
 };
 
+const BUSINESS_COLLECTION_KEYS = {
+  clients: "clients",
+  jobs: "jobs",
+  quotes_invoices: "quotes_invoices",
+};
+
 const BUSINESS_EMPIRE_MANIFEST = {
   title: "Smajor empire manifest",
   summary: "Manifeste central de l'entreprise: business reel, administration stricte, backend IA et routes critiques.",
@@ -757,6 +763,159 @@ function businessResponse(requestId, pathname, payload, status = 200) {
   );
 }
 
+function buildBusinessState(seed) {
+  return {
+    clients: [...BUSINESS_CLIENT_REGISTRY_LIVE.records],
+    jobs: [...BUSINESS_JOB_REGISTRY_LIVE.records],
+    quotes_invoices: [...BUSINESS_QUOTES_INVOICES_LIVE.records],
+    last_write_at: null,
+    ...(seed || {}),
+  };
+}
+
+function extractBusinessState(payload) {
+  const candidate = payload?.state?.intel?.business_registry || payload?.state?.business || {};
+  return buildBusinessState(candidate);
+}
+
+function hasBusinessWrites(state) {
+  return Boolean(
+    state?.last_write_at ||
+    (Array.isArray(state?.clients) && state.clients.some((item) => item?.created_at)) ||
+    (Array.isArray(state?.jobs) && state.jobs.some((item) => item?.created_at)) ||
+    (Array.isArray(state?.quotes_invoices) && state.quotes_invoices.some((item) => item?.created_at)),
+  );
+}
+
+function createRecordId(prefix) {
+  return `${prefix}-${crypto.randomUUID().slice(0, 8)}`;
+}
+
+async function readBusinessState(env, requestId) {
+  try {
+    const payload = await fetchOriginJson("/api/memory/state", env, requestId);
+    const business = extractBusinessState(payload);
+    if (hasBusinessWrites(business)) {
+      return business;
+    }
+  } catch {}
+
+  if (env.PUBLIC_RUNTIME_URL) {
+    try {
+      const payload = await fetchPublicRuntimeJson("/api/memory/state", env, requestId);
+      const business = extractBusinessState(payload);
+      if (hasBusinessWrites(business)) {
+        return business;
+      }
+    } catch {}
+  }
+
+  return buildBusinessState();
+}
+
+async function writeBusinessState(env, requestId, business) {
+  const target = new URL("/api/memory/state", env.ORIGIN_BASE);
+  const headers = new Headers({
+    "content-type": "application/json",
+    accept: "application/json",
+    "user-agent": "trinity-s25-proxy/omega",
+    "x-trinity-request-id": requestId,
+  });
+  if (env.ORIGIN_HOST_HEADER) {
+    headers.set("host", env.ORIGIN_HOST_HEADER);
+  }
+  if (env.S25_SHARED_SECRET) {
+    headers.set("x-s25-secret", env.S25_SHARED_SECRET);
+  }
+  const response = await fetch(target, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      agent: "TRINITY",
+      intel: {
+        business_registry: business,
+      },
+    }),
+  });
+  if (!response.ok) {
+    throw new Error(`origin_write_${response.status}`);
+  }
+  return response.json();
+}
+
+function buildCreatedRecord(kind, body) {
+  const now = new Date().toISOString();
+  if (kind === "client") {
+    return {
+      client_id: body.client_id || createRecordId("client"),
+      organization_id: body.organization_id || createRecordId("org"),
+      organization_name: body.organization_name || "Unnamed Organization",
+      identity_id: body.identity_id || createRecordId("ident"),
+      role_id: body.role_id || "client_contact",
+      badge_id: body.badge_id || "client_badge",
+      scope_id: body.scope_id || "client_scope_default",
+      service_mix: Array.isArray(body.service_mix) ? body.service_mix : [body.service_type || "multi_service_exterior"],
+      account_status: body.account_status || "active",
+      portal_state: body.portal_state || "pending_secure_access",
+      billing_state: body.billing_state || "quote_pending",
+      created_at: now,
+    };
+  }
+  if (kind === "job") {
+    return {
+      job_id: body.job_id || createRecordId("job"),
+      client_id: body.client_id || "",
+      service_type: body.service_type || "multi_service_exterior",
+      assigned_team: body.assigned_team || "unassigned",
+      equipment_required: Array.isArray(body.equipment_required) ? body.equipment_required : [],
+      scheduled_window: body.scheduled_window || "pending_schedule",
+      job_status: body.job_status || "scheduled",
+      dispatch_scope: body.dispatch_scope || "field_scope_default",
+      created_at: now,
+    };
+  }
+  return {
+    quote_id: body.quote_id || createRecordId("quote"),
+    invoice_id: body.invoice_id || null,
+    client_id: body.client_id || "",
+    job_id: body.job_id || "",
+    amount: body.amount ?? 0,
+    currency: body.currency || "CAD",
+    payment_status: body.payment_status || "quote_pending",
+    billing_stage: body.billing_stage || "quote_prepared",
+    created_at: now,
+  };
+}
+
+async function handleBusinessCreate(request, pathname, requestId, env, kind) {
+  const denied = requireBusinessSecret(request, env, requestId, pathname);
+  if (denied) return denied;
+
+  const body = await request.json().catch(() => ({}));
+  const business = await readBusinessState(env, requestId);
+  const collectionKey =
+    kind === "client"
+      ? BUSINESS_COLLECTION_KEYS.clients
+      : kind === "job"
+        ? BUSINESS_COLLECTION_KEYS.jobs
+        : BUSINESS_COLLECTION_KEYS.quotes_invoices;
+  const created = buildCreatedRecord(kind, body);
+  business[collectionKey] = [created, ...(business[collectionKey] || [])];
+  business.last_write_at = new Date().toISOString();
+  await writeBusinessState(env, requestId, business);
+  return businessResponse(
+    requestId,
+    pathname,
+    {
+      created,
+      collection: collectionKey,
+      total_records: business[collectionKey].length,
+      last_write_at: business.last_write_at,
+    },
+    201,
+  );
+}
+
 function readSharedSecret(request, env) {
   const headerSecret = request.headers.get("x-s25-secret") || "";
   const bearer = request.headers.get("authorization") || "";
@@ -838,13 +997,43 @@ function handleBusinessRequest(request, pathname, requestId, env) {
     return businessResponse(requestId, pathname, BUSINESS_AGENT_ACTION_TRAIL);
   }
   if (pathname === `${BUSINESS_PREFIX}/client-registry-live`) {
-    return businessResponse(requestId, pathname, BUSINESS_CLIENT_REGISTRY_LIVE);
+    if (request.method === "POST") {
+      return handleBusinessCreate(request, pathname, requestId, env, "client");
+    }
+    return readBusinessState(env, requestId).then((business) =>
+      businessResponse(requestId, pathname, {
+        ...BUSINESS_CLIENT_REGISTRY_LIVE,
+        records: business.clients,
+        live_store: true,
+        last_write_at: business.last_write_at,
+      }),
+    );
   }
   if (pathname === `${BUSINESS_PREFIX}/job-registry-live`) {
-    return businessResponse(requestId, pathname, BUSINESS_JOB_REGISTRY_LIVE);
+    if (request.method === "POST") {
+      return handleBusinessCreate(request, pathname, requestId, env, "job");
+    }
+    return readBusinessState(env, requestId).then((business) =>
+      businessResponse(requestId, pathname, {
+        ...BUSINESS_JOB_REGISTRY_LIVE,
+        records: business.jobs,
+        live_store: true,
+        last_write_at: business.last_write_at,
+      }),
+    );
   }
   if (pathname === `${BUSINESS_PREFIX}/quotes-invoices-live`) {
-    return businessResponse(requestId, pathname, BUSINESS_QUOTES_INVOICES_LIVE);
+    if (request.method === "POST") {
+      return handleBusinessCreate(request, pathname, requestId, env, "quote");
+    }
+    return readBusinessState(env, requestId).then((business) =>
+      businessResponse(requestId, pathname, {
+        ...BUSINESS_QUOTES_INVOICES_LIVE,
+        records: business.quotes_invoices,
+        live_store: true,
+        last_write_at: business.last_write_at,
+      }),
+    );
   }
   if (pathname === `${BUSINESS_PREFIX}/empire-manifest`) {
     return businessResponse(requestId, pathname, BUSINESS_EMPIRE_MANIFEST);
@@ -890,10 +1079,12 @@ function jsonResponse(payload, init = {}) {
 
 async function fetchOriginJson(pathname, env, requestId) {
   const target = new URL(pathname, env.ORIGIN_BASE);
+  target.searchParams.set("_r", requestId);
   const headers = new Headers({
     accept: "application/json",
     "user-agent": "trinity-s25-proxy/omega",
     "x-trinity-request-id": requestId,
+    "cache-control": "no-store",
   });
   if (env.ORIGIN_HOST_HEADER) {
     headers.set("host", env.ORIGIN_HOST_HEADER);
@@ -901,9 +1092,44 @@ async function fetchOriginJson(pathname, env, requestId) {
   if (env.S25_SHARED_SECRET) {
     headers.set("x-s25-secret", env.S25_SHARED_SECRET);
   }
-  const response = await fetch(target, { headers, redirect: "follow" });
+  const response = await fetch(target, {
+    headers,
+    redirect: "follow",
+    cache: "no-store",
+    cf: {
+      cacheEverything: false,
+      cacheTtl: 0,
+    },
+  });
   if (!response.ok) {
     throw new Error(`origin_${response.status}_${pathname}`);
+  }
+  return response.json();
+}
+
+async function fetchPublicRuntimeJson(pathname, env, requestId) {
+  const target = new URL(pathname, env.PUBLIC_GATEWAY_URL || env.PUBLIC_RUNTIME_URL);
+  target.searchParams.set("_r", requestId);
+  const headers = new Headers({
+    accept: "application/json",
+    "user-agent": "trinity-s25-proxy/omega",
+    "x-trinity-request-id": requestId,
+    "cache-control": "no-store",
+  });
+  if (env.S25_SHARED_SECRET) {
+    headers.set("x-s25-secret", env.S25_SHARED_SECRET);
+  }
+  const response = await fetch(target, {
+    headers,
+    redirect: "follow",
+    cache: "no-store",
+    cf: {
+      cacheEverything: false,
+      cacheTtl: 0,
+    },
+  });
+  if (!response.ok) {
+    throw new Error(`public_runtime_${response.status}_${pathname}`);
   }
   return response.json();
 }

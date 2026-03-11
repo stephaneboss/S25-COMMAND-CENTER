@@ -33,7 +33,7 @@ const APP_SECTIONS = {
       {
         label: "MVP",
         title: "Demandes et suivi",
-        text: "Creer un dossier, suivre un service, recuperer un devis, consulter facture et etat du contrat.",
+        text: "Creer un dossier vivant, suivre un service, recuperer un devis, consulter facture et etat du contrat.",
       },
       {
         label: "S25",
@@ -62,7 +62,7 @@ const APP_SECTIONS = {
       {
         label: "Pilotage",
         title: "Etat live",
-        text: "Le backoffice doit afficher le status S25, les missions, les alertes et l'etat des portails metier.",
+        text: "Le backoffice doit afficher le status S25, les missions, les alertes et les registres metier modifiables.",
       },
       {
         label: "Finance",
@@ -1203,6 +1203,25 @@ const AGENT_SERVICE_BINDINGS_MODEL = {
   ],
 };
 
+const REGISTRY_WRITE_CONTRACT_MODEL = {
+  title: "Live registry write contract",
+  summary: "Les registres clients, jobs et quotes/invoices sont maintenant concus pour une ecriture protegee via l'API business.",
+  columns: [
+    {
+      label: "Create client",
+      items: ["POST /api/business/client-registry-live", "x-s25-secret requis", "client_id auto-genere si absent"],
+    },
+    {
+      label: "Create job",
+      items: ["POST /api/business/job-registry-live", "liaison client_id -> job_id", "dispatch_scope par role ou default"],
+    },
+    {
+      label: "Issue quote or invoice",
+      items: ["POST /api/business/quotes-invoices-live", "client_id + job_id relies", "billing_stage trace"],
+    },
+  ],
+};
+
 function navigation(hostname) {
   const appBase = hostname === "app.smajor.org" ? "" : "https://app.smajor.org";
   return [
@@ -1951,6 +1970,32 @@ function layout({
     `
     : "";
 
+  const registryWriteContractHtml = moduleSection && moduleSection.registryWriteContract
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Write contract</div>
+            <h2>${moduleSection.registryWriteContract.title}</h2>
+          </div>
+          <p>${moduleSection.registryWriteContract.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.registryWriteContract.columns
+            .map(
+              (column) => `
+                <article class="module-card">
+                  <div class="label">${column.label}</div>
+                  <ul>${column.items.map((item) => `<li>${item}</li>`).join("")}</ul>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
   const visitorHtml = visitorSection
     ? `
       <section class="module-panel">
@@ -2392,6 +2437,7 @@ function layout({
       ${agentActivationHtml}
       ${agentServiceBindingsHtml}
       ${foundationHtml}
+      ${registryWriteContractHtml}
       <div class="footer">Smajor est la facade. S25 Lumiere reste le backend central multi-agent.</div>
     </main>
   </body>
@@ -2438,12 +2484,15 @@ async function fetchJson(url) {
 }
 
 async function fetchOpsSnapshot(env) {
-  const [statusResult, missionsResult, meshResult, vaultResult, infraResult] = await Promise.allSettled([
+  const [statusResult, missionsResult, meshResult, vaultResult, infraResult, clientsResult, jobsResult, financeResult] = await Promise.allSettled([
     fetchJson(`${env.PUBLIC_S25_URL}/api/status`),
     fetchJson(`${env.PUBLIC_S25_URL}/api/missions`),
     fetchJson(`${env.PUBLIC_S25_URL}/api/mesh/status`),
     fetchJson(`${env.PUBLIC_API_URL}/api/vault/mexc`),
     fetchJson(`${env.PUBLIC_API_URL}/api/akash/infra`),
+    fetchJson(`${env.PUBLIC_API_URL}/api/business/client-registry-live`),
+    fetchJson(`${env.PUBLIC_API_URL}/api/business/job-registry-live`),
+    fetchJson(`${env.PUBLIC_API_URL}/api/business/quotes-invoices-live`),
   ]);
 
   return {
@@ -2452,7 +2501,12 @@ async function fetchOpsSnapshot(env) {
     mesh: meshResult.status === "fulfilled" ? meshResult.value : null,
     vault: vaultResult.status === "fulfilled" ? vaultResult.value : null,
     infra: infraResult.status === "fulfilled" ? infraResult.value : null,
-    errors: [statusResult, missionsResult, meshResult, vaultResult, infraResult]
+    business: {
+      clients: clientsResult.status === "fulfilled" ? clientsResult.value : null,
+      jobs: jobsResult.status === "fulfilled" ? jobsResult.value : null,
+      quotes_invoices: financeResult.status === "fulfilled" ? financeResult.value : null,
+    },
+    errors: [statusResult, missionsResult, meshResult, vaultResult, infraResult, clientsResult, jobsResult, financeResult]
       .filter((result) => result.status === "rejected")
       .map((result) => result.reason?.message || "upstream_error"),
   };
@@ -2755,22 +2809,32 @@ function mvpRegistrySection(pathname) {
   };
 }
 
-function liveRegistrySection(pathname) {
-  const mapping = {
-    "/clients": [CLIENT_REGISTRY_LIVE_MODEL, JOB_REGISTRY_LIVE_MODEL, QUOTES_INVOICES_LIVE_MODEL],
-    "/admin": [CLIENT_REGISTRY_LIVE_MODEL, JOB_REGISTRY_LIVE_MODEL, QUOTES_INVOICES_LIVE_MODEL],
-  };
-  const registries = mapping[pathname];
-  if (!registries) {
+function liveRegistrySection(pathname, snapshot) {
+  if (!["/clients", "/admin"].includes(pathname)) {
     return null;
   }
+  const clients = snapshot.business?.clients?.records || [];
+  const jobs = snapshot.business?.jobs?.records || [];
+  const quotes = snapshot.business?.quotes_invoices?.records || [];
   return {
     title: "Live registries",
     intro: "Premieres entrees vivantes pour sortir des schemas seuls et preparer la vraie operation business.",
-    columns: registries.map((registry) => ({
-      label: registry.title,
-      items: registry.columns.flatMap((column) => column.items.slice(0, 2)),
-    })),
+    columns: [
+      {
+        label: "Client registry live",
+        items: clients.slice(0, 4).map((record) => `${record.client_id} | ${record.organization_name} | ${record.portal_state}`),
+      },
+      {
+        label: "Job registry live",
+        items: jobs.slice(0, 4).map((record) => `${record.job_id} | ${record.service_type} | ${record.assigned_team}`),
+      },
+      {
+        label: "Quotes and invoices live",
+        items: quotes
+          .slice(0, 4)
+          .map((record) => `${record.quote_id || "--"} | ${record.invoice_id || "--"} | ${record.billing_stage}`),
+      },
+    ],
   };
 }
 
@@ -2827,6 +2891,17 @@ function foundationStackSection(pathname) {
       label: layer.label,
       items: [layer.role],
     })),
+  };
+}
+
+function registryWriteContractSection(pathname) {
+  if (!["/clients", "/admin"].includes(pathname)) {
+    return null;
+  }
+  return {
+    title: REGISTRY_WRITE_CONTRACT_MODEL.title,
+    intro: REGISTRY_WRITE_CONTRACT_MODEL.summary,
+    columns: REGISTRY_WRITE_CONTRACT_MODEL.columns,
   };
 }
 
@@ -2995,7 +3070,7 @@ function renderApp(env, pathname, hostname, snapshot) {
     blueprint: blueprintFromPath(pathname),
     accessModel: accessSectionFromPath(pathname),
     mvpRegistries: mvpRegistrySection(pathname),
-    liveRegistries: liveRegistrySection(pathname),
+    liveRegistries: liveRegistrySection(pathname, snapshot),
     empireManifest: empireManifestSection(pathname),
     totalMeshProtocol: totalMeshProtocolSection(pathname),
     controlPlane: controlPlaneSection(pathname),
@@ -3009,6 +3084,7 @@ function renderApp(env, pathname, hostname, snapshot) {
     agentActivation: agentActivationSection(pathname),
     agentServiceBindings: agentServiceBindingsSection(pathname),
     foundationStack: foundationStackSection(pathname),
+    registryWriteContract: registryWriteContractSection(pathname),
   };
   if (registrySection) {
     moduleSection.registry = registrySection;
@@ -3257,6 +3333,15 @@ export default {
         domain: "smajor.org",
         source_of_truth: "api.smajor.org agent service matrix + audit trail",
         ...AGENT_SERVICE_BINDINGS_MODEL,
+      });
+    }
+
+    if (url.pathname === "/models/registry-write-contract.json") {
+      return jsonResponse({
+        ok: true,
+        domain: "smajor.org",
+        source_of_truth: "api.smajor.org live write facade + protected business routes",
+        ...REGISTRY_WRITE_CONTRACT_MODEL,
       });
     }
 
