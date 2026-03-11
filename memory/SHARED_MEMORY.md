@@ -125,3 +125,25 @@
 10. [DONE] `api/status` public realigne avec l'etat mesh reel via 25883220
 11. [TODO] agent_loop.py -> DELL-LINUX uniquement en fallback
 12. [IN PROGRESS] Provider watch structure via COMET Work + snapshot local
+
+---
+
+## SEAL 2026-03-11
+
+- Cockpit public officiel courant:
+  - DSEQ `25883220`
+  - origin `http://fpog7pbvepbkrfae1529ics23k.ingress.cap-test-compute.com`
+  - front stable `https://trinity-s25-proxy.trinitys25steph.workers.dev`
+- Build public valide:
+  - `897817774194b374f4408a9edd84a5ca1c531bad`
+- Etat public valide:
+  - `pipeline_status = MESH_READY`
+  - `arkon5_action = READY`
+  - `missions_active >= 5`
+- Handshake multi-agent valide:
+  - mission `mission-09e3b85db8`
+  - chaine `TRINITY -> MERLIN -> COMET`
+  - HA preserve comme chaine laterale, pas comme point de verite principal
+- MERLIN MCP:
+  - handshake public OK sur `25878071`
+  - feedback de fin de journee ecrit via MCP
