@@ -230,16 +230,24 @@ def _status_summary(status: dict) -> dict:
     action = (status.get("arkon5_action") or "HOLD").strip() or "HOLD"
     confidence = status.get("arkon5_conf") or 0
     tunnel_state = "online" if status.get("tunnel_active") else "offline"
+    missions_active = int(status.get("missions_active") or 0)
+    mesh_agents_online = int(status.get("mesh_agents_online") or 0)
+
+    summary_parts = [f"S25 en ligne. Pipeline {pipeline_status}."]
+    if action in {"READY", "OBSERVE"} and missions_active:
+        summary_parts.append(
+            f"Mesh actif avec {mesh_agents_online} agents online et {missions_active} mission(s)."
+        )
+    else:
+        summary_parts.append(f"Signal {action} ({confidence}).")
+    summary_parts.append(f"Tunnel {tunnel_state}.")
 
     return {
         "ok": True,
         "availability": "available",
         "status": "online",
         "service": "S25 Lumiere Status",
-        "summary_fr": (
-            f"S25 en ligne. Pipeline {pipeline_status}. "
-            f"Signal {action} ({confidence}). Tunnel {tunnel_state}."
-        ),
+        "summary_fr": " ".join(summary_parts),
         "system": {
             "pipeline": pipeline_status,
             "signal": action,
@@ -260,6 +268,10 @@ def _hydrate_status_from_memory(status: dict) -> dict:
     feed = state.get("intel", {}).get("comet_feed", [])
     market = state.get("market", {})
     agents = state.get("agents", {})
+    online_agents = sum(
+        1 for details in agents.values()
+        if str(details.get("status", "")).lower() == "online"
+    )
 
     last_signal = pipeline.get("last_signal") or {}
     status["arkon5_action"] = str(
@@ -274,18 +286,30 @@ def _hydrate_status_from_memory(status: dict) -> dict:
     pipeline_mode = str(pipeline.get("mode") or "").strip()
     if active_model and active_model != "INIT":
         status["pipeline_status"] = active_model
-    elif missions:
+    elif missions and online_agents >= 3:
         status["pipeline_status"] = "MESH_READY"
     elif pipeline_mode:
         status["pipeline_status"] = pipeline_mode.upper()
 
     if feed:
         status["comet_intel"] = feed[0].get("summary", status.get("comet_intel"))
+    elif missions:
+        status["comet_intel"] = missions[0].get("intent", status.get("comet_intel"))
 
     kimi_status = agents.get("KIMI", {}).get("status")
     status["tunnel_active"] = bool(status.get("tunnel_active")) or kimi_status == "online"
     status["missions_active"] = len(missions)
+    status["mesh_agents_online"] = online_agents
     status["ha_connected"] = bool(HA_TOKEN)
+
+    # When the mesh is alive but ARKON has not emitted a fresh trade signal yet,
+    # surface readiness instead of stale INIT/HOLD defaults.
+    if not last_signal and missions and online_agents >= 3:
+        status["arkon5_action"] = "READY"
+        status["arkon5_conf"] = max(int(status.get("arkon5_conf") or 0), min(online_agents * 10, 60))
+    elif not last_signal and online_agents >= 3:
+        status["arkon5_action"] = "OBSERVE"
+        status["arkon5_conf"] = max(int(status.get("arkon5_conf") or 0), 25)
 
     if market.get("btc_usd") is not None:
         status["btc_usd"] = market.get("btc_usd")
