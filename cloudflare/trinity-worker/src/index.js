@@ -243,6 +243,43 @@ const BUSINESS_EMPIRE_MANIFEST = {
   ],
 };
 
+const BUSINESS_TOTAL_MESH_PROTOCOL = {
+  title: "Smajor total mesh protocol",
+  summary: "Protocole de maillage total pour aligner tous les agents sur le hub S25 et pousser leur statut en temps reel.",
+  doctrine: [
+    "Chaque agent doit annoncer son statut au hub.",
+    "Le hub consolide roles, badges, scopes et surfaces d'action.",
+    "Le mesh s'auto-optimise a partir du status partage, des missions et du feed intel.",
+  ],
+  target_headcount: 15,
+  command_mode: "mesh_total",
+  chain: [
+    "announce_status",
+    "bind_role_and_badge",
+    "attach_scope",
+    "confirm_service_binding",
+    "emit_audit_trail",
+    "enter_mesh_ready",
+  ],
+  agents: [
+    "TRINITY",
+    "MERLIN",
+    "COMET",
+    "GOUV4",
+    "KIMI",
+    "ORACLE",
+    "ONCHAIN_GUARDIAN",
+    "ARKON",
+    "TREASURY",
+    "PROVIDER_WATCH",
+    "MERLIN_MCP",
+    "DEFI_LIQUIDITY_MANAGER",
+    "CODE_VALIDATOR",
+    "SMART_REFACTOR",
+    "AUTO_DOCUMENTER",
+  ],
+};
+
 const BUSINESS_ONBOARDING = {
   title: "Business onboarding chain",
   summary: "Tout nouvel acteur doit entrer par une chaine stricte: identite, role, services, acces.",
@@ -352,6 +389,7 @@ const BUSINESS_REGISTRY_MAP = {
     { key: "job_registry_live", path: `${BUSINESS_PREFIX}/job-registry-live`, purpose: "Seeded operations jobs aligned with dispatch scopes" },
     { key: "quotes_invoices_live", path: `${BUSINESS_PREFIX}/quotes-invoices-live`, purpose: "Seeded commercial and billing records" },
     { key: "empire_manifest", path: `${BUSINESS_PREFIX}/empire-manifest`, purpose: "Unified manifest of domains, towers, registries and command chain" },
+    { key: "total_mesh_protocol", path: `${BUSINESS_PREFIX}/total-mesh-protocol`, purpose: "Protocol de synchronisation totale des agents vers le hub" },
     { key: "secure_alpha_client", path: `${BUSINESS_PREFIX}/secure/alpha-client`, purpose: "Protected alpha client detail route" },
     { key: "secure_billing_tunnel", path: `${BUSINESS_PREFIX}/secure/billing-tunnel`, purpose: "Protected billing tunnel detail route" },
   ],
@@ -747,6 +785,9 @@ function handleBusinessRequest(request, pathname, requestId, env) {
   }
   if (pathname === `${BUSINESS_PREFIX}/empire-manifest`) {
     return businessResponse(requestId, pathname, BUSINESS_EMPIRE_MANIFEST);
+  }
+  if (pathname === `${BUSINESS_PREFIX}/total-mesh-protocol`) {
+    return businessResponse(requestId, pathname, BUSINESS_TOTAL_MESH_PROTOCOL);
   }
   if (pathname === `${BUSINESS_PREFIX}/secure/alpha-client`) {
     const denied = requireBusinessSecret(request, env, requestId, pathname);

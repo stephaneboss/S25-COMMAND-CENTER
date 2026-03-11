@@ -72,3 +72,5 @@ Le manifeste central doit tenir:
 Exposition cible:
 - `app.smajor.org/models/empire-manifest.json`
 - `api.smajor.org/api/business/empire-manifest`
+- `app.smajor.org/models/total-mesh-protocol.json`
+- `api.smajor.org/api/business/total-mesh-protocol`

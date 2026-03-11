@@ -1053,6 +1053,42 @@ const EMPIRE_MANIFEST_MODEL = {
   ],
 };
 
+const TOTAL_MESH_PROTOCOL_MODEL = {
+  title: "Total mesh protocol",
+  summary: "Ordre de maillage total: chaque agent declare son statut, son role, son badge et sa surface au hub S25.",
+  columns: [
+    {
+      label: "Command mode",
+      items: [
+        "mesh_total",
+        "target_headcount=15",
+        "hub=S25",
+      ],
+    },
+    {
+      label: "Protocol chain",
+      items: [
+        "announce_status",
+        "bind_role_and_badge",
+        "attach_scope",
+        "confirm_service_binding",
+        "emit_audit_trail",
+        "enter_mesh_ready",
+      ],
+    },
+    {
+      label: "Army lanes",
+      items: [
+        "TRINITY, MERLIN, COMET, GOUV4",
+        "KIMI, ORACLE, ONCHAIN_GUARDIAN",
+        "ARKON, TREASURY, PROVIDER_WATCH",
+        "MERLIN_MCP, DEFI_LIQUIDITY_MANAGER",
+        "CODE_VALIDATOR, SMART_REFACTOR, AUTO_DOCUMENTER",
+      ],
+    },
+  ],
+};
+
 const ALPHA_CLIENT_PILOT_MODEL = {
   title: "Alpha client pilot",
   summary: "Premier client de reference pour valider le tunnel intake -> quote -> invoice -> payment sans exposer les details sensibles au public.",
@@ -1449,6 +1485,34 @@ function layout({
         </div>
         <div class="module-grid">
           ${moduleSection.empireManifest.columns
+            .map(
+              (column) => `
+                <article class="module-card">
+                  <div class="label">${column.label}</div>
+                  <ul>
+                    ${column.items.map((item) => `<li>${item}</li>`).join("")}
+                  </ul>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
+  const totalMeshProtocolHtml = moduleSection && moduleSection.totalMeshProtocol
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Total mesh</div>
+            <h2>${moduleSection.totalMeshProtocol.title}</h2>
+          </div>
+          <p>${moduleSection.totalMeshProtocol.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.totalMeshProtocol.columns
             .map(
               (column) => `
                 <article class="module-card">
@@ -2157,6 +2221,7 @@ function layout({
       ${mvpRegistryHtml}
       ${liveRegistryHtml}
       ${empireManifestHtml}
+      ${totalMeshProtocolHtml}
       ${controlPlaneHtml}
       ${roleGovernanceHtml}
       ${identityRegistryHtml}
@@ -2458,6 +2523,17 @@ function empireManifestSection(pathname) {
   };
 }
 
+function totalMeshProtocolSection(pathname) {
+  if (!["/", "/admin", "/ai"].includes(pathname)) {
+    return null;
+  }
+  return {
+    title: TOTAL_MESH_PROTOCOL_MODEL.title,
+    intro: TOTAL_MESH_PROTOCOL_MODEL.summary,
+    columns: TOTAL_MESH_PROTOCOL_MODEL.columns,
+  };
+}
+
 function controlPlaneSection(pathname) {
   if (!["/", "/admin", "/ai"].includes(pathname)) {
     return null;
@@ -2659,6 +2735,7 @@ function renderApp(env, pathname, hostname, snapshot) {
     mvpRegistries: mvpRegistrySection(pathname),
     liveRegistries: liveRegistrySection(pathname),
     empireManifest: empireManifestSection(pathname),
+    totalMeshProtocol: totalMeshProtocolSection(pathname),
     controlPlane: controlPlaneSection(pathname),
     roleGovernance: roleGovernanceSection(pathname),
     identityRegistry: identityRegistrySection(pathname),
@@ -2872,6 +2949,15 @@ export default {
         domain: "smajor.org",
         source_of_truth: "api.smajor.org empire-manifest + control plane",
         ...EMPIRE_MANIFEST_MODEL,
+      });
+    }
+
+    if (url.pathname === "/models/total-mesh-protocol.json") {
+      return jsonResponse({
+        ok: true,
+        domain: "smajor.org",
+        source_of_truth: "api.smajor.org total-mesh-protocol",
+        ...TOTAL_MESH_PROTOCOL_MODEL,
       });
     }
 
