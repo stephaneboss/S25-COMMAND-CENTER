@@ -692,6 +692,38 @@ const MAJOR_CONTROL_PLANE = {
   ],
 };
 
+const FOUNDATION_STACK = {
+  title: "Smajor foundation stack",
+  summary: "Un seul backbone business, une seule facade, une seule couche IA d'orchestration.",
+  layers: [
+    {
+      key: "business_backbone",
+      label: "ERPNext / Frappe",
+      role: "Backbone business pour clients, devis, factures, achats, jobs, assets et workflows.",
+    },
+    {
+      key: "workforce_backbone",
+      label: "Frappe HRMS",
+      role: "Backbone RH pour employes, onboarding, shifts et structure workforce.",
+    },
+    {
+      key: "custom_facade",
+      label: "Smajor facade",
+      role: "Experience sur mesure pour clients, staff, vendors, admin et control plane.",
+    },
+    {
+      key: "ai_orchestration",
+      label: "S25 + MERLIN MCP + TRINITY",
+      role: "Orchestration IA, missions, intel, gouvernance runtime et multi-agent ops.",
+    },
+    {
+      key: "optional_sales_crm",
+      label: "Twenty (optional later)",
+      role: "Couche CRM ventes moderne si necessaire, mais pas centre de gravite operations.",
+    },
+  ],
+};
+
 function navigation(hostname) {
   const appBase = hostname === "app.smajor.org" ? "" : "https://app.smajor.org";
   return [
@@ -968,6 +1000,34 @@ function layout({
         </div>
         <div class="module-grid">
           ${moduleSection.controlPlane.columns
+            .map(
+              (column) => `
+                <article class="module-card">
+                  <div class="label">${column.label}</div>
+                  <ul>
+                    ${column.items.map((item) => `<li>${item}</li>`).join("")}
+                  </ul>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
+  const foundationHtml = moduleSection && moduleSection.foundationStack
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Foundation stack</div>
+            <h2>${moduleSection.foundationStack.title}</h2>
+          </div>
+          <p>${moduleSection.foundationStack.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.foundationStack.columns
             .map(
               (column) => `
                 <article class="module-card">
@@ -1281,6 +1341,7 @@ function layout({
       ${registryHtml}
       ${mvpRegistryHtml}
       ${controlPlaneHtml}
+      ${foundationHtml}
       <div class="footer">Smajor est la facade. S25 Lumiere reste le backend central multi-agent.</div>
     </main>
   </body>
@@ -1533,6 +1594,20 @@ function controlPlaneSection(pathname) {
   };
 }
 
+function foundationStackSection(pathname) {
+  if (!["/", "/admin", "/ai"].includes(pathname)) {
+    return null;
+  }
+  return {
+    title: FOUNDATION_STACK.title,
+    intro: FOUNDATION_STACK.summary,
+    columns: FOUNDATION_STACK.layers.map((layer) => ({
+      label: layer.label,
+      items: [layer.role],
+    })),
+  };
+}
+
 function renderPublic(env) {
   return layout({
     title: "Smajor",
@@ -1597,6 +1672,7 @@ function renderApp(env, pathname, hostname, snapshot) {
     accessModel: accessSectionFromPath(pathname),
     mvpRegistries: mvpRegistrySection(pathname),
     controlPlane: controlPlaneSection(pathname),
+    foundationStack: foundationStackSection(pathname),
   };
   if (registrySection) {
     moduleSection.registry = registrySection;
@@ -1709,6 +1785,15 @@ export default {
         domain: "smajor.org",
         source_of_truth: "business + admin + ai ops",
         ...MAJOR_CONTROL_PLANE,
+      });
+    }
+
+    if (url.pathname === "/models/foundation-stack.json") {
+      return jsonResponse({
+        ok: true,
+        domain: "smajor.org",
+        source_of_truth: "open-source backbone selection",
+        ...FOUNDATION_STACK,
       });
     }
 
