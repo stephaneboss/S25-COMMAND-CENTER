@@ -147,3 +147,7 @@
 - MERLIN MCP:
   - handshake public OK sur `25878071`
   - feedback de fin de journee ecrit via MCP
+- Seal runtime:
+  - mission `mission-09e3b85db8` archivee en `completed`
+  - `comet_intel` public = `Mission mission-09e3b85db8 -> completed`
+  - `status` public reste `MESH_READY`
