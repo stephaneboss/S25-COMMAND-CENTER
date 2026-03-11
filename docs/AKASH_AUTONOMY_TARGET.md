@@ -61,6 +61,7 @@ Base officielle conservee sur Akash:
 - `25878071` = `s25-merlin-mesh` officiel
 - `25838342` = cockpit principal derriere le Worker public
 - `25822281` = cockpit secondaire / sandbox de pouvoir
+- `25882621` = cockpit secondaire v2 sur `provider.dal.leet.haus`
 - `25708774` = module GPU laisse intact
 
 Deja autonomes:

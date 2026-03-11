@@ -28,6 +28,12 @@
 - Role: cockpit secondaire conserve comme sandbox / plan B
 - Note: l'ancien sandbox `25851041` a ete ferme pendant le cleanup du 10 mars 2026
 
+### Akash (Cockpit secondaire v2)
+- Origin Akash secondaire v2: http://grj7rk9b3l9m3788m85fhpv7pc.ingress.dal.leet.haus
+- DSEQ: 25882621 | Provider: provider.dal.leet.haus
+- Role: nouveau cockpit secondaire cree apres recharge AKT et cycle wallet stable
+- Note: garder `25822281` tant que la bascule et les checks runtime ne sont pas valides
+
 ### Akash (MERLIN MCP LIVE 2026-03-10)
 - Service: s25-merlin-mesh
 - DSEQ: 25878071
@@ -107,8 +113,9 @@
 3. [IN PROGRESS] Memoire persistante centralisee
 4. [TODO] Deployer oracle-agent + onchain-guardian sur Akash
 5. [DONE] Cleanup Akash termine, base conservee = 25878071 / 25838342 / 25822281 / 25708774
-6. [TODO] HA_TOKEN dans env vars Akash
-7. [TODO] KIMI sur endpoint stable public
-8. [TODO] Realigner `api/status` public avec l'etat mesh reel
-9. [TODO] agent_loop.py -> DELL-LINUX uniquement en fallback
-10. [IN PROGRESS] Provider watch structure via COMET Work + snapshot local
+6. [DONE] Nouveau cockpit secondaire cree: 25882621 -> provider.dal.leet.haus
+7. [TODO] HA_TOKEN dans env vars Akash
+8. [TODO] KIMI sur endpoint stable public
+9. [TODO] Realigner `api/status` public avec l'etat mesh reel
+10. [TODO] agent_loop.py -> DELL-LINUX uniquement en fallback
+11. [IN PROGRESS] Provider watch structure via COMET Work + snapshot local
