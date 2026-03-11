@@ -198,6 +198,10 @@ const BUSINESS_REGISTRY_MAP = {
     { key: "portal_activation", path: `${BUSINESS_PREFIX}/portal-activation`, purpose: "Portal enablement chain by audience" },
     { key: "client_form", path: `${BUSINESS_PREFIX}/client-form`, purpose: "Client intake schema for portal and admin" },
     { key: "staff_dashboard", path: `${BUSINESS_PREFIX}/staff-dashboard`, purpose: "Employee work dashboard model" },
+    { key: "alpha_pilot", path: `${BUSINESS_PREFIX}/alpha-pilot`, purpose: "Public pilot status for first customer journey" },
+    { key: "billing_tunnel", path: `${BUSINESS_PREFIX}/billing-tunnel`, purpose: "Public billing tunnel workflow" },
+    { key: "secure_alpha_client", path: `${BUSINESS_PREFIX}/secure/alpha-client`, purpose: "Protected alpha client detail route" },
+    { key: "secure_billing_tunnel", path: `${BUSINESS_PREFIX}/secure/billing-tunnel`, purpose: "Protected billing tunnel detail route" },
   ],
 };
 
@@ -303,6 +307,64 @@ const BUSINESS_STAFF_DASHBOARD = {
   ],
 };
 
+const BUSINESS_ALPHA_PILOT = {
+  title: "Alpha client pilot",
+  summary: "Premier dossier client de reference pour valider intake, job, facture et paiement sans exposer la vraie data publiquement.",
+  public_status: {
+    pilot_key: "alpha-client-001",
+    phase: "intake_to_invoice",
+    account_status: "pilot_ready",
+    portal_state: "pending_secure_access",
+  },
+  checkpoints: [
+    "identity_created",
+    "role_bound_to_client_badge",
+    "service_scope_attached",
+    "quote_prepared",
+    "invoice_channel_ready",
+    "payment_receipt_tracking_ready",
+  ],
+  secure_detail_route: `${BUSINESS_PREFIX}/secure/alpha-client`,
+};
+
+const BUSINESS_BILLING_TUNNEL = {
+  title: "Billing and payment tunnel",
+  summary: "Tunnel de facture et paiement pour faire passer un client du devis au recu sans sortir du cadre RBAC.",
+  stages: [
+    "quote_prepared",
+    "quote_approved",
+    "invoice_issued",
+    "payment_link_or_instruction_sent",
+    "payment_received_or_pending",
+    "receipt_logged",
+  ],
+  secure_detail_route: `${BUSINESS_PREFIX}/secure/billing-tunnel`,
+};
+
+const SECURE_ALPHA_CLIENT_DETAIL = {
+  client_id: "client-alpha-001",
+  organization_id: "org-alpha-001",
+  identity_id: "ident-alpha-contact-001",
+  role_id: "client_contact",
+  badge_id: "client_badge",
+  scope_id: "client_scope_alpha",
+  service_type: "multi_service_exterior",
+  portal_state: "pending_secure_access",
+  quote_id: "quote-alpha-001",
+  invoice_id: "invoice-alpha-001",
+  billing_state: "invoice_ready",
+  payment_state: "awaiting_collection",
+};
+
+const SECURE_BILLING_TUNNEL_DETAIL = {
+  quote_id: "quote-alpha-001",
+  invoice_id: "invoice-alpha-001",
+  contract_mode: "monthly_service_bundle",
+  payment_channel: "manual_or_link",
+  receipt_tracking: "enabled",
+  audit_state: "watching",
+};
+
 function buildTargetUrl(requestUrl, originBase) {
   const incoming = new URL(requestUrl);
   const origin = new URL(originBase);
@@ -324,7 +386,35 @@ function businessResponse(requestId, pathname, payload, status = 200) {
   );
 }
 
-function handleBusinessRequest(pathname, requestId) {
+function readSharedSecret(request, env) {
+  const headerSecret = request.headers.get("x-s25-secret") || "";
+  const bearer = request.headers.get("authorization") || "";
+  const bearerSecret = bearer.toLowerCase().startsWith("bearer ") ? bearer.slice(7).trim() : "";
+  return headerSecret || bearerSecret || "";
+}
+
+function requireBusinessSecret(request, env, requestId, pathname) {
+  if (!env.S25_SHARED_SECRET) {
+    return businessResponse(requestId, pathname, {
+      ok: false,
+      error: "shared_secret_not_configured",
+      protection: "x-s25-secret required once worker secret is configured",
+    }, 503);
+  }
+
+  const presented = readSharedSecret(request, env);
+  if (!presented || presented !== env.S25_SHARED_SECRET) {
+    return businessResponse(requestId, pathname, {
+      ok: false,
+      error: "unauthorized",
+      protection: "present x-s25-secret or bearer token matching the shared secret",
+    }, 401);
+  }
+
+  return null;
+}
+
+function handleBusinessRequest(request, pathname, requestId, env) {
   if (pathname === `${BUSINESS_PREFIX}` || pathname === `${BUSINESS_PREFIX}/`) {
     return businessResponse(requestId, pathname, BUSINESS_REGISTRY_MAP);
   }
@@ -360,6 +450,28 @@ function handleBusinessRequest(pathname, requestId) {
   }
   if (pathname === `${BUSINESS_PREFIX}/staff-dashboard`) {
     return businessResponse(requestId, pathname, BUSINESS_STAFF_DASHBOARD);
+  }
+  if (pathname === `${BUSINESS_PREFIX}/alpha-pilot`) {
+    return businessResponse(requestId, pathname, BUSINESS_ALPHA_PILOT);
+  }
+  if (pathname === `${BUSINESS_PREFIX}/billing-tunnel`) {
+    return businessResponse(requestId, pathname, BUSINESS_BILLING_TUNNEL);
+  }
+  if (pathname === `${BUSINESS_PREFIX}/secure/alpha-client`) {
+    const denied = requireBusinessSecret(request, env, requestId, pathname);
+    if (denied) return denied;
+    return businessResponse(requestId, pathname, {
+      secure: true,
+      ...SECURE_ALPHA_CLIENT_DETAIL,
+    });
+  }
+  if (pathname === `${BUSINESS_PREFIX}/secure/billing-tunnel`) {
+    const denied = requireBusinessSecret(request, env, requestId, pathname);
+    if (denied) return denied;
+    return businessResponse(requestId, pathname, {
+      secure: true,
+      ...SECURE_BILLING_TUNNEL_DETAIL,
+    });
   }
   return null;
 }
@@ -490,7 +602,7 @@ export default {
       return jsonResponse(buildProxyMeta(env, requestId, buildTargetUrl(request.url, env.ORIGIN_BASE)));
     }
 
-    const businessRoute = handleBusinessRequest(incoming.pathname, requestId);
+    const businessRoute = handleBusinessRequest(request, incoming.pathname, requestId, env);
     if (businessRoute) {
       return businessRoute;
     }

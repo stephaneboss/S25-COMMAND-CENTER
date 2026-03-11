@@ -930,6 +930,58 @@ const STAFF_DASHBOARD_MODEL = {
   ],
 };
 
+const ALPHA_CLIENT_PILOT_MODEL = {
+  title: "Alpha client pilot",
+  summary: "Premier client de reference pour valider le tunnel intake -> quote -> invoice -> payment sans exposer les details sensibles au public.",
+  columns: [
+    {
+      label: "Status",
+      items: ["pilot_key=alpha-client-001", "phase=intake_to_invoice", "account_status=pilot_ready"],
+    },
+    {
+      label: "Checkpoints",
+      items: [
+        "identity_created",
+        "role_bound_to_client_badge",
+        "service_scope_attached",
+        "invoice_channel_ready",
+      ],
+    },
+    {
+      label: "Protection",
+      items: [
+        "detail via x-s25-secret",
+        "secure alpha client route",
+        "secure billing tunnel route",
+      ],
+    },
+  ],
+};
+
+const SECURE_ROUTE_MODEL = {
+  title: "Secure business routes",
+  summary: "Les schemas publics restent visibles. Les donnees client et paiement detaillees passent par des routes protegees.",
+  columns: [
+    {
+      label: "Public",
+      items: [
+        "/api/business/client-form",
+        "/api/business/staff-dashboard",
+        "/api/business/alpha-pilot",
+        "/api/business/billing-tunnel",
+      ],
+    },
+    {
+      label: "Protected",
+      items: [
+        "/api/business/secure/alpha-client",
+        "/api/business/secure/billing-tunnel",
+        "header x-s25-secret requis",
+      ],
+    },
+  ],
+};
+
 function navigation(hostname) {
   const appBase = hostname === "app.smajor.org" ? "" : "https://app.smajor.org";
   return [
@@ -1419,6 +1471,62 @@ function layout({
     `
     : "";
 
+  const alphaPilotHtml = moduleSection && moduleSection.alphaPilot
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Alpha pilot</div>
+            <h2>${moduleSection.alphaPilot.title}</h2>
+          </div>
+          <p>${moduleSection.alphaPilot.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.alphaPilot.columns
+            .map(
+              (column) => `
+                <article class="module-card">
+                  <div class="label">${column.label}</div>
+                  <ul>
+                    ${column.items.map((item) => `<li>${item}</li>`).join("")}
+                  </ul>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
+  const secureRoutesHtml = moduleSection && moduleSection.secureRoutes
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Secure routes</div>
+            <h2>${moduleSection.secureRoutes.title}</h2>
+          </div>
+          <p>${moduleSection.secureRoutes.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.secureRoutes.columns
+            .map(
+              (column) => `
+                <article class="module-card">
+                  <div class="label">${column.label}</div>
+                  <ul>
+                    ${column.items.map((item) => `<li>${item}</li>`).join("")}
+                  </ul>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
   const visitorHtml = visitorSection
     ? `
       <section class="module-panel">
@@ -1780,6 +1888,8 @@ function layout({
       ${portalActivationHtml}
       ${clientFormHtml}
       ${staffDashboardHtml}
+      ${alphaPilotHtml}
+      ${secureRoutesHtml}
       ${foundationHtml}
       <div class="footer">Smajor est la facade. S25 Lumiere reste le backend central multi-agent.</div>
     </main>
@@ -2131,6 +2241,28 @@ function staffDashboardSection(pathname) {
   };
 }
 
+function alphaPilotSection(pathname) {
+  if (pathname !== "/clients" && pathname !== "/admin") {
+    return null;
+  }
+  return {
+    title: ALPHA_CLIENT_PILOT_MODEL.title,
+    intro: ALPHA_CLIENT_PILOT_MODEL.summary,
+    columns: ALPHA_CLIENT_PILOT_MODEL.columns,
+  };
+}
+
+function secureRoutesSection(pathname) {
+  if (!["/clients", "/admin", "/staff", "/vendors"].includes(pathname)) {
+    return null;
+  }
+  return {
+    title: SECURE_ROUTE_MODEL.title,
+    intro: SECURE_ROUTE_MODEL.summary,
+    columns: SECURE_ROUTE_MODEL.columns,
+  };
+}
+
 function renderPublic(env) {
   return layout({
     title: "Smajor",
@@ -2202,6 +2334,8 @@ function renderApp(env, pathname, hostname, snapshot) {
     portalActivation: portalActivationSection(pathname),
     clientForm: clientFormSection(pathname),
     staffDashboard: staffDashboardSection(pathname),
+    alphaPilot: alphaPilotSection(pathname),
+    secureRoutes: secureRoutesSection(pathname),
     foundationStack: foundationStackSection(pathname),
   };
   if (registrySection) {
@@ -2369,6 +2503,24 @@ export default {
         domain: "smajor.org",
         source_of_truth: "api.smajor.org staff dashboard facade + staff portal",
         ...STAFF_DASHBOARD_MODEL,
+      });
+    }
+
+    if (url.pathname === "/models/alpha-client-pilot.json") {
+      return jsonResponse({
+        ok: true,
+        domain: "smajor.org",
+        source_of_truth: "api.smajor.org alpha pilot + secure client detail routes",
+        ...ALPHA_CLIENT_PILOT_MODEL,
+      });
+    }
+
+    if (url.pathname === "/models/secure-routes.json") {
+      return jsonResponse({
+        ok: true,
+        domain: "smajor.org",
+        source_of_truth: "api.smajor.org secure business route map",
+        ...SECURE_ROUTE_MODEL,
       });
     }
 
