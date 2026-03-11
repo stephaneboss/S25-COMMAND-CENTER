@@ -59,7 +59,8 @@ Peut rester local tant que le coeur tient sans lui:
 
 Base officielle conservee sur Akash:
 - `25878071` = `s25-merlin-mesh` officiel
-- `25838342` = cockpit principal derriere le Worker public
+- `25883220` = cockpit public courant derriere le Worker public
+- `25838342` = cockpit principal historique conserve
 - `25822281` = cockpit secondaire / sandbox de pouvoir
 - `25882621` = cockpit secondaire v2 sur `provider.dal.leet.haus`
 - `25708774` = module GPU laisse intact
@@ -70,12 +71,13 @@ Deja autonomes:
 - bridge MCP MERLIN live sur Akash
 - GPT TRINITY live
 - memory, mesh, router, missions, COMET feed
+- `api/status` public corrige via le cockpit `25883220`
 
 Encore dependants a reduire:
 - KIMI tunnel / scanner
 - Dell-Linux `agent_loop.py`
 - injection et verification continue de `HA_TOKEN`
-- alignement du `api/status` public avec l'etat mesh reel
+- migration hors de l'ancien cockpit historique `25838342`
 
 ## Prochaines migrations recommandees
 
