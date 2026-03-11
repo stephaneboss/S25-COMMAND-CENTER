@@ -200,6 +200,9 @@ const BUSINESS_REGISTRY_MAP = {
     { key: "staff_dashboard", path: `${BUSINESS_PREFIX}/staff-dashboard`, purpose: "Employee work dashboard model" },
     { key: "alpha_pilot", path: `${BUSINESS_PREFIX}/alpha-pilot`, purpose: "Public pilot status for first customer journey" },
     { key: "billing_tunnel", path: `${BUSINESS_PREFIX}/billing-tunnel`, purpose: "Public billing tunnel workflow" },
+    { key: "agent_catalog", path: `${BUSINESS_PREFIX}/agent-catalog`, purpose: "Live activable agent catalog" },
+    { key: "agent_service_matrix", path: `${BUSINESS_PREFIX}/agent-service-matrix`, purpose: "Agent to service activation map" },
+    { key: "agent_action_trail", path: `${BUSINESS_PREFIX}/agent-action-trail`, purpose: "Audit fields for agent actions" },
     { key: "secure_alpha_client", path: `${BUSINESS_PREFIX}/secure/alpha-client`, purpose: "Protected alpha client detail route" },
     { key: "secure_billing_tunnel", path: `${BUSINESS_PREFIX}/secure/billing-tunnel`, purpose: "Protected billing tunnel detail route" },
   ],
@@ -341,6 +344,124 @@ const BUSINESS_BILLING_TUNNEL = {
   secure_detail_route: `${BUSINESS_PREFIX}/secure/billing-tunnel`,
 };
 
+const BUSINESS_AGENT_CATALOG = {
+  title: "Agent activation catalog",
+  summary: "Catalogue activable live des agents relies a la matrice role-badge-service-trace.",
+  agents: [
+    {
+      agent_id: "TRINITY",
+      role_id: "trinity_orchestrator",
+      badge_id: "ai_badge",
+      service_bindings: ["mission_control", "voice_ops", "status_read", "memory_read"],
+      action_surfaces: ["create_mission", "route_task", "status_summary"],
+      trail_mode: "full_audit",
+    },
+    {
+      agent_id: "MERLIN",
+      role_id: "merlin_validator",
+      badge_id: "ai_badge",
+      service_bindings: ["mcp_validation", "memory_review", "architecture_review"],
+      action_surfaces: ["write_feedback", "validate_chain", "confirm_design"],
+      trail_mode: "validation_audit",
+    },
+    {
+      agent_id: "COMET",
+      role_id: "comet_watch",
+      badge_id: "ai_badge",
+      service_bindings: ["provider_watch", "web_intel", "ops_followup"],
+      action_surfaces: ["watch_sources", "log_intel", "handoff_ops"],
+      trail_mode: "intel_audit",
+    },
+    {
+      agent_id: "KIMI",
+      role_id: "kimi_sensor",
+      badge_id: "ai_badge",
+      service_bindings: ["web3_scan", "token_watch"],
+      action_surfaces: ["scan_web3", "log_signal"],
+      trail_mode: "sensor_audit",
+    },
+    {
+      agent_id: "ORACLE",
+      role_id: "oracle_sensor",
+      badge_id: "ai_badge",
+      service_bindings: ["market_verification", "price_snapshot"],
+      action_surfaces: ["verify_price", "publish_snapshot"],
+      trail_mode: "market_audit",
+    },
+    {
+      agent_id: "ONCHAIN_GUARDIAN",
+      role_id: "guardian_watch",
+      badge_id: "ai_badge",
+      service_bindings: ["onchain_watch", "risk_alerts"],
+      action_surfaces: ["scan_risk", "publish_alert"],
+      trail_mode: "risk_audit",
+    },
+    {
+      agent_id: "GOUV4",
+      role_id: "policy_admin",
+      badge_id: "major_badge",
+      service_bindings: ["routing_policy", "cost_governance"],
+      action_surfaces: ["route_task", "arbitrate_model", "enforce_policy"],
+      trail_mode: "policy_audit",
+    },
+    {
+      agent_id: "ARKON",
+      role_id: "builder_operator",
+      badge_id: "employee_badge",
+      service_bindings: ["build_ops", "migration_ops", "tooling_ops"],
+      action_surfaces: ["patch_backend", "wire_infra", "ship_runtime"],
+      trail_mode: "builder_audit",
+    },
+  ],
+};
+
+const BUSINESS_AGENT_SERVICE_MATRIX = {
+  title: "Agent service matrix",
+  summary: "Chaque agent porte des actions, mais seulement sur ses surfaces autorisees.",
+  bindings: [
+    {
+      audience: "Business surfaces",
+      services: ["client_portal", "staff_portal", "vendor_portal", "admin_console"],
+      activators: ["TRINITY", "GOUV4", "MERLIN"],
+    },
+    {
+      audience: "Runtime S25",
+      services: ["mission_control", "memory_read", "status_read", "mcp_validation"],
+      activators: ["TRINITY", "MERLIN", "COMET"],
+    },
+    {
+      audience: "Web3 and market",
+      services: ["web3_scan", "market_verification", "onchain_watch"],
+      activators: ["KIMI", "ORACLE", "ONCHAIN_GUARDIAN"],
+    },
+    {
+      audience: "Build and policy",
+      services: ["build_ops", "routing_policy", "cost_governance"],
+      activators: ["ARKON", "GOUV4"],
+    },
+  ],
+};
+
+const BUSINESS_AGENT_ACTION_TRAIL = {
+  title: "Agent action trail",
+  summary: "Toute action agentique doit laisser une piste de role, service et surface.",
+  trail_fields: [
+    "agent_id",
+    "role_id",
+    "badge_id",
+    "service_binding",
+    "action_surface",
+    "scope_id",
+    "request_id",
+    "audit_state",
+  ],
+  rules: [
+    "pas d'action critique sans role_id",
+    "pas d'action critique sans service_binding",
+    "pas d'action critique sans audit trail",
+  ],
+};
+
 const SECURE_ALPHA_CLIENT_DETAIL = {
   client_id: "client-alpha-001",
   organization_id: "org-alpha-001",
@@ -456,6 +577,15 @@ function handleBusinessRequest(request, pathname, requestId, env) {
   }
   if (pathname === `${BUSINESS_PREFIX}/billing-tunnel`) {
     return businessResponse(requestId, pathname, BUSINESS_BILLING_TUNNEL);
+  }
+  if (pathname === `${BUSINESS_PREFIX}/agent-catalog`) {
+    return businessResponse(requestId, pathname, BUSINESS_AGENT_CATALOG);
+  }
+  if (pathname === `${BUSINESS_PREFIX}/agent-service-matrix`) {
+    return businessResponse(requestId, pathname, BUSINESS_AGENT_SERVICE_MATRIX);
+  }
+  if (pathname === `${BUSINESS_PREFIX}/agent-action-trail`) {
+    return businessResponse(requestId, pathname, BUSINESS_AGENT_ACTION_TRAIL);
   }
   if (pathname === `${BUSINESS_PREFIX}/secure/alpha-client`) {
     const denied = requireBusinessSecret(request, env, requestId, pathname);
