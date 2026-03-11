@@ -892,6 +892,44 @@ const PORTAL_ACTIVATION_MODEL = {
   ],
 };
 
+const CLIENT_FORM_MODEL = {
+  title: "Client intake form",
+  summary: "Formulaire type pour faire entrer un client dans le systeme avec la bonne chaine d'identite et de service.",
+  columns: [
+    {
+      label: "Identity",
+      items: ["organization_name", "contact_name", "contact_email", "contact_phone"],
+    },
+    {
+      label: "Service",
+      items: ["service_type", "site_address", "urgency_level", "service_window"],
+    },
+    {
+      label: "Commercial",
+      items: ["quote_required", "billing_contact", "contract_mode", "notes"],
+    },
+  ],
+};
+
+const STAFF_DASHBOARD_MODEL = {
+  title: "Staff dashboard",
+  summary: "Vue terrain pour l'equipe: quoi faire, ou aller, quoi remonter et quoi ne pas toucher.",
+  columns: [
+    {
+      label: "Shift",
+      items: ["today_assignments", "start_window", "priority_jobs"],
+    },
+    {
+      label: "Field",
+      items: ["job_brief", "site_address", "equipment_required", "incident_flag"],
+    },
+    {
+      label: "Completion",
+      items: ["report_submit", "photo_upload", "time_close", "escalation_note"],
+    },
+  ],
+};
+
 function navigation(hostname) {
   const appBase = hostname === "app.smajor.org" ? "" : "https://app.smajor.org";
   return [
@@ -1325,6 +1363,62 @@ function layout({
     `
     : "";
 
+  const clientFormHtml = moduleSection && moduleSection.clientForm
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Client form</div>
+            <h2>${moduleSection.clientForm.title}</h2>
+          </div>
+          <p>${moduleSection.clientForm.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.clientForm.columns
+            .map(
+              (column) => `
+                <article class="module-card">
+                  <div class="label">${column.label}</div>
+                  <ul>
+                    ${column.items.map((item) => `<li>${item}</li>`).join("")}
+                  </ul>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
+  const staffDashboardHtml = moduleSection && moduleSection.staffDashboard
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Staff dashboard</div>
+            <h2>${moduleSection.staffDashboard.title}</h2>
+          </div>
+          <p>${moduleSection.staffDashboard.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.staffDashboard.columns
+            .map(
+              (column) => `
+                <article class="module-card">
+                  <div class="label">${column.label}</div>
+                  <ul>
+                    ${column.items.map((item) => `<li>${item}</li>`).join("")}
+                  </ul>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
   const visitorHtml = visitorSection
     ? `
       <section class="module-panel">
@@ -1684,6 +1778,8 @@ function layout({
       ${roleGovernanceHtml}
       ${identityRegistryHtml}
       ${portalActivationHtml}
+      ${clientFormHtml}
+      ${staffDashboardHtml}
       ${foundationHtml}
       <div class="footer">Smajor est la facade. S25 Lumiere reste le backend central multi-agent.</div>
     </main>
@@ -2013,6 +2109,28 @@ function portalActivationSection(pathname) {
   };
 }
 
+function clientFormSection(pathname) {
+  if (pathname !== "/clients" && pathname !== "/admin") {
+    return null;
+  }
+  return {
+    title: CLIENT_FORM_MODEL.title,
+    intro: CLIENT_FORM_MODEL.summary,
+    columns: CLIENT_FORM_MODEL.columns,
+  };
+}
+
+function staffDashboardSection(pathname) {
+  if (pathname !== "/staff" && pathname !== "/admin") {
+    return null;
+  }
+  return {
+    title: STAFF_DASHBOARD_MODEL.title,
+    intro: STAFF_DASHBOARD_MODEL.summary,
+    columns: STAFF_DASHBOARD_MODEL.columns,
+  };
+}
+
 function renderPublic(env) {
   return layout({
     title: "Smajor",
@@ -2082,6 +2200,8 @@ function renderApp(env, pathname, hostname, snapshot) {
     roleGovernance: roleGovernanceSection(pathname),
     identityRegistry: identityRegistrySection(pathname),
     portalActivation: portalActivationSection(pathname),
+    clientForm: clientFormSection(pathname),
+    staffDashboard: staffDashboardSection(pathname),
     foundationStack: foundationStackSection(pathname),
   };
   if (registrySection) {
@@ -2231,6 +2351,24 @@ export default {
         domain: "smajor.org",
         source_of_truth: "api.smajor.org portal activation facade + role governance",
         ...PORTAL_ACTIVATION_MODEL,
+      });
+    }
+
+    if (url.pathname === "/models/client-form.json") {
+      return jsonResponse({
+        ok: true,
+        domain: "smajor.org",
+        source_of_truth: "api.smajor.org client intake facade + client portal",
+        ...CLIENT_FORM_MODEL,
+      });
+    }
+
+    if (url.pathname === "/models/staff-dashboard.json") {
+      return jsonResponse({
+        ok: true,
+        domain: "smajor.org",
+        source_of_truth: "api.smajor.org staff dashboard facade + staff portal",
+        ...STAFF_DASHBOARD_MODEL,
       });
     }
 

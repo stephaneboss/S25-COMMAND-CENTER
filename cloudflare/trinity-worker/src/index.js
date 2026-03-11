@@ -196,6 +196,8 @@ const BUSINESS_REGISTRY_MAP = {
     { key: "role_governance", path: `${BUSINESS_PREFIX}/role-governance`, purpose: "Role templates, powers and service enablement" },
     { key: "rbac_matrix", path: `${BUSINESS_PREFIX}/rbac-matrix`, purpose: "Identity to role to badge to entitlement model" },
     { key: "portal_activation", path: `${BUSINESS_PREFIX}/portal-activation`, purpose: "Portal enablement chain by audience" },
+    { key: "client_form", path: `${BUSINESS_PREFIX}/client-form`, purpose: "Client intake schema for portal and admin" },
+    { key: "staff_dashboard", path: `${BUSINESS_PREFIX}/staff-dashboard`, purpose: "Employee work dashboard model" },
   ],
 };
 
@@ -250,6 +252,57 @@ const BUSINESS_PORTAL_ACTIVATION = {
   ],
 };
 
+const BUSINESS_CLIENT_FORM = {
+  title: "Client intake form schema",
+  summary: "Formulaire standard pour creer un dossier client sans casser la chaine RBAC.",
+  sections: [
+    {
+      label: "Identity",
+      fields: ["organization_name", "contact_name", "contact_email", "contact_phone"],
+    },
+    {
+      label: "Service",
+      fields: ["service_type", "site_address", "urgency_level", "service_window"],
+    },
+    {
+      label: "Commercial",
+      fields: ["quote_required", "billing_contact", "contract_mode", "notes"],
+    },
+  ],
+  outputs: [
+    "client_id",
+    "organization_id",
+    "identity_id",
+    "role_id=client_contact",
+    "badge_id=client_badge",
+    "portal_state=pending_or_live",
+  ],
+};
+
+const BUSINESS_STAFF_DASHBOARD = {
+  title: "Staff dashboard model",
+  summary: "Vue de travail terrain pour employes et sous-traitants, limitee au scope de dispatch.",
+  panels: [
+    {
+      label: "Shift",
+      widgets: ["today_assignments", "start_window", "priority_jobs"],
+    },
+    {
+      label: "Field",
+      widgets: ["job_brief", "site_address", "equipment_required", "incident_flag"],
+    },
+    {
+      label: "Completion",
+      widgets: ["report_submit", "photo_upload", "time_close", "escalation_note"],
+    },
+  ],
+  guardrails: [
+    "pas d'acces finance globale",
+    "pas d'acces autres equipes hors scope",
+    "pas de modification de role ou service entitlement",
+  ],
+};
+
 function buildTargetUrl(requestUrl, originBase) {
   const incoming = new URL(requestUrl);
   const origin = new URL(originBase);
@@ -301,6 +354,12 @@ function handleBusinessRequest(pathname, requestId) {
   }
   if (pathname === `${BUSINESS_PREFIX}/portal-activation`) {
     return businessResponse(requestId, pathname, BUSINESS_PORTAL_ACTIVATION);
+  }
+  if (pathname === `${BUSINESS_PREFIX}/client-form`) {
+    return businessResponse(requestId, pathname, BUSINESS_CLIENT_FORM);
+  }
+  if (pathname === `${BUSINESS_PREFIX}/staff-dashboard`) {
+    return businessResponse(requestId, pathname, BUSINESS_STAFF_DASHBOARD);
   }
   return null;
 }
