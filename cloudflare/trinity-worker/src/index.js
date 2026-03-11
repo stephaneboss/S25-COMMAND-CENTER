@@ -233,9 +233,11 @@ const BUSINESS_EMPIRE_MANIFEST = {
     `${BUSINESS_PREFIX}/client-registry-live`,
     `${BUSINESS_PREFIX}/job-registry-live`,
     `${BUSINESS_PREFIX}/quotes-invoices-live`,
+    `${BUSINESS_PREFIX}/internal-ops`,
     `${BUSINESS_PREFIX}/role-governance`,
     `${BUSINESS_PREFIX}/rbac-matrix`,
     `${BUSINESS_PREFIX}/agent-catalog`,
+    `${BUSINESS_PREFIX}/secure/live-registries`,
     `${BUSINESS_PREFIX}/secure/alpha-client`,
     `${BUSINESS_PREFIX}/secure/billing-tunnel`,
   ],
@@ -457,8 +459,10 @@ const BUSINESS_REGISTRY_MAP = {
     { key: "client_registry_live", path: `${BUSINESS_PREFIX}/client-registry-live`, purpose: "Seeded client accounts ready for portal activation" },
     { key: "job_registry_live", path: `${BUSINESS_PREFIX}/job-registry-live`, purpose: "Seeded operations jobs aligned with dispatch scopes" },
     { key: "quotes_invoices_live", path: `${BUSINESS_PREFIX}/quotes-invoices-live`, purpose: "Seeded commercial and billing records" },
+    { key: "internal_ops", path: `${BUSINESS_PREFIX}/internal-ops`, purpose: "Public operating summary for Smajor internal account" },
     { key: "empire_manifest", path: `${BUSINESS_PREFIX}/empire-manifest`, purpose: "Unified manifest of domains, towers, registries and command chain" },
     { key: "total_mesh_protocol", path: `${BUSINESS_PREFIX}/total-mesh-protocol`, purpose: "Protocol de synchronisation totale des agents vers le hub" },
+    { key: "secure_live_registries", path: `${BUSINESS_PREFIX}/secure/live-registries`, purpose: "Protected admin view of all live business registries" },
     { key: "secure_alpha_client", path: `${BUSINESS_PREFIX}/secure/alpha-client`, purpose: "Protected alpha client detail route" },
     { key: "secure_billing_tunnel", path: `${BUSINESS_PREFIX}/secure/billing-tunnel`, purpose: "Protected billing tunnel detail route" },
   ],
@@ -773,6 +777,38 @@ function buildBusinessState(seed) {
   };
 }
 
+function findInternalOpsClient(business) {
+  return (business.clients || []).find(
+    (record) =>
+      record.client_id === "client-smajor-internal-001" ||
+      record.organization_name === "Smajor Internal Operations",
+  ) || null;
+}
+
+function deriveInternalOpsSummary(business) {
+  const client = findInternalOpsClient(business);
+  const jobs = (business.jobs || []).filter((record) => record.client_id === client?.client_id);
+  const quotes = (business.quotes_invoices || []).filter((record) => record.client_id === client?.client_id);
+  return {
+    title: "Smajor internal operations",
+    summary: "Compte operatoire interne pour faire gerer l'empire par sa propre infrastructure.",
+    account_live: Boolean(client),
+    client: client
+      ? {
+          client_id: client.client_id,
+          organization_name: client.organization_name,
+          scope_id: client.scope_id,
+          portal_state: client.portal_state,
+          billing_state: client.billing_state,
+          service_mix: client.service_mix,
+        }
+      : null,
+    jobs_open: jobs.length,
+    finance_entries: quotes.length,
+    last_write_at: business.last_write_at,
+  };
+}
+
 function extractBusinessState(payload) {
   const candidate = payload?.state?.intel?.business_registry || payload?.state?.business || {};
   return buildBusinessState(candidate);
@@ -1035,11 +1071,30 @@ function handleBusinessRequest(request, pathname, requestId, env) {
       }),
     );
   }
+  if (pathname === `${BUSINESS_PREFIX}/internal-ops`) {
+    return readBusinessState(env, requestId).then((business) =>
+      businessResponse(requestId, pathname, deriveInternalOpsSummary(business)),
+    );
+  }
   if (pathname === `${BUSINESS_PREFIX}/empire-manifest`) {
     return businessResponse(requestId, pathname, BUSINESS_EMPIRE_MANIFEST);
   }
   if (pathname === `${BUSINESS_PREFIX}/total-mesh-protocol`) {
     return businessResponse(requestId, pathname, BUSINESS_TOTAL_MESH_PROTOCOL);
+  }
+  if (pathname === `${BUSINESS_PREFIX}/secure/live-registries`) {
+    const denied = requireBusinessSecret(request, env, requestId, pathname);
+    if (denied) return denied;
+    return readBusinessState(env, requestId).then((business) =>
+      businessResponse(requestId, pathname, {
+        secure: true,
+        title: "Live business registries",
+        last_write_at: business.last_write_at,
+        clients: business.clients,
+        jobs: business.jobs,
+        quotes_invoices: business.quotes_invoices,
+      }),
+    );
   }
   if (pathname === `${BUSINESS_PREFIX}/secure/alpha-client`) {
     const denied = requireBusinessSecret(request, env, requestId, pathname);

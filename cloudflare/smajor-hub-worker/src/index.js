@@ -1157,9 +1157,42 @@ const SECURE_ROUTE_MODEL = {
     {
       label: "Protected",
       items: [
+        "/api/business/secure/live-registries",
         "/api/business/secure/alpha-client",
         "/api/business/secure/billing-tunnel",
         "header x-s25-secret requis",
+      ],
+    },
+  ],
+};
+
+const INTERNAL_OPS_MODEL = {
+  title: "Internal ops account",
+  summary: "Le premier vrai client de l'empire est le systeme lui-meme: il doit etre suivi, facture, pilote et audite comme un compte vivant.",
+  columns: [
+    {
+      label: "Account",
+      items: [
+        "client-smajor-internal-001",
+        "Smajor Internal Operations",
+        "major_internal_scope",
+      ],
+    },
+    {
+      label: "Purpose",
+      items: [
+        "self-management",
+        "infra subscriptions",
+        "ai operations",
+        "admin rehearsal",
+      ],
+    },
+    {
+      label: "Rule",
+      items: [
+        "public summary only",
+        "full details via secure live registries",
+        "same RBAC chain as external clients",
       ],
     },
   ],
@@ -1996,6 +2029,32 @@ function layout({
     `
     : "";
 
+  const internalOpsHtml = moduleSection && moduleSection.internalOps
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Internal ops</div>
+            <h2>${moduleSection.internalOps.title}</h2>
+          </div>
+          <p>${moduleSection.internalOps.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.internalOps.columns
+            .map(
+              (column) => `
+                <article class="module-card">
+                  <div class="label">${column.label}</div>
+                  <ul>${column.items.map((item) => `<li>${item}</li>`).join("")}</ul>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
   const visitorHtml = visitorSection
     ? `
       <section class="module-panel">
@@ -2438,6 +2497,7 @@ function layout({
       ${agentServiceBindingsHtml}
       ${foundationHtml}
       ${registryWriteContractHtml}
+      ${internalOpsHtml}
       <div class="footer">Smajor est la facade. S25 Lumiere reste le backend central multi-agent.</div>
     </main>
   </body>
@@ -2484,7 +2544,7 @@ async function fetchJson(url) {
 }
 
 async function fetchOpsSnapshot(env) {
-  const [statusResult, missionsResult, meshResult, vaultResult, infraResult, clientsResult, jobsResult, financeResult] = await Promise.allSettled([
+  const [statusResult, missionsResult, meshResult, vaultResult, infraResult, clientsResult, jobsResult, financeResult, internalOpsResult] = await Promise.allSettled([
     fetchJson(`${env.PUBLIC_S25_URL}/api/status`),
     fetchJson(`${env.PUBLIC_S25_URL}/api/missions`),
     fetchJson(`${env.PUBLIC_S25_URL}/api/mesh/status`),
@@ -2493,6 +2553,7 @@ async function fetchOpsSnapshot(env) {
     fetchJson(`${env.PUBLIC_API_URL}/api/business/client-registry-live`),
     fetchJson(`${env.PUBLIC_API_URL}/api/business/job-registry-live`),
     fetchJson(`${env.PUBLIC_API_URL}/api/business/quotes-invoices-live`),
+    fetchJson(`${env.PUBLIC_API_URL}/api/business/internal-ops`),
   ]);
 
   return {
@@ -2505,8 +2566,9 @@ async function fetchOpsSnapshot(env) {
       clients: clientsResult.status === "fulfilled" ? clientsResult.value : null,
       jobs: jobsResult.status === "fulfilled" ? jobsResult.value : null,
       quotes_invoices: financeResult.status === "fulfilled" ? financeResult.value : null,
+      internal_ops: internalOpsResult.status === "fulfilled" ? internalOpsResult.value : null,
     },
-    errors: [statusResult, missionsResult, meshResult, vaultResult, infraResult, clientsResult, jobsResult, financeResult]
+    errors: [statusResult, missionsResult, meshResult, vaultResult, infraResult, clientsResult, jobsResult, financeResult, internalOpsResult]
       .filter((result) => result.status === "rejected")
       .map((result) => result.reason?.message || "upstream_error"),
   };
@@ -2983,6 +3045,30 @@ function secureRoutesSection(pathname) {
   };
 }
 
+function internalOpsSection(pathname, snapshot) {
+  if (!["/clients", "/admin", "/ai"].includes(pathname)) {
+    return null;
+  }
+  const live = snapshot.business?.internal_ops || {};
+  const columns = INTERNAL_OPS_MODEL.columns.map((column) => ({ ...column }));
+  if (live.account_live) {
+    columns.unshift({
+      label: "Live",
+      items: [
+        `${live.client?.client_id || "--"} | ${live.client?.organization_name || "--"}`,
+        `jobs_open=${live.jobs_open ?? 0}`,
+        `finance_entries=${live.finance_entries ?? 0}`,
+        `portal=${live.client?.portal_state || "--"}`,
+      ],
+    });
+  }
+  return {
+    title: INTERNAL_OPS_MODEL.title,
+    intro: INTERNAL_OPS_MODEL.summary,
+    columns,
+  };
+}
+
 function agentActivationSection(pathname) {
   if (!["/admin", "/ai"].includes(pathname)) {
     return null;
@@ -3081,6 +3167,7 @@ function renderApp(env, pathname, hostname, snapshot) {
     staffDashboard: staffDashboardSection(pathname),
     alphaPilot: alphaPilotSection(pathname),
     secureRoutes: secureRoutesSection(pathname),
+    internalOps: internalOpsSection(pathname, snapshot),
     agentActivation: agentActivationSection(pathname),
     agentServiceBindings: agentServiceBindingsSection(pathname),
     foundationStack: foundationStackSection(pathname),
@@ -3315,6 +3402,15 @@ export default {
         domain: "smajor.org",
         source_of_truth: "api.smajor.org secure business route map",
         ...SECURE_ROUTE_MODEL,
+      });
+    }
+
+    if (url.pathname === "/models/internal-ops.json") {
+      return jsonResponse({
+        ok: true,
+        domain: "smajor.org",
+        source_of_truth: "api.smajor.org internal ops summary + secure live registries",
+        ...INTERNAL_OPS_MODEL,
       });
     }
 
