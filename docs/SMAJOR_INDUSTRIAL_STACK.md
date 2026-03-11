@@ -103,6 +103,20 @@ Le systeme doit tenir:
 - `merlin.smajor.org`
   - tools / MCP / validation
 
+## Contrats de facade
+
+Les premiers blueprints publics vivent deja dans le hub Cloudflare:
+- `/blueprints/clients.json`
+- `/blueprints/admin.json`
+- `/blueprints/staff.json`
+- `/blueprints/vendors.json`
+- `/blueprints/ai.json`
+
+But:
+- fixer les objets metier minimum
+- fixer les pipelines de travail
+- preparer le branchement futur sur `api.smajor.org`
+
 ## Plan de construction
 
 ### Phase 1

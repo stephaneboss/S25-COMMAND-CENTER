@@ -328,6 +328,133 @@ const WORKBENCH_SECTIONS = {
   },
 };
 
+const MODULE_BLUEPRINTS = {
+  clients: {
+    title: "Client dossier blueprint",
+    records: [
+      "client_account",
+      "service_site",
+      "service_request",
+      "quote",
+      "work_order",
+      "invoice",
+      "payment_status",
+    ],
+    pipeline: [
+      "lead_received",
+      "qualified",
+      "quote_sent",
+      "approved",
+      "scheduled",
+      "in_service",
+      "completed",
+      "invoiced",
+      "paid",
+    ],
+    automations: [
+      "S25 route une demande selon service, urgence et zone.",
+      "TRINITY cree une mission si un dossier bloque ou derape.",
+      "COMET alimente les alertes de suivi et les escalades externes.",
+    ],
+  },
+  admin: {
+    title: "Admin command blueprint",
+    records: [
+      "operator",
+      "role_policy",
+      "dispatch_board",
+      "finance_snapshot",
+      "agent_guardrail",
+      "audit_event",
+    ],
+    pipeline: [
+      "observe",
+      "prioritize",
+      "assign",
+      "validate",
+      "approve",
+      "close_loop",
+    ],
+    automations: [
+      "S25 consolide status, missions, marge et alertes.",
+      "MERLIN ecrit un feedback structure quand une decision critique doit etre justifiee.",
+      "Le backoffice doit toujours garder une piste d'audit.",
+    ],
+  },
+  staff: {
+    title: "Field execution blueprint",
+    records: [
+      "crew_member",
+      "shift",
+      "assignment",
+      "field_report",
+      "equipment_usage",
+      "incident",
+    ],
+    pipeline: [
+      "assigned",
+      "accepted",
+      "en_route",
+      "on_site",
+      "report_submitted",
+      "validated",
+    ],
+    automations: [
+      "Dispatch prepare le brief terrain depuis le dossier client.",
+      "S25 remonte les incidents et les bloqueurs au poste admin.",
+      "Le rapport de fin de job nourrit l'historique client.",
+    ],
+  },
+  vendors: {
+    title: "Vendor flow blueprint",
+    records: [
+      "vendor",
+      "purchase_request",
+      "purchase_order",
+      "delivery_receipt",
+      "cost_entry",
+      "approval_note",
+    ],
+    pipeline: [
+      "requested",
+      "quoted",
+      "approved",
+      "ordered",
+      "received",
+      "matched_to_job",
+      "closed",
+    ],
+    automations: [
+      "Le cout doit etre rattache a un job ou un centre de cout.",
+      "Les seuils budget doivent declencher revue humaine.",
+      "Admin voit l'impact marge sans lire les bons manuellement.",
+    ],
+  },
+  ai: {
+    title: "AI operating blueprint",
+    records: [
+      "mission",
+      "intel_entry",
+      "agent_state",
+      "validation_note",
+      "handoff",
+    ],
+    pipeline: [
+      "observe",
+      "decide",
+      "route",
+      "validate",
+      "record",
+      "review",
+    ],
+    automations: [
+      "TRINITY orchestre.",
+      "MERLIN valide et memorise.",
+      "Les autres agents nourrissent le systeme sans devenir source de verite unique.",
+    ],
+  },
+};
+
 function navigation(hostname) {
   const appBase = hostname === "app.smajor.org" ? "" : "https://app.smajor.org";
   return [
@@ -455,6 +582,40 @@ function layout({
               `,
             )
             .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
+  const blueprintHtml = moduleSection && moduleSection.blueprint
+    ? `
+      <section class="blueprint-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Industrial kit</div>
+            <h2>${moduleSection.blueprint.title}</h2>
+          </div>
+          <p>Ce schema sert de contrat de construction entre le front, api.smajor.org et le backend S25.</p>
+        </div>
+        <div class="blueprint-grid">
+          <article class="blueprint-card">
+            <div class="label">Records</div>
+            <div class="pill-row">
+              ${moduleSection.blueprint.records.map((item) => `<span class="pill">${item}</span>`).join("")}
+            </div>
+          </article>
+          <article class="blueprint-card">
+            <div class="label">Pipeline</div>
+            <ol class="stack-list">
+              ${moduleSection.blueprint.pipeline.map((item) => `<li>${item}</li>`).join("")}
+            </ol>
+          </article>
+          <article class="blueprint-card">
+            <div class="label">Automations</div>
+            <ul class="stack-list">
+              ${moduleSection.blueprint.automations.map((item) => `<li>${item}</li>`).join("")}
+            </ul>
+          </article>
         </div>
       </section>
     `
@@ -673,13 +834,53 @@ function layout({
         color: var(--muted);
         line-height: 1.7;
       }
+      .blueprint-panel {
+        margin-top: 20px;
+        border: 1px solid var(--line);
+        background: rgba(255,255,255,0.04);
+        border-radius: 28px;
+        padding: 24px;
+      }
+      .blueprint-grid {
+        display: grid;
+        grid-template-columns: 1.2fr 1fr 1fr;
+        gap: 18px;
+      }
+      .blueprint-card {
+        border: 1px solid var(--line);
+        background: rgba(255,255,255,0.03);
+        border-radius: 24px;
+        padding: 20px;
+      }
+      .stack-list {
+        margin: 0;
+        padding-left: 18px;
+        color: var(--muted);
+        line-height: 1.75;
+      }
+      .pill-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        min-height: 34px;
+        padding: 0 12px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: rgba(255,255,255,0.03);
+        color: var(--text);
+        font-size: 13px;
+      }
       .footer {
         margin-top: 24px;
         color: var(--muted);
         font-size: 14px;
       }
       @media (max-width: 900px) {
-        .hero, .grid, .live-grid, .metrics, .module-grid { grid-template-columns: 1fr; }
+        .hero, .grid, .live-grid, .metrics, .module-grid, .blueprint-grid { grid-template-columns: 1fr; }
         .section-head, .topbar { flex-direction: column; align-items: flex-start; }
       }
     </style>
@@ -712,6 +913,7 @@ function layout({
       <section class="grid">${blocksHtml}</section>
       ${liveBlocksHtml}
       ${moduleSectionHtml}
+      ${blueprintHtml}
       <div class="footer">Smajor est la facade. S25 Lumiere reste le backend central multi-agent.</div>
     </main>
   </body>
@@ -857,6 +1059,14 @@ function buildLiveBlocks(env, snapshot) {
   ];
 }
 
+function blueprintFromPath(pathname) {
+  if (pathname === "/") {
+    return null;
+  }
+  const key = pathname.replace(/^\//, "");
+  return MODULE_BLUEPRINTS[key] || null;
+}
+
 function renderPublic(env) {
   return layout({
     title: "Smajor",
@@ -903,7 +1113,10 @@ function renderPublic(env) {
 
 function renderApp(env, pathname, hostname, snapshot) {
   const section = APP_SECTIONS[pathname] || APP_SECTIONS["/"];
-  const moduleSection = WORKBENCH_SECTIONS[pathname] || WORKBENCH_SECTIONS["/"];
+  const moduleSection = {
+    ...(WORKBENCH_SECTIONS[pathname] || WORKBENCH_SECTIONS["/"]),
+    blueprint: blueprintFromPath(pathname),
+  };
   return layout({
     title: `Smajor Ops - ${section.label}`,
     eyebrow: section.eyebrow,
@@ -952,6 +1165,21 @@ export default {
         display: "standalone",
         background_color: "#071311",
         theme_color: "#7cf6d4",
+      });
+    }
+
+    if (url.pathname.startsWith("/blueprints/") && url.pathname.endsWith(".json")) {
+      const key = url.pathname.replace("/blueprints/", "").replace(".json", "");
+      const blueprint = MODULE_BLUEPRINTS[key];
+      if (!blueprint) {
+        return jsonResponse({ ok: false, error: "blueprint_not_found", key }, 404);
+      }
+      return jsonResponse({
+        ok: true,
+        key,
+        domain: "smajor.org",
+        source_of_truth: "S25 mesh + api.smajor.org",
+        ...blueprint,
       });
     }
 
