@@ -18,6 +18,7 @@ Le mesh S25 doit rester la source de verite.
 Reference de cadrage:
 - voir `docs/SMAJOR_SYSTEM_AXES.md`
 - voir `docs/SMAJOR_MASTER_REGISTRY.md`
+- voir `docs/SMAJOR_CONTROL_PLANE.md`
 
 ## Noyau minimum obligatoire
 
