@@ -46,6 +46,10 @@ Ce document est la passerelle de travail entre:
 
 - endpoint public stable:
   - `https://trinity-s25-proxy.trinitys25steph.workers.dev`
+- origin public courant:
+  - `http://fpog7pbvepbkrfae1529ics23k.ingress.cap-test-compute.com`
+- DSEQ cockpit public courant:
+  - `25883220`
 - bridge MCP MERLIN live:
   - `https://da0m4r4tu5ctn0ja9r2t9c2vho.ingress.akashprovid.com/mcp`
 - DSEQ merlin-mesh:
@@ -63,12 +67,23 @@ Ce document est la passerelle de travail entre:
 
 ## Chantiers ouverts
 
-1. sandbox Akash avec le build de statut corrige
-2. republish GPT live si l'editeur ChatGPT repond
+1. republish GPT live si l'editeur ChatGPT repond
+2. verifier la lecture TRINITY du backend public `25883220`
 3. ORACLE et ONCHAIN_GUARDIAN en live sur Akash
 4. KIMI hors tunnel manuel
 5. Gemini semantic memory reliee a TRINITY / MERLIN
 6. debloquer Gemini `Interactions + mcp_server` sur le projet Google courant
+7. garder HA en lateral, pas comme point de verite principal du mesh
+
+## Doctrine live
+
+- Le point de verite S25 est le mesh Akash, pas Home Assistant.
+- Home Assistant reste une chaine d'execution laterale a preserver sans casser l'existant.
+- Toute remise en place doit viser:
+  - `TRINITY -> cockpit public -> MERLIN MCP -> missions -> retour mesh`
+- La mission de validation courante est:
+  - `mission-09e3b85db8`
+  - intent: `Validate S25 multi-agent handshake: TRINITY issues mission, MERLIN confirms mesh readiness, COMET keeps provider watch intact.`
 
 ## Commandes operateur
 

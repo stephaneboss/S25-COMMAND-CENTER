@@ -16,7 +16,8 @@ But:
 
 Etat:
 - endpoint Worker stable en place
-- cockpit Akash principal present: `25838342`
+- cockpit Akash public courant present: `25883220`
+- cockpit Akash principal historique conserve: `25838342`
 - cockpit Akash secondaire conserve: `25822281`
 - cockpit Akash secondaire v2 cree: `25882621`
 - module `merlin-mesh` officiel live: `25878071`
@@ -24,8 +25,9 @@ Etat:
 
 Next:
 - garder la separation prod / sandbox sans multiplier les faux builds
+- garder `25883220` comme public tant qu'il reste sain
 - verifier `mesh/status`
-- realigner `status` public avec le mesh reel
+- nettoyer les dependances HA qui ne doivent pas redevenir le point de verite
 
 ### WS2 - GPT / TRINITY
 
@@ -38,13 +40,14 @@ But:
 
 Etat:
 - spec `x-openai-isConsequential: false`
-- backend status corrige en code
+- backend status corrige en code et live sur le Worker public
 - republish UI a refaire si l'editeur repond
 - endpoint cockpit stable toujours derriere `workers.dev`
 
 Next:
 - republier GPT
 - verifier nouveau thread vocal
+- verifier que TRINITY lit bien `MESH_READY` et `READY` depuis le nouveau public
 
 ### WS3 - Gemini / MERLIN
 
@@ -115,6 +118,10 @@ Etat:
 - snapshot local provider a present generable
 - mission COMET provider-watch a present armable
 - base Akash nettoyee, sans les DSEQ `Unknown` recents
+- mission handshake multi-agent queuee:
+  - `mission-09e3b85db8`
+  - `TRINITY -> MERLIN -> COMET`
+  - sans modification des chaines HA existantes
 
 Next:
 - armer la mission COMET provider-watch
