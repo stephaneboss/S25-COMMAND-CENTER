@@ -982,6 +982,44 @@ const SECURE_ROUTE_MODEL = {
   ],
 };
 
+const AGENT_ACTIVATION_MODEL = {
+  title: "Agent activation model",
+  summary: "Chaque agent existe comme acteur gouverne: role, badge, services bindes, surfaces d'action et mode de trace.",
+  columns: [
+    {
+      label: "Command",
+      items: ["TRINITY", "MERLIN", "COMET", "GOUV4"],
+    },
+    {
+      label: "Sensors",
+      items: ["KIMI", "ORACLE", "ONCHAIN_GUARDIAN"],
+    },
+    {
+      label: "Build",
+      items: ["ARKON", "code-validator", "smart-refactor", "auto-documenter"],
+    },
+  ],
+};
+
+const AGENT_SERVICE_BINDINGS_MODEL = {
+  title: "Agent service bindings",
+  summary: "Les agents ne sont pas libres. Ils agissent seulement sur les services explicitement lies a leur role.",
+  columns: [
+    {
+      label: "Business surfaces",
+      items: ["client_portal", "staff_portal", "vendor_portal", "admin_console"],
+    },
+    {
+      label: "Runtime surfaces",
+      items: ["mission_control", "memory_read", "status_read", "mcp_validation"],
+    },
+    {
+      label: "Trail",
+      items: ["agent_id", "role_id", "badge_id", "service_binding", "action_surface", "audit_state"],
+    },
+  ],
+};
+
 function navigation(hostname) {
   const appBase = hostname === "app.smajor.org" ? "" : "https://app.smajor.org";
   return [
@@ -1527,6 +1565,62 @@ function layout({
     `
     : "";
 
+  const agentActivationHtml = moduleSection && moduleSection.agentActivation
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Agent activation</div>
+            <h2>${moduleSection.agentActivation.title}</h2>
+          </div>
+          <p>${moduleSection.agentActivation.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.agentActivation.columns
+            .map(
+              (column) => `
+                <article class="module-card">
+                  <div class="label">${column.label}</div>
+                  <ul>
+                    ${column.items.map((item) => `<li>${item}</li>`).join("")}
+                  </ul>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
+  const agentServiceBindingsHtml = moduleSection && moduleSection.agentServiceBindings
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Agent service bindings</div>
+            <h2>${moduleSection.agentServiceBindings.title}</h2>
+          </div>
+          <p>${moduleSection.agentServiceBindings.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.agentServiceBindings.columns
+            .map(
+              (column) => `
+                <article class="module-card">
+                  <div class="label">${column.label}</div>
+                  <ul>
+                    ${column.items.map((item) => `<li>${item}</li>`).join("")}
+                  </ul>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
   const visitorHtml = visitorSection
     ? `
       <section class="module-panel">
@@ -1890,6 +1984,8 @@ function layout({
       ${staffDashboardHtml}
       ${alphaPilotHtml}
       ${secureRoutesHtml}
+      ${agentActivationHtml}
+      ${agentServiceBindingsHtml}
       ${foundationHtml}
       <div class="footer">Smajor est la facade. S25 Lumiere reste le backend central multi-agent.</div>
     </main>
@@ -2263,6 +2359,28 @@ function secureRoutesSection(pathname) {
   };
 }
 
+function agentActivationSection(pathname) {
+  if (!["/admin", "/ai"].includes(pathname)) {
+    return null;
+  }
+  return {
+    title: AGENT_ACTIVATION_MODEL.title,
+    intro: AGENT_ACTIVATION_MODEL.summary,
+    columns: AGENT_ACTIVATION_MODEL.columns,
+  };
+}
+
+function agentServiceBindingsSection(pathname) {
+  if (!["/admin", "/ai"].includes(pathname)) {
+    return null;
+  }
+  return {
+    title: AGENT_SERVICE_BINDINGS_MODEL.title,
+    intro: AGENT_SERVICE_BINDINGS_MODEL.summary,
+    columns: AGENT_SERVICE_BINDINGS_MODEL.columns,
+  };
+}
+
 function renderPublic(env) {
   return layout({
     title: "Smajor",
@@ -2336,6 +2454,8 @@ function renderApp(env, pathname, hostname, snapshot) {
     staffDashboard: staffDashboardSection(pathname),
     alphaPilot: alphaPilotSection(pathname),
     secureRoutes: secureRoutesSection(pathname),
+    agentActivation: agentActivationSection(pathname),
+    agentServiceBindings: agentServiceBindingsSection(pathname),
     foundationStack: foundationStackSection(pathname),
   };
   if (registrySection) {
@@ -2521,6 +2641,24 @@ export default {
         domain: "smajor.org",
         source_of_truth: "api.smajor.org secure business route map",
         ...SECURE_ROUTE_MODEL,
+      });
+    }
+
+    if (url.pathname === "/models/agent-activation.json") {
+      return jsonResponse({
+        ok: true,
+        domain: "smajor.org",
+        source_of_truth: "api.smajor.org agent activation catalog + hierarchy",
+        ...AGENT_ACTIVATION_MODEL,
+      });
+    }
+
+    if (url.pathname === "/models/agent-service-bindings.json") {
+      return jsonResponse({
+        ok: true,
+        domain: "smajor.org",
+        source_of_truth: "api.smajor.org agent service matrix + audit trail",
+        ...AGENT_SERVICE_BINDINGS_MODEL,
       });
     }
 

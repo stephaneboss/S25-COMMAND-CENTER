@@ -145,6 +145,8 @@ Modele public de gouvernance:
 - `/models/staff-dashboard.json`
 - `/models/alpha-client-pilot.json`
 - `/models/secure-routes.json`
+- `/models/agent-activation.json`
+- `/models/agent-service-bindings.json`
 - `/api/business/role-governance`
 - `/api/business/identities`
 - `/api/business/rbac-matrix`
@@ -153,6 +155,9 @@ Modele public de gouvernance:
 - `/api/business/staff-dashboard`
 - `/api/business/alpha-pilot`
 - `/api/business/billing-tunnel`
+- `/api/business/agent-catalog`
+- `/api/business/agent-service-matrix`
+- `/api/business/agent-action-trail`
 - `/api/business/secure/alpha-client`
 - `/api/business/secure/billing-tunnel`
 
