@@ -109,6 +109,12 @@ def _default_agents_state() -> dict:
         "intel": {
             "comet_feed": [],
         },
+        "business": {
+            "clients": [],
+            "jobs": [],
+            "quotes_invoices": [],
+            "last_write_at": None,
+        },
     }
 
 
@@ -968,6 +974,7 @@ def api_memory_state_post():
     pipeline_updates = body.get("pipeline", {})
     market_updates = body.get("market", {})
     intel_updates = body.get("intel", {})
+    business_updates = body.get("business", {})
 
     state = _load_agents_state()
 
@@ -984,6 +991,14 @@ def api_memory_state_post():
     if intel_updates and "intel" in state:
         for key, value in intel_updates.items():
             state["intel"][key] = value
+
+    if business_updates and "business" in state:
+        for key, value in business_updates.items():
+            if key in {"clients", "jobs", "quotes_invoices"} and isinstance(value, list):
+                state["business"][key] = value
+            elif key == "last_write_at":
+                state["business"][key] = value
+        state["business"]["last_write_at"] = datetime.now(timezone.utc).isoformat()
 
     _save_agents_state(state)
 
