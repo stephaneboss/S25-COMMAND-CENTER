@@ -280,6 +280,69 @@ const BUSINESS_TOTAL_MESH_PROTOCOL = {
   ],
 };
 
+const OMEGA_AGENT_ORDER = [
+  "TRINITY",
+  "MERLIN",
+  "COMET",
+  "GOUV4",
+  "KIMI",
+  "ORACLE",
+  "ONCHAIN_GUARDIAN",
+  "ARKON",
+  "TREASURY",
+  "PROVIDER_WATCH",
+  "MERLIN_MCP",
+  "DEFI_LIQUIDITY_MANAGER",
+  "CODE_VALIDATOR",
+  "SMART_REFACTOR",
+  "AUTO_DOCUMENTER",
+];
+
+const OMEGA_AGENT_MATRIX = {
+  TRINITY: { role_id: "trinity_orchestrator", badge_id: "ai_badge", scope_id: "mission_control", action_surface: "voice_ops" },
+  MERLIN: { role_id: "merlin_validator", badge_id: "ai_badge", scope_id: "validation_scope", action_surface: "mcp_validation" },
+  COMET: { role_id: "comet_watch", badge_id: "ai_badge", scope_id: "ops_followup", action_surface: "web_intel" },
+  GOUV4: { role_id: "policy_admin", badge_id: "major_badge", scope_id: "governance_scope", action_surface: "policy_router" },
+  KIMI: { role_id: "kimi_sensor", badge_id: "ai_badge", scope_id: "web3_scope", action_surface: "web3_intel" },
+  ORACLE: { role_id: "oracle_sensor", badge_id: "ai_badge", scope_id: "market_scope", action_surface: "market_confirmation" },
+  ONCHAIN_GUARDIAN: { role_id: "guardian_watch", badge_id: "ai_badge", scope_id: "risk_scope", action_surface: "onchain_risk" },
+  ARKON: { role_id: "builder_operator", badge_id: "employee_badge", scope_id: "runtime_scope", action_surface: "build_runtime" },
+  TREASURY: { role_id: "treasury_watch", badge_id: "ai_badge", scope_id: "treasury_scope", action_surface: "treasury_monitoring" },
+  PROVIDER_WATCH: { role_id: "provider_watch", badge_id: "ai_badge", scope_id: "provider_scope", action_surface: "provider_intel" },
+  MERLIN_MCP: { role_id: "mcp_bridge", badge_id: "ai_badge", scope_id: "mcp_scope", action_surface: "bridge_tools" },
+  DEFI_LIQUIDITY_MANAGER: { role_id: "defi_operator", badge_id: "ai_badge", scope_id: "defi_scope", action_surface: "liquidity_watch" },
+  CODE_VALIDATOR: { role_id: "code_validator", badge_id: "ai_badge", scope_id: "quality_scope", action_surface: "code_review" },
+  SMART_REFACTOR: { role_id: "smart_refactor", badge_id: "ai_badge", scope_id: "refactor_scope", action_surface: "refactor_runtime" },
+  AUTO_DOCUMENTER: { role_id: "auto_documenter", badge_id: "ai_badge", scope_id: "docs_scope", action_surface: "knowledge_capture" },
+};
+
+const AKASH_DEPLOYMENT_MODEL = [
+  {
+    dseq: "25883220",
+    label: "s25-cockpit-primary",
+    role: "cpu_runtime",
+    provider: "provider.cap-test-compute.com",
+    probe_url: "http://fpog7pbvepbkrfae1529ics23k.ingress.cap-test-compute.com/api/version",
+    surface: "cockpit",
+  },
+  {
+    dseq: "25878071",
+    label: "s25-merlin-mesh",
+    role: "mcp_bridge",
+    provider: "provider.akashprovid.com",
+    probe_url: "https://merlin.smajor.org/health",
+    surface: "merlin_mcp",
+  },
+  {
+    dseq: "25708774",
+    label: "s25-gpu-cluster",
+    role: "gpu_runtime",
+    provider: "provider.unknown",
+    probe_url: "",
+    surface: "gpu_compute",
+  },
+];
+
 const BUSINESS_ONBOARDING = {
   title: "Business onboarding chain",
   summary: "Tout nouvel acteur doit entrer par une chaine stricte: identite, role, services, acces.",
@@ -825,6 +888,185 @@ function jsonResponse(payload, init = {}) {
   });
 }
 
+async function fetchOriginJson(pathname, env, requestId) {
+  const target = new URL(pathname, env.ORIGIN_BASE);
+  const headers = new Headers({
+    accept: "application/json",
+    "user-agent": "trinity-s25-proxy/omega",
+    "x-trinity-request-id": requestId,
+  });
+  if (env.ORIGIN_HOST_HEADER) {
+    headers.set("host", env.ORIGIN_HOST_HEADER);
+  }
+  if (env.S25_SHARED_SECRET) {
+    headers.set("x-s25-secret", env.S25_SHARED_SECRET);
+  }
+  const response = await fetch(target, { headers, redirect: "follow" });
+  if (!response.ok) {
+    throw new Error(`origin_${response.status}_${pathname}`);
+  }
+  return response.json();
+}
+
+async function probeJson(url) {
+  const response = await fetch(url, {
+    headers: {
+      accept: "application/json",
+      "user-agent": "trinity-s25-proxy/omega",
+    },
+    redirect: "follow",
+  });
+  return {
+    ok: response.ok,
+    status: response.status,
+    payload: response.ok ? await response.json() : null,
+  };
+}
+
+async function probeUrl(url) {
+  if (!url) {
+    return {
+      state: "unexposed",
+      http_status: null,
+      ok: false,
+    };
+  }
+  try {
+    const response = await fetch(url, {
+      headers: {
+        accept: "application/json,text/plain,*/*",
+        "user-agent": "trinity-s25-proxy/omega",
+      },
+      redirect: "follow",
+    });
+    return {
+      state: response.ok ? "online" : "degraded",
+      http_status: response.status,
+      ok: response.ok,
+    };
+  } catch (error) {
+    return {
+      state: "offline",
+      http_status: null,
+      ok: false,
+      error: String(error),
+    };
+  }
+}
+
+async function handleMeshGateway(requestId, env) {
+  const [meshResult, statusResult, missionsResult] = await Promise.allSettled([
+    fetchOriginJson("/api/mesh/status", env, requestId),
+    fetchOriginJson("/api/status", env, requestId),
+    fetchOriginJson("/api/missions", env, requestId),
+  ]);
+  const meshPayload = meshResult.status === "fulfilled" ? meshResult.value : { mesh: { agents: {} } };
+  const statusPayload = statusResult.status === "fulfilled" ? statusResult.value : {};
+  const missionsPayload = missionsResult.status === "fulfilled" ? missionsResult.value : { active: [] };
+  const liveAgents = meshPayload?.mesh?.agents || {};
+  const roster = OMEGA_AGENT_ORDER.map((name) => {
+    const runtime = liveAgents[name] || {};
+    const matrix = OMEGA_AGENT_MATRIX[name] || {};
+    return {
+      agent_id: name,
+      status: runtime.status || "offline",
+      last_seen: runtime.last_seen || null,
+      last_task: runtime.last_task || null,
+      role_id: matrix.role_id || "unbound",
+      badge_id: matrix.badge_id || "unbound",
+      scope_id: matrix.scope_id || "unbound",
+      action_surface: matrix.action_surface || "unbound",
+    };
+  });
+  const onlineCount = roster.filter((agent) => !["offline", "unknown"].includes(agent.status)).length;
+  const readiness = onlineCount >= 12 ? "mesh_total" : onlineCount >= 8 ? "mesh_partial" : "mesh_fragile";
+  return jsonResponse({
+    ...(meshPayload || {}),
+    omega: {
+      protocol: "S25_OMEGA_PROTOCOL",
+      readiness,
+      online_count: onlineCount,
+      target_headcount: OMEGA_AGENT_ORDER.length,
+      mission_head: missionsPayload?.active?.[0] || null,
+      command_chain: [
+        "TRINITY -> mission_control",
+        "MERLIN -> validation",
+        "COMET -> ops_followup",
+        "GOUV4 -> policy",
+        "ARKON -> runtime",
+      ],
+      status_summary: statusPayload.summary_fr || null,
+    },
+    roster,
+  });
+}
+
+async function handleVaultMexcGateway(requestId, env) {
+  const [statusResult, missionsResult] = await Promise.allSettled([
+    fetchOriginJson("/api/status", env, requestId),
+    fetchOriginJson("/api/missions", env, requestId),
+  ]);
+  const statusPayload = statusResult.status === "fulfilled" ? statusResult.value : {};
+  const missionsPayload = missionsResult.status === "fulfilled" ? missionsResult.value : { active: [] };
+  const treasuryMission = (missionsPayload.active || []).find((mission) => mission.target === "TREASURY") || null;
+  return jsonResponse({
+    ok: true,
+    request_id: requestId,
+    service: "vault_mexc",
+    exchange: "MEXC",
+    mode: statusPayload.pipeline_status === "MESH_READY" ? "armed_readiness" : "cold_start",
+    arbitrage_loop: ["BTC/USDT", "BTC/AKT", "AKT/USDT"],
+    profitability: {
+      realized_profit_24h: null,
+      realized_profit_currency: "USDT",
+      vault_balance: null,
+      vault_balance_currency: "AKT",
+      spread_capture_bps: null,
+      execution_state: treasuryMission ? treasuryMission.status : "awaiting_trade_binding",
+      data_state: "exchange_binding_pending_secure_runtime",
+    },
+    price_context: {
+      btc_usd: statusPayload.btc_usd ?? null,
+      eth_usd: statusPayload.eth_usd ?? null,
+      arkon5_action: statusPayload.arkon5_action ?? null,
+      arkon5_conf: statusPayload.arkon5_conf ?? null,
+    },
+    guardrails: {
+      route_protected: true,
+      secret_required_for_trade_write: true,
+      operator_mode: "read_only_until_exchange_worker_bound",
+    },
+  });
+}
+
+async function handleAkashInfraGateway(requestId) {
+  const deployments = await Promise.all(
+    AKASH_DEPLOYMENT_MODEL.map(async (deployment) => {
+      const probe = await probeUrl(deployment.probe_url);
+      return {
+        ...deployment,
+        uptime_state: probe.state,
+        http_status: probe.http_status,
+        probe_ok: probe.ok,
+      };
+    }),
+  );
+  const cpuReady = deployments.filter((deployment) => deployment.role === "cpu_runtime" && deployment.probe_ok).length;
+  const gpuTracked = deployments.filter((deployment) => deployment.role === "gpu_runtime").length;
+  return jsonResponse({
+    ok: true,
+    request_id: requestId,
+    service: "akash_infra",
+    cluster: {
+      cpu_ready: cpuReady,
+      gpu_tracked: gpuTracked,
+      mesh_bridge_ready: deployments.some((deployment) => deployment.role === "mcp_bridge" && deployment.probe_ok),
+      doctrine: "Akash-first with sovereign facade on smajor.org",
+    },
+    deployments,
+  });
+}
+
 function copyRequestHeaders(headers, requestId, env, clientIp) {
   const out = new Headers();
   for (const [key, value] of headers.entries()) {
@@ -932,6 +1174,18 @@ export default {
 
     if (incoming.pathname === "/health" || incoming.pathname === "/api/health") {
       return jsonResponse(buildProxyMeta(env, requestId, buildTargetUrl(request.url, env.ORIGIN_BASE)));
+    }
+
+    if (incoming.pathname === "/api/mesh/status") {
+      return handleMeshGateway(requestId, env);
+    }
+
+    if (incoming.pathname === "/api/vault/mexc") {
+      return handleVaultMexcGateway(requestId, env);
+    }
+
+    if (incoming.pathname === "/api/akash/infra") {
+      return handleAkashInfraGateway(requestId);
     }
 
     const businessRoute = handleBusinessRequest(request, incoming.pathname, requestId, env);

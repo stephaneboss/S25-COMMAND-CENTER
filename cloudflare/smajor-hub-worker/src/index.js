@@ -143,6 +143,30 @@ const APP_SECTIONS = {
       },
     ],
   },
+  "/omega": {
+    label: "Omega",
+    eyebrow: "S25 Command Center",
+    heroTitle: "Le tableau souverain pour conduire l'empire en temps reel.",
+    heroText:
+      "Omega consolide le header strategique, le maillage des 15 agents, le terminal d'operations et la posture finance/infra sur une seule surface de commandement.",
+    cards: [
+      {
+        label: "Header",
+        title: "Uptime, HA et vault",
+        text: "Le command center doit exposer la sante globale du systeme et les signaux de fragilite sans ouvrir tout le backend.",
+      },
+      {
+        label: "Mesh",
+        title: "Agents en formation",
+        text: "Chaque agent garde son role, son badge, son scope et sa surface d'action. La vue doit rester lisible meme sous charge.",
+      },
+      {
+        label: "Finance",
+        title: "Profit contre cout",
+        text: "La rentabilite MEXC, les couts Akash et la posture de tresorerie doivent etre surveilles sur la meme ligne de front.",
+      },
+    ],
+  },
 };
 
 const WORKBENCH_SECTIONS = {
@@ -1188,6 +1212,7 @@ function navigation(hostname) {
     { label: "Staff", href: `${appBase}/staff` },
     { label: "Vendors", href: `${appBase}/vendors` },
     { label: "AI", href: `${appBase}/ai` },
+    { label: "Omega", href: `${appBase}/omega` },
   ];
 }
 
@@ -1199,6 +1224,7 @@ function layout({
   ctas,
   blocks,
   liveBlocks = [],
+  commandDeck = null,
   moduleSection = null,
   visitorSection = null,
   portalMatrix = null,
@@ -1280,6 +1306,67 @@ function layout({
             `,
           )
           .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
+  const commandDeckHtml = commandDeck
+    ? `
+      <section class="omega-shell">
+        <div class="omega-header">
+          ${commandDeck.header
+            .map(
+              (item) => `
+                <article class="omega-kpi">
+                  <div class="label">${item.label}</div>
+                  <strong>${item.value}</strong>
+                  <p>${item.text}</p>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+        <div class="omega-grid">
+          ${commandDeck.panels
+            .map(
+              (panel) => `
+                <article class="omega-panel">
+                  <div class="label">${panel.label}</div>
+                  <h3>${panel.title}</h3>
+                  <p>${panel.text}</p>
+                  ${
+                    panel.rows
+                      ? `<div class="omega-list">${panel.rows
+                          .map(
+                            (row) => `
+                              <div class="omega-row">
+                                <div class="omega-row-title">
+                                  ${
+                                    row.status
+                                      ? `<span class="status-dot ${row.status}"></span>`
+                                      : ""
+                                  }
+                                  <span>${row.title}</span>
+                                </div>
+                                <strong>${row.value || ""}</strong>
+                              </div>
+                            `,
+                          )
+                          .join("")}</div>`
+                      : ""
+                  }
+                  ${
+                    panel.links
+                      ? `<div class="links">${panel.links
+                          .map((link) => `<a href="${link.href}">${link.label}</a>`)
+                          .join("")}</div>`
+                      : ""
+                  }
+                </article>
+              `,
+            )
+            .join("")}
         </div>
       </section>
     `
@@ -2179,8 +2266,79 @@ function layout({
         color: var(--muted);
         font-size: 14px;
       }
+      .omega-shell {
+        margin-top: 20px;
+        border: 1px solid rgba(124,246,212,0.22);
+        background: linear-gradient(180deg, rgba(7,24,21,0.92) 0%, rgba(4,10,11,0.96) 100%);
+        border-radius: 30px;
+        padding: 22px;
+        box-shadow: 0 0 40px rgba(124,246,212,0.09);
+      }
+      .omega-header {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 14px;
+        margin-bottom: 16px;
+      }
+      .omega-kpi, .omega-panel {
+        border: 1px solid rgba(124,246,212,0.18);
+        background: rgba(7, 18, 17, 0.78);
+        border-radius: 24px;
+        padding: 18px;
+      }
+      .omega-kpi strong {
+        display: block;
+        font-size: 28px;
+        color: var(--accent);
+        margin: 8px 0 10px;
+      }
+      .omega-kpi p, .omega-panel p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.55;
+      }
+      .omega-grid {
+        display: grid;
+        grid-template-columns: 0.95fr 1.2fr 1fr;
+        gap: 14px;
+      }
+      .omega-panel h3 {
+        margin: 0 0 10px;
+        font-size: 24px;
+      }
+      .omega-list {
+        display: grid;
+        gap: 8px;
+        margin-top: 14px;
+      }
+      .omega-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        border: 1px solid rgba(124,246,212,0.12);
+        border-radius: 16px;
+        padding: 10px 12px;
+        background: rgba(255,255,255,0.02);
+      }
+      .omega-row-title {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .status-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        display: inline-block;
+        box-shadow: 0 0 12px currentColor;
+      }
+      .status-dot.online { color: #7cf6d4; background: #7cf6d4; }
+      .status-dot.degraded { color: #ffb347; background: #ffb347; }
+      .status-dot.offline { color: #ff5d5d; background: #ff5d5d; }
+      .status-dot.unexposed { color: #6fa8ff; background: #6fa8ff; }
       @media (max-width: 900px) {
-        .hero, .grid, .live-grid, .metrics, .module-grid, .blueprint-grid { grid-template-columns: 1fr; }
+        .hero, .grid, .live-grid, .metrics, .module-grid, .blueprint-grid, .omega-header, .omega-grid { grid-template-columns: 1fr; }
         .section-head, .topbar { flex-direction: column; align-items: flex-start; }
       }
     </style>
@@ -2212,6 +2370,7 @@ function layout({
       </section>
       <section class="grid">${blocksHtml}</section>
       ${liveBlocksHtml}
+      ${commandDeckHtml}
       ${moduleSectionHtml}
       ${visitorHtml}
       ${portalMatrixHtml}
@@ -2279,19 +2438,122 @@ async function fetchJson(url) {
 }
 
 async function fetchOpsSnapshot(env) {
-  const [statusResult, missionsResult, meshResult] = await Promise.allSettled([
+  const [statusResult, missionsResult, meshResult, vaultResult, infraResult] = await Promise.allSettled([
     fetchJson(`${env.PUBLIC_S25_URL}/api/status`),
     fetchJson(`${env.PUBLIC_S25_URL}/api/missions`),
     fetchJson(`${env.PUBLIC_S25_URL}/api/mesh/status`),
+    fetchJson(`${env.PUBLIC_API_URL}/api/vault/mexc`),
+    fetchJson(`${env.PUBLIC_API_URL}/api/akash/infra`),
   ]);
 
   return {
     status: statusResult.status === "fulfilled" ? statusResult.value : null,
     missions: missionsResult.status === "fulfilled" ? missionsResult.value : null,
     mesh: meshResult.status === "fulfilled" ? meshResult.value : null,
-    errors: [statusResult, missionsResult, meshResult]
+    vault: vaultResult.status === "fulfilled" ? vaultResult.value : null,
+    infra: infraResult.status === "fulfilled" ? infraResult.value : null,
+    errors: [statusResult, missionsResult, meshResult, vaultResult, infraResult]
       .filter((result) => result.status === "rejected")
       .map((result) => result.reason?.message || "upstream_error"),
+  };
+}
+
+function buildOmegaDeck(env, snapshot) {
+  const status = snapshot.status || {};
+  const mesh = snapshot.mesh || {};
+  const roster = Array.isArray(mesh.roster) ? mesh.roster : [];
+  const missions = snapshot.missions || {};
+  const activeMissions = Array.isArray(missions.active) ? missions.active : [];
+  const vault = snapshot.vault || {};
+  const infra = snapshot.infra || {};
+  const deployments = Array.isArray(infra.deployments) ? infra.deployments : [];
+  const history = Array.isArray(missions.history) ? missions.history.slice(0, 6) : [];
+
+  return {
+    header: [
+      {
+        label: "Uptime S25",
+        value: status.pipeline_status || "Unknown",
+        text: status.summary_fr || "Le hub attend encore la remontee complete du cockpit.",
+      },
+      {
+        label: "Nabu Casa / HA",
+        value: status.ha_connected ? "Linked" : "Lateral",
+        text: status.error || "HA reste lateral tant que la base S25 tient seule.",
+      },
+      {
+        label: "Vault MEXC",
+        value: vault.mode || "Cold",
+        text: vault.profitability?.data_state || "Le tunnel trade reste sous garde avant binding complet.",
+      },
+      {
+        label: "Akash Cluster",
+        value: `${infra.cluster?.cpu_ready ?? 0} CPU / ${infra.cluster?.gpu_tracked ?? 0} GPU`,
+        text: infra.cluster?.doctrine || "Akash-first avec facade souveraine.",
+      },
+    ],
+    panels: [
+      {
+        label: "Mesh",
+        title: "15 agents en ligne de front",
+        text: "Chaque agent reporte son statut, son role, son badge et sa surface d'action au hub.",
+        rows: roster.map((agent) => ({
+          title: `${agent.agent_id} · ${agent.role_id}`,
+          value: agent.action_surface,
+          status:
+            agent.status === "online"
+              ? "online"
+              : agent.status === "sleep" || agent.status === "rate_limited"
+                ? "degraded"
+                : "offline",
+        })),
+      },
+      {
+        label: "Terminal / Feed",
+        title: "Flux Merlin, Trinity et Comet",
+        text: "Le command center met les intentions, missions et retours d'actions sur la meme ligne de commande.",
+        rows: [...activeMissions.slice(0, 6), ...history.slice(0, 3)].map((mission) => ({
+          title: `${mission.target || mission.recommended_agent || "MESH"} · ${mission.intent || mission.mission_id || "mission"}`,
+          value: mission.status || mission.priority || "queued",
+          status:
+            mission.status === "completed" || mission.status === "done"
+              ? "online"
+              : mission.status === "queued" || mission.status === "in_progress"
+                ? "degraded"
+                : "unexposed",
+        })),
+        links: [
+          { label: "Feed COMET", href: `${env.PUBLIC_S25_URL}/api/comet/feed?n=12` },
+          { label: "Missions", href: `${env.PUBLIC_S25_URL}/api/missions` },
+        ],
+      },
+      {
+        label: "Finance / Infra",
+        title: "MEXC contre cout Akash",
+        text: "Le coffre de trade, le cout du runtime et l'etat des clusters doivent rester dans la meme fenetre de tir.",
+        rows: [
+          {
+            title: "Arbitrage loop",
+            value: (vault.arbitrage_loop || []).join(" -> ") || "BTC/USDT -> BTC/AKT -> AKT/USDT",
+            status: "online",
+          },
+          {
+            title: "Trade mode",
+            value: vault.mode || "armed_readiness",
+            status: vault.mode === "armed_readiness" ? "degraded" : "online",
+          },
+          ...deployments.map((deployment) => ({
+            title: `${deployment.label} · ${deployment.provider}`,
+            value: deployment.uptime_state || "unknown",
+            status: deployment.uptime_state || "unexposed",
+          })),
+        ],
+        links: [
+          { label: "Vault API", href: `${env.PUBLIC_API_URL}/api/vault/mexc` },
+          { label: "Akash API", href: `${env.PUBLIC_API_URL}/api/akash/infra` },
+        ],
+      },
+    ],
   };
 }
 
@@ -2763,6 +3025,7 @@ function renderApp(env, pathname, hostname, snapshot) {
     ],
     blocks: section.cards,
     liveBlocks: buildLiveBlocks(env, snapshot),
+    commandDeck: pathname === "/omega" ? buildOmegaDeck(env, snapshot) : null,
     moduleSection,
     tone: "app",
     nav: navigation(hostname).map((item) => ({
