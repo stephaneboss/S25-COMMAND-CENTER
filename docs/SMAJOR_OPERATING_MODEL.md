@@ -40,6 +40,8 @@ Le mesh S25 sur Akash reste le coeur operationnel.
 - `app.smajor.org`
   - interface centrale
   - point d'entree unique pour operator / equipe
+  - shell vivant avec panneaux `status / missions / mesh`
+  - workbench par route: `clients`, `admin`, `staff`, `vendors`, `ai`
 - `admin.smajor.org`
   - backoffice
   - gestion utilisateurs

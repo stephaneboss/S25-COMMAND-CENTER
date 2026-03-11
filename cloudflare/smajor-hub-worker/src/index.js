@@ -145,6 +145,189 @@ const APP_SECTIONS = {
   },
 };
 
+const WORKBENCH_SECTIONS = {
+  "/": {
+    title: "Feuille de route immediate",
+    intro: "Le shell doit devenir la porte d'entree unique pour l'entreprise, sans sortir la logique critique du mesh.",
+    columns: [
+      {
+        label: "MVP",
+        items: [
+          "Afficher le status, les missions et le mesh en direct.",
+          "Servir de facade unique pour operators, clients et agents.",
+          "Pointer les integrations vers api.smajor.org.",
+        ],
+      },
+      {
+        label: "Ensuite",
+        items: [
+          "Ouvrir le portail client avec demandes, devis et suivi.",
+          "Ouvrir le poste admin avec dispatch, permissions et marges.",
+          "Connecter staff et vendors a un workflow lisible.",
+        ],
+      },
+      {
+        label: "Regle",
+        items: [
+          "Aucune logique critique durable dans le front.",
+          "Chaque action importante doit remonter dans S25.",
+          "Le domaine est la facade, Akash reste le muscle.",
+        ],
+      },
+    ],
+  },
+  "/clients": {
+    title: "Portail client cible",
+    intro: "On prepare une interface simple pour le client, pendant que S25 garde l'orchestration, les relances et le routage.",
+    columns: [
+      {
+        label: "Demandes",
+        items: [
+          "Nouvelle demande de service.",
+          "Suivi de dossier et statut chantier.",
+          "Canal de contact propre avec historique.",
+        ],
+      },
+      {
+        label: "Documents",
+        items: [
+          "Devis a signer.",
+          "Factures et paiements.",
+          "Photos et preuves de service.",
+        ],
+      },
+      {
+        label: "Automations",
+        items: [
+          "Relances automatiques par S25.",
+          "Tri des urgences selon le service.",
+          "Passage propre vers admin et staff.",
+        ],
+      },
+    ],
+  },
+  "/admin": {
+    title: "Poste de commandement",
+    intro: "L'admin doit voir la machine complete: operations, IA, cash, permissions et chaines metier.",
+    columns: [
+      {
+        label: "Pilotage",
+        items: [
+          "Etat du mesh et alertes critiques.",
+          "Priorite des missions et file de travail.",
+          "Vue des services actifs par domaine.",
+        ],
+      },
+      {
+        label: "Gouvernance",
+        items: [
+          "Regles d'agents et garde-fous humains.",
+          "Secrets, domaines et acces critiques.",
+          "Journal de decisions majeures.",
+        ],
+      },
+      {
+        label: "Business",
+        items: [
+          "Marges chantier et facturation.",
+          "Suivi paiements et fournisseurs.",
+          "Visibilite couts infra et operations.",
+        ],
+      },
+    ],
+  },
+  "/staff": {
+    title: "Execution terrain",
+    intro: "Le staff doit voir quoi faire, ou aller et quoi remonter, sans se battre avec le backend.",
+    columns: [
+      {
+        label: "Dispatch",
+        items: [
+          "Taches assignees et priorite.",
+          "Fenetre horaire et lieu d'intervention.",
+          "Brief IA de terrain avant depart.",
+        ],
+      },
+      {
+        label: "Rapports",
+        items: [
+          "Debut / fin d'intervention.",
+          "Photos, incidents et note terrain.",
+          "Validation rapide de completion.",
+        ],
+      },
+      {
+        label: "Support",
+        items: [
+          "Escalade rapide vers admin.",
+          "Historique equipement / materiel.",
+          "Consignes meteos et securite.",
+        ],
+      },
+    ],
+  },
+  "/vendors": {
+    title: "Chaine fournisseurs",
+    intro: "Les achats et locations doivent devenir tracables, relies aux chantiers et visibles pour l'admin.",
+    columns: [
+      {
+        label: "Commandes",
+        items: [
+          "Bons de commande centralises.",
+          "Demandes de prix et comparatifs.",
+          "Pieces, carburant, materiaux, location.",
+        ],
+      },
+      {
+        label: "Controle",
+        items: [
+          "Approbation par seuil de cout.",
+          "Suivi livraison et reception.",
+          "Pieces manquantes ou retards critiques.",
+        ],
+      },
+      {
+        label: "Integration",
+        items: [
+          "Rattacher chaque cout a un dossier client.",
+          "Remonter dans le backoffice admin.",
+          "Preparer les flux de facturation et marge.",
+        ],
+      },
+    ],
+  },
+  "/ai": {
+    title: "Organisation agentique",
+    intro: "La branche AI doit servir le business concret: surveiller, proposer, orchestrer et expliquer.",
+    columns: [
+      {
+        label: "Roles",
+        items: [
+          "TRINITY orchestre les chaines.",
+          "MERLIN valide et memorise.",
+          "COMET surveille web et executions externes.",
+        ],
+      },
+      {
+        label: "Capteurs",
+        items: [
+          "KIMI pompe la data Web3.",
+          "ORACLE confirme les prix.",
+          "ONCHAIN_GUARDIAN surveille les signaux onchain.",
+        ],
+      },
+      {
+        label: "But",
+        items: [
+          "Rendre l'entreprise plus lisible et plus rapide.",
+          "Diminuer la charge mentale humaine.",
+          "Laisser un historique clair des decisions et actions.",
+        ],
+      },
+    ],
+  },
+};
+
 function navigation(hostname) {
   const appBase = hostname === "app.smajor.org" ? "" : "https://app.smajor.org";
   return [
@@ -165,6 +348,7 @@ function layout({
   ctas,
   blocks,
   liveBlocks = [],
+  moduleSection = null,
   tone = "public",
   nav = [],
   activePath = "/",
@@ -243,6 +427,34 @@ function layout({
             `,
           )
           .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
+  const moduleSectionHtml = moduleSection
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Workbench</div>
+            <h2>${moduleSection.title}</h2>
+          </div>
+          <p>${moduleSection.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.columns
+            .map(
+              (column) => `
+                <article class="module-card">
+                  <div class="label">${column.label}</div>
+                  <ul>
+                    ${column.items.map((item) => `<li>${item}</li>`).join("")}
+                  </ul>
+                </article>
+              `,
+            )
+            .join("")}
         </div>
       </section>
     `
@@ -437,13 +649,37 @@ function layout({
       .metric strong {
         font-size: 24px;
       }
+      .module-panel {
+        margin-top: 20px;
+        border: 1px solid var(--line);
+        background: rgba(255,255,255,0.04);
+        border-radius: 28px;
+        padding: 24px;
+      }
+      .module-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 18px;
+      }
+      .module-card {
+        border: 1px solid var(--line);
+        background: rgba(255,255,255,0.03);
+        border-radius: 24px;
+        padding: 20px;
+      }
+      .module-card ul {
+        margin: 0;
+        padding-left: 18px;
+        color: var(--muted);
+        line-height: 1.7;
+      }
       .footer {
         margin-top: 24px;
         color: var(--muted);
         font-size: 14px;
       }
       @media (max-width: 900px) {
-        .hero, .grid, .live-grid, .metrics { grid-template-columns: 1fr; }
+        .hero, .grid, .live-grid, .metrics, .module-grid { grid-template-columns: 1fr; }
         .section-head, .topbar { flex-direction: column; align-items: flex-start; }
       }
     </style>
@@ -475,6 +711,7 @@ function layout({
       </section>
       <section class="grid">${blocksHtml}</section>
       ${liveBlocksHtml}
+      ${moduleSectionHtml}
       <div class="footer">Smajor est la facade. S25 Lumiere reste le backend central multi-agent.</div>
     </main>
   </body>
@@ -666,6 +903,7 @@ function renderPublic(env) {
 
 function renderApp(env, pathname, hostname, snapshot) {
   const section = APP_SECTIONS[pathname] || APP_SECTIONS["/"];
+  const moduleSection = WORKBENCH_SECTIONS[pathname] || WORKBENCH_SECTIONS["/"];
   return layout({
     title: `Smajor Ops - ${section.label}`,
     eyebrow: section.eyebrow,
@@ -678,6 +916,7 @@ function renderApp(env, pathname, hostname, snapshot) {
     ],
     blocks: section.cards,
     liveBlocks: buildLiveBlocks(env, snapshot),
+    moduleSection,
     tone: "app",
     nav: navigation(hostname).map((item) => ({
       ...item,
