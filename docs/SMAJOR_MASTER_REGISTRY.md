@@ -115,3 +115,15 @@ Contient:
 3. L'admin doit pouvoir voir les liens entre registres.
 4. Les agents lisent et enrichissent; ils ne doivent pas casser la structure.
 5. `api.smajor.org` devra servir ces registres plus tard comme facade stable.
+
+## Premier noyau operable
+
+Les trois premiers registres a rendre vivants:
+- `clients`
+- `jobs`
+- `quotes_invoices`
+
+Ils sont la premiere tranche realiste pour:
+- prendre un nouveau client
+- ouvrir un job
+- emettre devis et facture

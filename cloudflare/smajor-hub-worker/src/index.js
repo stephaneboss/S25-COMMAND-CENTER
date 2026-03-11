@@ -592,6 +592,69 @@ const MASTER_REGISTRY = {
   ],
 };
 
+const MVP_REGISTRIES = {
+  clients: {
+    title: "Clients registry MVP",
+    description: "Registre minimum pour gerer de nouveaux clients sans trainer l'ancien hiver.",
+    records: [
+      "client_id",
+      "organization_name",
+      "contact_name",
+      "contact_channel",
+      "service_address",
+      "service_type",
+      "account_status",
+    ],
+    workflows: [
+      "create_client",
+      "activate_services",
+      "attach_quote",
+      "attach_job",
+      "invoice_and_collect",
+    ],
+  },
+  jobs: {
+    title: "Jobs registry MVP",
+    description: "Registre minimum pour suivre les interventions reelles sur le terrain.",
+    records: [
+      "job_id",
+      "client_id",
+      "service_type",
+      "assigned_team",
+      "equipment_required",
+      "scheduled_window",
+      "job_status",
+    ],
+    workflows: [
+      "open_job",
+      "dispatch_team",
+      "track_execution",
+      "capture_report",
+      "close_job",
+    ],
+  },
+  finance: {
+    title: "Quotes and invoices registry MVP",
+    description: "Registre minimum pour devis, factures et suivi paiements.",
+    records: [
+      "quote_id",
+      "invoice_id",
+      "client_id",
+      "job_id",
+      "amount",
+      "payment_status",
+      "billing_stage",
+    ],
+    workflows: [
+      "issue_quote",
+      "approve_quote",
+      "issue_invoice",
+      "track_payment",
+      "report_margin",
+    ],
+  },
+};
+
 function navigation(hostname) {
   const appBase = hostname === "app.smajor.org" ? "" : "https://app.smajor.org";
   return [
@@ -812,6 +875,34 @@ function layout({
         </div>
         <div class="module-grid">
           ${moduleSection.registry.columns
+            .map(
+              (column) => `
+                <article class="module-card">
+                  <div class="label">${column.label}</div>
+                  <ul>
+                    ${column.items.map((item) => `<li>${item}</li>`).join("")}
+                  </ul>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
+  const mvpRegistryHtml = moduleSection && moduleSection.mvpRegistries
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Operational MVP</div>
+            <h2>${moduleSection.mvpRegistries.title}</h2>
+          </div>
+          <p>${moduleSection.mvpRegistries.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.mvpRegistries.columns
             .map(
               (column) => `
                 <article class="module-card">
@@ -1123,6 +1214,7 @@ function layout({
       ${blueprintHtml}
       ${accessHtml}
       ${registryHtml}
+      ${mvpRegistryHtml}
       <div class="footer">Smajor est la facade. S25 Lumiere reste le backend central multi-agent.</div>
     </main>
   </body>
@@ -1336,6 +1428,25 @@ function masterRegistrySection() {
   };
 }
 
+function mvpRegistrySection(pathname) {
+  const mapping = {
+    "/clients": [MVP_REGISTRIES.clients, MVP_REGISTRIES.jobs, MVP_REGISTRIES.finance],
+    "/admin": [MVP_REGISTRIES.clients, MVP_REGISTRIES.jobs, MVP_REGISTRIES.finance],
+  };
+  const registries = mapping[pathname];
+  if (!registries) {
+    return null;
+  }
+  return {
+    title: "MVP registries",
+    intro: "Ce sont les trois premiers registres a rendre operables pour transformer le shell en vrai systeme de gestion.",
+    columns: registries.map((registry) => ({
+      label: registry.title,
+      items: [...registry.records.slice(0, 4), ...registry.workflows.slice(0, 2)],
+    })),
+  };
+}
+
 function renderPublic(env) {
   return layout({
     title: "Smajor",
@@ -1398,6 +1509,7 @@ function renderApp(env, pathname, hostname, snapshot) {
     ...(pathname === "/" ? systemAxesSection() : (WORKBENCH_SECTIONS[pathname] || WORKBENCH_SECTIONS["/"])),
     blueprint: blueprintFromPath(pathname),
     accessModel: accessSectionFromPath(pathname),
+    mvpRegistries: mvpRegistrySection(pathname),
   };
   if (registrySection) {
     moduleSection.registry = registrySection;
@@ -1492,6 +1604,15 @@ export default {
         domain: "smajor.org",
         source_of_truth: "api.smajor.org future facade + S25 governance",
         ...MASTER_REGISTRY,
+      });
+    }
+
+    if (url.pathname === "/models/mvp-registries.json") {
+      return jsonResponse({
+        ok: true,
+        domain: "smajor.org",
+        source_of_truth: "future api.smajor.org business facade",
+        registries: MVP_REGISTRIES,
       });
     }
 
