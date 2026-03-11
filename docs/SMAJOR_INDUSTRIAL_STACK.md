@@ -133,10 +133,14 @@ Doctrine:
 - l'admin reste le point de controle de la chaine
 - les pouvoirs sont limites par design, pas par confiance
 - les templates de roles et leur activation doivent rester exposes via `api.smajor.org`
+- toute fonction critique doit etre liee a `identity_id -> role_id -> badge_id -> scope_id`
+- si une secretaire, un client ou un employe change, on remplace la cle d'acces et l'identite, pas le cadre
+- le systeme doit survivre a l'utilisateur
 
 Modele public de gouvernance:
 - `/models/role-governance.json`
 - `/api/business/role-governance`
+- `/api/business/rbac-matrix`
 
 ## Plan de construction
 

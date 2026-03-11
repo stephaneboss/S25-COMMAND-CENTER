@@ -505,9 +505,25 @@ const ROLE_GOVERNANCE = {
   summary: "Le systeme ne repose pas sur la confiance humaine. Il repose sur des roles, des scopes, des services actives et une chaine d'audit.",
   doctrine: [
     "Le role passe avant la personne.",
-    "Chaque pouvoir doit venir d'un role publie et traçable.",
+    "Chaque pouvoir doit venir d'un role publie et tracable.",
     "Aucune elevation de privilege sans validation admin.",
     "Les services actives sont limites par role, scope et portail.",
+    "La structure doit survivre a l'utilisateur.",
+  ],
+  badge_system: {
+    summary: "Le badge represente le moule. La personne peut changer, le badge et le role restent stables.",
+    badge_types: [
+      { key: "major_badge", label: "Major badge", binds_to: "founder|executive_operator|operator_admin" },
+      { key: "employee_badge", label: "Employee badge", binds_to: "dispatcher|field_manager|staff_member|contractor" },
+      { key: "client_badge", label: "Client badge", binds_to: "client_owner|client_contact" },
+      { key: "vendor_badge", label: "Vendor badge", binds_to: "vendor_manager|vendor_contact" },
+      { key: "ai_badge", label: "AI badge", binds_to: "trinity_orchestrator|merlin_validator|comet_watch|kimi_sensor" },
+    ],
+  },
+  identity_binding: [
+    "identity_id -> role_id -> badge_id -> scope_id -> service_entitlements",
+    "aucune fonction critique ne doit etre attachee a un nom fixe",
+    "si une personne change, on revoque la cle et on rattache une nouvelle identity_id au meme role_id",
   ],
   layers: [
     {
@@ -533,6 +549,7 @@ const ROLE_GOVERNANCE = {
   ],
   enforcement_chain: [
     "identity_created",
+    "badge_template_selected",
     "role_template_selected",
     "scope_assigned",
     "services_enabled",
@@ -1161,6 +1178,18 @@ function layout({
             <ol class="stack-list">
               ${moduleSection.roleGovernance.enforcement_chain.map((item) => `<li>${item}</li>`).join("")}
             </ol>
+            <div class="label" style="margin-top:18px;">Identity binding</div>
+            <ul class="stack-list">
+              ${moduleSection.roleGovernance.identity_binding.map((item) => `<li>${item}</li>`).join("")}
+            </ul>
+          </article>
+          <article class="blueprint-card">
+            <div class="label">Badges</div>
+            <ul class="stack-list">
+              ${moduleSection.roleGovernance.badge_system.badge_types
+                .map((item) => `<li><strong>${item.label}</strong>: ${item.binds_to}</li>`)
+                .join("")}
+            </ul>
           </article>
         </div>
       </section>
@@ -1766,6 +1795,8 @@ function roleGovernanceSection(pathname) {
       items: [...layer.roles, ...layer.powers],
     })),
     doctrine: ROLE_GOVERNANCE.doctrine,
+    badge_system: ROLE_GOVERNANCE.badge_system,
+    identity_binding: ROLE_GOVERNANCE.identity_binding,
     enforcement_chain: ROLE_GOVERNANCE.enforcement_chain,
   };
 }

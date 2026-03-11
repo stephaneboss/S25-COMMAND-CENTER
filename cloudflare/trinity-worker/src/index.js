@@ -113,7 +113,19 @@ const BUSINESS_ROLE_GOVERNANCE = {
     "Le scope limite la surface reelle.",
     "Les services actives suivent le role, pas l'inverse.",
     "Toute elevation de pouvoir laisse une trace d'audit.",
+    "La structure doit survivre a l'utilisateur.",
   ],
+  badge_templates: [
+    { key: "major_badge", audience: "Direction", binds_to: ["operator_admin"] },
+    { key: "employee_badge", audience: "Employes", binds_to: ["staff_member"] },
+    { key: "client_badge", audience: "Clients", binds_to: ["client_contact"] },
+    { key: "vendor_badge", audience: "Fournisseurs", binds_to: ["vendor_contact"] },
+  ],
+  identity_binding: {
+    model: "identity_id -> role_id -> badge_id -> scope_id -> entitlements",
+    rule: "aucune fonction critique n'est liee a une identite fixe",
+    rotation: "si une personne change, on remplace la credential et on garde le role template",
+  },
   role_templates: [
     {
       key: "operator_admin",
@@ -142,6 +154,7 @@ const BUSINESS_ROLE_GOVERNANCE = {
   ],
   activation_flow: [
     "identity_created",
+    "badge_template_selected",
     "role_template_selected",
     "scope_assigned",
     "services_enabled",
@@ -159,6 +172,27 @@ const BUSINESS_REGISTRY_MAP = {
     { key: "quotes_invoices", path: `${BUSINESS_PREFIX}/quotes-invoices`, purpose: "Commercial and billing flow" },
     { key: "onboarding", path: `${BUSINESS_PREFIX}/onboarding`, purpose: "Strict actor activation chain" },
     { key: "role_governance", path: `${BUSINESS_PREFIX}/role-governance`, purpose: "Role templates, powers and service enablement" },
+    { key: "rbac_matrix", path: `${BUSINESS_PREFIX}/rbac-matrix`, purpose: "Identity to role to badge to entitlement model" },
+  ],
+};
+
+const BUSINESS_RBAC_MATRIX = {
+  title: "Business RBAC matrix",
+  summary: "Le systeme opere par id-role-badge-scope. La personne peut changer; la matrice ne bouge pas.",
+  model: [
+    "identity_id",
+    "role_id",
+    "badge_id",
+    "scope_id",
+    "service_entitlements",
+    "credential_state",
+    "audit_state",
+  ],
+  critical_rules: [
+    "aucune fonction critique n'est liee a une identite fixe",
+    "les permissions viennent du role_id",
+    "le badge_id sert de moule d'acces operatoire",
+    "la rotation humaine remplace la credential, pas la structure",
   ],
 };
 
@@ -204,6 +238,9 @@ function handleBusinessRequest(pathname, requestId) {
   }
   if (pathname === `${BUSINESS_PREFIX}/role-governance`) {
     return businessResponse(requestId, pathname, BUSINESS_ROLE_GOVERNANCE);
+  }
+  if (pathname === `${BUSINESS_PREFIX}/rbac-matrix`) {
+    return businessResponse(requestId, pathname, BUSINESS_RBAC_MATRIX);
   }
   return null;
 }
