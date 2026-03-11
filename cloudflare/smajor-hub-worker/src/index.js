@@ -847,6 +847,51 @@ const PORTAL_MATRIX = {
   ],
 };
 
+const IDENTITY_REGISTRY_MODEL = {
+  title: "Identity registry model",
+  summary: "Chaque acteur entre dans le systeme via une identite operable reliee a un role, un badge, un scope et un portail.",
+  records: [
+    "identity_id",
+    "organization_id",
+    "identity_type",
+    "role_id",
+    "badge_id",
+    "scope_id",
+    "credential_state",
+    "portal_state",
+  ],
+  workflows: [
+    "create_identity",
+    "bind_role_template",
+    "attach_scope",
+    "enable_services",
+    "issue_or_rotate_credential",
+  ],
+};
+
+const PORTAL_ACTIVATION_MODEL = {
+  title: "Portal activation model",
+  summary: "Un portail ne s'ouvre qu'apres la chaine complete d'activation identite-role-badge-scope.",
+  tracks: [
+    {
+      label: "Clients",
+      items: ["identity_id", "client_badge", "client_contact", "client_scope", "billing_access", "portal_live"],
+    },
+    {
+      label: "Staff",
+      items: ["identity_id", "employee_badge", "staff_member", "field_scope", "dispatch_ready", "portal_live"],
+    },
+    {
+      label: "Vendors",
+      items: ["identity_id", "vendor_badge", "vendor_contact", "vendor_scope", "purchase_access", "portal_live"],
+    },
+    {
+      label: "Admin",
+      items: ["identity_id", "major_badge", "operator_admin", "governance_scope", "admin_console", "hardened_access"],
+    },
+  ],
+};
+
 function navigation(hostname) {
   const appBase = hostname === "app.smajor.org" ? "" : "https://app.smajor.org";
   return [
@@ -1224,6 +1269,62 @@ function layout({
     `
     : "";
 
+  const identityRegistryHtml = moduleSection && moduleSection.identityRegistry
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Identity registry</div>
+            <h2>${moduleSection.identityRegistry.title}</h2>
+          </div>
+          <p>${moduleSection.identityRegistry.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.identityRegistry.columns
+            .map(
+              (column) => `
+                <article class="module-card">
+                  <div class="label">${column.label}</div>
+                  <ul>
+                    ${column.items.map((item) => `<li>${item}</li>`).join("")}
+                  </ul>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
+  const portalActivationHtml = moduleSection && moduleSection.portalActivation
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Portal activation</div>
+            <h2>${moduleSection.portalActivation.title}</h2>
+          </div>
+          <p>${moduleSection.portalActivation.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.portalActivation.columns
+            .map(
+              (column) => `
+                <article class="module-card">
+                  <div class="label">${column.label}</div>
+                  <ul>
+                    ${column.items.map((item) => `<li>${item}</li>`).join("")}
+                  </ul>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
   const visitorHtml = visitorSection
     ? `
       <section class="module-panel">
@@ -1581,6 +1682,8 @@ function layout({
       ${mvpRegistryHtml}
       ${controlPlaneHtml}
       ${roleGovernanceHtml}
+      ${identityRegistryHtml}
+      ${portalActivationHtml}
       ${foundationHtml}
       <div class="footer">Smajor est la facade. S25 Lumiere reste le backend central multi-agent.</div>
     </main>
@@ -1876,6 +1979,40 @@ function foundationStackSection(pathname) {
   };
 }
 
+function identityRegistrySection(pathname) {
+  if (!["/admin", "/clients", "/staff", "/vendors"].includes(pathname)) {
+    return null;
+  }
+  return {
+    title: IDENTITY_REGISTRY_MODEL.title,
+    intro: IDENTITY_REGISTRY_MODEL.summary,
+    columns: [
+      { label: "Records", items: IDENTITY_REGISTRY_MODEL.records },
+      { label: "Activation", items: IDENTITY_REGISTRY_MODEL.workflows },
+    ],
+  };
+}
+
+function portalActivationSection(pathname) {
+  if (!["/admin", "/clients", "/staff", "/vendors"].includes(pathname)) {
+    return null;
+  }
+  const focus = {
+    "/admin": PORTAL_ACTIVATION_MODEL.tracks,
+    "/clients": PORTAL_ACTIVATION_MODEL.tracks.filter((track) => track.label === "Clients"),
+    "/staff": PORTAL_ACTIVATION_MODEL.tracks.filter((track) => track.label === "Staff"),
+    "/vendors": PORTAL_ACTIVATION_MODEL.tracks.filter((track) => track.label === "Vendors"),
+  };
+  return {
+    title: PORTAL_ACTIVATION_MODEL.title,
+    intro: PORTAL_ACTIVATION_MODEL.summary,
+    columns: focus[pathname].map((track) => ({
+      label: track.label,
+      items: track.items,
+    })),
+  };
+}
+
 function renderPublic(env) {
   return layout({
     title: "Smajor",
@@ -1943,6 +2080,8 @@ function renderApp(env, pathname, hostname, snapshot) {
     mvpRegistries: mvpRegistrySection(pathname),
     controlPlane: controlPlaneSection(pathname),
     roleGovernance: roleGovernanceSection(pathname),
+    identityRegistry: identityRegistrySection(pathname),
+    portalActivation: portalActivationSection(pathname),
     foundationStack: foundationStackSection(pathname),
   };
   if (registrySection) {
@@ -2074,6 +2213,24 @@ export default {
         domain: "smajor.org",
         source_of_truth: "strict administration chain + role templates + service enablement",
         ...ROLE_GOVERNANCE,
+      });
+    }
+
+    if (url.pathname === "/models/identity-registry.json") {
+      return jsonResponse({
+        ok: true,
+        domain: "smajor.org",
+        source_of_truth: "api.smajor.org identities facade + admin governance",
+        ...IDENTITY_REGISTRY_MODEL,
+      });
+    }
+
+    if (url.pathname === "/models/portal-activation.json") {
+      return jsonResponse({
+        ok: true,
+        domain: "smajor.org",
+        source_of_truth: "api.smajor.org portal activation facade + role governance",
+        ...PORTAL_ACTIVATION_MODEL,
       });
     }
 
