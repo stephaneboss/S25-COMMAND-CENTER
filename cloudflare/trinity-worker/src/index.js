@@ -243,6 +243,9 @@ const BUSINESS_EMPIRE_MANIFEST = {
     `${BUSINESS_PREFIX}/agent-catalog`,
     `${BUSINESS_PREFIX}/wallets-custody`,
     `${BUSINESS_PREFIX}/vaults-treasury`,
+    `${BUSINESS_PREFIX}/wallet-classes`,
+    `${BUSINESS_PREFIX}/wallet-scopes`,
+    `${BUSINESS_PREFIX}/wallet-policy-matrix`,
     `${BUSINESS_PREFIX}/secure/live-registries`,
     `${BUSINESS_PREFIX}/secure/wallets-custody`,
     `${BUSINESS_PREFIX}/secure/operator-roster`,
@@ -470,6 +473,9 @@ const BUSINESS_REGISTRY_MAP = {
     { key: "identity_registry_live", path: `${BUSINESS_PREFIX}/identity-registry-live`, purpose: "Live identities bound to role, badge, scope and services" },
     { key: "wallets_custody", path: `${BUSINESS_PREFIX}/wallets-custody`, purpose: "Custody registry for creator wallet and sovereign vault chain" },
     { key: "vaults_treasury", path: `${BUSINESS_PREFIX}/vaults-treasury`, purpose: "Treasury readiness, custody doctrine and sovereign wallet posture" },
+    { key: "wallet_classes", path: `${BUSINESS_PREFIX}/wallet-classes`, purpose: "Wallet classes for creator, treasury, trading, ops and mirror lanes" },
+    { key: "wallet_scopes", path: `${BUSINESS_PREFIX}/wallet-scopes`, purpose: "Scope map for wallet territories and restrictions" },
+    { key: "wallet_policy_matrix", path: `${BUSINESS_PREFIX}/wallet-policy-matrix`, purpose: "Policy matrix for custody, execution and audit" },
     { key: "internal_ops", path: `${BUSINESS_PREFIX}/internal-ops`, purpose: "Public operating summary for Smajor internal account" },
     { key: "empire_manifest", path: `${BUSINESS_PREFIX}/empire-manifest`, purpose: "Unified manifest of domains, towers, registries and command chain" },
     { key: "total_mesh_protocol", path: `${BUSINESS_PREFIX}/total-mesh-protocol`, purpose: "Protocol de synchronisation totale des agents vers le hub" },
@@ -901,6 +907,98 @@ async function deriveVaultsTreasuryView(env, requestId) {
   };
 }
 
+function deriveWalletClasses() {
+  return {
+    title: "Wallet classes",
+    summary: "Classes de wallets qui survivent aux utilisateurs et cadrent la structure de pouvoir Smajor.",
+    classes: [
+      {
+        wallet_class_id: "creator_wallet",
+        badge_id: "major_badge",
+        scope_id: "founder_scope",
+        purpose: "racine souveraine, bootstrap et recovery",
+        allowed_actions: ["derive_public_address", "bootstrap_authority", "emergency_rotation"],
+      },
+      {
+        wallet_class_id: "treasury_wallet",
+        badge_id: "ai_badge",
+        scope_id: "treasury_scope",
+        purpose: "reserve, runway et financement infra",
+        allowed_actions: ["read_balance", "fund_runtime", "record_treasury_state"],
+      },
+      {
+        wallet_class_id: "trading_wallet",
+        badge_id: "ai_badge",
+        scope_id: "trading_scope",
+        purpose: "execution bornee des strategies et bots",
+        allowed_actions: ["signal_only", "execution_after_policy", "profit_report"],
+      },
+      {
+        wallet_class_id: "operations_wallet",
+        badge_id: "employee_badge",
+        scope_id: "ops_scope",
+        purpose: "paiements operationnels et frais terrain",
+        allowed_actions: ["vendor_payment", "fuel_ops", "ops_expense_log"],
+      },
+      {
+        wallet_class_id: "mirror_wallet",
+        badge_id: "ai_badge",
+        scope_id: "mirror_scope",
+        purpose: "tests mirror et conteneurs d'execution cloisonnes",
+        allowed_actions: ["bootstrap_test", "container_auth", "dry_run_validation"],
+      },
+    ],
+  };
+}
+
+function deriveWalletScopes() {
+  return {
+    title: "Wallet scopes",
+    summary: "Territoires d'action imposes aux wallets pour que la structure survive aux personnes et aux agents.",
+    scopes: [
+      { scope_id: "founder_scope", territory: "authority_root", restrictions: ["no_public_seed", "manual_recovery_only"] },
+      { scope_id: "treasury_scope", territory: "runway_and_funding", restrictions: ["no_strategy_override", "audit_required"] },
+      { scope_id: "trading_scope", territory: "strategy_execution", restrictions: ["policy_gate", "risk_limit", "profit_log"] },
+      { scope_id: "ops_scope", territory: "field_and_vendor_operations", restrictions: ["invoice_link_required", "ops_budget_only"] },
+      { scope_id: "mirror_scope", territory: "container_bootstrap", restrictions: ["test_first", "fleet_gate", "authority_check"] },
+    ],
+  };
+}
+
+function deriveWalletPolicyMatrix() {
+  return {
+    title: "Wallet policy matrix",
+    summary: "Matrice de policy qui lie custody, signature, execution et audit a une classe et un scope, jamais a une personne fixe.",
+    policies: [
+      {
+        policy_id: "policy_seed_gsm_only",
+        applies_to: ["creator_wallet", "mirror_wallet"],
+        rule: "seed phrase uniquement dans Google Secret Manager",
+      },
+      {
+        policy_id: "policy_public_address_only",
+        applies_to: ["creator_wallet", "treasury_wallet", "trading_wallet", "operations_wallet"],
+        rule: "seule l'adresse publique peut etre exposee en facade",
+      },
+      {
+        policy_id: "policy_operator_session_required",
+        applies_to: ["treasury_wallet", "operations_wallet"],
+        rule: "toute action admin passe par session operateur signee",
+      },
+      {
+        policy_id: "policy_full_audit_before_trading",
+        applies_to: ["trading_wallet"],
+        rule: "aucune execution tant que le trail, le scope et la policy ne sont pas confirmes",
+      },
+      {
+        policy_id: "policy_fleet_authority_gate",
+        applies_to: ["mirror_wallet"],
+        rule: "aucune flotte complete sans autorite etablie sur MERLIN MCP",
+      },
+    ],
+  };
+}
+
 function findInternalOpsClient(business) {
   return (business.clients || []).find(
     (record) =>
@@ -1249,6 +1347,15 @@ function handleBusinessRequest(request, pathname, requestId, env) {
     return deriveVaultsTreasuryView(env, requestId).then((view) =>
       businessResponse(requestId, pathname, view),
     );
+  }
+  if (pathname === `${BUSINESS_PREFIX}/wallet-classes`) {
+    return businessResponse(requestId, pathname, deriveWalletClasses());
+  }
+  if (pathname === `${BUSINESS_PREFIX}/wallet-scopes`) {
+    return businessResponse(requestId, pathname, deriveWalletScopes());
+  }
+  if (pathname === `${BUSINESS_PREFIX}/wallet-policy-matrix`) {
+    return businessResponse(requestId, pathname, deriveWalletPolicyMatrix());
   }
   if (pathname === `${BUSINESS_PREFIX}/internal-ops`) {
     return readBusinessState(env, requestId).then((business) =>
