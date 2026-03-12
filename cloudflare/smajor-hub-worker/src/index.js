@@ -2404,6 +2404,34 @@ function layout({
     `
     : "";
 
+  const organizationCommandMapHtml = moduleSection && moduleSection.organizationCommandMap
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Organization command map</div>
+            <h2>${moduleSection.organizationCommandMap.title}</h2>
+          </div>
+          <p>${moduleSection.organizationCommandMap.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.organizationCommandMap.rows
+            .map(
+              (row) => `
+                <article class="module-card">
+                  <div class="label">${row.title}</div>
+                  <ul>
+                    ${row.items.map((item) => `<li>${item}</li>`).join("")}
+                  </ul>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
   const operationalChainHtml = moduleSection && moduleSection.operationalChain
     ? `
       <section class="module-panel">
@@ -3501,6 +3529,7 @@ function layout({
       ${organizationRegistryHtml}
       ${backendLedgerHtml}
       ${organizationTreasuryHtml}
+      ${organizationCommandMapHtml}
       ${businessTimelineHtml}
       ${operationalChainHtml}
       ${operationalPlaybookHtml}
@@ -6842,6 +6871,48 @@ function organizationTreasurySection(pathname, snapshot) {
   };
 }
 
+function organizationCommandMapSection(pathname, snapshot) {
+  if (pathname !== "/admin") {
+    return null;
+  }
+  const organizations = snapshot.admin?.organizationsLive?.records || [];
+  const business = snapshot.admin?.liveRegistries || snapshot.business || {};
+  const identities = business.identities || business.identities?.records || [];
+  const jobs = business.jobs || business.jobs?.records || [];
+  const events = snapshot.admin?.businessTimeline?.records || business.events || [];
+  const trade = snapshot.admin?.tradingLaneMetrics || snapshot.tradingLaneMetrics || { lanes: [] };
+  const lanes = Array.isArray(trade.lanes) ? trade.lanes : [];
+
+  const rows = organizations.slice(0, 6).map((organization) => {
+    const orgIdentities = identities.filter((identity) => identity.organization_id === organization.organization_id);
+    const staffCount = orgIdentities.filter((identity) => ["dispatcher", "field_manager", "staff_member", "contractor"].includes(identity.role_id)).length;
+    const vendorCount = orgIdentities.filter((identity) => String(identity.role_id || "").includes("vendor")).length;
+    const orgJobs = jobs.filter((job) => job.organization_id === organization.organization_id);
+    const recentEvents = events.filter((event) => event?.metadata?.organization_id === organization.organization_id).slice(0, 3);
+    const tradeLane = organization.services?.some((service) => String(service).includes("ai") || String(service).includes("trade"))
+      ? lanes.find((lane) => lane.lane_id === "signal_lane") || lanes[0] || null
+      : lanes.find((lane) => lane.lane_id === "treasury_lane") || lanes[0] || null;
+
+    return {
+      title: organization.organization_name || organization.organization_id,
+      items: [
+        `organization=${organization.organization_id}`,
+        `staff=${staffCount}`,
+        `vendors=${vendorCount}`,
+        `jobs=${orgJobs.length}`,
+        `trade_lane=${tradeLane?.lane_id || "unassigned"}`,
+        `last_event=${recentEvents[0]?.event_type || "--"}`,
+      ],
+    };
+  });
+
+  return {
+    title: "Organization command map",
+    intro: "Carte de commandement multi-entreprises: equipe, fournisseurs, jobs et rattachement runtime se lisent par organisation, pas par individu.",
+    rows,
+  };
+}
+
 function deriveOperationalAction(client, identity, jobs, billing, events) {
   const clientJobs = jobs.filter((item) => item.client_id === client.client_id);
   const clientBilling = billing.filter((item) => item.client_id === client.client_id);
@@ -7158,6 +7229,7 @@ function renderApp(env, pathname, hostname, snapshot) {
     organizationRegistry: organizationRegistrySection(pathname, snapshot),
     backendLedger: backendLedgerSection(pathname, snapshot),
     organizationTreasury: organizationTreasurySection(pathname, snapshot),
+    organizationCommandMap: organizationCommandMapSection(pathname, snapshot),
     businessTimeline: businessTimelineSection(pathname, snapshot),
     operationalChain: operationalChainSection(pathname, snapshot),
     operationalPlaybook: operationalPlaybookSection(pathname, snapshot),
@@ -8037,6 +8109,24 @@ export default {
         domain: "smajor.org",
         source_of_truth: "s25 runtime business registry + durable event ledger",
         ...(backendLedgerSection("/admin", snapshot) || { title: "Backend ledger", columns: [] }),
+      });
+    }
+
+    if (url.pathname === "/models/organization-command-map.json") {
+      const snapshot = {
+        admin: await fetchAdminSnapshot(env).catch((error) => ({
+          organizationsLive: { records: [] },
+          liveRegistries: {},
+          businessTimeline: { records: [] },
+          tradingLaneMetrics: { lanes: [] },
+          errors: [error?.message || "admin_snapshot_failed"],
+        })),
+      };
+      return jsonResponse({
+        ok: true,
+        domain: "smajor.org",
+        source_of_truth: "s25 runtime business registry + organization-first admin command map",
+        ...(organizationCommandMapSection("/admin", snapshot) || { title: "Organization command map", rows: [] }),
       });
     }
 
