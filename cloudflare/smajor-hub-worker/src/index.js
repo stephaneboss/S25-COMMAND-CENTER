@@ -8354,6 +8354,15 @@ export default {
       });
     }
 
+    if (url.pathname === "/models/organization-action-kit.json") {
+      return jsonResponse({
+        ok: true,
+        domain: "smajor.org",
+        source_of_truth: "signed admin organization assignment routes",
+        ...(organizationActionKitSection("/admin") || { title: "Organization action kit", actions: [] }),
+      });
+    }
+
     if (url.pathname === "/models/operational-chain.json") {
       const snapshot = {
         admin: await fetchAdminSnapshot(env).catch((error) => ({
