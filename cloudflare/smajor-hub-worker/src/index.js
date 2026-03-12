@@ -3099,6 +3099,64 @@ async function handleHubBusinessCreate(request, env, kind) {
   };
 }
 
+async function handleHubClientPipelineCreate(request, env) {
+  const body = await request.json().catch(() => ({}));
+  const business = await readRuntimeBusinessState(env);
+  const organizationId = body.organization_id || createHubRecordId("org");
+  const identityId = body.identity_id || createHubRecordId("ident");
+  const serviceType = body.service_type || "multi_service_exterior";
+  const now = new Date().toISOString();
+
+  const identityRecord = {
+    identity_id: identityId,
+    organization_id: organizationId,
+    identity_type: body.identity_type || "client_contact",
+    display_name: body.display_name || body.contact_name || body.organization_name || "Client Contact",
+    role_id: body.identity_role_id || "client_contact",
+    badge_id: body.identity_badge_id || "client_badge",
+    scope_id: body.identity_scope_id || body.scope_id || "client_scope_default",
+    service_entitlements: Array.isArray(body.service_entitlements) ? body.service_entitlements : ["client_portal"],
+    credential_state: body.credential_state || "pending_issue",
+    portal_state: body.identity_portal_state || "pending_secure_access",
+    audit_state: body.audit_state || "watching",
+    created_at: now,
+  };
+
+  const clientRecord = {
+    client_id: body.client_id || createHubRecordId("client"),
+    organization_id: organizationId,
+    organization_name: body.organization_name || "Unnamed Organization",
+    identity_id: identityId,
+    role_id: body.client_role_id || "client_contact",
+    badge_id: body.client_badge_id || "client_badge",
+    scope_id: body.scope_id || "client_scope_default",
+    service_mix: Array.isArray(body.service_mix) ? body.service_mix : [serviceType],
+    account_status: body.account_status || "active",
+    portal_state: body.client_portal_state || "pending_secure_access",
+    billing_state: body.billing_state || "quote_pending",
+    created_at: now,
+  };
+
+  business.identities = [identityRecord, ...(business.identities || [])];
+  business.clients = [clientRecord, ...(business.clients || [])];
+  business.last_write_at = now;
+  await writeRuntimeBusinessState(env, business);
+
+  return {
+    ok: true,
+    kind: "client_pipeline",
+    created: {
+      identity: identityRecord,
+      client: clientRecord,
+    },
+    collections: {
+      identities: business.identities.length,
+      clients: business.clients.length,
+    },
+    last_write_at: business.last_write_at,
+  };
+}
+
 function requireHubSecret(request, env) {
   if (!env.S25_SHARED_SECRET) {
     return jsonResponse({
@@ -3687,6 +3745,7 @@ function adminConsoleSection(pathname, snapshot) {
       { label: "Operators", value: String(operatorCount) },
     ],
     endpoints: [
+      "/admin/api/create-client-pipeline",
       "/admin/api/create-client",
       "/admin/api/create-job",
       "/admin/api/issue-invoice",
@@ -3694,12 +3753,26 @@ function adminConsoleSection(pathname, snapshot) {
     ],
     flow: [
       "Coller x-s25-secret une seule fois dans la session.",
-      "Creer l'identite ou le client.",
+      "Creer un compte client complet ou une identite seule.",
       "Lier ensuite le job au client actif.",
       "Sortir la quote ou la facture sans quitter le hub.",
       "Recharger le runtime pour verifier la persistence live.",
     ],
     forms: [
+      {
+        label: "Client pipeline",
+        title: "Create full client account",
+        text: "Cree en une seule action l'identite client et le compte business lies a la meme organisation.",
+        endpoint: "/admin/api/create-client-pipeline",
+        actionLabel: "Create full client account",
+        fields: [
+          { name: "organization_name", label: "Organization name", placeholder: "Nouveau client multiservice", required: true },
+          { name: "display_name", label: "Primary contact", placeholder: "Contact principal client", required: true },
+          { name: "scope_id", label: "Scope id", placeholder: "client_scope_north" },
+          { name: "service_type", label: "Service type", placeholder: "excavation" },
+          { name: "billing_state", label: "Billing state", placeholder: "quote_pending", value: "quote_pending" },
+        ],
+      },
       {
         label: "Identity",
         title: "Create operator or staff identity",
@@ -3992,6 +4065,19 @@ export default {
         return jsonResponse(await handleHubBusinessCreate(request, env, "client"));
       } catch (error) {
         return jsonResponse({ ok: false, error: "admin_create_client_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/create-client-pipeline") {
+      const denied = requireHubSecret(request, env);
+      if (denied) return denied;
+      if (request.method !== "POST") {
+        return jsonResponse({ ok: false, error: "method_not_allowed" }, 405);
+      }
+      try {
+        return jsonResponse(await handleHubClientPipelineCreate(request, env));
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "admin_create_client_pipeline_failed", detail: String(error?.message || error) }, 500);
       }
     }
 
