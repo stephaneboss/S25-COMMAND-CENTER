@@ -2460,6 +2460,34 @@ function layout({
     `
     : "";
 
+  const organizationLifecycleHtml = moduleSection && moduleSection.organizationLifecycle
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Organization lifecycle</div>
+            <h2>${moduleSection.organizationLifecycle.title}</h2>
+          </div>
+          <p>${moduleSection.organizationLifecycle.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.organizationLifecycle.rows
+            .map(
+              (row) => `
+                <article class="module-card">
+                  <div class="label">${row.title}</div>
+                  <ul>
+                    ${row.items.map((item) => `<li>${item}</li>`).join("")}
+                  </ul>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
   const organizationActionKitHtml = moduleSection && moduleSection.organizationActionKit
     ? `
       <section class="module-panel">
@@ -3588,6 +3616,7 @@ function layout({
       ${organizationTreasuryHtml}
       ${organizationCommandMapHtml}
       ${organizationProfileHtml}
+      ${organizationLifecycleHtml}
       ${organizationActionKitHtml}
       ${businessTimelineHtml}
       ${operationalChainHtml}
@@ -7182,6 +7211,60 @@ function organizationProfileSection(pathname, snapshot) {
   };
 }
 
+function organizationLifecycleSection(pathname, snapshot) {
+  if (pathname !== "/admin") {
+    return null;
+  }
+  const organizations = snapshot.admin?.organizationsLive?.records || [];
+  const business = snapshot.admin?.liveRegistries || snapshot.business || {};
+  const clients = business.clients || business.clients?.records || [];
+  const jobs = business.jobs || business.jobs?.records || [];
+  const billing = business.quotes_invoices || business.quotes_invoices?.records || [];
+  const identities = business.identities || business.identities?.records || [];
+  const events = snapshot.admin?.businessTimeline?.records || business.events || [];
+  const links = business.organization_links || [];
+
+  const rows = organizations.slice(0, 6).map((organization) => {
+    const orgClients = clients.filter((client) => client.organization_id === organization.organization_id);
+    const orgJobs = jobs.filter((job) => job.organization_id === organization.organization_id);
+    const orgBilling = billing.filter((entry) => entry.organization_id === organization.organization_id);
+    const orgIdentities = identities.filter((identity) => identity.organization_id === organization.organization_id);
+    const orgEvents = events.filter((event) => event?.metadata?.organization_id === organization.organization_id);
+    const orgLinks = links.filter((link) => link.organization_id === organization.organization_id);
+
+    const stage = orgClients.length === 0
+      ? "create"
+      : orgJobs.length === 0
+        ? "onboard"
+        : orgBilling.length === 0
+          ? "operate"
+          : !orgEvents.some((event) => String(event.event_type || "").includes("access_issued"))
+            ? "access"
+            : orgLinks.length === 0
+              ? "govern"
+              : "runtime_live";
+
+    return {
+      title: organization.organization_name || organization.organization_id,
+      items: [
+        `organization=${organization.organization_id}`,
+        `stage=${stage}`,
+        `clients=${orgClients.length}`,
+        `jobs=${orgJobs.length}`,
+        `billing=${orgBilling.length}`,
+        `identities=${orgIdentities.length}`,
+        `links=${orgLinks.length}`,
+      ],
+    };
+  });
+
+  return {
+    title: "Organization lifecycle",
+    intro: "Cycle industriel par organisation: create, onboard, operate, bill, access, govern, runtime_live.",
+    rows,
+  };
+}
+
 function deriveOperationalAction(client, identity, jobs, billing, events) {
   const clientJobs = jobs.filter((item) => item.client_id === client.client_id);
   const clientBilling = billing.filter((item) => item.client_id === client.client_id);
@@ -7500,6 +7583,7 @@ function renderApp(env, pathname, hostname, snapshot) {
     organizationTreasury: organizationTreasurySection(pathname, snapshot),
     organizationCommandMap: organizationCommandMapSection(pathname, snapshot),
     organizationProfile: organizationProfileSection(pathname, snapshot),
+    organizationLifecycle: organizationLifecycleSection(pathname, snapshot),
     organizationActionKit: organizationActionKitSection(pathname),
     businessTimeline: businessTimelineSection(pathname, snapshot),
     operationalChain: operationalChainSection(pathname, snapshot),
@@ -8453,6 +8537,23 @@ export default {
         domain: "smajor.org",
         source_of_truth: "organization-first durable backbone",
         ...(organizationProfileSection("/admin", snapshot) || { title: "Organization profiles", columns: [] }),
+      });
+    }
+
+    if (url.pathname === "/models/organization-lifecycle.json") {
+      const snapshot = {
+        admin: await fetchAdminSnapshot(env).catch((error) => ({
+          organizationsLive: { records: [] },
+          liveRegistries: {},
+          businessTimeline: { records: [] },
+          errors: [error?.message || "admin_snapshot_failed"],
+        })),
+      };
+      return jsonResponse({
+        ok: true,
+        domain: "smajor.org",
+        source_of_truth: "organization-first durable lifecycle",
+        ...(organizationLifecycleSection("/admin", snapshot) || { title: "Organization lifecycle", rows: [] }),
       });
     }
 
