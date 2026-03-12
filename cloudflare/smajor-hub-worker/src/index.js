@@ -1951,6 +1951,34 @@ function layout({
     `
     : "";
 
+  const adminArchitectureHtml = moduleSection && moduleSection.adminArchitecture
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Admin architecture</div>
+            <h2>${moduleSection.adminArchitecture.title}</h2>
+          </div>
+          <p>${moduleSection.adminArchitecture.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.adminArchitecture.columns
+            .map(
+              (column) => `
+                <article class="module-card">
+                  <div class="label">${column.label}</div>
+                  <ul>
+                    ${column.items.map((item) => `<li>${item}</li>`).join("")}
+                  </ul>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
   const clientConsoleHtml = moduleSection && moduleSection.clientConsole
     ? `
       <section class="blueprint-panel client-console-panel">
@@ -1996,6 +2024,34 @@ function layout({
         </div>
         <div class="admin-console-log">
           <pre id="client-console-log">${moduleSection.clientConsole.initialLog}</pre>
+        </div>
+      </section>
+    `
+    : "";
+
+  const portalSeparationHtml = moduleSection && moduleSection.portalSeparation
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Portal separation</div>
+            <h2>${moduleSection.portalSeparation.title}</h2>
+          </div>
+          <p>${moduleSection.portalSeparation.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.portalSeparation.columns
+            .map(
+              (column) => `
+                <article class="module-card">
+                  <div class="label">${column.label}</div>
+                  <ul>
+                    ${column.items.map((item) => `<li>${item}</li>`).join("")}
+                  </ul>
+                </article>
+              `,
+            )
+            .join("")}
         </div>
       </section>
     `
@@ -2426,6 +2482,34 @@ function layout({
         </div>
         <div class="module-grid">
           ${moduleSection.agentServiceBindings.columns
+            .map(
+              (column) => `
+                <article class="module-card">
+                  <div class="label">${column.label}</div>
+                  <ul>
+                    ${column.items.map((item) => `<li>${item}</li>`).join("")}
+                  </ul>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
+  const tradingShowroomHtml = moduleSection && moduleSection.tradingShowroom
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Trading showroom</div>
+            <h2>${moduleSection.tradingShowroom.title}</h2>
+          </div>
+          <p>${moduleSection.tradingShowroom.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.tradingShowroom.columns
             .map(
               (column) => `
                 <article class="module-card">
@@ -3016,18 +3100,21 @@ function layout({
       ${executiveReportHtml}
       ${masterWalletHtml}
       ${adminConsoleHtml}
+      ${adminArchitectureHtml}
       ${empireManifestHtml}
       ${totalMeshProtocolHtml}
       ${controlPlaneHtml}
       ${roleGovernanceHtml}
       ${identityRegistryHtml}
       ${portalActivationHtml}
+      ${portalSeparationHtml}
       ${clientFormHtml}
       ${staffDashboardHtml}
       ${alphaPilotHtml}
       ${secureRoutesHtml}
       ${agentActivationHtml}
       ${agentServiceBindingsHtml}
+      ${tradingShowroomHtml}
       ${foundationHtml}
       ${registryWriteContractHtml}
       ${clientConsoleHtml}
@@ -4884,6 +4971,131 @@ function adminActionSection(pathname) {
   };
 }
 
+function adminArchitectureSection(pathname) {
+  if (pathname !== "/admin") {
+    return null;
+  }
+  return {
+    title: "Admin architecture",
+    intro: "Le poste admin est une surface de commandement. La logique durable, les secrets et la persistence restent dans le backend souverain.",
+    columns: [
+      {
+        label: "Frontend plane",
+        items: [
+          "admin shell",
+          "signed operator session",
+          "live runtime views",
+          "form submissions",
+        ],
+      },
+      {
+        label: "Backend plane",
+        items: [
+          "S25 runtime business registry",
+          "business API gateway",
+          "wallet and secret custody policy",
+          "audit trail and RBAC enforcement",
+        ],
+      },
+      {
+        label: "Contracts",
+        items: [
+          "admin_reads_runtime_snapshot",
+          "admin_writes_via_signed_routes_only",
+          "admin_never_holds_raw_secret_values",
+          "admin_actions_must_leave_audit_trace",
+        ],
+      },
+    ],
+  };
+}
+
+function portalSeparationSection(pathname) {
+  if (!["/clients", "/staff", "/vendors", "/admin"].includes(pathname)) {
+    return null;
+  }
+  const maps = {
+    "/clients": [
+      "frontend=request services, read quotes and invoices",
+      "backend=client registry, billing state, secure access tokens",
+      "rule=portal simple, orchestration sovereign",
+    ],
+    "/staff": [
+      "frontend=assignments, shifts and field dashboard",
+      "backend=dispatch engine, jobs, audit trail and scopes",
+      "rule=dashboard terrain, dispatch souverain",
+    ],
+    "/vendors": [
+      "frontend=purchase requests and vendor-facing documents",
+      "backend=purchase state, cost linkage and approval gates",
+      "rule=etat visible, approvals backend",
+    ],
+    "/admin": [
+      "frontend=operate through signed control surfaces",
+      "backend=RBAC, runtime persistence, treasury, agents and secrets",
+      "rule=control plane, pas base de donnees",
+    ],
+  };
+  return {
+    title: "Portal separation",
+    intro: "Chaque portail garde une interface simple. Toute logique durable reste dans le backend S25 et la gateway business.",
+    columns: [
+      {
+        label: pathname.replace("/", "") || "overview",
+        items: maps[pathname] || [],
+      },
+    ],
+  };
+}
+
+function tradingShowroomSection(pathname) {
+  if (!["/trade", "/ai", "/omega"].includes(pathname)) {
+    return null;
+  }
+  return {
+    title: "Trading showroom",
+    intro: "Salle de guerre pour les agents trader: signal, risk, treasury et execution separent la folie sans perdre la gouvernance.",
+    columns: [
+      {
+        label: "Signal lane",
+        items: [
+          "TRINITY",
+          "KIMI",
+          "ORACLE",
+          "collecte et confirmation",
+        ],
+      },
+      {
+        label: "Risk lane",
+        items: [
+          "MERLIN",
+          "ONCHAIN_GUARDIAN",
+          "GOUV4",
+          "validation et policy gate",
+        ],
+      },
+      {
+        label: "Treasury lane",
+        items: [
+          "TREASURY",
+          "capital allocation",
+          "custody awareness",
+          "runway protection",
+        ],
+      },
+      {
+        label: "Execution lane",
+        items: [
+          "ARKON",
+          "mirror_wallet",
+          "dry-run",
+          "execution bornee",
+        ],
+      },
+    ],
+  };
+}
+
 function adminConsoleSection(pathname, snapshot) {
   if (pathname !== "/admin") {
     return null;
@@ -5199,11 +5411,14 @@ function renderApp(env, pathname, hostname, snapshot) {
     operatorAccount: operatorAccountSection(pathname),
     operatorRoster: operatorRosterSection(pathname, snapshot),
     adminConsole: adminConsoleSection(pathname, snapshot),
+    adminArchitecture: adminArchitectureSection(pathname),
     clientConsole: clientConsoleSection(pathname, snapshot),
     staffConsole: staffConsoleSection(pathname, snapshot),
+    portalSeparation: portalSeparationSection(pathname),
     adminCommandKit: adminCommandKitSection(pathname),
     agentActivation: agentActivationSection(pathname),
     agentServiceBindings: agentServiceBindingsSection(pathname),
+    tradingShowroom: tradingShowroomSection(pathname),
     foundationStack: foundationStackSection(pathname),
     masterWallet: masterWalletSection(pathname, env, snapshot),
     registryWriteContract: registryWriteContractSection(pathname),
