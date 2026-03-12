@@ -1664,6 +1664,92 @@ function layout({
     `
     : "";
 
+  const adminConsoleHtml = moduleSection && moduleSection.adminConsole
+    ? `
+      <section class="blueprint-panel admin-console-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Operator console</div>
+            <h2>${moduleSection.adminConsole.title}</h2>
+          </div>
+          <p>${moduleSection.adminConsole.intro}</p>
+        </div>
+        <div class="admin-console-grid">
+          <article class="blueprint-card admin-console-main">
+            <div class="label">Operator access</div>
+            <label class="field-label" for="operator-secret">x-s25-secret</label>
+            <input id="operator-secret" class="field-input" type="password" placeholder="Coller le secret operateur pour activer les ecritures" />
+            <div class="action-row">
+              <button class="action-button secondary" type="button" data-admin-refresh="true">Reload runtime</button>
+            </div>
+            <div class="label" style="margin-top:18px;">Write flow</div>
+            <ul class="stack-list">
+              ${moduleSection.adminConsole.flow.map((item) => `<li>${item}</li>`).join("")}
+            </ul>
+          </article>
+          <article class="blueprint-card admin-console-main">
+            <div class="label">Runtime overview</div>
+            <div class="metrics">
+              ${moduleSection.adminConsole.metrics
+                .map(
+                  (metric) => `
+                    <div class="metric">
+                      <span>${metric.label}</span>
+                      <strong>${metric.value}</strong>
+                    </div>
+                  `,
+                )
+                .join("")}
+            </div>
+            <div class="label" style="margin-top:18px;">Active endpoints</div>
+            <div class="pill-row">
+              ${moduleSection.adminConsole.endpoints.map((item) => `<span class="pill">${item}</span>`).join("")}
+            </div>
+          </article>
+        </div>
+        <div class="admin-forms-grid">
+          ${moduleSection.adminConsole.forms
+            .map(
+              (form) => `
+                <article class="blueprint-card admin-form-card">
+                  <div class="label">${form.label}</div>
+                  <h3>${form.title}</h3>
+                  <p>${form.text}</p>
+                  <form class="admin-form" data-admin-form="${form.endpoint}">
+                    ${form.fields
+                      .map(
+                        (field) => `
+                          <label class="field-label">
+                            ${field.label}
+                            <input
+                              class="field-input"
+                              name="${field.name}"
+                              type="${field.type || "text"}"
+                              placeholder="${field.placeholder || ""}"
+                              value="${field.value || ""}"
+                              ${field.required ? "required" : ""}
+                            />
+                          </label>
+                        `,
+                      )
+                      .join("")}
+                    <div class="action-row">
+                      <button class="action-button" type="submit">${form.actionLabel}</button>
+                    </div>
+                  </form>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+        <article class="blueprint-card admin-console-log">
+          <div class="label">Console log</div>
+          <pre id="admin-console-log">${moduleSection.adminConsole.initialLog}</pre>
+        </article>
+      </section>
+    `
+    : "";
+
   const empireManifestHtml = moduleSection && moduleSection.empireManifest
     ? `
       <section class="module-panel">
@@ -2519,8 +2605,73 @@ function layout({
       .status-dot.degraded { color: #ffb347; background: #ffb347; }
       .status-dot.offline { color: #ff5d5d; background: #ff5d5d; }
       .status-dot.unexposed { color: #6fa8ff; background: #6fa8ff; }
+      .admin-console-grid, .admin-forms-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+      }
+      .admin-console-panel h3, .admin-form-card h3 {
+        margin: 0 0 8px;
+        font-size: 22px;
+      }
+      .admin-form-card p {
+        margin: 0 0 14px;
+        color: var(--muted);
+        line-height: 1.55;
+      }
+      .admin-form {
+        display: grid;
+        gap: 12px;
+      }
+      .field-label {
+        display: grid;
+        gap: 6px;
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .field-input {
+        border: 1px solid rgba(124,246,212,0.18);
+        background: rgba(255,255,255,0.04);
+        color: var(--text);
+        border-radius: 14px;
+        padding: 12px 14px;
+        font: inherit;
+      }
+      .action-row {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .action-button {
+        border: 1px solid rgba(124,246,212,0.28);
+        background: linear-gradient(135deg, rgba(124,246,212,0.18) 0%, rgba(39,84,72,0.95) 100%);
+        color: var(--text);
+        border-radius: 999px;
+        padding: 12px 16px;
+        font: inherit;
+        cursor: pointer;
+      }
+      .action-button.secondary {
+        background: rgba(255,255,255,0.04);
+      }
+      .admin-console-log {
+        margin-top: 14px;
+      }
+      .admin-console-log pre {
+        margin: 0;
+        padding: 14px;
+        border-radius: 18px;
+        background: rgba(0,0,0,0.34);
+        border: 1px solid rgba(124,246,212,0.14);
+        color: #bdfce8;
+        overflow-x: auto;
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-size: 12px;
+        line-height: 1.55;
+      }
       @media (max-width: 900px) {
-        .hero, .grid, .live-grid, .metrics, .module-grid, .blueprint-grid, .omega-header, .omega-grid { grid-template-columns: 1fr; }
+        .hero, .grid, .live-grid, .metrics, .module-grid, .blueprint-grid, .omega-header, .omega-grid, .admin-console-grid, .admin-forms-grid { grid-template-columns: 1fr; }
         .section-head, .topbar { flex-direction: column; align-items: flex-start; }
       }
     </style>
@@ -2561,6 +2712,7 @@ function layout({
       ${registryHtml}
       ${mvpRegistryHtml}
       ${liveRegistryHtml}
+      ${adminConsoleHtml}
       ${empireManifestHtml}
       ${totalMeshProtocolHtml}
       ${controlPlaneHtml}
@@ -2579,6 +2731,96 @@ function layout({
       ${operatorAccountHtml}
       <div class="footer">Smajor est la facade. S25 Lumiere reste le backend central multi-agent.</div>
     </main>
+    ${moduleSection && moduleSection.adminConsole ? `
+      <script>
+        (() => {
+          const secretInput = document.getElementById("operator-secret");
+          const logNode = document.getElementById("admin-console-log");
+          const refreshButton = document.querySelector("[data-admin-refresh='true']");
+          const forms = Array.from(document.querySelectorAll("[data-admin-form]"));
+          const secretStorageKey = "smajor_admin_secret";
+
+          const writeLog = (title, payload) => {
+            const lines = [
+              "[" + new Date().toISOString() + "] " + title,
+              typeof payload === "string" ? payload : JSON.stringify(payload, null, 2),
+            ];
+            logNode.textContent = lines.join("\\n");
+          };
+
+          const getSecret = () => {
+            const value = secretInput.value.trim();
+            if (!value) {
+              throw new Error("operator_secret_missing");
+            }
+            sessionStorage.setItem(secretStorageKey, value);
+            return value;
+          };
+
+          const requestJson = async (endpoint, options = {}) => {
+            const secret = getSecret();
+            const response = await fetch(endpoint, {
+              method: options.method || "GET",
+              headers: {
+                "accept": "application/json",
+                "content-type": "application/json",
+                "x-s25-secret": secret,
+              },
+              body: options.body ? JSON.stringify(options.body) : undefined,
+            });
+            const payload = await response.json().catch(() => ({ ok: false, error: "invalid_json" }));
+            if (!response.ok) {
+              throw new Error(JSON.stringify(payload, null, 2));
+            }
+            return payload;
+          };
+
+          const refreshRuntime = async () => {
+            try {
+              writeLog("Reload runtime", { state: "pending" });
+              const payload = await requestJson("/admin/api/runtime-business");
+              writeLog("Runtime business snapshot", payload);
+            } catch (error) {
+              writeLog("Runtime reload failed", String(error.message || error));
+            }
+          };
+
+          const hydrateSecret = () => {
+            const stored = sessionStorage.getItem(secretStorageKey);
+            if (stored && !secretInput.value) {
+              secretInput.value = stored;
+            }
+          };
+
+          refreshButton.addEventListener("click", refreshRuntime);
+
+          forms.forEach((form) => {
+            form.addEventListener("submit", async (event) => {
+              event.preventDefault();
+              const formData = new FormData(form);
+              const payload = Object.fromEntries(formData.entries());
+              Object.keys(payload).forEach((key) => {
+                if (payload[key] === "") {
+                  delete payload[key];
+                }
+              });
+              try {
+                writeLog("Submit " + form.dataset.adminForm, { state: "pending", payload });
+                const response = await requestJson(form.dataset.adminForm, {
+                  method: "POST",
+                  body: payload,
+                });
+                writeLog("Action completed", response);
+              } catch (error) {
+                writeLog("Action failed", String(error.message || error));
+              }
+            });
+          });
+
+          hydrateSecret();
+        })();
+      </script>
+    ` : ""}
   </body>
   </html>`;
 }
@@ -2731,6 +2973,129 @@ async function fetchAdminSnapshot(env) {
     errors: [memoryResult]
       .filter((result) => result.status === "rejected")
       .map((result) => result.reason?.message || "secure_memory_upstream_error"),
+  };
+}
+
+function buildRuntimeBusinessState(seed = {}) {
+  return {
+    clients: Array.isArray(seed.clients) ? seed.clients : [],
+    jobs: Array.isArray(seed.jobs) ? seed.jobs : [],
+    quotes_invoices: Array.isArray(seed.quotes_invoices) ? seed.quotes_invoices : [],
+    identities: Array.isArray(seed.identities) ? seed.identities : [],
+    last_write_at: seed.last_write_at || null,
+  };
+}
+
+async function readRuntimeBusinessState(env) {
+  const runtimeBase = env.DIRECT_RUNTIME_URL || env.PUBLIC_S25_URL;
+  const memory = await fetchSecureJson(`${runtimeBase}/api/memory/state`, env);
+  return buildRuntimeBusinessState(
+    memory?.state?.intel?.business_registry || memory?.state?.business || {},
+  );
+}
+
+function createHubRecordId(prefix) {
+  return `${prefix}-${crypto.randomUUID().slice(0, 8)}`;
+}
+
+function buildHubBusinessRecord(kind, body) {
+  const now = new Date().toISOString();
+  if (kind === "client") {
+    return {
+      client_id: body.client_id || createHubRecordId("client"),
+      organization_id: body.organization_id || createHubRecordId("org"),
+      organization_name: body.organization_name || "Unnamed Organization",
+      identity_id: body.identity_id || createHubRecordId("ident"),
+      role_id: body.role_id || "client_contact",
+      badge_id: body.badge_id || "client_badge",
+      scope_id: body.scope_id || "client_scope_default",
+      service_mix: Array.isArray(body.service_mix) ? body.service_mix : [body.service_type || "multi_service_exterior"],
+      account_status: body.account_status || "active",
+      portal_state: body.portal_state || "pending_secure_access",
+      billing_state: body.billing_state || "quote_pending",
+      created_at: now,
+    };
+  }
+  if (kind === "job") {
+    return {
+      job_id: body.job_id || createHubRecordId("job"),
+      client_id: body.client_id || "",
+      service_type: body.service_type || "multi_service_exterior",
+      assigned_team: body.assigned_team || "unassigned",
+      equipment_required: Array.isArray(body.equipment_required) ? body.equipment_required : [],
+      scheduled_window: body.scheduled_window || "pending_schedule",
+      job_status: body.job_status || "scheduled",
+      dispatch_scope: body.dispatch_scope || "field_scope_default",
+      created_at: now,
+    };
+  }
+  if (kind === "identity") {
+    return {
+      identity_id: body.identity_id || createHubRecordId("ident"),
+      organization_id: body.organization_id || "",
+      identity_type: body.identity_type || "human_operator",
+      display_name: body.display_name || "Unnamed Operator",
+      role_id: body.role_id || "operator_admin",
+      badge_id: body.badge_id || "major_badge",
+      scope_id: body.scope_id || "governance_scope",
+      service_entitlements: Array.isArray(body.service_entitlements) ? body.service_entitlements : ["admin_console"],
+      credential_state: body.credential_state || "issued",
+      portal_state: body.portal_state || "live",
+      audit_state: body.audit_state || "watching",
+      created_at: now,
+    };
+  }
+  return {
+    quote_id: body.quote_id || createHubRecordId("quote"),
+    invoice_id: body.invoice_id || null,
+    client_id: body.client_id || "",
+    job_id: body.job_id || "",
+    amount: body.amount ? Number(body.amount) : 0,
+    currency: body.currency || "CAD",
+    payment_status: body.payment_status || "quote_pending",
+    billing_stage: body.billing_stage || "quote_prepared",
+    created_at: now,
+  };
+}
+
+async function writeRuntimeBusinessState(env, business) {
+  const runtimeBase = env.DIRECT_RUNTIME_URL || env.PUBLIC_S25_URL;
+  return fetchSecureJson(
+    `${runtimeBase}/api/memory/state`,
+    env,
+    "POST",
+    JSON.stringify({
+      agent: "TRINITY",
+      intel: {
+        business_registry: business,
+      },
+      business,
+    }),
+  );
+}
+
+async function handleHubBusinessCreate(request, env, kind) {
+  const body = await request.json().catch(() => ({}));
+  const business = await readRuntimeBusinessState(env);
+  const record = buildHubBusinessRecord(kind, body);
+  const collectionKey =
+    kind === "client"
+      ? "clients"
+      : kind === "job"
+        ? "jobs"
+        : kind === "identity"
+          ? "identities"
+          : "quotes_invoices";
+  business[collectionKey] = [record, ...(business[collectionKey] || [])];
+  business.last_write_at = new Date().toISOString();
+  await writeRuntimeBusinessState(env, business);
+  return {
+    ok: true,
+    kind,
+    created: record,
+    collection: collectionKey,
+    total_records: business[collectionKey].length,
+    last_write_at: business.last_write_at,
   };
 }
 
@@ -3306,6 +3671,104 @@ function adminActionSection(pathname) {
   };
 }
 
+function adminConsoleSection(pathname, snapshot) {
+  if (pathname !== "/admin") {
+    return null;
+  }
+  const business = snapshot.admin?.liveRegistries || {};
+  const operatorCount = snapshot.admin?.operatorRoster?.total_operator_identities || 0;
+  return {
+    title: "Admin operator console",
+    intro: "Console d'action live pour injecter des clients, jobs, identites et factures directement dans le runtime business S25.",
+    metrics: [
+      { label: "Clients live", value: String((business.clients || []).length) },
+      { label: "Jobs live", value: String((business.jobs || []).length) },
+      { label: "Finance live", value: String((business.quotes_invoices || []).length) },
+      { label: "Operators", value: String(operatorCount) },
+    ],
+    endpoints: [
+      "/admin/api/create-client",
+      "/admin/api/create-job",
+      "/admin/api/issue-invoice",
+      "/admin/api/create-identity",
+    ],
+    flow: [
+      "Coller x-s25-secret une seule fois dans la session.",
+      "Creer l'identite ou le client.",
+      "Lier ensuite le job au client actif.",
+      "Sortir la quote ou la facture sans quitter le hub.",
+      "Recharger le runtime pour verifier la persistence live.",
+    ],
+    forms: [
+      {
+        label: "Identity",
+        title: "Create operator or staff identity",
+        text: "Injecte une identite vivante dans la matrice RBAC avec role, badge, scope et services actives.",
+        endpoint: "/admin/api/create-identity",
+        actionLabel: "Create identity",
+        fields: [
+          { name: "display_name", label: "Display name", placeholder: "Nouvel operateur Smajor", required: true },
+          { name: "organization_id", label: "Organization id", placeholder: "org-smajor-core" },
+          { name: "role_id", label: "Role id", placeholder: "dispatcher" },
+          { name: "badge_id", label: "Badge id", placeholder: "employee_badge" },
+          { name: "scope_id", label: "Scope id", placeholder: "field_scope_dispatch" },
+        ],
+      },
+      {
+        label: "Client",
+        title: "Create live client",
+        text: "Ouvre un vrai compte client sur la chaine identity -> role -> badge -> scope -> portal.",
+        endpoint: "/admin/api/create-client",
+        actionLabel: "Create client",
+        fields: [
+          { name: "organization_name", label: "Organization name", placeholder: "Nouveau client chantier", required: true },
+          { name: "role_id", label: "Role id", placeholder: "client_contact", value: "client_contact" },
+          { name: "badge_id", label: "Badge id", placeholder: "client_badge", value: "client_badge" },
+          { name: "scope_id", label: "Scope id", placeholder: "client_scope_new" },
+          { name: "service_type", label: "Service type", placeholder: "excavation" },
+        ],
+      },
+      {
+        label: "Job",
+        title: "Create live job",
+        text: "Injecte un job reel lie a un client, a une equipe et a une fenetre de travail.",
+        endpoint: "/admin/api/create-job",
+        actionLabel: "Create job",
+        fields: [
+          { name: "client_id", label: "Client id", placeholder: "client-alpha-001", required: true },
+          { name: "service_type", label: "Service type", placeholder: "deneigement" },
+          { name: "assigned_team", label: "Assigned team", placeholder: "crew-east-02" },
+          { name: "scheduled_window", label: "Scheduled window", placeholder: "2026-03-12 AM" },
+          { name: "dispatch_scope", label: "Dispatch scope", placeholder: "field_scope_east" },
+        ],
+      },
+      {
+        label: "Billing",
+        title: "Issue quote or invoice",
+        text: "Pousse un flux commercial reel avec client, job, montant et etape de facturation.",
+        endpoint: "/admin/api/issue-invoice",
+        actionLabel: "Issue billing record",
+        fields: [
+          { name: "client_id", label: "Client id", placeholder: "client-alpha-001", required: true },
+          { name: "job_id", label: "Job id", placeholder: "job-alpha-yard-001", required: true },
+          { name: "amount", label: "Amount", placeholder: "4800", type: "number" },
+          { name: "currency", label: "Currency", placeholder: "CAD", value: "CAD" },
+          { name: "billing_stage", label: "Billing stage", placeholder: "invoice_issued", value: "invoice_issued" },
+        ],
+      },
+    ],
+    initialLog: JSON.stringify(
+      {
+        mode: "operator_console_ready",
+        note: "Coller le secret operateur puis lancer une ecriture live.",
+        last_write_at: business.last_write_at || null,
+      },
+      null,
+      2,
+    ),
+  };
+}
+
 function adminCommandKitSection(pathname) {
   if (!["/admin", "/ai"].includes(pathname)) {
     return null;
@@ -3418,6 +3881,7 @@ function renderApp(env, pathname, hostname, snapshot) {
     internalOps: internalOpsSection(pathname, snapshot),
     operatorAccount: operatorAccountSection(pathname),
     operatorRoster: operatorRosterSection(pathname, snapshot),
+    adminConsole: adminConsoleSection(pathname, snapshot),
     adminCommandKit: adminCommandKitSection(pathname),
     agentActivation: agentActivationSection(pathname),
     agentServiceBindings: agentServiceBindingsSection(pathname),
@@ -3525,7 +3989,7 @@ export default {
         return jsonResponse({ ok: false, error: "method_not_allowed" }, 405);
       }
       try {
-        return jsonResponse(await fetchSecureJson(`${env.PUBLIC_API_URL}/api/business/client-registry-live`, env, "POST", await request.text()));
+        return jsonResponse(await handleHubBusinessCreate(request, env, "client"));
       } catch (error) {
         return jsonResponse({ ok: false, error: "admin_create_client_failed", detail: String(error?.message || error) }, 500);
       }
@@ -3538,7 +4002,7 @@ export default {
         return jsonResponse({ ok: false, error: "method_not_allowed" }, 405);
       }
       try {
-        return jsonResponse(await fetchSecureJson(`${env.PUBLIC_API_URL}/api/business/job-registry-live`, env, "POST", await request.text()));
+        return jsonResponse(await handleHubBusinessCreate(request, env, "job"));
       } catch (error) {
         return jsonResponse({ ok: false, error: "admin_create_job_failed", detail: String(error?.message || error) }, 500);
       }
@@ -3551,7 +4015,7 @@ export default {
         return jsonResponse({ ok: false, error: "method_not_allowed" }, 405);
       }
       try {
-        return jsonResponse(await fetchSecureJson(`${env.PUBLIC_API_URL}/api/business/quotes-invoices-live`, env, "POST", await request.text()));
+        return jsonResponse(await handleHubBusinessCreate(request, env, "quote"));
       } catch (error) {
         return jsonResponse({ ok: false, error: "admin_issue_invoice_failed", detail: String(error?.message || error) }, 500);
       }
@@ -3564,7 +4028,7 @@ export default {
         return jsonResponse({ ok: false, error: "method_not_allowed" }, 405);
       }
       try {
-        return jsonResponse(await fetchSecureJson(`${env.PUBLIC_API_URL}/api/business/identity-registry-live`, env, "POST", await request.text()));
+        return jsonResponse(await handleHubBusinessCreate(request, env, "identity"));
       } catch (error) {
         return jsonResponse({ ok: false, error: "admin_create_identity_failed", detail: String(error?.message || error) }, 500);
       }
