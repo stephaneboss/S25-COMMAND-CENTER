@@ -1282,9 +1282,9 @@ function deriveTradingShowroom() {
 
 async function deriveTradingLaneMetrics(requestId, env) {
   const [meshResult, statusResult, missionsResult] = await Promise.allSettled([
-    fetchOriginJson("/api/mesh/status", env, requestId),
-    fetchOriginJson("/api/status", env, requestId),
-    fetchOriginJson("/api/missions", env, requestId),
+    fetchOriginJson("/api/mesh/status", env, requestId).catch(() => fetchPublicRuntimeJson("/api/mesh/status", env, requestId)),
+    fetchOriginJson("/api/status", env, requestId).catch(() => fetchPublicRuntimeJson("/api/status", env, requestId)),
+    fetchOriginJson("/api/missions", env, requestId).catch(() => fetchPublicRuntimeJson("/api/missions", env, requestId)),
   ]);
   const meshPayload = meshResult.status === "fulfilled" ? meshResult.value : { mesh: { agents: {} } };
   const statusPayload = statusResult.status === "fulfilled" ? statusResult.value : {};
