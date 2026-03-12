@@ -17,7 +17,8 @@
   "secret_profiles": {
     "mirror_01": {
       "S25_SHARED_SECRET": "s25-shared-secret",
-      "GEMINI_API_KEY": "gemini-api-key"
+      "GEMINI_API_KEY": "gemini-api-key",
+      "S25_MASTER_SEED": "s25-master-seed"
     },
     "mirror_default": {
       "S25_SHARED_SECRET": "s25-shared-secret",
