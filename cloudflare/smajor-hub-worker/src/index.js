@@ -2236,6 +2236,37 @@ function layout({
     `
     : "";
 
+  const operationalPlaybookHtml = moduleSection && moduleSection.operationalPlaybook
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Operational playbook</div>
+            <h2>${moduleSection.operationalPlaybook.title}</h2>
+          </div>
+          <p>${moduleSection.operationalPlaybook.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.operationalPlaybook.rows
+            .map(
+              (row) => `
+                <article class="module-card">
+                  <div class="label">${row.title}</div>
+                  <ul>
+                    <li>client=${row.client_id}</li>
+                    <li>next_action=${row.next_action}</li>
+                    <li>last_event=${row.last_event}</li>
+                  </ul>
+                  <p class="muted">${row.guide}</p>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
   const empireManifestHtml = moduleSection && moduleSection.empireManifest
     ? `
       <section class="module-panel">
@@ -3268,6 +3299,7 @@ function layout({
       ${portalSeparationHtml}
       ${businessTimelineHtml}
       ${operationalChainHtml}
+      ${operationalPlaybookHtml}
       ${clientFormHtml}
       ${staffDashboardHtml}
       ${alphaPilotHtml}
@@ -4471,6 +4503,13 @@ async function issueClientAccess(request, env) {
     exp: Date.now() + (1000 * 60 * 60 * 24 * 7),
   };
   const token = await signOperatorSession(payload, env);
+  client.portal_state = "live";
+  client.account_status = client.account_status || "active";
+  const identity = (business.identities || []).find((record) => record.identity_id === client.identity_id) || null;
+  if (identity) {
+    identity.portal_state = "live";
+    identity.credential_state = "issued";
+  }
   const event = appendBusinessEvent(business, {
     event_type: "client_access_issued",
     lane: "client",
@@ -4651,6 +4690,90 @@ async function requireStaffAccess(request, env) {
     return { denied: jsonResponse({ ok: false, error: "staff_session_required" }, 403) };
   }
   return { denied: null, payload: verified.payload };
+}
+
+async function executeOperationalPlaybook(request, env) {
+  const body = await request.json().catch(() => ({}));
+  const clientId = body.client_id;
+  if (!clientId) {
+    return jsonResponse({ ok: false, error: "client_id_required" }, 400);
+  }
+  const business = await readRuntimeBusinessState(env);
+  const clients = business.clients || [];
+  const jobs = business.jobs || [];
+  const billing = business.quotes_invoices || [];
+  const identities = business.identities || [];
+  const events = business.events || [];
+  const client = clients.find((record) => record.client_id === clientId) || null;
+  if (!client) {
+    return jsonResponse({ ok: false, error: "client_not_found", client_id: clientId }, 404);
+  }
+  const identity = identities.find((record) => record.identity_id === client.identity_id) || null;
+  const { nextAction, clientJobs } = deriveOperationalAction(client, identity, jobs, billing, events);
+
+  if (nextAction === "issue_portal_access") {
+    return issueClientAccess(
+      new Request("https://app.smajor.org/admin/api/issue-client-access", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ client_id: client.client_id }),
+      }),
+      env,
+    );
+  }
+
+  if (nextAction === "create_job") {
+    return jsonResponse(
+      await handleHubBusinessCreate(
+        new Request("https://app.smajor.org/admin/api/create-job", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            client_id: client.client_id,
+            service_type: Array.isArray(client.service_mix) && client.service_mix[0] ? client.service_mix[0] : "multi_service_exterior",
+            assigned_team: body.assigned_team || "crew-auto-01",
+            scheduled_window: body.scheduled_window || "pending_schedule",
+            dispatch_scope: client.scope_id || "field_scope_default",
+            equipment_required: body.equipment_required || [],
+          }),
+        }),
+        env,
+        "job",
+      ),
+    );
+  }
+
+  if (nextAction === "issue_invoice") {
+    const job = clientJobs[0];
+    if (!job) {
+      return jsonResponse({ ok: false, error: "job_required_before_invoice", client_id: client.client_id }, 409);
+    }
+    return jsonResponse(
+      await handleHubBusinessCreate(
+        new Request("https://app.smajor.org/admin/api/issue-invoice", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            client_id: client.client_id,
+            job_id: job.job_id,
+            amount: body.amount || 2500,
+            currency: body.currency || "CAD",
+            billing_stage: body.billing_stage || "invoice_issued",
+            payment_status: body.payment_status || "pending_payment",
+          }),
+        }),
+        env,
+        "quote",
+      ),
+    );
+  }
+
+  return jsonResponse({
+    ok: true,
+    client_id: client.client_id,
+    next_action: nextAction,
+    message: "Account already live. Monitoring only.",
+  });
 }
 
 function buildOmegaDeck(env, snapshot) {
@@ -5410,11 +5533,11 @@ function adminActionSection(pathname) {
     columns: [
       {
         label: "Read",
-        items: ["/admin/api/live-registries", "/admin/api/operator-roster", "/admin/api/business-timeline", "/admin/api/operational-chain"],
+        items: ["/admin/api/live-registries", "/admin/api/operator-roster", "/admin/api/business-timeline", "/admin/api/operational-chain", "/admin/api/operational-playbook"],
       },
       {
         label: "Write",
-        items: ["/admin/api/create-client", "/admin/api/create-job", "/admin/api/issue-invoice", "/admin/api/issue-vendor-access"],
+        items: ["/admin/api/create-client", "/admin/api/create-job", "/admin/api/issue-invoice", "/admin/api/issue-vendor-access", "/admin/api/execute-playbook"],
       },
       {
         label: "Rule",
@@ -5901,6 +6024,31 @@ function businessTimelineSection(pathname, snapshot) {
   };
 }
 
+function deriveOperationalAction(client, identity, jobs, billing, events) {
+  const clientJobs = jobs.filter((item) => item.client_id === client.client_id);
+  const clientBilling = billing.filter((item) => item.client_id === client.client_id);
+  const clientEvents = events.filter((item) => {
+    const metadata = item.metadata || {};
+    return item.subject_id === client.client_id || metadata.client_id === client.client_id || metadata.identity_id === client.identity_id;
+  });
+  const lastEvent = clientEvents[0] || null;
+  let nextAction = "monitor_account";
+  if (clientJobs.length === 0) {
+    nextAction = "create_job";
+  } else if (clientBilling.length === 0) {
+    nextAction = "issue_invoice";
+  } else if ((client.portal_state || identity?.portal_state || "") !== "live") {
+    nextAction = "issue_portal_access";
+  }
+  return {
+    nextAction,
+    lastEvent,
+    clientJobs,
+    clientBilling,
+    clientEvents,
+  };
+}
+
 function operationalChainSection(pathname, snapshot) {
   if (pathname !== "/admin") {
     return null;
@@ -5914,21 +6062,7 @@ function operationalChainSection(pathname, snapshot) {
 
   const rows = clients.slice(0, 8).map((client) => {
     const identity = identities.find((item) => item.identity_id === client.identity_id) || null;
-    const clientJobs = jobs.filter((item) => item.client_id === client.client_id);
-    const clientBilling = billing.filter((item) => item.client_id === client.client_id);
-    const clientEvents = events.filter((item) => {
-      const metadata = item.metadata || {};
-      return item.subject_id === client.client_id || metadata.client_id === client.client_id || metadata.identity_id === client.identity_id;
-    });
-    const lastEvent = clientEvents[0] || null;
-    let nextAction = "monitor_account";
-    if (clientJobs.length === 0) {
-      nextAction = "create_job";
-    } else if (clientBilling.length === 0) {
-      nextAction = "issue_invoice";
-    } else if ((client.portal_state || identity?.portal_state || "") !== "live") {
-      nextAction = "issue_portal_access";
-    }
+    const { nextAction, lastEvent, clientJobs, clientBilling, clientEvents } = deriveOperationalAction(client, identity, jobs, billing, events);
     return {
       title: client.organization_name || client.client_id,
       items: [
@@ -6116,6 +6250,7 @@ function renderApp(env, pathname, hostname, snapshot) {
     registryWriteContract: registryWriteContractSection(pathname),
     businessTimeline: businessTimelineSection(pathname, snapshot),
     operationalChain: operationalChainSection(pathname, snapshot),
+    operationalPlaybook: operationalPlaybookSection(pathname, snapshot),
     adminActions: adminActionSection(pathname),
   };
   if (registrySection) {
@@ -6334,6 +6469,19 @@ export default {
         });
       } catch (error) {
         return jsonResponse({ ok: false, error: "admin_operational_playbook_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/execute-playbook") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      if (request.method !== "POST") {
+        return jsonResponse({ ok: false, error: "method_not_allowed" }, 405);
+      }
+      try {
+        return await executeOperationalPlaybook(request, env);
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "admin_execute_playbook_failed", detail: String(error?.message || error) }, 500);
       }
     }
 
