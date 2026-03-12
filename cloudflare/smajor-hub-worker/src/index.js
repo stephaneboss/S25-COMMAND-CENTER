@@ -2253,6 +2253,7 @@ function layout({
                 <article class="module-card">
                   <div class="label">${row.title}</div>
                   <ul>
+                    <li>domain=${row.domain}</li>
                     <li>client=${row.client_id}</li>
                     <li>next_action=${row.next_action}</li>
                     <li>last_event=${row.last_event}</li>
@@ -6090,8 +6091,9 @@ function operationalPlaybookSection(pathname, snapshot) {
   if (pathname !== "/admin") {
     return null;
   }
+  const business = snapshot.admin?.liveRegistries || snapshot.business || {};
   const chain = operationalChainSection(pathname, snapshot);
-  const rows = (chain?.rows || []).map((row) => {
+  const clientRows = (chain?.rows || []).map((row) => {
     const itemMap = Object.fromEntries(
       row.items.map((item) => {
         const [key, ...rest] = item.split("=");
@@ -6107,12 +6109,58 @@ function operationalPlaybookSection(pathname, snapshot) {
     };
     return {
       title: row.title,
+      domain: "clients",
       client_id: itemMap.client || "--",
       next_action: nextAction,
       guide: actionGuide[nextAction] || actionGuide.monitor_account,
       last_event: itemMap.last_event || "--",
     };
   });
+
+  const identities = business.identities || business.identities?.records || [];
+  const jobs = business.jobs || business.jobs?.records || [];
+  const events = snapshot.admin?.businessTimeline?.records || business.events || [];
+
+  const staffRows = identities
+    .filter((identity) => ["dispatcher", "field_manager", "staff_member", "contractor"].includes(identity.role_id))
+    .slice(0, 4)
+    .map((identity) => {
+      const assignedJobs = jobs.filter((job) => job.assigned_team && job.assigned_team === identity.assigned_team);
+      const lastEvent = events.find((event) => (event.metadata || {}).identity_id === identity.identity_id) || null;
+      const nextAction = identity.portal_state === "live" ? "monitor_account" : "issue_staff_access";
+      return {
+        title: identity.display_name || identity.identity_id,
+        domain: "staff",
+        client_id: identity.identity_id,
+        next_action: nextAction,
+        guide:
+          nextAction === "issue_staff_access"
+            ? "Issue signed staff access so the field dashboard becomes live."
+            : `Monitor assigned team workload and dispatch health. jobs=${assignedJobs.length}`,
+        last_event: lastEvent?.event_type || "--",
+      };
+    });
+
+  const vendorRows = identities
+    .filter((identity) => ["vendor_manager", "vendor_contact"].includes(identity.role_id))
+    .slice(0, 4)
+    .map((identity) => {
+      const lastEvent = events.find((event) => (event.metadata || {}).identity_id === identity.identity_id) || null;
+      const nextAction = identity.portal_state === "live" ? "monitor_account" : "issue_vendor_access";
+      return {
+        title: identity.display_name || identity.identity_id,
+        domain: "vendors",
+        client_id: identity.identity_id,
+        next_action: nextAction,
+        guide:
+          nextAction === "issue_vendor_access"
+            ? "Issue signed vendor access so supply and billing views become live."
+            : "Monitor vendor supply flow, delivery lane, and payable state.",
+        last_event: lastEvent?.event_type || "--",
+      };
+    });
+
+  const rows = [...clientRows, ...staffRows, ...vendorRows];
   return {
     title: "Operational playbook",
     intro: "Each live account gets a concrete next move so the admin plane can push the business forward without guessing.",
