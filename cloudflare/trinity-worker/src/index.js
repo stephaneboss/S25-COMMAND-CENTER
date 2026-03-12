@@ -483,10 +483,13 @@ const BUSINESS_REGISTRY_MAP = {
     { key: "secret_fallback_policy", path: `${BUSINESS_PREFIX}/secret-fallback-policy`, purpose: "Fallback order if Google Secret Manager is offline" },
     { key: "frontend_surfaces", path: `${BUSINESS_PREFIX}/frontend-surfaces`, purpose: "Public and operator-facing surfaces exposed by smajor.org" },
     { key: "backend_surfaces", path: `${BUSINESS_PREFIX}/backend-surfaces`, purpose: "Runtime and service surfaces anchored in S25 Lumiere" },
+    { key: "backend_foundation", path: `${BUSINESS_PREFIX}/backend-foundation`, purpose: "Durable sovereign backend foundation behind the portal" },
+    { key: "backend_core", path: `${BUSINESS_PREFIX}/backend-core`, purpose: "Central durable backend operating core for S25 and smajor.org" },
     { key: "separation_architecture", path: `${BUSINESS_PREFIX}/separation-architecture`, purpose: "Official front-end versus back-end separation map" },
     { key: "admin_architecture", path: `${BUSINESS_PREFIX}/admin-architecture`, purpose: "Admin control-plane architecture split between interface and sovereign backend" },
     { key: "portal_separation", path: `${BUSINESS_PREFIX}/portal-separation`, purpose: "Portal-by-portal split for clients, staff and vendors" },
     { key: "gemini_layer", path: `${BUSINESS_PREFIX}/gemini-layer`, purpose: "Unified Gemini intelligence layer distinct from Google Cloud infrastructure" },
+    { key: "trinity_link", path: `${BUSINESS_PREFIX}/trinity-link`, purpose: "Direct Trinity line into S25 Lumiere runtime and mission control" },
     { key: "trading_showroom", path: `${BUSINESS_PREFIX}/trading-showroom`, purpose: "Multi-agent trading room with signal, risk, treasury and execution lanes" },
     { key: "trading_lane_metrics", path: `${BUSINESS_PREFIX}/trading-lane-metrics`, purpose: "Live runtime metrics for signal, risk, treasury and execution lanes" },
     { key: "internal_ops", path: `${BUSINESS_PREFIX}/internal-ops`, purpose: "Public operating summary for Smajor internal account" },
@@ -1130,6 +1133,53 @@ function deriveBackendSurfaces() {
   };
 }
 
+function deriveBackendFoundation() {
+  return {
+    title: "Backend foundation",
+    summary: "Socle backend industriel, durable et souverain pour S25 Lumiere et smajor.org.",
+    doctrine: [
+      "S25 Lumiere reste le centre runtime et la source de verite.",
+      "Akash porte le compute et la resilience des conteneurs.",
+      "Cloudflare sert de facade, jamais de coeur metier durable.",
+      "Le coffre multi-custody garde les secrets hors du front.",
+      "Chaque brique front lit ou ecrit via un contrat backend signe.",
+    ],
+    layers: [
+      { layer_id: "runtime_core", owner: "S25 Lumiere", responsibility: "state, routing, persistence, missions" },
+      { layer_id: "gateway_core", owner: "api.smajor.org", responsibility: "business facade, sanitization, public contracts" },
+      { layer_id: "validation_core", owner: "MERLIN MCP", responsibility: "Gemini validation, memory, control bridge" },
+      { layer_id: "compute_core", owner: "Akash", responsibility: "durable containers, execution muscle, fleet" },
+      { layer_id: "custody_core", owner: "Google Secret Manager + fallback vault", responsibility: "seed, api keys, secret recovery" },
+    ],
+    guarantees: [
+      "no critical logic in the front-end",
+      "no raw secrets in the public plane",
+      "RBAC and badges survive user rotation",
+      "runtime survives portal redesign",
+    ],
+  };
+}
+
+function deriveBackendCore() {
+  return {
+    title: "Backend core",
+    summary: "Noyau central durable: ce qui doit survivre a la rotation des humains, des portails et du design.",
+    modules: [
+      { module_id: "business_registry", role: "clients, jobs, invoices, identities, events" },
+      { module_id: "agent_registry", role: "15-agent mesh, badges, scopes, service bindings" },
+      { module_id: "wallet_registry", role: "creator, treasury, trading, operations, mirror custody" },
+      { module_id: "policy_engine", role: "RBAC, wallet policies, secret fallback, audit-first rules" },
+      { module_id: "mission_engine", role: "Trinity missions, Comet follow-up, Merlin validation" },
+      { module_id: "trade_runtime", role: "signal, risk, treasury, execution lanes" },
+    ],
+    contracts: [
+      "all sensitive writes go through signed routes",
+      "all durable state lands in S25 runtime",
+      "all public panels read curated backend outputs",
+    ],
+  };
+}
+
 function deriveSeparationArchitecture() {
   return {
     title: "Frontend backend separation",
@@ -1253,6 +1303,29 @@ function deriveGeminiLayer() {
       { agent: "MERLIN", role_id: "merlin_validator", function: "Gemini validation and memory lane" },
       { agent: "TRINITY", role_id: "trinity_orchestrator", function: "mission control and operator relay" },
       { agent: "COMET", role_id: "comet_watch", function: "live provider and web intelligence" },
+    ],
+  };
+}
+
+function deriveTrinityLink() {
+  return {
+    title: "Trinity direct link",
+    summary: "Ligne directe entre le GPT Trinity, S25 Lumiere et la facade souveraine smajor.org.",
+    direct_runtime: {
+      endpoint: "https://s25.smajor.org",
+      bridge: ["/api/trinity/ping", "/api/trinity"],
+      authority: "x-s25-secret",
+    },
+    mission_chain: [
+      "Operator -> Trinity",
+      "Trinity -> S25 Lumiere runtime",
+      "S25 -> missions, memory, mesh, business state",
+      "MERLIN / COMET / agents -> feedback into runtime",
+    ],
+    doctrine: [
+      "Trinity reasons against the runtime, not a cosmetic shell",
+      "The portal reflects the runtime; it does not replace it",
+      "Direct Trinity link is durable, signed, and sovereign",
     ],
   };
 }
@@ -1735,6 +1808,12 @@ function handleBusinessRequest(request, pathname, requestId, env) {
   if (pathname === `${BUSINESS_PREFIX}/backend-surfaces`) {
     return businessResponse(requestId, pathname, deriveBackendSurfaces());
   }
+  if (pathname === `${BUSINESS_PREFIX}/backend-foundation`) {
+    return businessResponse(requestId, pathname, deriveBackendFoundation());
+  }
+  if (pathname === `${BUSINESS_PREFIX}/backend-core`) {
+    return businessResponse(requestId, pathname, deriveBackendCore());
+  }
   if (pathname === `${BUSINESS_PREFIX}/separation-architecture`) {
     return businessResponse(requestId, pathname, deriveSeparationArchitecture());
   }
@@ -1746,6 +1825,9 @@ function handleBusinessRequest(request, pathname, requestId, env) {
   }
   if (pathname === `${BUSINESS_PREFIX}/gemini-layer`) {
     return businessResponse(requestId, pathname, deriveGeminiLayer());
+  }
+  if (pathname === `${BUSINESS_PREFIX}/trinity-link`) {
+    return businessResponse(requestId, pathname, deriveTrinityLink());
   }
   if (pathname === `${BUSINESS_PREFIX}/trading-showroom`) {
     return businessResponse(requestId, pathname, deriveTradingShowroom());

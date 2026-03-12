@@ -1980,6 +1980,62 @@ function layout({
     `
     : "";
 
+  const backendFoundationHtml = moduleSection && moduleSection.backendFoundation
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Backend foundation</div>
+            <h2>${moduleSection.backendFoundation.title}</h2>
+          </div>
+          <p>${moduleSection.backendFoundation.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.backendFoundation.columns
+            .map(
+              (column) => `
+                <article class="module-card">
+                  <div class="label">${column.label}</div>
+                  <ul>
+                    ${column.items.map((item) => `<li>${item}</li>`).join("")}
+                  </ul>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
+  const backendCoreHtml = moduleSection && moduleSection.backendCore
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Backend core</div>
+            <h2>${moduleSection.backendCore.title}</h2>
+          </div>
+          <p>${moduleSection.backendCore.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.backendCore.columns
+            .map(
+              (column) => `
+                <article class="module-card">
+                  <div class="label">${column.label}</div>
+                  <ul>
+                    ${column.items.map((item) => `<li>${item}</li>`).join("")}
+                  </ul>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
   const geminiLayerHtml = moduleSection && moduleSection.geminiLayer
     ? `
       <section class="module-panel">
@@ -1992,6 +2048,34 @@ function layout({
         </div>
         <div class="module-grid">
           ${moduleSection.geminiLayer.columns
+            .map(
+              (column) => `
+                <article class="module-card">
+                  <div class="label">${column.label}</div>
+                  <ul>
+                    ${column.items.map((item) => `<li>${item}</li>`).join("")}
+                  </ul>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
+  const trinityLinkHtml = moduleSection && moduleSection.trinityLink
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Trinity link</div>
+            <h2>${moduleSection.trinityLink.title}</h2>
+          </div>
+          <p>${moduleSection.trinityLink.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.trinityLink.columns
             .map(
               (column) => `
                 <article class="module-card">
@@ -3290,7 +3374,10 @@ function layout({
       ${masterWalletHtml}
       ${adminConsoleHtml}
       ${adminArchitectureHtml}
+      ${backendFoundationHtml}
+      ${backendCoreHtml}
       ${geminiLayerHtml}
+      ${trinityLinkHtml}
       ${empireManifestHtml}
       ${totalMeshProtocolHtml}
       ${controlPlaneHtml}
@@ -3862,7 +3949,7 @@ async function fetchOpsSnapshot(env) {
 
 async function fetchAdminSnapshot(env) {
   const runtimeBase = env.DIRECT_RUNTIME_URL || env.PUBLIC_S25_URL;
-  const [memoryResult, walletsResult, treasuryResult, secretCustodyResult, secretFallbackResult, geminiLayerResult, tradingLaneMetricsResult] = await Promise.allSettled([
+  const [memoryResult, walletsResult, treasuryResult, secretCustodyResult, secretFallbackResult, geminiLayerResult, tradingLaneMetricsResult, backendFoundationResult, backendCoreResult, trinityLinkResult] = await Promise.allSettled([
     fetchSecureJson(`${runtimeBase}/api/memory/state`, env),
     fetchJson(`${env.PUBLIC_API_URL}/api/business/wallets-custody`),
     fetchJson(`${env.PUBLIC_API_URL}/api/business/vaults-treasury`),
@@ -3870,6 +3957,9 @@ async function fetchAdminSnapshot(env) {
     fetchJson(`${env.PUBLIC_API_URL}/api/business/secret-fallback-policy`),
     fetchJson(`${env.PUBLIC_API_URL}/api/business/gemini-layer`),
     fetchJson(`${env.PUBLIC_API_URL}/api/business/trading-lane-metrics`),
+    fetchJson(`${env.PUBLIC_API_URL}/api/business/backend-foundation`),
+    fetchJson(`${env.PUBLIC_API_URL}/api/business/backend-core`),
+    fetchJson(`${env.PUBLIC_API_URL}/api/business/trinity-link`),
   ]);
   const registry = memoryResult.status === "fulfilled"
     ? memoryResult.value?.state?.intel?.business_registry || memoryResult.value?.state?.business || {}
@@ -3951,8 +4041,11 @@ async function fetchAdminSnapshot(env) {
     secretCustody: secretCustodyResult.status === "fulfilled" ? secretCustodyResult.value : null,
     secretFallbackPolicy: secretFallbackResult.status === "fulfilled" ? secretFallbackResult.value : null,
     geminiLayer: geminiLayerResult.status === "fulfilled" ? geminiLayerResult.value : null,
+    backendFoundation: backendFoundationResult.status === "fulfilled" ? backendFoundationResult.value : null,
+    backendCore: backendCoreResult.status === "fulfilled" ? backendCoreResult.value : null,
+    trinityLink: trinityLinkResult.status === "fulfilled" ? trinityLinkResult.value : null,
     tradingLaneMetrics: derivedTradingLaneMetrics,
-    errors: [memoryResult, walletsResult, treasuryResult, secretCustodyResult, secretFallbackResult, geminiLayerResult, tradingLaneMetricsResult]
+    errors: [memoryResult, walletsResult, treasuryResult, secretCustodyResult, secretFallbackResult, geminiLayerResult, tradingLaneMetricsResult, backendFoundationResult, backendCoreResult, trinityLinkResult]
       .filter((result) => result.status === "rejected")
       .map((result) => result.reason?.message || "secure_memory_upstream_error"),
   };
@@ -5754,6 +5847,63 @@ function adminArchitectureSection(pathname) {
   };
 }
 
+function backendFoundationSection(pathname, snapshot) {
+  if (!["/admin", "/omega"].includes(pathname)) {
+    return null;
+  }
+  const foundation = snapshot.admin?.backendFoundation || {
+    title: "Backend foundation",
+    summary: "Socle backend durable indisponible",
+    layers: [],
+    guarantees: [],
+    doctrine: [],
+  };
+  return {
+    title: foundation.title,
+    intro: foundation.summary,
+    columns: [
+      {
+        label: "Durable layers",
+        items: (foundation.layers || []).map((layer) => `${layer.layer_id} -> ${layer.owner}`),
+      },
+      {
+        label: "Guarantees",
+        items: foundation.guarantees || [],
+      },
+      {
+        label: "Doctrine",
+        items: foundation.doctrine || [],
+      },
+    ],
+  };
+}
+
+function backendCoreSection(pathname, snapshot) {
+  if (!["/admin", "/omega"].includes(pathname)) {
+    return null;
+  }
+  const core = snapshot.admin?.backendCore || {
+    title: "Backend core",
+    summary: "Noyau backend indisponible",
+    modules: [],
+    contracts: [],
+  };
+  return {
+    title: core.title,
+    intro: core.summary,
+    columns: [
+      {
+        label: "Core modules",
+        items: (core.modules || []).map((module) => `${module.module_id} -> ${module.role}`),
+      },
+      {
+        label: "Contracts",
+        items: core.contracts || [],
+      },
+    ],
+  };
+}
+
 function portalSeparationSection(pathname) {
   if (!["/clients", "/staff", "/vendors", "/admin"].includes(pathname)) {
     return null;
@@ -5817,6 +5967,41 @@ function geminiLayerSection(pathname, snapshot) {
       {
         label: "Doctrine",
         items: gemini.doctrine || [],
+      },
+    ],
+  };
+}
+
+function trinityLinkSection(pathname, snapshot) {
+  if (!["/admin", "/ai", "/omega"].includes(pathname)) {
+    return null;
+  }
+  const trinity = snapshot.admin?.trinityLink || {
+    title: "Trinity direct link",
+    summary: "Ligne Trinity indisponible",
+    direct_runtime: {},
+    mission_chain: [],
+    doctrine: [],
+  };
+  return {
+    title: trinity.title,
+    intro: trinity.summary,
+    columns: [
+      {
+        label: "Direct runtime",
+        items: [
+          trinity.direct_runtime?.endpoint || "runtime unavailable",
+          ...((trinity.direct_runtime?.bridge || []).map((route) => `route=${route}`)),
+          `authority=${trinity.direct_runtime?.authority || "unknown"}`,
+        ],
+      },
+      {
+        label: "Mission chain",
+        items: trinity.mission_chain || [],
+      },
+      {
+        label: "Doctrine",
+        items: trinity.doctrine || [],
       },
     ],
   };
@@ -6487,11 +6672,14 @@ function renderApp(env, pathname, hostname, snapshot) {
     operatorRoster: operatorRosterSection(pathname, snapshot),
     adminConsole: adminConsoleSection(pathname, snapshot),
     adminArchitecture: adminArchitectureSection(pathname),
+    backendFoundation: backendFoundationSection(pathname, snapshot),
+    backendCore: backendCoreSection(pathname, snapshot),
     clientConsole: clientConsoleSection(pathname, snapshot),
     staffConsole: staffConsoleSection(pathname, snapshot),
     vendorConsole: vendorConsoleSection(pathname, snapshot),
     portalSeparation: portalSeparationSection(pathname),
     geminiLayer: geminiLayerSection(pathname, snapshot),
+    trinityLink: trinityLinkSection(pathname, snapshot),
     adminCommandKit: adminCommandKitSection(pathname),
     agentActivation: agentActivationSection(pathname),
     agentServiceBindings: agentServiceBindingsSection(pathname),
