@@ -13,6 +13,7 @@ const HOP_BY_HOP_HEADERS = new Set([
 const RETRYABLE_STATUS_CODES = new Set([502, 503, 504]);
 const ALLOWED_PATH_PREFIXES = ["/api/", "/health", "/favicon.ico"];
 const BUSINESS_PREFIX = "/api/business";
+const MASTER_WALLET_ADDRESS = "REDACTED_WALLET_ADDRESS";
 
 const BUSINESS_REGISTRIES = {
   clients: {
@@ -190,6 +191,7 @@ const BUSINESS_COLLECTION_KEYS = {
   jobs: "jobs",
   quotes_invoices: "quotes_invoices",
   identities: "identities",
+  wallets_custody: "wallets_custody",
 };
 
 const BUSINESS_EMPIRE_MANIFEST = {
@@ -239,7 +241,9 @@ const BUSINESS_EMPIRE_MANIFEST = {
     `${BUSINESS_PREFIX}/role-governance`,
     `${BUSINESS_PREFIX}/rbac-matrix`,
     `${BUSINESS_PREFIX}/agent-catalog`,
+    `${BUSINESS_PREFIX}/wallets-custody`,
     `${BUSINESS_PREFIX}/secure/live-registries`,
+    `${BUSINESS_PREFIX}/secure/wallets-custody`,
     `${BUSINESS_PREFIX}/secure/operator-roster`,
     `${BUSINESS_PREFIX}/secure/alpha-client`,
     `${BUSINESS_PREFIX}/secure/billing-tunnel`,
@@ -463,6 +467,7 @@ const BUSINESS_REGISTRY_MAP = {
     { key: "job_registry_live", path: `${BUSINESS_PREFIX}/job-registry-live`, purpose: "Seeded operations jobs aligned with dispatch scopes" },
     { key: "quotes_invoices_live", path: `${BUSINESS_PREFIX}/quotes-invoices-live`, purpose: "Seeded commercial and billing records" },
     { key: "identity_registry_live", path: `${BUSINESS_PREFIX}/identity-registry-live`, purpose: "Live identities bound to role, badge, scope and services" },
+    { key: "wallets_custody", path: `${BUSINESS_PREFIX}/wallets-custody`, purpose: "Custody registry for creator wallet and sovereign vault chain" },
     { key: "internal_ops", path: `${BUSINESS_PREFIX}/internal-ops`, purpose: "Public operating summary for Smajor internal account" },
     { key: "empire_manifest", path: `${BUSINESS_PREFIX}/empire-manifest`, purpose: "Unified manifest of domains, towers, registries and command chain" },
     { key: "total_mesh_protocol", path: `${BUSINESS_PREFIX}/total-mesh-protocol`, purpose: "Protocol de synchronisation totale des agents vers le hub" },
@@ -778,8 +783,81 @@ function buildBusinessState(seed) {
     jobs: [...BUSINESS_JOB_REGISTRY_LIVE.records],
     quotes_invoices: [...BUSINESS_QUOTES_INVOICES_LIVE.records],
     identities: [],
+    wallets_custody: [],
     last_write_at: null,
     ...(seed || {}),
+  };
+}
+
+async function deriveWalletCustodyRegistry(env, requestId) {
+  let status = {};
+  try {
+    status = await fetchOriginJson("/api/status", env, requestId);
+  } catch {
+    if (env.PUBLIC_RUNTIME_URL) {
+      try {
+        status = await fetchPublicRuntimeJson("/api/status", env, requestId);
+      } catch {}
+    }
+  }
+
+  const wallet = status?.wallet || {};
+  const address = wallet.address || status.wallet_creator_address || MASTER_WALLET_ADDRESS;
+  const custody = wallet.custody || status.wallet_custody || "google_secret_manager";
+  const connected =
+    wallet.connected != null
+      ? Boolean(wallet.connected)
+      : status.wallet_creator_connected != null
+        ? Boolean(status.wallet_creator_connected)
+        : Boolean(address);
+  let aktBalance = wallet.akt_balance ?? status.wallet_creator_akt_balance ?? null;
+  let aktPriceUsd = wallet.akt_price_usd ?? status.wallet_creator_akt_price_usd ?? null;
+  let aktValueUsd = wallet.akt_value_usd ?? status.wallet_creator_akt_value_usd ?? null;
+  const lastSync = wallet.last_sync || null;
+
+  if (aktBalance == null && address) {
+    try {
+      const [balanceResponse, priceResponse] = await Promise.all([
+        fetch(`https://rest.cosmos.directory/akash/cosmos/bank/v1beta1/balances/${address}`),
+        fetch("https://api.coingecko.com/api/v3/simple/price?ids=akash-network&vs_currencies=usd"),
+      ]);
+      if (balanceResponse.ok) {
+        const balancePayload = await balanceResponse.json();
+        const uakt = balancePayload?.balances?.find((entry) => entry?.denom === "uakt");
+        if (uakt?.amount) {
+          aktBalance = Number((Number(uakt.amount) / 1_000_000).toFixed(6));
+        }
+      }
+      if (priceResponse.ok) {
+        const pricePayload = await priceResponse.json();
+        aktPriceUsd = pricePayload?.["akash-network"]?.usd ?? null;
+      }
+      if (aktBalance != null && aktPriceUsd != null) {
+        aktValueUsd = Number((aktBalance * aktPriceUsd).toFixed(2));
+      }
+    } catch {}
+  }
+
+  return {
+    title: "Wallets and custody registry",
+    summary: "Registre de custody du wallet creator et de la chaine souveraine S25.",
+    records: [
+      {
+        wallet_id: "wallet-creator-001",
+        label: wallet.label || "Wallet creator",
+        network: "akash",
+        address,
+        connected,
+        custody,
+        custody_secret_ref: "gsm:s25-master-seed",
+        authority_principal: "serviceAccount:merlin-agent@gen-lang-client-0046423999.iam.gserviceaccount.com",
+        akt_balance: aktBalance,
+        akt_price_usd: aktPriceUsd,
+        akt_value_usd: aktValueUsd,
+        last_sync: lastSync,
+        source_of_truth: "S25 Lumiere runtime + Google Secret Manager",
+      },
+    ],
   };
 }
 
@@ -1122,6 +1200,11 @@ function handleBusinessRequest(request, pathname, requestId, env) {
       }),
     );
   }
+  if (pathname === `${BUSINESS_PREFIX}/wallets-custody`) {
+    return deriveWalletCustodyRegistry(env, requestId).then((registry) =>
+      businessResponse(requestId, pathname, registry),
+    );
+  }
   if (pathname === `${BUSINESS_PREFIX}/internal-ops`) {
     return readBusinessState(env, requestId).then((business) =>
       businessResponse(requestId, pathname, deriveInternalOpsSummary(business)),
@@ -1145,6 +1228,17 @@ function handleBusinessRequest(request, pathname, requestId, env) {
         jobs: business.jobs,
         quotes_invoices: business.quotes_invoices,
         identities: business.identities,
+        wallets_custody: business.wallets_custody,
+      }),
+    );
+  }
+  if (pathname === `${BUSINESS_PREFIX}/secure/wallets-custody`) {
+    const denied = requireBusinessSecret(request, env, requestId, pathname);
+    if (denied) return denied;
+    return deriveWalletCustodyRegistry(env, requestId).then((registry) =>
+      businessResponse(requestId, pathname, {
+        secure: true,
+        ...registry,
       }),
     );
   }
