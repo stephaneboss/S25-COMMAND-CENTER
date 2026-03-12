@@ -83,6 +83,13 @@
 - Script: bash /config/scripts/start_s25_tunnel.sh
 - Webhook ID: s25_kimi_scan_secret_xyz
 
+### Wallet creator S25
+- Adresse publique maitre: `REDACTED_WALLET_ADDRESS`
+- Custody: Google Secret Manager
+- Secret runtime: `s25-master-seed`
+- Principal runtime autorise: `merlin-agent@gen-lang-client-0046423999.iam.gserviceaccount.com`
+- Doctrine: la seed reste en coffre Google, seule l'adresse publique remonte dans S25 Lumiere et smajor.org
+
 ---
 
 ## AGENTS
