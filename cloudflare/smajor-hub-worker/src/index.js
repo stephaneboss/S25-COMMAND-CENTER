@@ -4524,6 +4524,9 @@ async function issueClientAccess(request, env) {
       role_id: payload.role_id,
     },
   });
+  identity.portal_state = "live";
+  identity.credential_state = "issued";
+  identity.assigned_team = payload.assigned_team;
   business.last_write_at = new Date().toISOString();
   await writeRuntimeBusinessState(env, business);
   return jsonResponse({
@@ -4580,6 +4583,8 @@ async function issueStaffAccess(request, env) {
       assigned_team: payload.assigned_team,
     },
   });
+  identity.portal_state = "live";
+  identity.credential_state = "issued";
   business.last_write_at = new Date().toISOString();
   await writeRuntimeBusinessState(env, business);
   return jsonResponse({
@@ -4695,9 +4700,10 @@ async function requireStaffAccess(request, env) {
 
 async function executeOperationalPlaybook(request, env) {
   const body = await request.json().catch(() => ({}));
-  const clientId = body.client_id;
-  if (!clientId) {
-    return jsonResponse({ ok: false, error: "client_id_required" }, 400);
+  const domain = body.domain || "clients";
+  const targetId = body.target_id || body.client_id || body.identity_id;
+  if (!targetId) {
+    return jsonResponse({ ok: false, error: "target_id_required" }, 400);
   }
   const business = await readRuntimeBusinessState(env);
   const clients = business.clients || [];
@@ -4705,9 +4711,56 @@ async function executeOperationalPlaybook(request, env) {
   const billing = business.quotes_invoices || [];
   const identities = business.identities || [];
   const events = business.events || [];
-  const client = clients.find((record) => record.client_id === clientId) || null;
+
+  if (domain === "staff") {
+    const identity = identities.find((record) => record.identity_id === targetId) || null;
+    if (!identity) {
+      return jsonResponse({ ok: false, error: "identity_not_found", identity_id: targetId }, 404);
+    }
+    const nextAction = identity.portal_state === "live" ? "monitor_account" : "issue_staff_access";
+    if (nextAction === "issue_staff_access") {
+      return issueStaffAccess(
+        new Request("https://app.smajor.org/admin/api/issue-staff-access", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            identity_id: identity.identity_id,
+            scope_id: body.scope_id || identity.scope_id || "field_scope_default",
+            assigned_team: body.assigned_team || identity.assigned_team || "crew-auto-01",
+          }),
+        }),
+        env,
+      );
+    }
+    return jsonResponse({ ok: true, domain, identity_id: identity.identity_id, next_action: nextAction, message: "Staff account already live. Monitoring only." });
+  }
+
+  if (domain === "vendors") {
+    const identity = identities.find((record) => record.identity_id === targetId) || null;
+    if (!identity) {
+      return jsonResponse({ ok: false, error: "identity_not_found", identity_id: targetId }, 404);
+    }
+    const nextAction = identity.portal_state === "live" ? "monitor_account" : "issue_vendor_access";
+    if (nextAction === "issue_vendor_access") {
+      return issueVendorAccess(
+        new Request("https://app.smajor.org/admin/api/issue-vendor-access", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            identity_id: identity.identity_id,
+            scope_id: body.scope_id || identity.scope_id || "vendor_scope_default",
+            vendor_class: body.vendor_class || "supplier",
+          }),
+        }),
+        env,
+      );
+    }
+    return jsonResponse({ ok: true, domain, identity_id: identity.identity_id, next_action: nextAction, message: "Vendor account already live. Monitoring only." });
+  }
+
+  const client = clients.find((record) => record.client_id === targetId) || null;
   if (!client) {
-    return jsonResponse({ ok: false, error: "client_not_found", client_id: clientId }, 404);
+    return jsonResponse({ ok: false, error: "client_not_found", client_id: targetId }, 404);
   }
   const identity = identities.find((record) => record.identity_id === client.identity_id) || null;
   const { nextAction, clientJobs } = deriveOperationalAction(client, identity, jobs, billing, events);
@@ -4771,6 +4824,7 @@ async function executeOperationalPlaybook(request, env) {
 
   return jsonResponse({
     ok: true,
+    domain,
     client_id: client.client_id,
     next_action: nextAction,
     message: "Account already live. Monitoring only.",
@@ -6110,6 +6164,7 @@ function operationalPlaybookSection(pathname, snapshot) {
     return {
       title: row.title,
       domain: "clients",
+      target_id: itemMap.client || "--",
       client_id: itemMap.client || "--",
       next_action: nextAction,
       guide: actionGuide[nextAction] || actionGuide.monitor_account,
@@ -6131,6 +6186,7 @@ function operationalPlaybookSection(pathname, snapshot) {
       return {
         title: identity.display_name || identity.identity_id,
         domain: "staff",
+        target_id: identity.identity_id,
         client_id: identity.identity_id,
         next_action: nextAction,
         guide:
@@ -6150,6 +6206,7 @@ function operationalPlaybookSection(pathname, snapshot) {
       return {
         title: identity.display_name || identity.identity_id,
         domain: "vendors",
+        target_id: identity.identity_id,
         client_id: identity.identity_id,
         next_action: nextAction,
         guide:
