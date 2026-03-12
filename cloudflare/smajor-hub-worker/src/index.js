@@ -2208,6 +2208,34 @@ function layout({
     `
     : "";
 
+  const operationalChainHtml = moduleSection && moduleSection.operationalChain
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Operational chain</div>
+            <h2>${moduleSection.operationalChain.title}</h2>
+          </div>
+          <p>${moduleSection.operationalChain.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.operationalChain.rows
+            .map(
+              (row) => `
+                <article class="module-card">
+                  <div class="label">${row.title}</div>
+                  <ul>
+                    ${row.items.map((item) => `<li>${item}</li>`).join("")}
+                  </ul>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
   const empireManifestHtml = moduleSection && moduleSection.empireManifest
     ? `
       <section class="module-panel">
@@ -3239,6 +3267,7 @@ function layout({
       ${portalActivationHtml}
       ${portalSeparationHtml}
       ${businessTimelineHtml}
+      ${operationalChainHtml}
       ${clientFormHtml}
       ${staffDashboardHtml}
       ${alphaPilotHtml}
@@ -5381,7 +5410,7 @@ function adminActionSection(pathname) {
     columns: [
       {
         label: "Read",
-        items: ["/admin/api/live-registries", "/admin/api/operator-roster", "/admin/api/business-timeline"],
+        items: ["/admin/api/live-registries", "/admin/api/operator-roster", "/admin/api/business-timeline", "/admin/api/operational-chain"],
       },
       {
         label: "Write",
@@ -5872,6 +5901,46 @@ function businessTimelineSection(pathname, snapshot) {
   };
 }
 
+function operationalChainSection(pathname, snapshot) {
+  if (pathname !== "/admin") {
+    return null;
+  }
+  const business = snapshot.admin?.liveRegistries || snapshot.business || {};
+  const clients = business.clients || business.clients?.records || [];
+  const jobs = business.jobs || business.jobs?.records || [];
+  const billing = business.quotes_invoices || business.quotes_invoices?.records || [];
+  const identities = business.identities || business.identities?.records || [];
+  const events = snapshot.admin?.businessTimeline?.records || business.events || [];
+
+  const rows = clients.slice(0, 8).map((client) => {
+    const identity = identities.find((item) => item.identity_id === client.identity_id) || null;
+    const clientJobs = jobs.filter((item) => item.client_id === client.client_id);
+    const clientBilling = billing.filter((item) => item.client_id === client.client_id);
+    const clientEvents = events.filter((item) => {
+      const metadata = item.metadata || {};
+      return item.subject_id === client.client_id || metadata.client_id === client.client_id || metadata.identity_id === client.identity_id;
+    });
+    return {
+      title: client.organization_name || client.client_id,
+      items: [
+        `client=${client.client_id}`,
+        `identity=${identity?.identity_id || client.identity_id || "--"}`,
+        `role=${identity?.role_id || client.role_id || "--"}`,
+        `jobs=${clientJobs.length}`,
+        `billing=${clientBilling.length}`,
+        `portal=${client.portal_state || identity?.portal_state || "--"}`,
+        `access_events=${clientEvents.length}`,
+      ],
+    };
+  });
+
+  return {
+    title: "Operational chain",
+    intro: "Vue chaine complete: identite, client, job, billing et acces sur une seule surface admin.",
+    rows,
+  };
+}
+
 function adminCommandKitSection(pathname) {
   if (!["/admin", "/ai"].includes(pathname)) {
     return null;
@@ -6001,6 +6070,7 @@ function renderApp(env, pathname, hostname, snapshot) {
     masterWallet: masterWalletSection(pathname, env, snapshot),
     registryWriteContract: registryWriteContractSection(pathname),
     businessTimeline: businessTimelineSection(pathname, snapshot),
+    operationalChain: operationalChainSection(pathname, snapshot),
     adminActions: adminActionSection(pathname),
   };
   if (registrySection) {
@@ -6189,6 +6259,21 @@ export default {
         return jsonResponse(snapshot.businessTimeline);
       } catch (error) {
         return jsonResponse({ ok: false, error: "admin_business_timeline_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/operational-chain") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      try {
+        const snapshot = await fetchAdminSnapshot(env);
+        return jsonResponse({
+          ok: true,
+          secure: true,
+          ...(operationalChainSection("/admin", snapshot) || { title: "Operational chain", rows: [] }),
+        });
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "admin_operational_chain_failed", detail: String(error?.message || error) }, 500);
       }
     }
 
@@ -6774,6 +6859,22 @@ export default {
         domain: "smajor.org",
         source_of_truth: "s25 runtime business registry + signed admin writes",
         ...(businessTimelineSection("/admin", snapshot) || { title: "Business timeline", rows: [] }),
+      });
+    }
+
+    if (url.pathname === "/models/operational-chain.json") {
+      const snapshot = {
+        admin: await fetchAdminSnapshot(env).catch((error) => ({
+          liveRegistries: {},
+          businessTimeline: { records: [] },
+          errors: [error?.message || "admin_snapshot_failed"],
+        })),
+      };
+      return jsonResponse({
+        ok: true,
+        domain: "smajor.org",
+        source_of_truth: "s25 runtime business registry + signed admin writes",
+        ...(operationalChainSection("/admin", snapshot) || { title: "Operational chain", rows: [] }),
       });
     }
 
