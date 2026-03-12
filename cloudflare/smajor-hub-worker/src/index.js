@@ -3427,7 +3427,7 @@ function layout({
       ${tradingLaneMetricsHtml}
       ${foundationHtml}
       ${registryWriteContractHtml}
-      ${moduleSection.organizationRegistry ? `
+      ${moduleSection && moduleSection.organizationRegistry ? `
       <section class="module-panel">
         <div class="section-head">
           <div>
@@ -3451,7 +3451,7 @@ function layout({
             .join("")}
         </div>
       </section>` : ""}
-      ${moduleSection.backendLedger ? `
+      ${moduleSection && moduleSection.backendLedger ? `
       <section class="module-panel">
         <div class="section-head">
           <div>
