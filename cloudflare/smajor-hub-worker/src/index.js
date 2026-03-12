@@ -1426,6 +1426,7 @@ const ADMIN_COMMAND_KIT_MODEL = {
         "GET /api/business/separation-architecture",
         "GET /api/business/admin-architecture",
         "GET /api/business/portal-separation",
+        "GET /admin/api/gemini-layer",
         "GET /admin/api/wallet-classes",
         "GET /admin/api/wallet-scopes",
         "GET /admin/api/wallet-policy-matrix",
@@ -1963,6 +1964,34 @@ function layout({
         </div>
         <div class="module-grid">
           ${moduleSection.adminArchitecture.columns
+            .map(
+              (column) => `
+                <article class="module-card">
+                  <div class="label">${column.label}</div>
+                  <ul>
+                    ${column.items.map((item) => `<li>${item}</li>`).join("")}
+                  </ul>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
+  const geminiLayerHtml = moduleSection && moduleSection.geminiLayer
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Gemini layer</div>
+            <h2>${moduleSection.geminiLayer.title}</h2>
+          </div>
+          <p>${moduleSection.geminiLayer.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.geminiLayer.columns
             .map(
               (column) => `
                 <article class="module-card">
@@ -3101,6 +3130,7 @@ function layout({
       ${masterWalletHtml}
       ${adminConsoleHtml}
       ${adminArchitectureHtml}
+      ${geminiLayerHtml}
       ${empireManifestHtml}
       ${totalMeshProtocolHtml}
       ${controlPlaneHtml}
@@ -3602,12 +3632,13 @@ async function fetchOpsSnapshot(env) {
 
 async function fetchAdminSnapshot(env) {
   const runtimeBase = env.DIRECT_RUNTIME_URL || env.PUBLIC_S25_URL;
-  const [memoryResult, walletsResult, treasuryResult, secretCustodyResult, secretFallbackResult] = await Promise.allSettled([
+  const [memoryResult, walletsResult, treasuryResult, secretCustodyResult, secretFallbackResult, geminiLayerResult] = await Promise.allSettled([
     fetchSecureJson(`${runtimeBase}/api/memory/state`, env),
     fetchJson(`${env.PUBLIC_API_URL}/api/business/wallets-custody`),
     fetchJson(`${env.PUBLIC_API_URL}/api/business/vaults-treasury`),
     fetchJson(`${env.PUBLIC_API_URL}/api/business/secret-custody`),
     fetchJson(`${env.PUBLIC_API_URL}/api/business/secret-fallback-policy`),
+    fetchJson(`${env.PUBLIC_API_URL}/api/business/gemini-layer`),
   ]);
   const registry = memoryResult.status === "fulfilled"
     ? memoryResult.value?.state?.intel?.business_registry || memoryResult.value?.state?.business || {}
@@ -3636,7 +3667,8 @@ async function fetchAdminSnapshot(env) {
     vaultsTreasury: treasuryResult.status === "fulfilled" ? treasuryResult.value : null,
     secretCustody: secretCustodyResult.status === "fulfilled" ? secretCustodyResult.value : null,
     secretFallbackPolicy: secretFallbackResult.status === "fulfilled" ? secretFallbackResult.value : null,
-    errors: [memoryResult, walletsResult, treasuryResult, secretCustodyResult, secretFallbackResult]
+    geminiLayer: geminiLayerResult.status === "fulfilled" ? geminiLayerResult.value : null,
+    errors: [memoryResult, walletsResult, treasuryResult, secretCustodyResult, secretFallbackResult, geminiLayerResult]
       .filter((result) => result.status === "rejected")
       .map((result) => result.reason?.message || "secure_memory_upstream_error"),
   };
@@ -5048,6 +5080,36 @@ function portalSeparationSection(pathname) {
   };
 }
 
+function geminiLayerSection(pathname, snapshot) {
+  if (!["/admin", "/ai", "/omega"].includes(pathname)) {
+    return null;
+  }
+  const gemini = snapshot.admin?.geminiLayer || {
+    title: "Gemini unified layer",
+    summary: "Gemini intelligence layer unavailable",
+    doctrine: [],
+    split: { intelligence_plane: { responsibilities: [] }, infrastructure_plane: { responsibilities: [] } },
+  };
+  return {
+    title: gemini.title,
+    intro: gemini.summary,
+    columns: [
+      {
+        label: gemini.split?.intelligence_plane?.title || "Intelligence plane",
+        items: gemini.split?.intelligence_plane?.responsibilities || [],
+      },
+      {
+        label: gemini.split?.infrastructure_plane?.title || "Infrastructure plane",
+        items: gemini.split?.infrastructure_plane?.responsibilities || [],
+      },
+      {
+        label: "Doctrine",
+        items: gemini.doctrine || [],
+      },
+    ],
+  };
+}
+
 function tradingShowroomSection(pathname) {
   if (!["/trade", "/ai", "/omega"].includes(pathname)) {
     return null;
@@ -5415,6 +5477,7 @@ function renderApp(env, pathname, hostname, snapshot) {
     clientConsole: clientConsoleSection(pathname, snapshot),
     staffConsole: staffConsoleSection(pathname, snapshot),
     portalSeparation: portalSeparationSection(pathname),
+    geminiLayer: geminiLayerSection(pathname, snapshot),
     adminCommandKit: adminCommandKitSection(pathname),
     agentActivation: agentActivationSection(pathname),
     agentServiceBindings: agentServiceBindingsSection(pathname),
@@ -5558,6 +5621,17 @@ export default {
         return jsonResponse(snapshot.secretFallbackPolicy || { ok: false, error: "secret_fallback_policy_unavailable" });
       } catch (error) {
         return jsonResponse({ ok: false, error: "admin_secret_fallback_policy_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/gemini-layer") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      try {
+        const snapshot = await fetchAdminSnapshot(env);
+        return jsonResponse(snapshot.geminiLayer || { ok: false, error: "gemini_layer_unavailable" });
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "admin_gemini_layer_failed", detail: String(error?.message || error) }, 500);
       }
     }
 
@@ -6003,6 +6077,20 @@ export default {
           summary: "Official map for front-end versus back-end separation.",
           frontend: [],
           backend: [],
+        },
+      );
+    }
+
+    if (url.pathname === "/models/gemini-layer.json") {
+      const payload = await fetchJson(`${env.PUBLIC_API_URL}/api/business/gemini-layer`).catch(() => null);
+      return jsonResponse(
+        payload || {
+          ok: true,
+          domain: "smajor.org",
+          source_of_truth: "api.smajor.org gemini layer",
+          title: "Gemini unified layer",
+          summary: "Gemini as intelligence plane, distinct from Google Cloud infrastructure.",
+          doctrine: [],
         },
       );
     }
