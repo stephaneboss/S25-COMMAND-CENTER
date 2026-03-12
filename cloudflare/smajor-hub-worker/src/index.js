@@ -2136,6 +2136,78 @@ function layout({
     `
     : "";
 
+  const vendorConsoleHtml = moduleSection && moduleSection.vendorConsole
+    ? `
+      <section class="blueprint-panel client-console-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Vendor session</div>
+            <h2>${moduleSection.vendorConsole.title}</h2>
+          </div>
+          <p>${moduleSection.vendorConsole.intro}</p>
+        </div>
+        <div class="admin-console-grid">
+          <article class="blueprint-card admin-console-main">
+            <div class="label">Vendor access token</div>
+            <label class="field-label" for="vendor-token">Vendor bearer token</label>
+            <input id="vendor-token" class="field-input" type="password" placeholder="Coller le token vendor emis par l'admin" />
+            <div class="action-row">
+              <button class="action-button" type="button" data-vendor-load="true">Load vendor dashboard</button>
+            </div>
+            <div class="label" style="margin-top:18px;">Vendor flow</div>
+            <ul class="stack-list">
+              ${moduleSection.vendorConsole.flow.map((item) => `<li>${item}</li>`).join("")}
+            </ul>
+          </article>
+          <article class="blueprint-card admin-console-main">
+            <div class="label">Vendor metrics</div>
+            <div class="metrics">
+              ${moduleSection.vendorConsole.metrics
+                .map(
+                  (metric) => `
+                    <div class="metric">
+                      <span>${metric.label}</span>
+                      <strong>${metric.value}</strong>
+                    </div>
+                  `,
+                )
+                .join("")}
+            </div>
+            <div class="label" style="margin-top:18px;">Dashboard surface</div>
+            <div class="pill-row">
+              ${moduleSection.vendorConsole.endpoints.map((item) => `<span class="pill">${item}</span>`).join("")}
+            </div>
+          </article>
+        </div>
+        <div class="admin-console-log">
+          <pre id="vendor-console-log">${moduleSection.vendorConsole.initialLog}</pre>
+        </div>
+      </section>
+    `
+    : "";
+
+  const businessTimelineHtml = moduleSection && moduleSection.businessTimeline
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Business timeline</div>
+            <h2>${moduleSection.businessTimeline.title}</h2>
+          </div>
+          <p>${moduleSection.businessTimeline.intro}</p>
+        </div>
+        <div class="module-grid">
+          <article class="module-card">
+            <div class="label">Recent events</div>
+            <ul class="stack-list">
+              ${moduleSection.businessTimeline.rows.map((row) => `<li><strong>${row.timestamp}</strong><br/>${row.title}<br/><span class="muted">${row.detail}</span></li>`).join("")}
+            </ul>
+          </article>
+        </div>
+      </section>
+    `
+    : "";
+
   const empireManifestHtml = moduleSection && moduleSection.empireManifest
     ? `
       <section class="module-panel">
@@ -3166,6 +3238,7 @@ function layout({
       ${identityRegistryHtml}
       ${portalActivationHtml}
       ${portalSeparationHtml}
+      ${businessTimelineHtml}
       ${clientFormHtml}
       ${staffDashboardHtml}
       ${alphaPilotHtml}
@@ -3178,6 +3251,7 @@ function layout({
       ${registryWriteContractHtml}
       ${clientConsoleHtml}
       ${staffConsoleHtml}
+      ${vendorConsoleHtml}
       ${internalOpsHtml}
       ${operatorAccountHtml}
       <div class="footer">Smajor est la facade. S25 Lumiere reste le backend central multi-agent.</div>
@@ -3201,6 +3275,10 @@ function layout({
           const staffLogNode = document.getElementById("staff-console-log");
           const staffLoadButton = document.querySelector("[data-staff-load='true']");
           const staffTokenStorageKey = "smajor_staff_token";
+          const vendorTokenInput = document.getElementById("vendor-token");
+          const vendorLogNode = document.getElementById("vendor-console-log");
+          const vendorLoadButton = document.querySelector("[data-vendor-load='true']");
+          const vendorTokenStorageKey = "smajor_vendor_token";
 
           const writeLog = (title, payload) => {
             if (!logNode) return;
@@ -3227,6 +3305,15 @@ function layout({
               typeof payload === "string" ? payload : JSON.stringify(payload, null, 2),
             ];
             staffLogNode.textContent = lines.join("\\n");
+          };
+
+          const writeVendorLog = (title, payload) => {
+            if (!vendorLogNode) return;
+            const lines = [
+              "[" + new Date().toISOString() + "] " + title,
+              typeof payload === "string" ? payload : JSON.stringify(payload, null, 2),
+            ];
+            vendorLogNode.textContent = lines.join("\\n");
           };
 
           const getSecret = () => {
@@ -3316,6 +3403,14 @@ function layout({
             }
           };
 
+          const hydrateVendorToken = () => {
+            if (!vendorTokenInput) return;
+            const stored = sessionStorage.getItem(vendorTokenStorageKey);
+            if (stored && !vendorTokenInput.value) {
+              vendorTokenInput.value = stored;
+            }
+          };
+
           const getClientToken = () => {
             if (!clientTokenInput) {
               throw new Error("client_token_input_missing");
@@ -3340,6 +3435,18 @@ function layout({
             return value;
           };
 
+          const getVendorToken = () => {
+            if (!vendorTokenInput) {
+              throw new Error("vendor_token_input_missing");
+            }
+            const value = vendorTokenInput.value.trim();
+            if (!value) {
+              throw new Error("vendor_token_missing");
+            }
+            sessionStorage.setItem(vendorTokenStorageKey, value);
+            return value;
+          };
+
           const loadClientAccount = async () => {
             const token = getClientToken();
             const response = await fetch("/clients/api/account", {
@@ -3359,6 +3466,22 @@ function layout({
           const loadStaffDashboard = async () => {
             const token = getStaffToken();
             const response = await fetch("/staff/api/dashboard", {
+              method: "GET",
+              headers: {
+                "accept": "application/json",
+                "authorization": "Bearer " + token,
+              },
+            });
+            const payload = await response.json().catch(() => ({ ok: false, error: "invalid_json" }));
+            if (!response.ok) {
+              throw new Error(JSON.stringify(payload, null, 2));
+            }
+            return payload;
+          };
+
+          const loadVendorDashboard = async () => {
+            const token = getVendorToken();
+            const response = await fetch("/vendors/api/dashboard", {
               method: "GET",
               headers: {
                 "accept": "application/json",
@@ -3412,6 +3535,18 @@ function layout({
             });
           }
 
+          if (vendorLoadButton) {
+            vendorLoadButton.addEventListener("click", async () => {
+              try {
+                writeVendorLog("Vendor dashboard", { state: "pending" });
+                const payload = await loadVendorDashboard();
+                writeVendorLog("Vendor dashboard ready", payload);
+              } catch (error) {
+                writeVendorLog("Vendor dashboard failed", String(error.message || error));
+              }
+            });
+          }
+
           forms.forEach((form) => {
             form.addEventListener("submit", async (event) => {
               event.preventDefault();
@@ -3438,6 +3573,7 @@ function layout({
           hydrateSecret();
           hydrateClientToken();
           hydrateStaffToken();
+          hydrateVendorToken();
           if (getToken()) {
             const meta = sessionStorage.getItem(sessionMetaKey);
             writeLog("Operator session restored", meta ? JSON.parse(meta) : { restored: true });
@@ -3447,6 +3583,9 @@ function layout({
           }
           if (sessionStorage.getItem(staffTokenStorageKey)) {
             writeStaffLog("Staff token restored", { restored: true });
+          }
+          if (sessionStorage.getItem(vendorTokenStorageKey)) {
+            writeVendorLog("Vendor token restored", { restored: true });
           }
         })();
       </script>
@@ -3679,6 +3818,7 @@ async function fetchAdminSnapshot(env) {
     jobs: Array.isArray(registry.jobs) ? registry.jobs : [],
     quotes_invoices: Array.isArray(registry.quotes_invoices) ? registry.quotes_invoices : [],
     identities: Array.isArray(registry.identities) ? registry.identities : [],
+    events: Array.isArray(registry.events) ? registry.events : [],
     last_write_at: registry.last_write_at || null,
   };
   const operatorRoster = {
@@ -3691,6 +3831,14 @@ async function fetchAdminSnapshot(env) {
   };
   return {
     liveRegistries: business,
+    businessTimeline: {
+      secure: true,
+      title: "Business timeline",
+      summary: "Audit trail vivant des creations, acces et ecritures du control plane.",
+      records: business.events,
+      total_events: business.events.length,
+      last_write_at: business.last_write_at,
+    },
     operatorRoster,
     walletsCustody: walletsResult.status === "fulfilled" ? walletsResult.value : null,
     vaultsTreasury: treasuryResult.status === "fulfilled" ? treasuryResult.value : null,
@@ -3709,6 +3857,7 @@ function buildRuntimeBusinessState(seed = {}) {
     jobs: Array.isArray(seed.jobs) ? seed.jobs : [],
     quotes_invoices: Array.isArray(seed.quotes_invoices) ? seed.quotes_invoices : [],
     identities: Array.isArray(seed.identities) ? seed.identities : [],
+    events: Array.isArray(seed.events) ? seed.events : [],
     last_write_at: seed.last_write_at || null,
   };
 }
@@ -3723,6 +3872,25 @@ async function readRuntimeBusinessState(env) {
 
 function createHubRecordId(prefix) {
   return `${prefix}-${crypto.randomUUID().slice(0, 8)}`;
+}
+
+function appendBusinessEvent(business, event) {
+  const auditEvent = {
+    event_id: createHubRecordId("event"),
+    event_type: event.event_type || "business_write",
+    lane: event.lane || "admin",
+    actor_type: event.actor_type || "operator",
+    actor_id: event.actor_id || "smajor_operator_console",
+    subject_type: event.subject_type || "record",
+    subject_id: event.subject_id || null,
+    collection: event.collection || null,
+    scope_id: event.scope_id || "governance_scope",
+    summary: event.summary || "Business event written",
+    created_at: event.created_at || new Date().toISOString(),
+    metadata: event.metadata || {},
+  };
+  business.events = [auditEvent, ...(business.events || [])].slice(0, 120);
+  return auditEvent;
 }
 
 function buildHubBusinessRecord(kind, body) {
@@ -3815,11 +3983,33 @@ async function handleHubBusinessCreate(request, env, kind) {
           : "quotes_invoices";
   business[collectionKey] = [record, ...(business[collectionKey] || [])];
   business.last_write_at = new Date().toISOString();
+  const subjectId =
+    record.client_id ||
+    record.job_id ||
+    record.identity_id ||
+    record.invoice_id ||
+    record.quote_id ||
+    null;
+  const event = appendBusinessEvent(business, {
+    event_type: `${kind}_created`,
+    lane: kind === "job" ? "operations" : kind === "identity" ? "identity" : kind === "quote" ? "billing" : "client",
+    subject_type: kind,
+    subject_id: subjectId,
+    collection: collectionKey,
+    scope_id: record.scope_id || record.dispatch_scope || "governance_scope",
+    summary: `${kind} ${subjectId || "record"} created`,
+    metadata: {
+      role_id: record.role_id || null,
+      badge_id: record.badge_id || null,
+      organization_id: record.organization_id || null,
+    },
+  });
   await writeRuntimeBusinessState(env, business);
   return {
     ok: true,
     kind,
     created: record,
+    event,
     collection: collectionKey,
     total_records: business[collectionKey].length,
     last_write_at: business.last_write_at,
@@ -3867,6 +4057,19 @@ async function handleHubClientPipelineCreate(request, env) {
   business.identities = [identityRecord, ...(business.identities || [])];
   business.clients = [clientRecord, ...(business.clients || [])];
   business.last_write_at = now;
+  const event = appendBusinessEvent(business, {
+    event_type: "client_pipeline_created",
+    lane: "client",
+    subject_type: "client_pipeline",
+    subject_id: clientRecord.client_id,
+    collection: "clients",
+    scope_id: clientRecord.scope_id,
+    summary: `Client pipeline created for ${clientRecord.organization_name}`,
+    metadata: {
+      identity_id: identityRecord.identity_id,
+      organization_id: organizationId,
+    },
+  });
   await writeRuntimeBusinessState(env, business);
 
   return {
@@ -3876,6 +4079,7 @@ async function handleHubClientPipelineCreate(request, env) {
       identity: identityRecord,
       client: clientRecord,
     },
+    event,
     collections: {
       identities: business.identities.length,
       clients: business.clients.length,
@@ -3954,6 +4158,22 @@ async function handleHubClientJobBillingCreate(request, env) {
   business.jobs = [jobRecord, ...(business.jobs || [])];
   business.quotes_invoices = [billingRecord, ...(business.quotes_invoices || [])];
   business.last_write_at = now;
+  const event = appendBusinessEvent(business, {
+    event_type: "client_job_billing_created",
+    lane: "operations",
+    subject_type: "job_billing_bundle",
+    subject_id: jobRecord.job_id,
+    collection: "jobs",
+    scope_id: clientRecord.scope_id,
+    summary: `Operational bundle created for ${clientRecord.organization_name}`,
+    metadata: {
+      client_id: clientRecord.client_id,
+      identity_id: identityRecord.identity_id,
+      quote_id: billingRecord.quote_id,
+      amount: billingRecord.amount,
+      currency: billingRecord.currency,
+    },
+  });
   await writeRuntimeBusinessState(env, business);
 
   return {
@@ -3965,6 +4185,7 @@ async function handleHubClientJobBillingCreate(request, env) {
       job: jobRecord,
       billing: billingRecord,
     },
+    event,
     collections: {
       identities: business.identities.length,
       clients: business.clients.length,
@@ -4160,6 +4381,42 @@ function buildStaffPortalSnapshot(business, access) {
   };
 }
 
+function buildVendorPortalSnapshot(business, access) {
+  const identity = (business.identities || []).find((record) => record.identity_id === access.identity_id) || null;
+  if (!identity) {
+    return null;
+  }
+  const vendorHints = ["vendor", "supply", "purchase", "delivery", "material", "rental"];
+  const billing = (business.quotes_invoices || []).filter((record) => {
+    const stage = String(record.billing_stage || "").toLowerCase();
+    return vendorHints.some((hint) => stage.includes(hint));
+  });
+  const jobs = (business.jobs || []).filter((record) => {
+    const equipment = Array.isArray(record.equipment_required) ? record.equipment_required.join(" ").toLowerCase() : "";
+    return vendorHints.some((hint) => equipment.includes(hint));
+  });
+  const events = (business.events || [])
+    .filter((event) => {
+      const summary = String(event.summary || "").toLowerCase();
+      return event.lane === "vendor" || vendorHints.some((hint) => summary.includes(hint));
+    })
+    .slice(0, 8);
+  return {
+    ok: true,
+    identity,
+    jobs,
+    billing,
+    events,
+    metrics: {
+      jobs_total: jobs.length,
+      billing_total: billing.length,
+      event_total: events.length,
+      scope_id: access.scope_id || "vendor_scope_default",
+    },
+    last_write_at: business.last_write_at || null,
+  };
+}
+
 async function issueClientAccess(request, env) {
   const body = await request.json().catch(() => ({}));
   const business = await readRuntimeBusinessState(env);
@@ -4185,12 +4442,28 @@ async function issueClientAccess(request, env) {
     exp: Date.now() + (1000 * 60 * 60 * 24 * 7),
   };
   const token = await signOperatorSession(payload, env);
+  const event = appendBusinessEvent(business, {
+    event_type: "client_access_issued",
+    lane: "client",
+    subject_type: "client_access",
+    subject_id: client.client_id,
+    collection: "clients",
+    scope_id: payload.scope_id,
+    summary: `Client access issued for ${client.organization_name}`,
+    metadata: {
+      identity_id: client.identity_id,
+      role_id: payload.role_id,
+    },
+  });
+  business.last_write_at = new Date().toISOString();
+  await writeRuntimeBusinessState(env, business);
   return jsonResponse({
     ok: true,
     session_type: "client_portal_bearer",
     client_id: client.client_id,
     organization_name: client.organization_name,
     token,
+    event,
     expires_at: new Date(payload.exp).toISOString(),
     portal_url: `${env.PUBLIC_APP_URL || "https://app.smajor.org"}/clients`,
   });
@@ -4225,15 +4498,104 @@ async function issueStaffAccess(request, env) {
     exp: Date.now() + (1000 * 60 * 60 * 24 * 3),
   };
   const token = await signOperatorSession(payload, env);
+  const event = appendBusinessEvent(business, {
+    event_type: "staff_access_issued",
+    lane: "staff",
+    subject_type: "staff_access",
+    subject_id: identity.identity_id,
+    collection: "identities",
+    scope_id: payload.scope_id,
+    summary: `Staff access issued for ${identity.display_name || identity.identity_id}`,
+    metadata: {
+      role_id: roleId,
+      assigned_team: payload.assigned_team,
+    },
+  });
+  business.last_write_at = new Date().toISOString();
+  await writeRuntimeBusinessState(env, business);
   return jsonResponse({
     ok: true,
     session_type: "staff_portal_bearer",
     identity_id: identity.identity_id,
     display_name: identity.display_name,
     token,
+    event,
     expires_at: new Date(payload.exp).toISOString(),
     portal_url: `${env.PUBLIC_APP_URL || "https://app.smajor.org"}/staff`,
   });
+}
+
+async function issueVendorAccess(request, env) {
+  const body = await request.json().catch(() => ({}));
+  const business = await readRuntimeBusinessState(env);
+  const identityId = body.identity_id;
+  if (!identityId) {
+    return jsonResponse({ ok: false, error: "identity_id_required" }, 400);
+  }
+  const identity = (business.identities || []).find((record) => record.identity_id === identityId) || null;
+  if (!identity) {
+    return jsonResponse({ ok: false, error: "identity_not_found", identity_id: identityId }, 404);
+  }
+  const roleId = identity.role_id || "vendor_contact";
+  const allowedRoles = ["vendor_manager", "vendor_contact", "executive_operator"];
+  if (!allowedRoles.includes(roleId)) {
+    return jsonResponse({ ok: false, error: "identity_not_vendor_eligible", role_id: roleId }, 400);
+  }
+  const payload = {
+    sub: identity.identity_id,
+    session_type: "vendor_portal",
+    identity_id: identity.identity_id,
+    organization_id: identity.organization_id,
+    role_id: roleId,
+    badge_id: identity.badge_id || "vendor_badge",
+    scope_id: body.scope_id || identity.scope_id || "vendor_scope_default",
+    vendor_class: body.vendor_class || "supplier",
+    issued_at: new Date().toISOString(),
+    exp: Date.now() + (1000 * 60 * 60 * 24 * 7),
+  };
+  const token = await signOperatorSession(payload, env);
+  const event = appendBusinessEvent(business, {
+    event_type: "vendor_access_issued",
+    lane: "vendor",
+    subject_type: "vendor_access",
+    subject_id: identity.identity_id,
+    collection: "identities",
+    scope_id: payload.scope_id,
+    summary: `Vendor access issued for ${identity.display_name || identity.identity_id}`,
+    metadata: {
+      role_id: roleId,
+      vendor_class: payload.vendor_class,
+    },
+  });
+  business.last_write_at = new Date().toISOString();
+  await writeRuntimeBusinessState(env, business);
+  return jsonResponse({
+    ok: true,
+    session_type: "vendor_portal_bearer",
+    identity_id: identity.identity_id,
+    display_name: identity.display_name,
+    token,
+    event,
+    expires_at: new Date(payload.exp).toISOString(),
+    portal_url: `${env.PUBLIC_APP_URL || "https://app.smajor.org"}/vendors`,
+  });
+}
+
+async function requireVendorAccess(request, env) {
+  const authHeader = request.headers.get("authorization") || "";
+  const bearer = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+  const verified = await verifyOperatorSession(bearer, env);
+  if (!verified.ok) {
+    return {
+      denied: jsonResponse({ ok: false, error: "vendor_access_required", detail: verified.error }, 401),
+    };
+  }
+  if (verified.payload.session_type !== "vendor_portal") {
+    return {
+      denied: jsonResponse({ ok: false, error: "vendor_access_invalid_session_type", session_type: verified.payload.session_type }, 403),
+    };
+  }
+  return { denied: null, payload: verified.payload };
 }
 
 async function requireClientAccess(request, env) {
@@ -4925,6 +5287,7 @@ function executiveReportSection(pathname, snapshot) {
           "admin=operator session signed",
           "clients=client bearer access live",
           "staff=staff bearer access live",
+          "vendors=vendor bearer access live",
           `operators=${operators.length}`,
         ],
       },
@@ -5018,11 +5381,11 @@ function adminActionSection(pathname) {
     columns: [
       {
         label: "Read",
-        items: ["/admin/api/live-registries", "/admin/api/operator-roster"],
+        items: ["/admin/api/live-registries", "/admin/api/operator-roster", "/admin/api/business-timeline"],
       },
       {
         label: "Write",
-        items: ["/admin/api/create-client", "/admin/api/create-job", "/admin/api/issue-invoice"],
+        items: ["/admin/api/create-client", "/admin/api/create-job", "/admin/api/issue-invoice", "/admin/api/issue-vendor-access"],
       },
       {
         label: "Rule",
@@ -5262,6 +5625,9 @@ function adminConsoleSection(pathname, snapshot) {
       "/admin/api/issue-invoice",
       "/admin/api/create-identity",
       "/admin/api/issue-client-access",
+      "/admin/api/issue-staff-access",
+      "/admin/api/issue-vendor-access",
+      "/admin/api/business-timeline",
       "/admin/api/wallets-custody",
       "/admin/api/vaults-treasury",
     ],
@@ -5339,6 +5705,18 @@ function adminConsoleSection(pathname, snapshot) {
           { name: "identity_id", label: "Identity id", placeholder: "ident-5a53ddda", required: true },
           { name: "assigned_team", label: "Assigned team", placeholder: "crew-north-01" },
           { name: "scope_id", label: "Scope id", placeholder: "field_scope_dispatch" },
+        ],
+      },
+      {
+        label: "Vendor access",
+        title: "Issue vendor portal access",
+        text: "Genere un bearer token vendor borne a une identite fournisseur et a un scope supply/billing.",
+        endpoint: "/admin/api/issue-vendor-access",
+        actionLabel: "Issue vendor access",
+        fields: [
+          { name: "identity_id", label: "Identity id", placeholder: "ident-vendor-001", required: true },
+          { name: "scope_id", label: "Scope id", placeholder: "vendor_scope_default" },
+          { name: "vendor_class", label: "Vendor class", placeholder: "supplier", value: "supplier" },
         ],
       },
       {
@@ -5433,6 +5811,64 @@ function clientConsoleSection(pathname, snapshot) {
       null,
       2,
     ),
+  };
+}
+
+function vendorConsoleSection(pathname, snapshot) {
+  if (pathname !== "/vendors") {
+    return null;
+  }
+  const business = snapshot.business || {};
+  const identities = business.identities?.records || [];
+  const jobs = business.jobs?.records || [];
+  const billing = business.quotes_invoices?.records || [];
+  const events = business.events?.records || [];
+  return {
+    title: "Vendor portal console",
+    intro: "Console legere pour charger un acces fournisseur signe, borne a l'identite vendor, a son scope et aux surfaces supply/billing visibles.",
+    metrics: [
+      { label: "Identites visibles", value: String(identities.length) },
+      { label: "Jobs supply", value: String(jobs.length) },
+      { label: "Billing supply", value: String(billing.length) },
+      { label: "Events", value: String(events.length) },
+      { label: "Mode", value: "Signed vendor access" },
+    ],
+    endpoints: [
+      "/vendors/api/dashboard",
+      "bearer token vendor requis",
+      "lecture limitee au scope supply",
+    ],
+    flow: [
+      "Recevoir un token vendor emis par l'admin.",
+      "Coller le token dans la session vendor.",
+      "Charger le dashboard supply, les jobs visibles et les flux billing rattaches.",
+      "Garder l'acces borne a l'identite fournisseur et a son scope.",
+    ],
+    initialLog: JSON.stringify(
+      {
+        mode: "vendor_portal_ready",
+        note: "Coller un token vendor signe puis charger le dashboard supply.",
+        sample_identity: identities.find((item) => String(item.role_id || "").includes("vendor"))?.identity_id || null,
+      },
+      null,
+      2,
+    ),
+  };
+}
+
+function businessTimelineSection(pathname, snapshot) {
+  if (pathname !== "/admin") {
+    return null;
+  }
+  const events = snapshot.admin?.businessTimeline?.records || snapshot.business?.events?.records || [];
+  return {
+    title: "Business timeline",
+    intro: "Audit trail vivant des creations, acces et ecritures. L'admin voit la chaine complete sans fouiller la memoire brute.",
+    rows: events.slice(0, 12).map((event) => ({
+      title: event.summary,
+      detail: `${event.event_type} | ${event.lane} | ${event.subject_type} | ${event.subject_id || "--"}`,
+      timestamp: event.created_at || "--",
+    })),
   };
 }
 
@@ -5553,6 +5989,7 @@ function renderApp(env, pathname, hostname, snapshot) {
     adminArchitecture: adminArchitectureSection(pathname),
     clientConsole: clientConsoleSection(pathname, snapshot),
     staffConsole: staffConsoleSection(pathname, snapshot),
+    vendorConsole: vendorConsoleSection(pathname, snapshot),
     portalSeparation: portalSeparationSection(pathname),
     geminiLayer: geminiLayerSection(pathname, snapshot),
     adminCommandKit: adminCommandKitSection(pathname),
@@ -5563,6 +6000,7 @@ function renderApp(env, pathname, hostname, snapshot) {
     foundationStack: foundationStackSection(pathname),
     masterWallet: masterWalletSection(pathname, env, snapshot),
     registryWriteContract: registryWriteContractSection(pathname),
+    businessTimeline: businessTimelineSection(pathname, snapshot),
     adminActions: adminActionSection(pathname),
   };
   if (registrySection) {
@@ -5743,6 +6181,17 @@ export default {
       }
     }
 
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/business-timeline") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      try {
+        const snapshot = await fetchAdminSnapshot(env);
+        return jsonResponse(snapshot.businessTimeline);
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "admin_business_timeline_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
     if (hostname === "app.smajor.org" && url.pathname === "/admin/api/session") {
       if (request.method !== "POST") {
         return jsonResponse({ ok: false, error: "method_not_allowed" }, 405);
@@ -5828,6 +6277,19 @@ export default {
       }
     }
 
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/issue-vendor-access") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      if (request.method !== "POST") {
+        return jsonResponse({ ok: false, error: "method_not_allowed" }, 405);
+      }
+      try {
+        return await issueVendorAccess(request, env);
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "admin_issue_vendor_access_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
     if (hostname === "app.smajor.org" && url.pathname === "/admin/api/issue-invoice") {
       const denied = await requireOperatorAccess(request, env);
       if (denied) return denied;
@@ -5904,6 +6366,33 @@ export default {
         });
       } catch (error) {
         return jsonResponse({ ok: false, error: "staff_dashboard_read_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/vendors/api/dashboard") {
+      const access = await requireVendorAccess(request, env);
+      if (access.denied) return access.denied;
+      try {
+        const business = await readRuntimeBusinessState(env);
+        const snapshot = buildVendorPortalSnapshot(business, access.payload);
+        if (!snapshot) {
+          return jsonResponse({ ok: false, error: "vendor_snapshot_not_found", identity_id: access.payload.identity_id }, 404);
+        }
+        return jsonResponse({
+          ok: true,
+          session: {
+            identity_id: access.payload.identity_id,
+            organization_id: access.payload.organization_id,
+            role_id: access.payload.role_id,
+            badge_id: access.payload.badge_id,
+            scope_id: access.payload.scope_id,
+            vendor_class: access.payload.vendor_class,
+            expires_at: new Date(access.payload.exp).toISOString(),
+          },
+          dashboard: snapshot,
+        });
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "vendor_dashboard_read_failed", detail: String(error?.message || error) }, 500);
       }
     }
 
@@ -6270,6 +6759,21 @@ export default {
         domain: "smajor.org",
         source_of_truth: "api.smajor.org staff dashboard facade + staff portal",
         ...STAFF_DASHBOARD_MODEL,
+      });
+    }
+
+    if (url.pathname === "/models/business-timeline.json") {
+      const snapshot = {
+        admin: await fetchAdminSnapshot(env).catch((error) => ({
+          businessTimeline: { records: [] },
+          errors: [error?.message || "admin_snapshot_failed"],
+        })),
+      };
+      return jsonResponse({
+        ok: true,
+        domain: "smajor.org",
+        source_of_truth: "s25 runtime business registry + signed admin writes",
+        ...(businessTimelineSection("/admin", snapshot) || { title: "Business timeline", rows: [] }),
       });
     }
 
