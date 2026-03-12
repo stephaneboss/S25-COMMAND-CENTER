@@ -1,6 +1,6 @@
 # ============================================================
 # S25 LUMIERE - Akash Deployment SDL v2
-# Image: ghcr.io/stephaneboss/s25-command-center@sha256:53c239b736a88ddf326350b8f975a275ee9092c0e2513a375c541618ba66e974
+# Image: ghcr.io/stephaneboss/s25-command-center@sha256:9f2201fd2abcb4ebba4abd4b5f9f020d0ea227619200ef55e0113adf1c6eb8ba
 # Auto-built by GitHub Actions on every push to main
 # Prod cockpit with TRINITY + memory routes
 # ============================================================
@@ -9,7 +9,7 @@ version: "2.0"
 
 services:
   s25-cockpit:
-    image: ghcr.io/stephaneboss/s25-command-center@sha256:53c239b736a88ddf326350b8f975a275ee9092c0e2513a375c541618ba66e974
+    image: ghcr.io/stephaneboss/s25-command-center@sha256:9f2201fd2abcb4ebba4abd4b5f9f020d0ea227619200ef55e0113adf1c6eb8ba
     expose:
       - port: 7777
         as: 80
