@@ -1286,11 +1286,18 @@ async function deriveTradingLaneMetrics(requestId, env) {
     fetchOriginJson("/api/status", env, requestId).catch(() => fetchPublicRuntimeJson("/api/status", env, requestId)),
     fetchOriginJson("/api/missions", env, requestId).catch(() => fetchPublicRuntimeJson("/api/missions", env, requestId)),
   ]);
-  const statePayload = memoryResult.status === "fulfilled" ? memoryResult.value : { state: { agents: {}, trading: {} } };
+  const statePayload = memoryResult.status === "fulfilled" ? memoryResult.value : { state: { agents: {}, trading: {}, intel: {} } };
   const statusPayload = statusResult.status === "fulfilled" ? statusResult.value : {};
   const missionsPayload = missionsResult.status === "fulfilled" ? missionsResult.value : { active: [] };
   const agents = statePayload?.state?.agents || {};
-  const tradingState = statePayload?.state?.trading || {};
+  const rootTradingState = statePayload?.state?.trading;
+  const intelTradingState = statePayload?.state?.intel?.trading_runtime;
+  const tradingState =
+    rootTradingState && Object.keys(rootTradingState).length > 0
+      ? rootTradingState
+      : intelTradingState && Object.keys(intelTradingState).length > 0
+        ? intelTradingState
+        : {};
   const activeMissions = Array.isArray(missionsPayload?.active) ? missionsPayload.active : [];
   const laneMap = [
     {
@@ -1326,6 +1333,15 @@ async function deriveTradingLaneMetrics(requestId, env) {
     }));
     const online_count = memberStates.filter((member) => !["offline", "unknown"].includes(member.status)).length;
     const laneMissions = activeMissions.filter((mission) => lane.members.includes(mission.target));
+    const runtimeState = laneRuntime.live_state || laneRuntime.desired_state || null;
+    const liveState =
+      runtimeState === "online"
+        ? "online"
+        : runtimeState === "active"
+          ? "armed"
+          : online_count > 0
+            ? "online"
+            : "standby";
     return {
       lane_id: lane.lane_id,
       online_count,
@@ -1333,7 +1349,7 @@ async function deriveTradingLaneMetrics(requestId, env) {
       mission_count: laneMissions.length,
       headline: laneRuntime.headline || lane.headline,
       members: memberStates,
-      live_state: online_count > 0 ? "online" : "standby",
+      live_state: liveState,
       last_sync: laneRuntime.last_sync || tradingState.last_sync || null,
     };
   });
