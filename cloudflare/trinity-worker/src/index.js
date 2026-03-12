@@ -246,8 +246,11 @@ const BUSINESS_EMPIRE_MANIFEST = {
     `${BUSINESS_PREFIX}/wallet-classes`,
     `${BUSINESS_PREFIX}/wallet-scopes`,
     `${BUSINESS_PREFIX}/wallet-policy-matrix`,
+    `${BUSINESS_PREFIX}/secret-custody`,
+    `${BUSINESS_PREFIX}/secret-fallback-policy`,
     `${BUSINESS_PREFIX}/secure/live-registries`,
     `${BUSINESS_PREFIX}/secure/wallets-custody`,
+    `${BUSINESS_PREFIX}/secure/secret-custody`,
     `${BUSINESS_PREFIX}/secure/operator-roster`,
     `${BUSINESS_PREFIX}/secure/alpha-client`,
     `${BUSINESS_PREFIX}/secure/billing-tunnel`,
@@ -476,6 +479,8 @@ const BUSINESS_REGISTRY_MAP = {
     { key: "wallet_classes", path: `${BUSINESS_PREFIX}/wallet-classes`, purpose: "Wallet classes for creator, treasury, trading, ops and mirror lanes" },
     { key: "wallet_scopes", path: `${BUSINESS_PREFIX}/wallet-scopes`, purpose: "Scope map for wallet territories and restrictions" },
     { key: "wallet_policy_matrix", path: `${BUSINESS_PREFIX}/wallet-policy-matrix`, purpose: "Policy matrix for custody, execution and audit" },
+    { key: "secret_custody", path: `${BUSINESS_PREFIX}/secret-custody`, purpose: "Primary and fallback custody chain for critical secrets" },
+    { key: "secret_fallback_policy", path: `${BUSINESS_PREFIX}/secret-fallback-policy`, purpose: "Fallback order if Google Secret Manager is offline" },
     { key: "internal_ops", path: `${BUSINESS_PREFIX}/internal-ops`, purpose: "Public operating summary for Smajor internal account" },
     { key: "empire_manifest", path: `${BUSINESS_PREFIX}/empire-manifest`, purpose: "Unified manifest of domains, towers, registries and command chain" },
     { key: "total_mesh_protocol", path: `${BUSINESS_PREFIX}/total-mesh-protocol`, purpose: "Protocol de synchronisation totale des agents vers le hub" },
@@ -999,6 +1004,94 @@ function deriveWalletPolicyMatrix() {
   };
 }
 
+function deriveSecretCustodyRegistry() {
+  return {
+    title: "Secret custody registry",
+    summary: "Registre de custody des secrets critiques pour que Google ne soit jamais un point unique de panne.",
+    doctrine: [
+      "Google Secret Manager reste le coffre primaire.",
+      "Le vault local chiffre sert de reprise operateur.",
+      "Le bundle synchronise chiffre sert de reprise multi-machine.",
+      "Le break-glass hors ligne reste reserve aux cas de catastrophe.",
+      "Aucun secret brut n'est expose dans la facade publique.",
+    ],
+    records: [
+      {
+        secret_id: "s25-shared-secret",
+        class_id: "core_runtime_secret",
+        primary_custody: "google_secret_manager",
+        fallback_chain: ["local_keyring_vault", "encrypted_sync_bundle", "break_glass_offline"],
+        rotation_mode: "manual_controlled",
+        exposed_publicly: false,
+      },
+      {
+        secret_id: "gemini-api-key",
+        class_id: "provider_secret",
+        primary_custody: "google_secret_manager",
+        fallback_chain: ["local_keyring_vault", "encrypted_sync_bundle"],
+        rotation_mode: "provider_rotation",
+        exposed_publicly: false,
+      },
+      {
+        secret_id: "s25-master-seed",
+        class_id: "wallet_root_secret",
+        primary_custody: "google_secret_manager",
+        fallback_chain: ["local_keyring_vault", "break_glass_offline"],
+        rotation_mode: "exception_only",
+        exposed_publicly: false,
+      },
+    ],
+  };
+}
+
+function deriveSecretFallbackPolicy() {
+  return {
+    title: "Secret fallback policy",
+    summary: "Ordre officiel de reprise si Google tombe ou si le runtime doit survivre en mode degrade.",
+    fallback_order: [
+      {
+        step: 1,
+        source: "google_secret_manager",
+        mode: "primary",
+        status: "active",
+        use_case: "production standard",
+      },
+      {
+        step: 2,
+        source: "local_keyring_vault",
+        mode: "operator_recovery",
+        status: "armed",
+        use_case: "poste operateur ou bootstrap manuel",
+      },
+      {
+        step: 3,
+        source: "encrypted_sync_bundle",
+        mode: "cross_machine_recovery",
+        status: "armed",
+        use_case: "reprise multi-machine synchronisee",
+      },
+      {
+        step: 4,
+        source: "break_glass_offline",
+        mode: "catastrophic_recovery",
+        status: "sealed",
+        use_case: "catastrophe seulement",
+      },
+    ],
+    guardrails: [
+      "policy_no_secret_in_public_facade",
+      "policy_operator_session_required",
+      "policy_break_glass_is_manual",
+      "policy_full_audit_before_trading",
+    ],
+    runtime_contract: {
+      s25_runtime: "reads public status only, never raw secret values",
+      operator_console: "may trigger secure reads with operator authorization",
+      mirror_fleet: "loads bootstrap secrets from primary custody and falls back by policy",
+    },
+  };
+}
+
 function findInternalOpsClient(business) {
   return (business.clients || []).find(
     (record) =>
@@ -1357,6 +1450,12 @@ function handleBusinessRequest(request, pathname, requestId, env) {
   if (pathname === `${BUSINESS_PREFIX}/wallet-policy-matrix`) {
     return businessResponse(requestId, pathname, deriveWalletPolicyMatrix());
   }
+  if (pathname === `${BUSINESS_PREFIX}/secret-custody`) {
+    return businessResponse(requestId, pathname, deriveSecretCustodyRegistry());
+  }
+  if (pathname === `${BUSINESS_PREFIX}/secret-fallback-policy`) {
+    return businessResponse(requestId, pathname, deriveSecretFallbackPolicy());
+  }
   if (pathname === `${BUSINESS_PREFIX}/internal-ops`) {
     return readBusinessState(env, requestId).then((business) =>
       businessResponse(requestId, pathname, deriveInternalOpsSummary(business)),
@@ -1393,6 +1492,15 @@ function handleBusinessRequest(request, pathname, requestId, env) {
         ...registry,
       }),
     );
+  }
+  if (pathname === `${BUSINESS_PREFIX}/secure/secret-custody`) {
+    const denied = requireBusinessSecret(request, env, requestId, pathname);
+    if (denied) return denied;
+    return businessResponse(requestId, pathname, {
+      secure: true,
+      ...deriveSecretCustodyRegistry(),
+      fallback_policy: deriveSecretFallbackPolicy(),
+    });
   }
   if (pathname === `${BUSINESS_PREFIX}/secure/operator-roster`) {
     const denied = requireBusinessSecret(request, env, requestId, pathname);
