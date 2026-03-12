@@ -17,6 +17,7 @@ anthropic>=0.40.0
 # Crypto/Trading
 python-binance>=1.0.19
 ccxt>=4.3.0
+cosmospy>=6.0.0
 
 # System Monitoring
 psutil>=5.9.0
