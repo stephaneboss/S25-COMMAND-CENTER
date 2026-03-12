@@ -33,6 +33,100 @@ ALLOW_PUBLIC_ACTIONS = os.getenv("ALLOW_PUBLIC_ACTIONS", "true").lower() in {"1"
 PUBLIC_RUNTIME_BASE = os.getenv("PUBLIC_RUNTIME_BASE", "https://s25.smajor.org")
 gouv4_router = GOUV4Router()
 
+AGENT_ROSTER_TEMPLATE = {
+    "TRINITY": {
+        "status": "online",
+        "last_seen": None,
+        "last_intent": None,
+        "session_count": 0,
+        "notes": "Vocal controller teste. Memoire persistante via /api/memory",
+    },
+    "ARKON": {
+        "status": "online",
+        "last_seen": None,
+        "last_task": None,
+        "notes": "Claude Code - builder principal",
+    },
+    "MERLIN": {
+        "status": "online",
+        "last_seen": None,
+        "last_query": None,
+        "notes": "Gemini validateur",
+    },
+    "COMET": {
+        "status": "online",
+        "last_seen": None,
+        "last_report": None,
+        "notes": "Perplexity watchman - comet_bridge.py v2.1",
+    },
+    "GOUV4": {
+        "status": "online",
+        "last_seen": None,
+        "last_task": None,
+        "notes": "Policy and routing core",
+    },
+    "KIMI": {
+        "status": "standby",
+        "last_seen": None,
+        "last_scan": None,
+        "notes": "Web3 sensor lane; tunnel still lateral",
+    },
+    "ORACLE": {
+        "status": "online",
+        "last_seen": None,
+        "last_report": None,
+        "notes": "Prix multi-source et verification d'integrite",
+    },
+    "ONCHAIN_GUARDIAN": {
+        "status": "standby",
+        "last_seen": None,
+        "last_report": None,
+        "notes": "Defense on-chain, rugs, whales, LP risk",
+    },
+    "TREASURY": {
+        "status": "online",
+        "last_seen": None,
+        "last_task": None,
+        "notes": "Treasury and custody supervision",
+    },
+    "PROVIDER_WATCH": {
+        "status": "online",
+        "last_seen": None,
+        "last_report": None,
+        "notes": "Provider watch and release tracking",
+    },
+    "MERLIN_MCP": {
+        "status": "online",
+        "last_seen": None,
+        "last_task": None,
+        "notes": "Remote MCP bridge for Gemini validation",
+    },
+    "DEFI_LIQUIDITY_MANAGER": {
+        "status": "standby",
+        "last_seen": None,
+        "last_task": None,
+        "notes": "DeFi liquidity orchestration lane",
+    },
+    "CODE_VALIDATOR": {
+        "status": "online",
+        "last_seen": None,
+        "last_task": None,
+        "notes": "Validation gate for code and releases",
+    },
+    "SMART_REFACTOR": {
+        "status": "online",
+        "last_seen": None,
+        "last_task": None,
+        "notes": "Refactor and cleanup lane",
+    },
+    "AUTO_DOCUMENTER": {
+        "status": "online",
+        "last_seen": None,
+        "last_task": None,
+        "notes": "Docs and memory upkeep",
+    },
+}
+
 
 def _utcnow_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -46,51 +140,7 @@ def _default_agents_state() -> dict:
             "version": "1.1.0",
             "updated_at": None,
         },
-        "agents": {
-            "TRINITY": {
-                "status": "online",
-                "last_seen": None,
-                "last_intent": None,
-                "session_count": 0,
-                "notes": "Vocal controller teste. Memoire persistante via /api/memory",
-            },
-            "ARKON": {
-                "status": "online",
-                "last_seen": None,
-                "last_task": None,
-                "notes": "Claude Code - builder principal",
-            },
-            "MERLIN": {
-                "status": "online",
-                "last_seen": None,
-                "last_query": None,
-                "notes": "Gemini validateur",
-            },
-            "COMET": {
-                "status": "online",
-                "last_seen": None,
-                "last_report": None,
-                "notes": "Perplexity watchman - comet_bridge.py v2.1",
-            },
-            "KIMI": {
-                "status": "standby",
-                "last_seen": None,
-                "last_scan": None,
-                "notes": "Tunnel cloudflare requis pour activation",
-            },
-            "ORACLE": {
-                "status": "standby",
-                "last_seen": None,
-                "last_report": None,
-                "notes": "Prix multi-source et verification d'integrite",
-            },
-            "ONCHAIN_GUARDIAN": {
-                "status": "standby",
-                "last_seen": None,
-                "last_report": None,
-                "notes": "Defense on-chain, rugs, whales, LP risk",
-            },
-        },
+        "agents": json.loads(json.dumps(AGENT_ROSTER_TEMPLATE)),
         "pipeline": {
             "mode": "dry_run",
             "active_model": "INIT",
@@ -173,6 +223,61 @@ def _ensure_state_shape(state: dict | None) -> dict:
                     for leaf_key, leaf_value in nested_value.items():
                         state[key][nested_key].setdefault(leaf_key, leaf_value)
 
+    return state
+
+
+def _refresh_runtime_defaults(state: dict) -> dict:
+    agents = state.setdefault("agents", {})
+    for agent_id, template in AGENT_ROSTER_TEMPLATE.items():
+        agent_state = agents.setdefault(agent_id, {})
+        for key, value in template.items():
+            agent_state.setdefault(key, value)
+
+    pipeline = state.setdefault("pipeline", {})
+    runtime_bridge = state.setdefault("runtime_bridge", {})
+    business = state.setdefault("business", {})
+    trading = state.setdefault("trading", {})
+    intel = state.setdefault("intel", {})
+
+    online_agents = sum(
+        1 for details in agents.values()
+        if str(details.get("status", "")).lower() == "online"
+    )
+    direct_linked = runtime_bridge.get("bridge_state") == "direct_runtime_linked"
+
+    if online_agents >= 8:
+        pipeline["mode"] = "mesh_live"
+        pipeline.setdefault("active_model", "S25_DIRECT")
+    if direct_linked and not pipeline.get("last_signal"):
+        pipeline["last_signal"] = {
+            "action": "READY",
+            "confidence": max(int(online_agents * 5), 55),
+            "source": "runtime_bridge",
+            "ts": _utcnow_iso(),
+        }
+
+    trading.setdefault("policy_state", "audit_first")
+    trading.setdefault("mode", "showroom")
+    trading.setdefault("lanes", {})
+    for lane_id, headline in {
+        "signal_lane": "READY",
+        "risk_lane": "MESH_READY",
+        "treasury_lane": "treasury online",
+        "execution_lane": "mirror wallet armed",
+    }.items():
+        trading["lanes"].setdefault(lane_id, {}).setdefault("headline", headline)
+
+    business.setdefault("clients", [])
+    business.setdefault("identities", [])
+    business.setdefault("jobs", [])
+    business.setdefault("quotes_invoices", [])
+    business.setdefault("last_write_at", None)
+
+    intel.setdefault("comet_feed", [])
+    intel.setdefault("merlin_feedback", {
+        "ts": _utcnow_iso(),
+        "summary": "Runtime bridge linked. Awaiting next MERLIN loop refresh.",
+    })
     return state
 
 
@@ -394,6 +499,7 @@ def _hydrate_status_from_memory(status: dict) -> dict:
     feed = state.get("intel", {}).get("comet_feed", [])
     market = state.get("market", {})
     agents = state.get("agents", {})
+    runtime_bridge = _runtime_bridge_snapshot(state)
     online_agents = sum(
         1 for details in agents.values()
         if str(details.get("status", "")).lower() == "online"
@@ -414,6 +520,8 @@ def _hydrate_status_from_memory(status: dict) -> dict:
         status["pipeline_status"] = active_model
     elif missions and online_agents >= 3:
         status["pipeline_status"] = "MESH_READY"
+    elif runtime_bridge.get("bridge_state") == "direct_runtime_linked" and online_agents >= 5:
+        status["pipeline_status"] = "MESH_READY"
     elif pipeline_mode:
         status["pipeline_status"] = pipeline_mode.upper()
 
@@ -421,6 +529,8 @@ def _hydrate_status_from_memory(status: dict) -> dict:
         status["comet_intel"] = feed[0].get("summary", status.get("comet_intel"))
     elif missions:
         status["comet_intel"] = missions[0].get("intent", status.get("comet_intel"))
+    elif runtime_bridge.get("bridge_state") == "direct_runtime_linked":
+        status["comet_intel"] = "Runtime bridge direct linked."
 
     kimi_status = agents.get("KIMI", {}).get("status")
     status["tunnel_active"] = bool(status.get("tunnel_active")) or kimi_status == "online"
@@ -469,7 +579,10 @@ def _hydrate_status_from_memory(status: dict) -> dict:
 
     # When the mesh is alive but ARKON has not emitted a fresh trade signal yet,
     # surface readiness instead of stale INIT/HOLD defaults.
-    if not last_signal and missions and online_agents >= 3:
+    if not last_signal and runtime_bridge.get("bridge_state") == "direct_runtime_linked" and online_agents >= 5:
+        status["arkon5_action"] = "READY"
+        status["arkon5_conf"] = max(int(status.get("arkon5_conf") or 0), min(online_agents * 6, 75))
+    elif not last_signal and missions and online_agents >= 3:
         status["arkon5_action"] = "READY"
         status["arkon5_conf"] = max(int(status.get("arkon5_conf") or 0), min(online_agents * 10, 60))
     elif not last_signal and online_agents >= 3:
@@ -1130,14 +1243,14 @@ def _load_agents_state() -> dict:
     """Charge agents_state.json depuis disque."""
     try:
         if AGENTS_STATE_FILE.exists():
-            return _ensure_state_shape(json.loads(AGENTS_STATE_FILE.read_text(encoding="utf-8")))
+            return _refresh_runtime_defaults(_ensure_state_shape(json.loads(AGENTS_STATE_FILE.read_text(encoding="utf-8"))))
     except Exception:
         pass
-    return _ensure_state_shape({})
+    return _refresh_runtime_defaults(_ensure_state_shape({}))
 
 def _save_agents_state(state: dict):
     """Sauvegarde agents_state.json sur disque."""
-    state = _ensure_state_shape(state)
+    state = _refresh_runtime_defaults(_ensure_state_shape(state))
     state.setdefault("_meta", {})["updated_at"] = _utcnow_iso()
     AGENTS_STATE_FILE.write_text(json.dumps(state, indent=2, ensure_ascii=False), encoding="utf-8")
 
