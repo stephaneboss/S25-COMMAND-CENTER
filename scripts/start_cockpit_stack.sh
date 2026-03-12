@@ -3,6 +3,23 @@ set -eu
 
 echo "[S25] starting cockpit stack"
 
+bootstrap_google_secrets() {
+  env_file="${S25_BOOTSTRAP_ENV_PATH:-/tmp/s25-bootstrap.env}"
+  echo "[S25] bootstrapping google secret manager bundle -> ${env_file}"
+  python -m agents.google_secret_manager_bootstrap \
+    --project-id "${GOOGLE_CLOUD_PROJECT}" \
+    --output "${env_file}"
+  set -a
+  # shellcheck disable=SC1090
+  . "${env_file}"
+  set +a
+  echo "[S25] google secret manager bundle loaded"
+}
+
+if [ "${S25_BOOTSTRAP_GOOGLE_SECRETS:-false}" = "true" ]; then
+  bootstrap_google_secrets
+fi
+
 if [ "${RUN_ORACLE_AGENT:-false}" = "true" ]; then
   echo "[S25] starting oracle-agent"
   python -m agents.oracle_agent &
