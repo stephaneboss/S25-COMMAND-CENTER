@@ -4287,8 +4287,10 @@ function masterWalletSection(pathname, env, snapshot) {
     return null;
   }
   const status = snapshot.status || {};
-  const walletAddress = env.MASTER_WALLET_ADDRESS || "unconfigured";
+  const walletAddress = status.wallet_creator_address || env.MASTER_WALLET_ADDRESS || "unconfigured";
   const walletLabel = env.MASTER_WALLET_LABEL || "Wallet master";
+  const walletConnected = status.wallet_creator_connected != null ? Boolean(status.wallet_creator_connected) : Boolean(walletAddress && walletAddress !== "unconfigured");
+  const walletCustody = status.wallet_custody || "google_secret_manager";
   return {
     title: "Master wallet status",
     intro: "Adresse publique du wallet creator et connexion live au cockpit S25.",
@@ -4298,7 +4300,7 @@ function masterWalletSection(pathname, env, snapshot) {
         items: [
           walletAddress,
           `prefix=akash`,
-          `public_only=true`,
+          `connected=${walletConnected ? "true" : "false"}`,
         ],
       },
       {
@@ -4312,6 +4314,7 @@ function masterWalletSection(pathname, env, snapshot) {
       {
         label: "Runtime",
         items: [
+          `custody=${walletCustody}`,
           `signal=${status.arkon5_action || "--"}`,
           `tunnel=${status.system?.tunnel || (status.tunnel_active ? "online" : "offline")}`,
           `ha=${status.ha_connected ? "linked" : "off"}`,
@@ -4323,7 +4326,9 @@ function masterWalletSection(pathname, env, snapshot) {
       label: walletLabel,
       wallet_address: walletAddress,
       wallet_prefix: "akash",
-      source_of_truth: "Google Secret Manager -> derived public address",
+      creator_connected: walletConnected,
+      custody: walletCustody,
+      source_of_truth: "S25 Lumiere runtime status + Google Secret Manager derived public address",
       s25_connection: {
         pipeline_status: status.pipeline_status || "unknown",
         mesh_agents_online: status.mesh_agents_online ?? null,
