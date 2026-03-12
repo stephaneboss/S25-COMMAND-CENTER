@@ -2376,6 +2376,34 @@ function layout({
     `
     : "";
 
+  const organizationTreasuryHtml = moduleSection && moduleSection.organizationTreasury
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Organization treasury</div>
+            <h2>${moduleSection.organizationTreasury.title}</h2>
+          </div>
+          <p>${moduleSection.organizationTreasury.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.organizationTreasury.rows
+            .map(
+              (row) => `
+                <article class="module-card">
+                  <div class="label">${row.title}</div>
+                  <ul>
+                    ${row.items.map((item) => `<li>${item}</li>`).join("")}
+                  </ul>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
   const operationalChainHtml = moduleSection && moduleSection.operationalChain
     ? `
       <section class="module-panel">
@@ -3472,6 +3500,7 @@ function layout({
       ${portalSeparationHtml}
       ${organizationRegistryHtml}
       ${backendLedgerHtml}
+      ${organizationTreasuryHtml}
       ${businessTimelineHtml}
       ${operationalChainHtml}
       ${operationalPlaybookHtml}
@@ -4084,7 +4113,7 @@ async function fetchOpsSnapshot(env) {
 
 async function fetchAdminSnapshot(env) {
   const runtimeBase = env.DIRECT_RUNTIME_URL || env.PUBLIC_S25_URL;
-  const [memoryResult, walletsResult, treasuryResult, secretCustodyResult, secretFallbackResult, geminiLayerResult, tradingLaneMetricsResult, backendFoundationResult, backendCoreResult, trinityLinkResult, runtimeBridgeResult, organizationsLiveResult, backendLedgerResult] = await Promise.allSettled([
+  const [memoryResult, walletsResult, treasuryResult, secretCustodyResult, secretFallbackResult, geminiLayerResult, tradingLaneMetricsResult, backendFoundationResult, backendCoreResult, trinityLinkResult, runtimeBridgeResult, organizationsLiveResult, backendLedgerResult, walletClassesResult, walletScopesResult, walletPolicyMatrixResult] = await Promise.allSettled([
     fetchSecureJson(`${runtimeBase}/api/memory/state`, env),
     fetchJson(`${env.PUBLIC_API_URL}/api/business/wallets-custody`),
     fetchJson(`${env.PUBLIC_API_URL}/api/business/vaults-treasury`),
@@ -4098,6 +4127,9 @@ async function fetchAdminSnapshot(env) {
     fetchJson(`${env.PUBLIC_API_URL}/api/business/runtime-bridge`),
     fetchJson(`${env.PUBLIC_API_URL}/api/business/organizations-live`),
     fetchJson(`${env.PUBLIC_API_URL}/api/business/backend-ledger`),
+    fetchJson(`${env.PUBLIC_API_URL}/api/business/wallet-classes`),
+    fetchJson(`${env.PUBLIC_API_URL}/api/business/wallet-scopes`),
+    fetchJson(`${env.PUBLIC_API_URL}/api/business/wallet-policy-matrix`),
   ]);
   const registry = memoryResult.status === "fulfilled"
     ? memoryResult.value?.state?.intel?.business_registry || memoryResult.value?.state?.business || {}
@@ -4185,8 +4217,11 @@ async function fetchAdminSnapshot(env) {
     runtimeBridge: runtimeBridgeResult.status === "fulfilled" ? runtimeBridgeResult.value : null,
     organizationsLive: organizationsLiveResult.status === "fulfilled" ? organizationsLiveResult.value : null,
     backendLedger: backendLedgerResult.status === "fulfilled" ? backendLedgerResult.value : null,
+    walletClasses: walletClassesResult.status === "fulfilled" ? walletClassesResult.value : null,
+    walletScopes: walletScopesResult.status === "fulfilled" ? walletScopesResult.value : null,
+    walletPolicyMatrix: walletPolicyMatrixResult.status === "fulfilled" ? walletPolicyMatrixResult.value : null,
     tradingLaneMetrics: derivedTradingLaneMetrics,
-    errors: [memoryResult, walletsResult, treasuryResult, secretCustodyResult, secretFallbackResult, geminiLayerResult, tradingLaneMetricsResult, backendFoundationResult, backendCoreResult, trinityLinkResult, runtimeBridgeResult, organizationsLiveResult, backendLedgerResult]
+    errors: [memoryResult, walletsResult, treasuryResult, secretCustodyResult, secretFallbackResult, geminiLayerResult, tradingLaneMetricsResult, backendFoundationResult, backendCoreResult, trinityLinkResult, runtimeBridgeResult, organizationsLiveResult, backendLedgerResult, walletClassesResult, walletScopesResult, walletPolicyMatrixResult]
       .filter((result) => result.status === "rejected")
       .map((result) => result.reason?.message || "secure_memory_upstream_error"),
   };
@@ -6764,6 +6799,49 @@ function backendLedgerSection(pathname, snapshot) {
   };
 }
 
+function organizationTreasurySection(pathname, snapshot) {
+  if (pathname !== "/admin") {
+    return null;
+  }
+  const organizations = snapshot.admin?.organizationsLive?.records || [];
+  const walletClasses = snapshot.admin?.walletClasses?.records || [];
+  const walletScopes = snapshot.admin?.walletScopes?.records || [];
+  const walletPolicies = snapshot.admin?.walletPolicyMatrix?.records || [];
+  const classMap = new Map(walletClasses.map((item) => [item.class_id, item]));
+  const scopeMap = new Map(walletScopes.map((item) => [item.scope_id, item]));
+  const policyMap = new Map(walletPolicies.map((item) => [item.policy_id, item]));
+
+  const rows = organizations.slice(0, 6).map((organization) => {
+    const walletScope = organization.wallet_scope || "operations_scope";
+    const walletClass = walletScope === "treasury_scope"
+      ? "treasury_wallet"
+      : walletScope === "mirror_scope"
+        ? "mirror_wallet"
+        : "operations_wallet";
+    const policies = walletClass === "treasury_wallet"
+      ? ["policy_seed_gsm_only", "policy_operator_session_required", "policy_full_audit_before_trading"]
+      : walletClass === "mirror_wallet"
+        ? ["policy_seed_gsm_only", "policy_fleet_authority_gate"]
+        : ["policy_seed_gsm_only", "policy_public_address_only"];
+    return {
+      title: organization.organization_name || organization.organization_id,
+      items: [
+        `organization=${organization.organization_id}`,
+        `wallet_class=${classMap.get(walletClass)?.label || walletClass}`,
+        `wallet_scope=${scopeMap.get(walletScope)?.label || walletScope}`,
+        `policies=${policies.map((policy) => policyMap.get(policy)?.label || policy).join(" | ")}`,
+        `ledger_state=${organization.ledger_state || "active"}`,
+      ],
+    };
+  });
+
+  return {
+    title: "Organization treasury bindings",
+    intro: "Chaque organisation doit se rattacher a une classe wallet, un scope et une pile de policies. Le pouvoir reste sur la structure, jamais sur une personne.",
+    rows,
+  };
+}
+
 function deriveOperationalAction(client, identity, jobs, billing, events) {
   const clientJobs = jobs.filter((item) => item.client_id === client.client_id);
   const clientBilling = billing.filter((item) => item.client_id === client.client_id);
@@ -7079,6 +7157,7 @@ function renderApp(env, pathname, hostname, snapshot) {
     registryWriteContract: registryWriteContractSection(pathname),
     organizationRegistry: organizationRegistrySection(pathname, snapshot),
     backendLedger: backendLedgerSection(pathname, snapshot),
+    organizationTreasury: organizationTreasurySection(pathname, snapshot),
     businessTimeline: businessTimelineSection(pathname, snapshot),
     operationalChain: operationalChainSection(pathname, snapshot),
     operationalPlaybook: operationalPlaybookSection(pathname, snapshot),
