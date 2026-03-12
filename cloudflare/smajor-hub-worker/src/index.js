@@ -173,6 +173,30 @@ const APP_SECTIONS = {
       },
     ],
   },
+  "/trade": {
+    label: "Trade",
+    eyebrow: "War room",
+    heroTitle: "Une salle de guerre pour les agents trader.",
+    heroText:
+      "Le trade showroom separe signal, risk, treasury et execution pour que la folie reste lisible et gouvernee.",
+    cards: [
+      {
+        label: "Signal",
+        title: "Collecte multi-agent",
+        text: "TRINITY, KIMI et ORACLE collectent et confirment sans toucher directement a la custody.",
+      },
+      {
+        label: "Risk",
+        title: "Validation avant feu",
+        text: "MERLIN, ONCHAIN_GUARDIAN et GOUV4 filtrent, cadrent et peuvent bloquer toute execution.",
+      },
+      {
+        label: "Execution",
+        title: "Lane bornee",
+        text: "ARKON et les wallets mirror executent seulement apres policy, audit et allocation treasury.",
+      },
+    ],
+  },
   "/omega": {
     label: "Omega",
     eyebrow: "S25 Command Center",
@@ -404,6 +428,36 @@ const WORKBENCH_SECTIONS = {
       },
     ],
   },
+  "/trade": {
+    title: "Trade showroom",
+    intro: "Le trade doit ressembler a une salle de guerre: signaux, risque, treasury et execution separes, auditables, lisibles.",
+    columns: [
+      {
+        label: "Signal lane",
+        items: [
+          "TRINITY orchestre les hypotheses.",
+          "KIMI pompe les signaux Web3.",
+          "ORACLE confirme les prix et conditions.",
+        ],
+      },
+      {
+        label: "Risk lane",
+        items: [
+          "MERLIN valide la coherence.",
+          "ONCHAIN_GUARDIAN surveille les risques.",
+          "GOUV4 applique les policies et le cout.",
+        ],
+      },
+      {
+        label: "Execution lane",
+        items: [
+          "TREASURY alloue le capital.",
+          "ARKON prepare l'execution.",
+          "mirror wallets servent de couche de test et de dry-run.",
+        ],
+      },
+    ],
+  },
 };
 
 const MODULE_BLUEPRINTS = {
@@ -529,6 +583,30 @@ const MODULE_BLUEPRINTS = {
       "TRINITY orchestre.",
       "MERLIN valide et memorise.",
       "Les autres agents nourrissent le systeme sans devenir source de verite unique.",
+    ],
+  },
+  trade: {
+    title: "Trading control blueprint",
+    records: [
+      "signal_batch",
+      "risk_gate",
+      "capital_allocation",
+      "execution_window",
+      "profit_report",
+      "audit_event",
+    ],
+    pipeline: [
+      "collect_signal",
+      "confirm_market",
+      "validate_risk",
+      "allocate_treasury",
+      "execute_guarded",
+      "report_profit",
+    ],
+    automations: [
+      "TRINITY coordonne les lanes.",
+      "MERLIN bloque si la policy ou le risk gate derape.",
+      "Le showroom reste visuel; la vraie execution vit dans S25 et les wallets scopes.",
     ],
   },
 };
@@ -5710,6 +5788,20 @@ export default {
           summary: "Official map for front-end versus back-end separation.",
           frontend: [],
           backend: [],
+        },
+      );
+    }
+
+    if (url.pathname === "/models/trading-showroom.json") {
+      const payload = await fetchJson(`${env.PUBLIC_API_URL}/api/business/trading-showroom`).catch(() => null);
+      return jsonResponse(
+        payload || {
+          ok: true,
+          domain: "smajor.org",
+          source_of_truth: "api.smajor.org trading showroom",
+          title: "Trading showroom",
+          summary: "Signal, risk, treasury and execution lanes.",
+          lanes: [],
         },
       );
     }

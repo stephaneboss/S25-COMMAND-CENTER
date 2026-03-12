@@ -486,6 +486,7 @@ const BUSINESS_REGISTRY_MAP = {
     { key: "separation_architecture", path: `${BUSINESS_PREFIX}/separation-architecture`, purpose: "Official front-end versus back-end separation map" },
     { key: "admin_architecture", path: `${BUSINESS_PREFIX}/admin-architecture`, purpose: "Admin control-plane architecture split between interface and sovereign backend" },
     { key: "portal_separation", path: `${BUSINESS_PREFIX}/portal-separation`, purpose: "Portal-by-portal split for clients, staff and vendors" },
+    { key: "trading_showroom", path: `${BUSINESS_PREFIX}/trading-showroom`, purpose: "Multi-agent trading room with signal, risk, treasury and execution lanes" },
     { key: "internal_ops", path: `${BUSINESS_PREFIX}/internal-ops`, purpose: "Public operating summary for Smajor internal account" },
     { key: "empire_manifest", path: `${BUSINESS_PREFIX}/empire-manifest`, purpose: "Unified manifest of domains, towers, registries and command chain" },
     { key: "total_mesh_protocol", path: `${BUSINESS_PREFIX}/total-mesh-protocol`, purpose: "Protocol de synchronisation totale des agents vers le hub" },
@@ -1202,6 +1203,29 @@ function derivePortalSeparation() {
   };
 }
 
+function deriveTradingShowroom() {
+  return {
+    title: "Trading showroom",
+    summary: "Salle de guerre pour les agents trader. Le front montre les lanes; le backend garde l'execution, les policies et la custody.",
+    doctrine: [
+      "signal, risk, treasury et execution restent separes",
+      "aucune execution live sans policy et audit",
+      "les wallets de trading restent distincts du wallet creator",
+      "le showroom doit montrer la force multi-agent sans exposer les secrets",
+    ],
+    lanes: [
+      { lane_id: "signal_lane", owners: ["TRINITY", "KIMI", "ORACLE"], purpose: "collecte signaux et confirmations" },
+      { lane_id: "risk_lane", owners: ["MERLIN", "ONCHAIN_GUARDIAN", "GOUV4"], purpose: "validation, policy et garde-fous" },
+      { lane_id: "treasury_lane", owners: ["TREASURY"], purpose: "runway, capital allocation, custody awareness" },
+      { lane_id: "execution_lane", owners: ["ARKON", "mirror_wallet"], purpose: "dry-run, execution bornee et replay" },
+    ],
+    surfaces: {
+      frontend: ["app.smajor.org/trade", "app.smajor.org/omega"],
+      backend: ["api.smajor.org/api/business/trading-showroom", "s25.smajor.org/api/status", "merlin.smajor.org/mcp"],
+    },
+  };
+}
+
 function findInternalOpsClient(business) {
   return (business.clients || []).find(
     (record) =>
@@ -1580,6 +1604,9 @@ function handleBusinessRequest(request, pathname, requestId, env) {
   }
   if (pathname === `${BUSINESS_PREFIX}/portal-separation`) {
     return businessResponse(requestId, pathname, derivePortalSeparation());
+  }
+  if (pathname === `${BUSINESS_PREFIX}/trading-showroom`) {
+    return businessResponse(requestId, pathname, deriveTradingShowroom());
   }
   if (pathname === `${BUSINESS_PREFIX}/internal-ops`) {
     return readBusinessState(env, requestId).then((business) =>
