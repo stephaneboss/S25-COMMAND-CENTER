@@ -1275,6 +1275,38 @@ const REGISTRY_WRITE_CONTRACT_MODEL = {
   ],
 };
 
+const ADMIN_COMMAND_KIT_MODEL = {
+  title: "Admin command kit",
+  summary: "Kit de commande pour operer l'entreprise via un pipeline strict: lecture secure, creation securisee, et audit par role.",
+  columns: [
+    {
+      label: "Read surfaces",
+      items: [
+        "GET /admin/api/live-registries",
+        "GET /admin/api/operator-roster",
+        "GET /admin/api/runtime-business",
+      ],
+    },
+    {
+      label: "Write surfaces",
+      items: [
+        "POST /admin/api/create-client",
+        "POST /admin/api/create-job",
+        "POST /admin/api/issue-invoice",
+        "POST /admin/api/create-identity",
+      ],
+    },
+    {
+      label: "Payload roots",
+      items: [
+        "organization_name + role_id + badge_id + scope_id",
+        "client_id -> job_id -> quote_or_invoice",
+        "identity_id survives user rotation",
+      ],
+    },
+  ],
+};
+
 function navigation(hostname) {
   const appBase = hostname === "app.smajor.org" ? "" : "https://app.smajor.org";
   return [
@@ -2578,10 +2610,6 @@ async function fetchJson(url) {
       "user-agent": "smajor-hub/1.0",
     },
     cache: "no-store",
-    cf: {
-      cacheTtl: 0,
-      cacheEverything: false,
-    },
   });
 
   if (!response.ok) {
@@ -2608,10 +2636,6 @@ async function fetchSecureJson(url, env, method = "GET", body = null) {
     headers,
     body,
     cache: "no-store",
-    cf: {
-      cacheTtl: 0,
-      cacheEverything: false,
-    },
   });
   if (!response.ok) {
     const text = await response.text();
@@ -2621,17 +2645,42 @@ async function fetchSecureJson(url, env, method = "GET", body = null) {
 }
 
 async function fetchOpsSnapshot(env) {
-  const [statusResult, missionsResult, meshResult, vaultResult, infraResult, clientsResult, jobsResult, financeResult, internalOpsResult] = await Promise.allSettled([
-    fetchJson(`${env.PUBLIC_S25_URL}/api/status`),
-    fetchJson(`${env.PUBLIC_S25_URL}/api/missions`),
-    fetchJson(`${env.PUBLIC_S25_URL}/api/mesh/status`),
+  const runtimeBase = env.DIRECT_RUNTIME_URL || env.PUBLIC_S25_URL;
+  const [statusResult, missionsResult, meshResult, memoryResult, vaultResult, infraResult] = await Promise.allSettled([
+    fetchJson(`${runtimeBase}/api/status`),
+    fetchJson(`${runtimeBase}/api/missions`),
+    fetchJson(`${runtimeBase}/api/mesh/status`),
+    fetchSecureJson(`${runtimeBase}/api/memory/state`, env),
     fetchJson(`${env.PUBLIC_API_URL}/api/vault/mexc`),
     fetchJson(`${env.PUBLIC_API_URL}/api/akash/infra`),
-    fetchJson(`${env.PUBLIC_API_URL}/api/business/client-registry-live`),
-    fetchJson(`${env.PUBLIC_API_URL}/api/business/job-registry-live`),
-    fetchJson(`${env.PUBLIC_API_URL}/api/business/quotes-invoices-live`),
-    fetchJson(`${env.PUBLIC_API_URL}/api/business/internal-ops`),
   ]);
+  const registry =
+    memoryResult.status === "fulfilled"
+      ? memoryResult.value?.state?.intel?.business_registry || {}
+      : {};
+  const internalOps = {
+    title: "Smajor internal operations",
+    account_live: Boolean(
+      (Array.isArray(registry.clients) ? registry.clients : []).find(
+        (record) =>
+          record.client_id === "client-smajor-internal-001" ||
+          record.organization_name === "Smajor Internal Operations",
+      ),
+    ),
+    client:
+      (Array.isArray(registry.clients) ? registry.clients : []).find(
+        (record) =>
+          record.client_id === "client-smajor-internal-001" ||
+          record.organization_name === "Smajor Internal Operations",
+      ) || null,
+    jobs_open: (Array.isArray(registry.jobs) ? registry.jobs : []).filter(
+      (record) => record.client_id === "client-smajor-internal-001",
+    ).length,
+    finance_entries: (Array.isArray(registry.quotes_invoices) ? registry.quotes_invoices : []).filter(
+      (record) => record.client_id === "client-smajor-internal-001",
+    ).length,
+    last_write_at: registry.last_write_at || null,
+  };
 
   return {
     status: statusResult.status === "fulfilled" ? statusResult.value : null,
@@ -2640,20 +2689,21 @@ async function fetchOpsSnapshot(env) {
     vault: vaultResult.status === "fulfilled" ? vaultResult.value : null,
     infra: infraResult.status === "fulfilled" ? infraResult.value : null,
     business: {
-      clients: clientsResult.status === "fulfilled" ? clientsResult.value : null,
-      jobs: jobsResult.status === "fulfilled" ? jobsResult.value : null,
-      quotes_invoices: financeResult.status === "fulfilled" ? financeResult.value : null,
-      internal_ops: internalOpsResult.status === "fulfilled" ? internalOpsResult.value : null,
+      clients: { records: Array.isArray(registry.clients) ? registry.clients : [] },
+      jobs: { records: Array.isArray(registry.jobs) ? registry.jobs : [] },
+      quotes_invoices: { records: Array.isArray(registry.quotes_invoices) ? registry.quotes_invoices : [] },
+      internal_ops: internalOps,
     },
-    errors: [statusResult, missionsResult, meshResult, vaultResult, infraResult, clientsResult, jobsResult, financeResult, internalOpsResult]
+    errors: [statusResult, missionsResult, meshResult, memoryResult, vaultResult, infraResult]
       .filter((result) => result.status === "rejected")
       .map((result) => result.reason?.message || "upstream_error"),
   };
 }
 
 async function fetchAdminSnapshot(env) {
+  const runtimeBase = env.DIRECT_RUNTIME_URL || env.PUBLIC_S25_URL;
   const [memoryResult] = await Promise.allSettled([
-    fetchSecureJson(`${env.PUBLIC_S25_URL}/api/memory/state`, env),
+    fetchSecureJson(`${runtimeBase}/api/memory/state`, env),
   ]);
   const registry = memoryResult.status === "fulfilled"
     ? memoryResult.value?.state?.intel?.business_registry || {}
@@ -3256,6 +3306,17 @@ function adminActionSection(pathname) {
   };
 }
 
+function adminCommandKitSection(pathname) {
+  if (!["/admin", "/ai"].includes(pathname)) {
+    return null;
+  }
+  return {
+    title: ADMIN_COMMAND_KIT_MODEL.title,
+    intro: ADMIN_COMMAND_KIT_MODEL.summary,
+    columns: ADMIN_COMMAND_KIT_MODEL.columns,
+  };
+}
+
 function agentActivationSection(pathname) {
   if (!["/admin", "/ai"].includes(pathname)) {
     return null;
@@ -3357,6 +3418,7 @@ function renderApp(env, pathname, hostname, snapshot) {
     internalOps: internalOpsSection(pathname, snapshot),
     operatorAccount: operatorAccountSection(pathname),
     operatorRoster: operatorRosterSection(pathname, snapshot),
+    adminCommandKit: adminCommandKitSection(pathname),
     agentActivation: agentActivationSection(pathname),
     agentServiceBindings: agentServiceBindingsSection(pathname),
     foundationStack: foundationStackSection(pathname),
@@ -3440,6 +3502,22 @@ export default {
       }
     }
 
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/runtime-business") {
+      const denied = requireHubSecret(request, env);
+      if (denied) return denied;
+      try {
+        const runtimeBase = env.DIRECT_RUNTIME_URL || env.PUBLIC_S25_URL;
+        const memory = await fetchSecureJson(`${runtimeBase}/api/memory/state`, env);
+        return jsonResponse({
+          ok: true,
+          source: "s25_runtime_memory",
+          business_registry: memory?.state?.intel?.business_registry || {},
+        });
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "admin_runtime_business_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
     if (hostname === "app.smajor.org" && url.pathname === "/admin/api/create-client") {
       const denied = requireHubSecret(request, env);
       if (denied) return denied;
@@ -3476,6 +3554,19 @@ export default {
         return jsonResponse(await fetchSecureJson(`${env.PUBLIC_API_URL}/api/business/quotes-invoices-live`, env, "POST", await request.text()));
       } catch (error) {
         return jsonResponse({ ok: false, error: "admin_issue_invoice_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/create-identity") {
+      const denied = requireHubSecret(request, env);
+      if (denied) return denied;
+      if (request.method !== "POST") {
+        return jsonResponse({ ok: false, error: "method_not_allowed" }, 405);
+      }
+      try {
+        return jsonResponse(await fetchSecureJson(`${env.PUBLIC_API_URL}/api/business/identity-registry-live`, env, "POST", await request.text()));
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "admin_create_identity_failed", detail: String(error?.message || error) }, 500);
       }
     }
 
@@ -3698,6 +3789,15 @@ export default {
         domain: "smajor.org",
         source_of_truth: "api.smajor.org live write facade + protected business routes",
         ...REGISTRY_WRITE_CONTRACT_MODEL,
+      });
+    }
+
+    if (url.pathname === "/models/admin-command-kit.json") {
+      return jsonResponse({
+        ok: true,
+        domain: "smajor.org",
+        source_of_truth: "app.smajor.org secure admin routes + S25 runtime memory",
+        ...ADMIN_COMMAND_KIT_MODEL,
       });
     }
 
