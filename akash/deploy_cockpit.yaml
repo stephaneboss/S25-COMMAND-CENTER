@@ -22,7 +22,7 @@ services:
       - MEMORY_DIR=/app/memory
       - PORT=7777
       - CHECK_INTERVAL=60
-      - S25_SHARED_SECRET=s25sandbox2026
+      - S25_SHARED_SECRET=
       - BUILD=20260309g
       - RUN_ORACLE_AGENT=true
       - RUN_ONCHAIN_GUARDIAN=true
