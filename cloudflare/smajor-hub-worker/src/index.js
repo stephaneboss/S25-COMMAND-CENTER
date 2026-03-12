@@ -1677,9 +1677,10 @@ function layout({
         <div class="admin-console-grid">
           <article class="blueprint-card admin-console-main">
             <div class="label">Operator access</div>
-            <label class="field-label" for="operator-secret">x-s25-secret</label>
-            <input id="operator-secret" class="field-input" type="password" placeholder="Coller le secret operateur pour activer les ecritures" />
+            <label class="field-label" for="operator-secret">Operator bootstrap secret</label>
+            <input id="operator-secret" class="field-input" type="password" placeholder="Coller le secret une fois pour ouvrir une session operateur" />
             <div class="action-row">
+              <button class="action-button" type="button" data-admin-session="true">Unlock operator session</button>
               <button class="action-button secondary" type="button" data-admin-refresh="true">Reload runtime</button>
             </div>
             <div class="label" style="margin-top:18px;">Write flow</div>
@@ -2737,8 +2738,11 @@ function layout({
           const secretInput = document.getElementById("operator-secret");
           const logNode = document.getElementById("admin-console-log");
           const refreshButton = document.querySelector("[data-admin-refresh='true']");
+          const sessionButton = document.querySelector("[data-admin-session='true']");
           const forms = Array.from(document.querySelectorAll("[data-admin-form]"));
           const secretStorageKey = "smajor_admin_secret";
+          const tokenStorageKey = "smajor_admin_token";
+          const sessionMetaKey = "smajor_admin_session_meta";
 
           const writeLog = (title, payload) => {
             const lines = [
@@ -2757,14 +2761,41 @@ function layout({
             return value;
           };
 
-          const requestJson = async (endpoint, options = {}) => {
+          const getToken = () => sessionStorage.getItem(tokenStorageKey);
+
+          const createOperatorSession = async () => {
             const secret = getSecret();
+            const response = await fetch("/admin/api/session", {
+              method: "POST",
+              headers: {
+                "accept": "application/json",
+                "content-type": "application/json",
+                "x-s25-secret": secret,
+              },
+            });
+            const payload = await response.json().catch(() => ({ ok: false, error: "invalid_json" }));
+            if (!response.ok || !payload.ok || !payload.token) {
+              throw new Error(JSON.stringify(payload, null, 2));
+            }
+            sessionStorage.setItem(tokenStorageKey, payload.token);
+            sessionStorage.setItem(sessionMetaKey, JSON.stringify({
+              expires_at: payload.expires_at,
+              profile: payload.profile,
+            }));
+            return payload;
+          };
+
+          const requestJson = async (endpoint, options = {}) => {
+            const token = getToken();
+            if (!token) {
+              throw new Error("operator_session_missing");
+            }
             const response = await fetch(endpoint, {
               method: options.method || "GET",
               headers: {
                 "accept": "application/json",
                 "content-type": "application/json",
-                "x-s25-secret": secret,
+                "authorization": "Bearer " + token,
               },
               body: options.body ? JSON.stringify(options.body) : undefined,
             });
@@ -2792,6 +2823,16 @@ function layout({
             }
           };
 
+          sessionButton.addEventListener("click", async () => {
+            try {
+              writeLog("Operator session", { state: "pending" });
+              const payload = await createOperatorSession();
+              writeLog("Operator session ready", payload);
+            } catch (error) {
+              writeLog("Operator session failed", String(error.message || error));
+            }
+          });
+
           refreshButton.addEventListener("click", refreshRuntime);
 
           forms.forEach((form) => {
@@ -2818,6 +2859,10 @@ function layout({
           });
 
           hydrateSecret();
+          if (getToken()) {
+            const meta = sessionStorage.getItem(sessionMetaKey);
+            writeLog("Operator session restored", meta ? JSON.parse(meta) : { restored: true });
+          }
         })();
       </script>
     ` : ""}
@@ -3264,6 +3309,115 @@ function requireHubSecret(request, env) {
     }, 401);
   }
   return null;
+}
+
+function encodeBase64Url(input) {
+  const bytes = input instanceof Uint8Array ? input : new TextEncoder().encode(String(input));
+  let binary = "";
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+function decodeBase64Url(input) {
+  const normalized = String(input).replace(/-/g, "+").replace(/_/g, "/");
+  const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
+  const binary = atob(padded);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return new TextDecoder().decode(bytes);
+}
+
+async function signOperatorSession(payload, env) {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(env.S25_SHARED_SECRET),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const header = encodeBase64Url(JSON.stringify({ alg: "HS256", typ: "S25" }));
+  const body = encodeBase64Url(JSON.stringify(payload));
+  const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`${header}.${body}`));
+  return `${header}.${body}.${encodeBase64Url(new Uint8Array(signature))}`;
+}
+
+async function verifyOperatorSession(token, env) {
+  if (!token || !env.S25_SHARED_SECRET) {
+    return { ok: false, error: "operator_session_missing" };
+  }
+  const parts = String(token).split(".");
+  if (parts.length !== 3) {
+    return { ok: false, error: "operator_session_invalid" };
+  }
+  const [header, body, signature] = parts;
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(env.S25_SHARED_SECRET),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["verify"],
+  );
+  const valid = await crypto.subtle.verify(
+    "HMAC",
+    key,
+    Uint8Array.from(atob(String(signature).replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - (signature.length % 4)) % 4)), (c) => c.charCodeAt(0)),
+    new TextEncoder().encode(`${header}.${body}`),
+  );
+  if (!valid) {
+    return { ok: false, error: "operator_session_signature_invalid" };
+  }
+  const payload = JSON.parse(decodeBase64Url(body));
+  if (!payload.exp || Date.now() > payload.exp) {
+    return { ok: false, error: "operator_session_expired" };
+  }
+  return { ok: true, payload };
+}
+
+async function requireOperatorAccess(request, env) {
+  if (!env.S25_SHARED_SECRET) {
+    return jsonResponse({ ok: false, error: "hub_secret_missing" }, 500);
+  }
+  const authHeader = request.headers.get("authorization") || "";
+  const bearer = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+  if (bearer) {
+    const verified = await verifyOperatorSession(bearer, env);
+    if (verified.ok) {
+      return null;
+    }
+  }
+  return requireHubSecret(request, env);
+}
+
+async function createOperatorSession(request, env) {
+  const denied = requireHubSecret(request, env);
+  if (denied) {
+    return denied;
+  }
+  const now = Date.now();
+  const payload = {
+    sub: "smajor_operator_console",
+    role_id: "operator_admin",
+    badge_id: "major_badge",
+    scope_id: "founder_scope",
+    issued_at: new Date(now).toISOString(),
+    exp: now + (1000 * 60 * 60 * 8),
+  };
+  const token = await signOperatorSession(payload, env);
+  return jsonResponse({
+    ok: true,
+    session_type: "operator_bearer",
+    token,
+    expires_at: new Date(payload.exp).toISOString(),
+    profile: {
+      role_id: payload.role_id,
+      badge_id: payload.badge_id,
+      scope_id: payload.scope_id,
+    },
+  });
 }
 
 function buildOmegaDeck(env, snapshot) {
@@ -3844,7 +3998,7 @@ function adminConsoleSection(pathname, snapshot) {
       "/admin/api/create-identity",
     ],
     flow: [
-      "Coller x-s25-secret une seule fois dans la session.",
+      "Ouvrir une session operateur signee avec le secret bootstrap.",
       "Utiliser le pipeline complet quand il faut onboarder un client avec premier job et premiere facture.",
       "Creer un compte client complet ou une identite seule.",
       "Lier ensuite le job au client actif.",
@@ -3942,7 +4096,7 @@ function adminConsoleSection(pathname, snapshot) {
     initialLog: JSON.stringify(
       {
         mode: "operator_console_ready",
-        note: "Coller le secret operateur puis lancer une ecriture live.",
+        note: "Ouvrir une session operateur puis lancer une ecriture live.",
         last_write_at: business.last_write_at || null,
       },
       null,
@@ -4127,7 +4281,7 @@ export default {
     }
 
     if (hostname === "app.smajor.org" && url.pathname === "/admin/api/live-registries") {
-      const denied = requireHubSecret(request, env);
+      const denied = await requireOperatorAccess(request, env);
       if (denied) return denied;
       try {
         const snapshot = await fetchAdminSnapshot(env);
@@ -4138,7 +4292,7 @@ export default {
     }
 
     if (hostname === "app.smajor.org" && url.pathname === "/admin/api/operator-roster") {
-      const denied = requireHubSecret(request, env);
+      const denied = await requireOperatorAccess(request, env);
       if (denied) return denied;
       try {
         const snapshot = await fetchAdminSnapshot(env);
@@ -4149,7 +4303,7 @@ export default {
     }
 
     if (hostname === "app.smajor.org" && url.pathname === "/admin/api/runtime-business") {
-      const denied = requireHubSecret(request, env);
+      const denied = await requireOperatorAccess(request, env);
       if (denied) return denied;
       try {
         const runtimeBase = env.DIRECT_RUNTIME_URL || env.PUBLIC_S25_URL;
@@ -4164,8 +4318,15 @@ export default {
       }
     }
 
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/session") {
+      if (request.method !== "POST") {
+        return jsonResponse({ ok: false, error: "method_not_allowed" }, 405);
+      }
+      return createOperatorSession(request, env);
+    }
+
     if (hostname === "app.smajor.org" && url.pathname === "/admin/api/create-client") {
-      const denied = requireHubSecret(request, env);
+      const denied = await requireOperatorAccess(request, env);
       if (denied) return denied;
       if (request.method !== "POST") {
         return jsonResponse({ ok: false, error: "method_not_allowed" }, 405);
@@ -4178,7 +4339,7 @@ export default {
     }
 
     if (hostname === "app.smajor.org" && url.pathname === "/admin/api/create-client-pipeline") {
-      const denied = requireHubSecret(request, env);
+      const denied = await requireOperatorAccess(request, env);
       if (denied) return denied;
       if (request.method !== "POST") {
         return jsonResponse({ ok: false, error: "method_not_allowed" }, 405);
@@ -4191,7 +4352,7 @@ export default {
     }
 
     if (hostname === "app.smajor.org" && url.pathname === "/admin/api/create-client-job-billing") {
-      const denied = requireHubSecret(request, env);
+      const denied = await requireOperatorAccess(request, env);
       if (denied) return denied;
       if (request.method !== "POST") {
         return jsonResponse({ ok: false, error: "method_not_allowed" }, 405);
@@ -4204,7 +4365,7 @@ export default {
     }
 
     if (hostname === "app.smajor.org" && url.pathname === "/admin/api/create-job") {
-      const denied = requireHubSecret(request, env);
+      const denied = await requireOperatorAccess(request, env);
       if (denied) return denied;
       if (request.method !== "POST") {
         return jsonResponse({ ok: false, error: "method_not_allowed" }, 405);
@@ -4217,7 +4378,7 @@ export default {
     }
 
     if (hostname === "app.smajor.org" && url.pathname === "/admin/api/issue-invoice") {
-      const denied = requireHubSecret(request, env);
+      const denied = await requireOperatorAccess(request, env);
       if (denied) return denied;
       if (request.method !== "POST") {
         return jsonResponse({ ok: false, error: "method_not_allowed" }, 405);
@@ -4230,7 +4391,7 @@ export default {
     }
 
     if (hostname === "app.smajor.org" && url.pathname === "/admin/api/create-identity") {
-      const denied = requireHubSecret(request, env);
+      const denied = await requireOperatorAccess(request, env);
       if (denied) return denied;
       if (request.method !== "POST") {
         return jsonResponse({ ok: false, error: "method_not_allowed" }, 405);
