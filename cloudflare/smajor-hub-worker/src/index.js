@@ -1311,6 +1311,8 @@ const ADMIN_COMMAND_KIT_MODEL = {
         "GET /admin/api/runtime-business",
         "GET /admin/api/wallets-custody",
         "GET /admin/api/vaults-treasury",
+        "GET /admin/api/secret-custody",
+        "GET /admin/api/secret-fallback-policy",
         "GET /admin/api/wallet-classes",
         "GET /admin/api/wallet-scopes",
         "GET /admin/api/wallet-policy-matrix",
@@ -3400,10 +3402,12 @@ async function fetchOpsSnapshot(env) {
 
 async function fetchAdminSnapshot(env) {
   const runtimeBase = env.DIRECT_RUNTIME_URL || env.PUBLIC_S25_URL;
-  const [memoryResult, walletsResult, treasuryResult] = await Promise.allSettled([
+  const [memoryResult, walletsResult, treasuryResult, secretCustodyResult, secretFallbackResult] = await Promise.allSettled([
     fetchSecureJson(`${runtimeBase}/api/memory/state`, env),
     fetchJson(`${env.PUBLIC_API_URL}/api/business/wallets-custody`),
     fetchJson(`${env.PUBLIC_API_URL}/api/business/vaults-treasury`),
+    fetchJson(`${env.PUBLIC_API_URL}/api/business/secret-custody`),
+    fetchJson(`${env.PUBLIC_API_URL}/api/business/secret-fallback-policy`),
   ]);
   const registry = memoryResult.status === "fulfilled"
     ? memoryResult.value?.state?.intel?.business_registry || memoryResult.value?.state?.business || {}
@@ -3430,7 +3434,9 @@ async function fetchAdminSnapshot(env) {
     operatorRoster,
     walletsCustody: walletsResult.status === "fulfilled" ? walletsResult.value : null,
     vaultsTreasury: treasuryResult.status === "fulfilled" ? treasuryResult.value : null,
-    errors: [memoryResult, walletsResult, treasuryResult]
+    secretCustody: secretCustodyResult.status === "fulfilled" ? secretCustodyResult.value : null,
+    secretFallbackPolicy: secretFallbackResult.status === "fulfilled" ? secretFallbackResult.value : null,
+    errors: [memoryResult, walletsResult, treasuryResult, secretCustodyResult, secretFallbackResult]
       .filter((result) => result.status === "rejected")
       .map((result) => result.reason?.message || "secure_memory_upstream_error"),
   };
@@ -4094,6 +4100,14 @@ function buildOmegaDeck(env, snapshot) {
           {
             title: "Custody policy",
             value: treasury.policies?.join(" · ") || "seed_gsm_only · audit_before_trading",
+            status: "online",
+          },
+          {
+            title: "Secret fallback",
+            value:
+              snapshot.admin?.secretFallbackPolicy?.fallback_order
+                ?.map((entry) => entry.source)
+                ?.join(" -> ") || "google_secret_manager -> local_keyring_vault -> encrypted_sync_bundle -> break_glass_offline",
             status: "online",
           },
           {
@@ -5197,6 +5211,28 @@ export default {
       }
     }
 
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/secret-custody") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      try {
+        const snapshot = await fetchAdminSnapshot(env);
+        return jsonResponse(snapshot.secretCustody || { ok: false, error: "secret_custody_unavailable" });
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "admin_secret_custody_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/secret-fallback-policy") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      try {
+        const snapshot = await fetchAdminSnapshot(env);
+        return jsonResponse(snapshot.secretFallbackPolicy || { ok: false, error: "secret_fallback_policy_unavailable" });
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "admin_secret_fallback_policy_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
     if (hostname === "app.smajor.org" && url.pathname === "/admin/api/wallet-classes") {
       const denied = await requireOperatorAccess(request, env);
       if (denied) return denied;
@@ -5568,6 +5604,34 @@ export default {
           title: "Wallet policy matrix",
           summary: "Policies custody, execution et audit.",
           policies: [],
+        },
+      );
+    }
+
+    if (url.pathname === "/models/secret-custody.json") {
+      const payload = await fetchJson(`${env.PUBLIC_API_URL}/api/business/secret-custody`).catch(() => null);
+      return jsonResponse(
+        payload || {
+          ok: true,
+          domain: "smajor.org",
+          source_of_truth: "api.smajor.org secret custody",
+          title: "Secret custody registry",
+          summary: "Primary and fallback custody for critical secrets.",
+          records: [],
+        },
+      );
+    }
+
+    if (url.pathname === "/models/secret-fallback-policy.json") {
+      const payload = await fetchJson(`${env.PUBLIC_API_URL}/api/business/secret-fallback-policy`).catch(() => null);
+      return jsonResponse(
+        payload || {
+          ok: true,
+          domain: "smajor.org",
+          source_of_truth: "api.smajor.org secret fallback policy",
+          title: "Secret fallback policy",
+          summary: "Fallback order if Google Secret Manager is unavailable.",
+          fallback_order: [],
         },
       );
     }
