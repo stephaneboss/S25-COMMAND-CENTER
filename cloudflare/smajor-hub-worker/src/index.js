@@ -1751,6 +1751,56 @@ function layout({
     `
     : "";
 
+  const clientConsoleHtml = moduleSection && moduleSection.clientConsole
+    ? `
+      <section class="blueprint-panel client-console-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Client session</div>
+            <h2>${moduleSection.clientConsole.title}</h2>
+          </div>
+          <p>${moduleSection.clientConsole.intro}</p>
+        </div>
+        <div class="admin-console-grid">
+          <article class="blueprint-card admin-console-main">
+            <div class="label">Client access token</div>
+            <label class="field-label" for="client-token">Client bearer token</label>
+            <input id="client-token" class="field-input" type="password" placeholder="Coller le token client emis par l'admin" />
+            <div class="action-row">
+              <button class="action-button" type="button" data-client-load="true">Load client account</button>
+            </div>
+            <div class="label" style="margin-top:18px;">Client flow</div>
+            <ul class="stack-list">
+              ${moduleSection.clientConsole.flow.map((item) => `<li>${item}</li>`).join("")}
+            </ul>
+          </article>
+          <article class="blueprint-card admin-console-main">
+            <div class="label">Live metrics</div>
+            <div class="metrics">
+              ${moduleSection.clientConsole.metrics
+                .map(
+                  (metric) => `
+                    <div class="metric">
+                      <span>${metric.label}</span>
+                      <strong>${metric.value}</strong>
+                    </div>
+                  `,
+                )
+                .join("")}
+            </div>
+            <div class="label" style="margin-top:18px;">Account surface</div>
+            <div class="pill-row">
+              ${moduleSection.clientConsole.endpoints.map((item) => `<span class="pill">${item}</span>`).join("")}
+            </div>
+          </article>
+        </div>
+        <div class="admin-console-log">
+          <pre id="client-console-log">${moduleSection.clientConsole.initialLog}</pre>
+        </div>
+      </section>
+    `
+    : "";
+
   const empireManifestHtml = moduleSection && moduleSection.empireManifest
     ? `
       <section class="module-panel">
@@ -2728,11 +2778,12 @@ function layout({
       ${agentServiceBindingsHtml}
       ${foundationHtml}
       ${registryWriteContractHtml}
+      ${clientConsoleHtml}
       ${internalOpsHtml}
       ${operatorAccountHtml}
       <div class="footer">Smajor est la facade. S25 Lumiere reste le backend central multi-agent.</div>
     </main>
-    ${moduleSection && moduleSection.adminConsole ? `
+    ${moduleSection && (moduleSection.adminConsole || moduleSection.clientConsole) ? `
       <script>
         (() => {
           const secretInput = document.getElementById("operator-secret");
@@ -2743,13 +2794,27 @@ function layout({
           const secretStorageKey = "smajor_admin_secret";
           const tokenStorageKey = "smajor_admin_token";
           const sessionMetaKey = "smajor_admin_session_meta";
+          const clientTokenInput = document.getElementById("client-token");
+          const clientLogNode = document.getElementById("client-console-log");
+          const clientLoadButton = document.querySelector("[data-client-load='true']");
+          const clientTokenStorageKey = "smajor_client_token";
 
           const writeLog = (title, payload) => {
+            if (!logNode) return;
             const lines = [
               "[" + new Date().toISOString() + "] " + title,
               typeof payload === "string" ? payload : JSON.stringify(payload, null, 2),
             ];
             logNode.textContent = lines.join("\\n");
+          };
+
+          const writeClientLog = (title, payload) => {
+            if (!clientLogNode) return;
+            const lines = [
+              "[" + new Date().toISOString() + "] " + title,
+              typeof payload === "string" ? payload : JSON.stringify(payload, null, 2),
+            ];
+            clientLogNode.textContent = lines.join("\\n");
           };
 
           const getSecret = () => {
@@ -2823,17 +2888,69 @@ function layout({
             }
           };
 
-          sessionButton.addEventListener("click", async () => {
-            try {
-              writeLog("Operator session", { state: "pending" });
-              const payload = await createOperatorSession();
-              writeLog("Operator session ready", payload);
-            } catch (error) {
-              writeLog("Operator session failed", String(error.message || error));
+          const hydrateClientToken = () => {
+            if (!clientTokenInput) return;
+            const stored = sessionStorage.getItem(clientTokenStorageKey);
+            if (stored && !clientTokenInput.value) {
+              clientTokenInput.value = stored;
             }
-          });
+          };
 
-          refreshButton.addEventListener("click", refreshRuntime);
+          const getClientToken = () => {
+            if (!clientTokenInput) {
+              throw new Error("client_token_input_missing");
+            }
+            const value = clientTokenInput.value.trim();
+            if (!value) {
+              throw new Error("client_token_missing");
+            }
+            sessionStorage.setItem(clientTokenStorageKey, value);
+            return value;
+          };
+
+          const loadClientAccount = async () => {
+            const token = getClientToken();
+            const response = await fetch("/clients/api/account", {
+              method: "GET",
+              headers: {
+                "accept": "application/json",
+                "authorization": "Bearer " + token,
+              },
+            });
+            const payload = await response.json().catch(() => ({ ok: false, error: "invalid_json" }));
+            if (!response.ok) {
+              throw new Error(JSON.stringify(payload, null, 2));
+            }
+            return payload;
+          };
+
+          if (sessionButton) {
+            sessionButton.addEventListener("click", async () => {
+              try {
+                writeLog("Operator session", { state: "pending" });
+                const payload = await createOperatorSession();
+                writeLog("Operator session ready", payload);
+              } catch (error) {
+                writeLog("Operator session failed", String(error.message || error));
+              }
+            });
+          }
+
+          if (refreshButton) {
+            refreshButton.addEventListener("click", refreshRuntime);
+          }
+
+          if (clientLoadButton) {
+            clientLoadButton.addEventListener("click", async () => {
+              try {
+                writeClientLog("Client account", { state: "pending" });
+                const payload = await loadClientAccount();
+                writeClientLog("Client account ready", payload);
+              } catch (error) {
+                writeClientLog("Client account failed", String(error.message || error));
+              }
+            });
+          }
 
           forms.forEach((form) => {
             form.addEventListener("submit", async (event) => {
@@ -2859,9 +2976,13 @@ function layout({
           });
 
           hydrateSecret();
+          hydrateClientToken();
           if (getToken()) {
             const meta = sessionStorage.getItem(sessionMetaKey);
             writeLog("Operator session restored", meta ? JSON.parse(meta) : { restored: true });
+          }
+          if (sessionStorage.getItem(clientTokenStorageKey)) {
+            writeClientLog("Client token restored", { restored: true });
           }
         })();
       </script>
@@ -4189,6 +4310,46 @@ function adminConsoleSection(pathname, snapshot) {
   };
 }
 
+function clientConsoleSection(pathname, snapshot) {
+  if (pathname !== "/clients") {
+    return null;
+  }
+  const business = snapshot.business || {};
+  const clients = business.clients?.records || [];
+  const jobs = business.jobs?.records || [];
+  const billing = business.quotes_invoices?.records || [];
+  return {
+    title: "Client portal console",
+    intro: "Console legere pour charger un vrai compte client via un token signe et verifier les jobs et la facturation visibles par le client.",
+    metrics: [
+      { label: "Clients visibles", value: String(clients.length) },
+      { label: "Jobs visibles", value: String(jobs.length) },
+      { label: "Finance visible", value: String(billing.length) },
+      { label: "Mode", value: "Signed client access" },
+    ],
+    endpoints: [
+      "/clients/api/account",
+      "bearer token client requis",
+      "lecture limitee a un seul client",
+    ],
+    flow: [
+      "Recevoir un token client emis par l'admin.",
+      "Coller le token dans la session client.",
+      "Charger le compte live, les jobs et la facturation.",
+      "Garder l'acces borne a un seul client et a son scope.",
+    ],
+    initialLog: JSON.stringify(
+      {
+        mode: "client_portal_ready",
+        note: "Coller un token client signe puis charger le compte live.",
+        sample_client: clients[0]?.client_id || null,
+      },
+      null,
+      2,
+    ),
+  };
+}
+
 function adminCommandKitSection(pathname) {
   if (!["/admin", "/ai"].includes(pathname)) {
     return null;
@@ -4302,6 +4463,7 @@ function renderApp(env, pathname, hostname, snapshot) {
     operatorAccount: operatorAccountSection(pathname),
     operatorRoster: operatorRosterSection(pathname, snapshot),
     adminConsole: adminConsoleSection(pathname, snapshot),
+    clientConsole: clientConsoleSection(pathname, snapshot),
     adminCommandKit: adminCommandKitSection(pathname),
     agentActivation: agentActivationSection(pathname),
     agentServiceBindings: agentServiceBindingsSection(pathname),
