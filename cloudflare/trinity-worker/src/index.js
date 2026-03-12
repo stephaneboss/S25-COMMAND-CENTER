@@ -1281,15 +1281,16 @@ function deriveTradingShowroom() {
 }
 
 async function deriveTradingLaneMetrics(requestId, env) {
-  const [meshResult, statusResult, missionsResult] = await Promise.allSettled([
-    fetchOriginJson("/api/mesh/status", env, requestId).catch(() => fetchPublicRuntimeJson("/api/mesh/status", env, requestId)),
+  const [memoryResult, statusResult, missionsResult] = await Promise.allSettled([
+    fetchOriginJson("/api/memory/state", env, requestId).catch(() => fetchPublicRuntimeJson("/api/memory/state", env, requestId)),
     fetchOriginJson("/api/status", env, requestId).catch(() => fetchPublicRuntimeJson("/api/status", env, requestId)),
     fetchOriginJson("/api/missions", env, requestId).catch(() => fetchPublicRuntimeJson("/api/missions", env, requestId)),
   ]);
-  const meshPayload = meshResult.status === "fulfilled" ? meshResult.value : { mesh: { agents: {} } };
+  const statePayload = memoryResult.status === "fulfilled" ? memoryResult.value : { state: { agents: {}, trading: {} } };
   const statusPayload = statusResult.status === "fulfilled" ? statusResult.value : {};
   const missionsPayload = missionsResult.status === "fulfilled" ? missionsResult.value : { active: [] };
-  const agents = meshPayload?.mesh?.agents || {};
+  const agents = statePayload?.state?.agents || {};
+  const tradingState = statePayload?.state?.trading || {};
   const activeMissions = Array.isArray(missionsPayload?.active) ? missionsPayload.active : [];
   const laneMap = [
     {
@@ -1316,6 +1317,7 @@ async function deriveTradingLaneMetrics(requestId, env) {
     },
   ];
   const lanes = laneMap.map((lane) => {
+    const laneRuntime = tradingState?.lanes?.[lane.lane_id] || {};
     const memberStates = lane.members.map((agentId) => ({
       agent_id: agentId,
       status: agents[agentId]?.status || "offline",
@@ -1329,9 +1331,10 @@ async function deriveTradingLaneMetrics(requestId, env) {
       online_count,
       member_count: lane.members.length,
       mission_count: laneMissions.length,
-      headline: lane.headline,
+      headline: laneRuntime.headline || lane.headline,
       members: memberStates,
       live_state: online_count > 0 ? "online" : "standby",
+      last_sync: laneRuntime.last_sync || tradingState.last_sync || null,
     };
   });
   return {
@@ -1340,6 +1343,8 @@ async function deriveTradingLaneMetrics(requestId, env) {
     pipeline_status: statusPayload.pipeline_status || "unknown",
     missions_active: activeMissions.length,
     wallet_creator_akt_balance: statusPayload.wallet_creator_akt_balance ?? null,
+    mode: tradingState.mode || "showroom",
+    policy_state: tradingState.policy_state || "audit_first",
     lanes,
   };
 }
