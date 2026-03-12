@@ -167,6 +167,30 @@ const APP_SECTIONS = {
       },
     ],
   },
+  "/wallet": {
+    label: "Wallet",
+    eyebrow: "S25 wallet",
+    heroTitle: "Voir l'adresse maitre sans exposer la seed.",
+    heroText:
+      "Cette page publie uniquement l'adresse derivee du wallet creator et l'etat de connexion du runtime S25. La seed phrase reste dans Google Secret Manager.",
+    cards: [
+      {
+        label: "Wallet",
+        title: "Adresse publique seulement",
+        text: "Le site expose l'adresse Akash maitre comme identite publique. Aucune seed, aucun secret runtime, aucune cle privee.",
+      },
+      {
+        label: "Etat",
+        title: "Connexion S25",
+        text: "Le statut vient du cockpit public et du mesh. L'objectif est de voir si le coeur repond sans toucher au coffre.",
+      },
+      {
+        label: "Doctrine",
+        title: "Secret en coffre, adresse en facade",
+        text: "Le coffre Google garde le secret. smajor.org ne montre que les informations publiables et utiles a l'operateur.",
+      },
+    ],
+  },
 };
 
 const WORKBENCH_SECTIONS = {
@@ -1692,6 +1716,34 @@ function layout({
     `
     : "";
 
+  const masterWalletHtml = moduleSection && moduleSection.masterWallet
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Master wallet</div>
+            <h2>${moduleSection.masterWallet.title}</h2>
+          </div>
+          <p>${moduleSection.masterWallet.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.masterWallet.columns
+            .map(
+              (column) => `
+                <article class="module-card">
+                  <div class="label">${column.label}</div>
+                  <ul>
+                    ${column.items.map((item) => `<li>${item}</li>`).join("")}
+                  </ul>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
   const adminConsoleHtml = moduleSection && moduleSection.adminConsole
     ? `
       <section class="blueprint-panel admin-console-panel">
@@ -2842,6 +2894,7 @@ function layout({
       ${mvpRegistryHtml}
       ${liveRegistryHtml}
       ${executiveReportHtml}
+      ${masterWalletHtml}
       ${adminConsoleHtml}
       ${empireManifestHtml}
       ${totalMeshProtocolHtml}
@@ -4229,6 +4282,60 @@ function foundationStackSection(pathname) {
   };
 }
 
+function masterWalletSection(pathname, env, snapshot) {
+  if (pathname !== "/wallet" && pathname !== "/admin" && pathname !== "/ai") {
+    return null;
+  }
+  const status = snapshot.status || {};
+  const walletAddress = env.MASTER_WALLET_ADDRESS || "unconfigured";
+  const walletLabel = env.MASTER_WALLET_LABEL || "Wallet master";
+  return {
+    title: "Master wallet status",
+    intro: "Adresse publique du wallet creator et connexion live au cockpit S25.",
+    columns: [
+      {
+        label: walletLabel,
+        items: [
+          walletAddress,
+          `prefix=akash`,
+          `public_only=true`,
+        ],
+      },
+      {
+        label: "S25 connection",
+        items: [
+          `pipeline=${status.pipeline_status || "unknown"}`,
+          `agents_online=${status.mesh_agents_online ?? "--"}`,
+          `missions_active=${status.missions_active ?? "--"}`,
+        ],
+      },
+      {
+        label: "Runtime",
+        items: [
+          `signal=${status.arkon5_action || "--"}`,
+          `tunnel=${status.system?.tunnel || (status.tunnel_active ? "online" : "offline")}`,
+          `ha=${status.ha_connected ? "linked" : "off"}`,
+        ],
+      },
+    ],
+    model: {
+      title: "Master wallet status",
+      label: walletLabel,
+      wallet_address: walletAddress,
+      wallet_prefix: "akash",
+      source_of_truth: "Google Secret Manager -> derived public address",
+      s25_connection: {
+        pipeline_status: status.pipeline_status || "unknown",
+        mesh_agents_online: status.mesh_agents_online ?? null,
+        missions_active: status.missions_active ?? null,
+        arkon5_action: status.arkon5_action || null,
+        tunnel: status.system?.tunnel || (status.tunnel_active ? "online" : "offline"),
+        ha_connected: Boolean(status.ha_connected),
+      },
+    },
+  };
+}
+
 function registryWriteContractSection(pathname) {
   if (!["/clients", "/admin"].includes(pathname)) {
     return null;
@@ -4813,6 +4920,7 @@ function renderApp(env, pathname, hostname, snapshot) {
     agentActivation: agentActivationSection(pathname),
     agentServiceBindings: agentServiceBindingsSection(pathname),
     foundationStack: foundationStackSection(pathname),
+    masterWallet: masterWalletSection(pathname, env, snapshot),
     registryWriteContract: registryWriteContractSection(pathname),
     adminActions: adminActionSection(pathname),
   };
@@ -5127,6 +5235,31 @@ export default {
         domain: "smajor.org",
         source_of_truth: "app.smajor.org + live runtime snapshot",
         ...report,
+      });
+    }
+
+    if (url.pathname === "/models/master-wallet-status.json") {
+      const snapshot = await fetchOpsSnapshot(env).catch(() => ({}));
+      const walletModel = masterWalletSection("/wallet", env, snapshot || {})?.model || {
+        title: "Master wallet status",
+        label: env.MASTER_WALLET_LABEL || "Wallet creator",
+        wallet_address: env.MASTER_WALLET_ADDRESS || "unconfigured",
+        wallet_prefix: "akash",
+        source_of_truth: "Google Secret Manager -> derived public address",
+        s25_connection: {
+          pipeline_status: "unknown",
+          mesh_agents_online: null,
+          missions_active: null,
+          arkon5_action: null,
+          tunnel: "unknown",
+          ha_connected: false,
+        },
+      };
+      return jsonResponse({
+        ok: true,
+        domain: "smajor.org",
+        source_of_truth: "Google Secret Manager derived public address + S25 live status",
+        ...walletModel,
       });
     }
 
