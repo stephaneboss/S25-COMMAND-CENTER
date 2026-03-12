@@ -50,6 +50,11 @@ const APP_SECTIONS = {
         title: "Historique client",
         text: "A terme: historique de services, photos terrain, documents signes et rappels automatiques.",
       },
+      {
+        label: "Back-end",
+        title: "Le portail n'est pas le cerveau",
+        text: "Les devis, jobs, acces et paiements restent gouvernes par api.smajor.org et S25 Lumiere, pas par le front seul.",
+      },
     ],
   },
   "/admin": {
@@ -73,6 +78,11 @@ const APP_SECTIONS = {
         label: "Architecture",
         title: "Front securise, back souverain",
         text: "L'admin agit via sessions signees et routes gouvernees; la persistence, le coffre et les policies restent dans le backend.",
+      },
+      {
+        label: "Separation",
+        title: "Control plane, pas base de donnees",
+        text: "Le portail admin montre et commande. Les registres, policies, secrets et ecritures durables restent dans S25 et api.smajor.org.",
       },
       {
         label: "Finance",
@@ -103,6 +113,11 @@ const APP_SECTIONS = {
         title: "Aide terrain",
         text: "S25 peut plus tard preparer les briefs de chantier et les resumes de fin de journee.",
       },
+      {
+        label: "Back-end",
+        title: "Dispatch reste souverain",
+        text: "Le dashboard staff n'est qu'une surface terrain. Le dispatch, les jobs et les scopes restent ancres dans le backend.",
+      },
     ],
   },
   "/vendors": {
@@ -126,6 +141,11 @@ const APP_SECTIONS = {
         label: "Suite",
         title: "Workflow achat",
         text: "Plus tard: approbation par role, seuils budget, relances et comparatifs fournisseurs.",
+      },
+      {
+        label: "Back-end",
+        title: "Achats pilotes par policy",
+        text: "Le portail vendors montre l'etat. Les approvals, budgets et rattachements cout restent dans la couche souveraine.",
       },
     ],
   },
@@ -1326,6 +1346,8 @@ const ADMIN_COMMAND_KIT_MODEL = {
         "GET /api/business/frontend-surfaces",
         "GET /api/business/backend-surfaces",
         "GET /api/business/separation-architecture",
+        "GET /api/business/admin-architecture",
+        "GET /api/business/portal-separation",
         "GET /admin/api/wallet-classes",
         "GET /admin/api/wallet-scopes",
         "GET /admin/api/wallet-policy-matrix",
