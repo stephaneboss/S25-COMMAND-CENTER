@@ -7,8 +7,8 @@ info:
   version: 2.0.0
 
 servers:
-  - url: http://kfhsi5oko9dbt3abob51g4s9q0.ingress.cap-test-compute.com
-    description: S25 Cockpit Akash Production
+  - url: https://s25.smajor.org
+    description: S25 Lumiere sovereign runtime
 
 paths:
   /api/vocal/status:

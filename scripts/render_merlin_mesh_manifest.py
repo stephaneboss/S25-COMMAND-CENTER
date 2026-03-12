@@ -40,7 +40,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--cockpit-url",
-        default=os.getenv("COCKPIT_URL", "https://trinity-s25-proxy.trinitys25steph.workers.dev"),
+        default=os.getenv("COCKPIT_URL", "https://s25.smajor.org"),
         help="Cockpit URL for the merlin mesh module",
     )
     parser.add_argument("--env-file", default=".env", help="Fallback env file path")

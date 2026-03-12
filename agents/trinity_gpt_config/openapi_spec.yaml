@@ -5,8 +5,8 @@ info:
   version: 2.5.0
 
 servers:
-  - url: https://trinity-s25-proxy.trinitys25steph.workers.dev
-    description: S25 Cockpit PROD sur Akash
+  - url: https://s25.smajor.org
+    description: S25 Lumiere runtime sovereign endpoint
 
 components:
   schemas:
