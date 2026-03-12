@@ -1,0 +1,93 @@
+{
+  "fleet_name": "merlin-mirror-fleet",
+  "image": "ghcr.io/stephaneboss/s25-command-center:main",
+  "cockpit_url": "https://s25.smajor.org",
+  "public_mcp_url": "https://merlin.smajor.org/mcp",
+  "google_cloud_project": "replace-with-google-project-id",
+  "workspace_admin_email": "admin@merlin.ai",
+  "google_service_account_email": "replace-with-real-service-account@project.iam.gserviceaccount.com",
+  "mirror_count": 10,
+  "default_resources": {
+    "cpu": "0.25",
+    "memory": "256Mi",
+    "storage": "1Gi",
+    "price_uakt": 100
+  },
+  "trading_container_id": "mirror-01",
+  "secret_profiles": {
+    "mirror_01": {
+      "MEXC_API_KEY": "mexc-api-key",
+      "MEXC_SECRET_KEY": "mexc-secret-key",
+      "S25_SHARED_SECRET": "s25-shared-secret",
+      "GEMINI_API_KEY": "gemini-api-key"
+    },
+    "mirror_default": {
+      "S25_SHARED_SECRET": "s25-shared-secret",
+      "GEMINI_API_KEY": "gemini-api-key"
+    }
+  },
+  "containers": [
+    {
+      "id": "mirror-01",
+      "mode": "trade_test",
+      "google_secret_profile": "mirror_01",
+      "inject_trading_stack": true,
+      "run_treasury_autopilot": true,
+      "assigned_lane": "vault_lane"
+    },
+    {
+      "id": "mirror-02",
+      "mode": "mesh_observer",
+      "google_secret_profile": "mirror_default",
+      "assigned_lane": "intel_lane"
+    },
+    {
+      "id": "mirror-03",
+      "mode": "mesh_observer",
+      "google_secret_profile": "mirror_default",
+      "assigned_lane": "intel_lane"
+    },
+    {
+      "id": "mirror-04",
+      "mode": "provider_watch",
+      "google_secret_profile": "mirror_default",
+      "assigned_lane": "provider_lane"
+    },
+    {
+      "id": "mirror-05",
+      "mode": "provider_watch",
+      "google_secret_profile": "mirror_default",
+      "assigned_lane": "provider_lane"
+    },
+    {
+      "id": "mirror-06",
+      "mode": "risk_watch",
+      "google_secret_profile": "mirror_default",
+      "assigned_lane": "guardian_lane"
+    },
+    {
+      "id": "mirror-07",
+      "mode": "risk_watch",
+      "google_secret_profile": "mirror_default",
+      "assigned_lane": "guardian_lane"
+    },
+    {
+      "id": "mirror-08",
+      "mode": "ops_sync",
+      "google_secret_profile": "mirror_default",
+      "assigned_lane": "ops_lane"
+    },
+    {
+      "id": "mirror-09",
+      "mode": "ops_sync",
+      "google_secret_profile": "mirror_default",
+      "assigned_lane": "ops_lane"
+    },
+    {
+      "id": "mirror-10",
+      "mode": "reserve",
+      "google_secret_profile": "mirror_default",
+      "assigned_lane": "reserve_lane"
+    }
+  ]
+}
