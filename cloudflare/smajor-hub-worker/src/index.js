@@ -3157,6 +3157,97 @@ async function handleHubClientPipelineCreate(request, env) {
   };
 }
 
+async function handleHubClientJobBillingCreate(request, env) {
+  const body = await request.json().catch(() => ({}));
+  const business = await readRuntimeBusinessState(env);
+  const now = new Date().toISOString();
+  const organizationId = body.organization_id || createHubRecordId("org");
+  const identityId = body.identity_id || createHubRecordId("ident");
+  const clientId = body.client_id || createHubRecordId("client");
+  const jobId = body.job_id || createHubRecordId("job");
+  const quoteId = body.quote_id || createHubRecordId("quote");
+  const amount = body.amount ? Number(body.amount) : 0;
+
+  const identityRecord = {
+    identity_id: identityId,
+    organization_id: organizationId,
+    identity_type: body.identity_type || "client_contact",
+    display_name: body.display_name || body.contact_name || body.organization_name || "Client Contact",
+    role_id: "client_contact",
+    badge_id: "client_badge",
+    scope_id: body.scope_id || "client_scope_default",
+    service_entitlements: ["client_portal"],
+    credential_state: body.credential_state || "pending_issue",
+    portal_state: "pending_secure_access",
+    audit_state: body.audit_state || "watching",
+    created_at: now,
+  };
+
+  const clientRecord = {
+    client_id: clientId,
+    organization_id: organizationId,
+    organization_name: body.organization_name || "Unnamed Organization",
+    identity_id: identityId,
+    role_id: "client_contact",
+    badge_id: "client_badge",
+    scope_id: body.scope_id || "client_scope_default",
+    service_mix: Array.isArray(body.service_mix) ? body.service_mix : [body.service_type || "multi_service_exterior"],
+    account_status: body.account_status || "active",
+    portal_state: "pending_secure_access",
+    billing_state: body.billing_state || "quote_pending",
+    created_at: now,
+  };
+
+  const jobRecord = {
+    job_id: jobId,
+    client_id: clientId,
+    service_type: body.service_type || "multi_service_exterior",
+    assigned_team: body.assigned_team || "unassigned",
+    equipment_required: Array.isArray(body.equipment_required) ? body.equipment_required : [],
+    scheduled_window: body.scheduled_window || "pending_schedule",
+    job_status: body.job_status || "scheduled",
+    dispatch_scope: body.dispatch_scope || "field_scope_default",
+    created_at: now,
+  };
+
+  const billingRecord = {
+    quote_id: quoteId,
+    invoice_id: body.invoice_id || null,
+    client_id: clientId,
+    job_id: jobId,
+    amount,
+    currency: body.currency || "CAD",
+    payment_status: body.payment_status || "quote_pending",
+    billing_stage: body.billing_stage || "quote_prepared",
+    created_at: now,
+  };
+
+  business.identities = [identityRecord, ...(business.identities || [])];
+  business.clients = [clientRecord, ...(business.clients || [])];
+  business.jobs = [jobRecord, ...(business.jobs || [])];
+  business.quotes_invoices = [billingRecord, ...(business.quotes_invoices || [])];
+  business.last_write_at = now;
+  await writeRuntimeBusinessState(env, business);
+
+  return {
+    ok: true,
+    kind: "client_job_billing_pipeline",
+    created: {
+      identity: identityRecord,
+      client: clientRecord,
+      job: jobRecord,
+      billing: billingRecord,
+    },
+    collections: {
+      identities: business.identities.length,
+      clients: business.clients.length,
+      jobs: business.jobs.length,
+      quotes_invoices: business.quotes_invoices.length,
+    },
+    last_write_at: business.last_write_at,
+  };
+}
+
 function requireHubSecret(request, env) {
   if (!env.S25_SHARED_SECRET) {
     return jsonResponse({
@@ -3745,6 +3836,7 @@ function adminConsoleSection(pathname, snapshot) {
       { label: "Operators", value: String(operatorCount) },
     ],
     endpoints: [
+      "/admin/api/create-client-job-billing",
       "/admin/api/create-client-pipeline",
       "/admin/api/create-client",
       "/admin/api/create-job",
@@ -3753,12 +3845,29 @@ function adminConsoleSection(pathname, snapshot) {
     ],
     flow: [
       "Coller x-s25-secret une seule fois dans la session.",
+      "Utiliser le pipeline complet quand il faut onboarder un client avec premier job et premiere facture.",
       "Creer un compte client complet ou une identite seule.",
       "Lier ensuite le job au client actif.",
       "Sortir la quote ou la facture sans quitter le hub.",
       "Recharger le runtime pour verifier la persistence live.",
     ],
     forms: [
+      {
+        label: "Full onboarding",
+        title: "Create client + job + billing",
+        text: "Onboarde un nouveau compte avec contact, client, premier job et premier flux commercial en une seule commande.",
+        endpoint: "/admin/api/create-client-job-billing",
+        actionLabel: "Create full operational account",
+        fields: [
+          { name: "organization_name", label: "Organization name", placeholder: "Gamma Excavation", required: true },
+          { name: "display_name", label: "Primary contact", placeholder: "Alex Gamma", required: true },
+          { name: "service_type", label: "Service type", placeholder: "excavation" },
+          { name: "assigned_team", label: "Assigned team", placeholder: "crew-north-01" },
+          { name: "scheduled_window", label: "Scheduled window", placeholder: "2026-03-13 PM" },
+          { name: "amount", label: "Amount", placeholder: "6500", type: "number" },
+          { name: "billing_stage", label: "Billing stage", placeholder: "quote_prepared", value: "quote_prepared" },
+        ],
+      },
       {
         label: "Client pipeline",
         title: "Create full client account",
@@ -4078,6 +4187,19 @@ export default {
         return jsonResponse(await handleHubClientPipelineCreate(request, env));
       } catch (error) {
         return jsonResponse({ ok: false, error: "admin_create_client_pipeline_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/create-client-job-billing") {
+      const denied = requireHubSecret(request, env);
+      if (denied) return denied;
+      if (request.method !== "POST") {
+        return jsonResponse({ ok: false, error: "method_not_allowed" }, 405);
+      }
+      try {
+        return jsonResponse(await handleHubClientJobBillingCreate(request, env));
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "admin_create_client_job_billing_failed", detail: String(error?.message || error) }, 500);
       }
     }
 
