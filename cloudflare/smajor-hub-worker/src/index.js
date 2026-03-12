@@ -2555,6 +2555,34 @@ function layout({
     `
     : "";
 
+  const tradingLaneMetricsHtml = moduleSection && moduleSection.tradingLaneMetrics
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Trade metrics</div>
+            <h2>${moduleSection.tradingLaneMetrics.title}</h2>
+          </div>
+          <p>${moduleSection.tradingLaneMetrics.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.tradingLaneMetrics.columns
+            .map(
+              (column) => `
+                <article class="module-card">
+                  <div class="label">${column.label}</div>
+                  <ul>
+                    ${column.items.map((item) => `<li>${item}</li>`).join("")}
+                  </ul>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
   const registryWriteContractHtml = moduleSection && moduleSection.registryWriteContract
     ? `
       <section class="module-panel">
@@ -3145,6 +3173,7 @@ function layout({
       ${agentActivationHtml}
       ${agentServiceBindingsHtml}
       ${tradingShowroomHtml}
+      ${tradingLaneMetricsHtml}
       ${foundationHtml}
       ${registryWriteContractHtml}
       ${clientConsoleHtml}
@@ -5158,6 +5187,54 @@ function tradingShowroomSection(pathname) {
   };
 }
 
+function tradingLaneMetricsSection(pathname, snapshot) {
+  if (!["/trade", "/omega"].includes(pathname)) {
+    return null;
+  }
+  const roster = snapshot.mesh?.mesh?.agents || {};
+  const activeMissions = Array.isArray(snapshot.missions?.active) ? snapshot.missions.active : [];
+  const status = snapshot.status || {};
+  const columns = [
+    {
+      label: "Signal lane",
+      members: ["TRINITY", "KIMI", "ORACLE"],
+      headline: status.arkon5_action || "READY",
+    },
+    {
+      label: "Risk lane",
+      members: ["MERLIN", "ONCHAIN_GUARDIAN", "GOUV4"],
+      headline: status.pipeline_status || "MESH_READY",
+    },
+    {
+      label: "Treasury lane",
+      members: ["TREASURY"],
+      headline: status.wallet_creator_akt_balance != null ? `${status.wallet_creator_akt_balance} AKT` : "treasury online",
+    },
+    {
+      label: "Execution lane",
+      members: ["ARKON"],
+      headline: "mirror wallet armed",
+    },
+  ].map((lane) => {
+    const onlineCount = lane.members.filter((agentId) => !["offline", "unknown"].includes(roster[agentId]?.status || "offline")).length;
+    const missionCount = activeMissions.filter((mission) => lane.members.includes(mission.target)).length;
+    return {
+      label: lane.label,
+      items: [
+        `headline=${lane.headline}`,
+        `online=${onlineCount}/${lane.members.length}`,
+        `missions=${missionCount}`,
+        `members=${lane.members.join(", ")}`,
+      ],
+    };
+  });
+  return {
+    title: "Trading lane metrics",
+    intro: "Metrices live des lanes trader. Le front montre la pression lane par lane sans exposer les secrets ni les cles.",
+    columns,
+  };
+}
+
 function adminConsoleSection(pathname, snapshot) {
   if (pathname !== "/admin") {
     return null;
@@ -5482,6 +5559,7 @@ function renderApp(env, pathname, hostname, snapshot) {
     agentActivation: agentActivationSection(pathname),
     agentServiceBindings: agentServiceBindingsSection(pathname),
     tradingShowroom: tradingShowroomSection(pathname),
+    tradingLaneMetrics: tradingLaneMetricsSection(pathname, snapshot),
     foundationStack: foundationStackSection(pathname),
     masterWallet: masterWalletSection(pathname, env, snapshot),
     registryWriteContract: registryWriteContractSection(pathname),
@@ -6091,6 +6169,20 @@ export default {
           title: "Gemini unified layer",
           summary: "Gemini as intelligence plane, distinct from Google Cloud infrastructure.",
           doctrine: [],
+        },
+      );
+    }
+
+    if (url.pathname === "/models/trading-lane-metrics.json") {
+      const payload = await fetchJson(`${env.PUBLIC_API_URL}/api/business/trading-lane-metrics`).catch(() => null);
+      return jsonResponse(
+        payload || {
+          ok: true,
+          domain: "smajor.org",
+          source_of_truth: "api.smajor.org trading lane metrics",
+          title: "Trading lane metrics",
+          summary: "Live lane metrics unavailable",
+          lanes: [],
         },
       );
     }

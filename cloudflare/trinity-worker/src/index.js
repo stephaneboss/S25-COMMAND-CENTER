@@ -488,6 +488,7 @@ const BUSINESS_REGISTRY_MAP = {
     { key: "portal_separation", path: `${BUSINESS_PREFIX}/portal-separation`, purpose: "Portal-by-portal split for clients, staff and vendors" },
     { key: "gemini_layer", path: `${BUSINESS_PREFIX}/gemini-layer`, purpose: "Unified Gemini intelligence layer distinct from Google Cloud infrastructure" },
     { key: "trading_showroom", path: `${BUSINESS_PREFIX}/trading-showroom`, purpose: "Multi-agent trading room with signal, risk, treasury and execution lanes" },
+    { key: "trading_lane_metrics", path: `${BUSINESS_PREFIX}/trading-lane-metrics`, purpose: "Live runtime metrics for signal, risk, treasury and execution lanes" },
     { key: "internal_ops", path: `${BUSINESS_PREFIX}/internal-ops`, purpose: "Public operating summary for Smajor internal account" },
     { key: "empire_manifest", path: `${BUSINESS_PREFIX}/empire-manifest`, purpose: "Unified manifest of domains, towers, registries and command chain" },
     { key: "total_mesh_protocol", path: `${BUSINESS_PREFIX}/total-mesh-protocol`, purpose: "Protocol de synchronisation totale des agents vers le hub" },
@@ -1279,6 +1280,70 @@ function deriveTradingShowroom() {
   };
 }
 
+async function deriveTradingLaneMetrics(requestId, env) {
+  const [meshResult, statusResult, missionsResult] = await Promise.allSettled([
+    fetchOriginJson("/api/mesh/status", env, requestId),
+    fetchOriginJson("/api/status", env, requestId),
+    fetchOriginJson("/api/missions", env, requestId),
+  ]);
+  const meshPayload = meshResult.status === "fulfilled" ? meshResult.value : { mesh: { agents: {} } };
+  const statusPayload = statusResult.status === "fulfilled" ? statusResult.value : {};
+  const missionsPayload = missionsResult.status === "fulfilled" ? missionsResult.value : { active: [] };
+  const agents = meshPayload?.mesh?.agents || {};
+  const activeMissions = Array.isArray(missionsPayload?.active) ? missionsPayload.active : [];
+  const laneMap = [
+    {
+      lane_id: "signal_lane",
+      members: ["TRINITY", "KIMI", "ORACLE"],
+      headline: statusPayload.arkon5_action || "READY",
+    },
+    {
+      lane_id: "risk_lane",
+      members: ["MERLIN", "ONCHAIN_GUARDIAN", "GOUV4"],
+      headline: statusPayload.pipeline_status || "MESH_READY",
+    },
+    {
+      lane_id: "treasury_lane",
+      members: ["TREASURY"],
+      headline: statusPayload.wallet_creator_akt_balance != null
+        ? `${statusPayload.wallet_creator_akt_balance} AKT`
+        : "treasury online",
+    },
+    {
+      lane_id: "execution_lane",
+      members: ["ARKON"],
+      headline: "mirror wallet armed",
+    },
+  ];
+  const lanes = laneMap.map((lane) => {
+    const memberStates = lane.members.map((agentId) => ({
+      agent_id: agentId,
+      status: agents[agentId]?.status || "offline",
+      last_task: agents[agentId]?.last_task || null,
+      last_seen: agents[agentId]?.last_seen || null,
+    }));
+    const online_count = memberStates.filter((member) => !["offline", "unknown"].includes(member.status)).length;
+    const laneMissions = activeMissions.filter((mission) => lane.members.includes(mission.target));
+    return {
+      lane_id: lane.lane_id,
+      online_count,
+      member_count: lane.members.length,
+      mission_count: laneMissions.length,
+      headline: lane.headline,
+      members: memberStates,
+      live_state: online_count > 0 ? "online" : "standby",
+    };
+  });
+  return {
+    title: "Trading lane metrics",
+    summary: "Metrices live des lanes trader pour le showroom Smajor. Le front lit l'etat, le backend garde l'execution.",
+    pipeline_status: statusPayload.pipeline_status || "unknown",
+    missions_active: activeMissions.length,
+    wallet_creator_akt_balance: statusPayload.wallet_creator_akt_balance ?? null,
+    lanes,
+  };
+}
+
 function findInternalOpsClient(business) {
   return (business.clients || []).find(
     (record) =>
@@ -1663,6 +1728,9 @@ function handleBusinessRequest(request, pathname, requestId, env) {
   }
   if (pathname === `${BUSINESS_PREFIX}/trading-showroom`) {
     return businessResponse(requestId, pathname, deriveTradingShowroom());
+  }
+  if (pathname === `${BUSINESS_PREFIX}/trading-lane-metrics`) {
+    return deriveTradingLaneMetrics(requestId, env).then((payload) => businessResponse(requestId, pathname, payload));
   }
   if (pathname === `${BUSINESS_PREFIX}/internal-ops`) {
     return readBusinessState(env, requestId).then((business) =>
