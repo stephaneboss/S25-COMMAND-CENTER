@@ -3884,6 +3884,49 @@ async function fetchAdminSnapshot(env) {
     events: Array.isArray(registry.events) ? registry.events : [],
     last_write_at: registry.last_write_at || null,
   };
+  const memoryState = memoryResult.status === "fulfilled" ? memoryResult.value?.state || {} : {};
+  const memoryAgents = memoryState.agents || {};
+  const runtimeTradingState =
+    memoryState.trading && Object.keys(memoryState.trading).length > 0
+      ? memoryState.trading
+      : memoryState.intel?.trading_runtime && Object.keys(memoryState.intel.trading_runtime).length > 0
+        ? memoryState.intel.trading_runtime
+        : {};
+  const laneMap = [
+    { lane_id: "signal_lane", members: ["TRINITY", "KIMI", "ORACLE"], headline: "READY" },
+    { lane_id: "risk_lane", members: ["MERLIN", "ONCHAIN_GUARDIAN", "GOUV4"], headline: "MESH_READY" },
+    { lane_id: "treasury_lane", members: ["TREASURY"], headline: "treasury online" },
+    { lane_id: "execution_lane", members: ["ARKON"], headline: "mirror wallet armed" },
+  ];
+  const derivedTradingLaneMetrics = {
+    title: "Trading lane metrics",
+    summary: "Metrices derivees du runtime securise S25 pour le control plane admin.",
+    mode: runtimeTradingState.mode || "showroom",
+    policy_state: runtimeTradingState.policy_state || "audit_first",
+    lanes: laneMap.map((lane) => {
+      const laneRuntime = runtimeTradingState.lanes?.[lane.lane_id] || {};
+      const members = lane.members.map((agentId) => ({
+        agent_id: agentId,
+        status: memoryAgents[agentId]?.status || "offline",
+      }));
+      const onlineCount = members.filter((member) => !["offline", "unknown"].includes(member.status)).length;
+      const liveState =
+        laneRuntime.live_state || laneRuntime.desired_state
+          ? laneRuntime.live_state || "armed"
+          : onlineCount > 0
+            ? "online"
+            : "standby";
+      return {
+        lane_id: lane.lane_id,
+        headline: laneRuntime.headline || lane.headline,
+        members,
+        mission_count: 0,
+        online_count: onlineCount,
+        live_state: liveState,
+        last_sync: laneRuntime.last_sync || runtimeTradingState.last_sync || null,
+      };
+    }),
+  };
   const operatorRoster = {
     secure: true,
     title: "Operator roster",
@@ -3908,7 +3951,7 @@ async function fetchAdminSnapshot(env) {
     secretCustody: secretCustodyResult.status === "fulfilled" ? secretCustodyResult.value : null,
     secretFallbackPolicy: secretFallbackResult.status === "fulfilled" ? secretFallbackResult.value : null,
     geminiLayer: geminiLayerResult.status === "fulfilled" ? geminiLayerResult.value : null,
-    tradingLaneMetrics: tradingLaneMetricsResult.status === "fulfilled" ? tradingLaneMetricsResult.value : null,
+    tradingLaneMetrics: derivedTradingLaneMetrics,
     errors: [memoryResult, walletsResult, treasuryResult, secretCustodyResult, secretFallbackResult, geminiLayerResult, tradingLaneMetricsResult]
       .filter((result) => result.status === "rejected")
       .map((result) => result.reason?.message || "secure_memory_upstream_error"),
@@ -4713,6 +4756,74 @@ async function executeOperationalPlaybook(request, env) {
   const billing = business.quotes_invoices || [];
   const identities = business.identities || [];
   const events = business.events || [];
+
+  if (domain === "trade") {
+    const laneId = targetId;
+    const snapshot = await fetchAdminSnapshot(env);
+    const lane = (snapshot.tradingLaneMetrics?.lanes || []).find((record) => record.lane_id === laneId) || null;
+    if (!lane) {
+      return jsonResponse({ ok: false, error: "trade_lane_not_found", lane_id: laneId }, 404);
+    }
+    const activatedAt = new Date().toISOString();
+    const members = (lane.members || []).map((member) => member.agent_id).filter(Boolean);
+    await fetchSecureJson(
+      `${env.DIRECT_RUNTIME_URL || env.PUBLIC_S25_URL}/api/memory/state`,
+      env,
+      "POST",
+      JSON.stringify({
+        agent: "TRINITY",
+        intel: {
+          trading_runtime: {
+            mode: "active",
+            policy_state: "audit_first",
+            last_sync: activatedAt,
+            lanes: {
+              [laneId]: {
+                desired_state: "active",
+                live_state: "online",
+                headline: `Lane armed via admin playbook at ${activatedAt}`,
+                activated_by: "admin_playbook",
+                members,
+              },
+            },
+          },
+        },
+        trading: {
+          mode: "active",
+          policy_state: "audit_first",
+          last_sync: activatedAt,
+          lanes: {
+            [laneId]: {
+              desired_state: "active",
+              live_state: "online",
+              headline: `Lane armed via admin playbook at ${activatedAt}`,
+              activated_by: "admin_playbook",
+              members,
+            },
+          },
+        },
+      }),
+    );
+    return jsonResponse({
+      ok: true,
+      domain,
+      lane_id: laneId,
+      next_action: "monitor_account",
+      activated_at: activatedAt,
+      members,
+      message: `Trade lane ${laneId} armed in S25 runtime.`,
+    });
+  }
+
+  if (domain === "treasury") {
+    return jsonResponse({
+      ok: true,
+      domain,
+      wallet_id: targetId,
+      next_action: "monitor_account",
+      message: "Treasury lane is governed by custody policy. Monitoring only until explicit treasury execution is enabled.",
+    });
+  }
 
   if (domain === "staff") {
     const identity = identities.find((record) => record.identity_id === targetId) || null;
@@ -6244,8 +6355,8 @@ function operationalPlaybookSection(pathname, snapshot) {
     domain: "trade",
     target_id: lane.lane_id || "trade_lane",
     client_id: lane.lane_id || "trade_lane",
-    next_action: lane.live_state === "online" ? "monitor_account" : "activate_lane",
-    guide: lane.live_state === "online"
+    next_action: ["online", "armed", "active"].includes(lane.live_state) ? "monitor_account" : "activate_lane",
+    guide: ["online", "armed", "active"].includes(lane.live_state)
       ? `Lane is online. missions=${lane.mission_count || 0} members=${(lane.members || []).map((member) => member.agent_id).join(", ")}`
       : `Activate ${String(lane.lane_id || "trade_lane").replace(/_/g, " ")} runtime and verify agent chain ${(
           lane.members || []
