@@ -16,8 +16,6 @@
   "trading_container_id": "mirror-01",
   "secret_profiles": {
     "mirror_01": {
-      "MEXC_API_KEY": "mexc-api-key",
-      "MEXC_SECRET_KEY": "mexc-secret-key",
       "S25_SHARED_SECRET": "s25-shared-secret",
       "GEMINI_API_KEY": "gemini-api-key"
     },
@@ -29,9 +27,9 @@
   "containers": [
     {
       "id": "mirror-01",
-      "mode": "trade_test",
+      "mode": "bootstrap_test",
       "google_secret_profile": "mirror_01",
-      "inject_trading_stack": true,
+      "inject_trading_stack": false,
       "run_treasury_autopilot": true,
       "assigned_lane": "vault_lane"
     },
