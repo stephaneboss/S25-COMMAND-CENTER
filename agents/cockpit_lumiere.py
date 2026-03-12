@@ -198,10 +198,12 @@ def _default_agents_state() -> dict:
             "last_sync": None,
         },
         "business": {
+            "organizations": [],
             "clients": [],
             "jobs": [],
             "quotes_invoices": [],
             "identities": [],
+            "events": [],
             "last_write_at": None,
         },
     }
@@ -271,6 +273,8 @@ def _refresh_runtime_defaults(state: dict) -> dict:
     business.setdefault("identities", [])
     business.setdefault("jobs", [])
     business.setdefault("quotes_invoices", [])
+    business.setdefault("organizations", [])
+    business.setdefault("events", [])
     business.setdefault("last_write_at", None)
 
     intel.setdefault("comet_feed", [])
@@ -1343,7 +1347,7 @@ def api_memory_state_post():
 
     if business_updates and "business" in state:
         for key, value in business_updates.items():
-            if key in {"clients", "jobs", "quotes_invoices", "identities"} and isinstance(value, list):
+            if key in {"clients", "jobs", "quotes_invoices", "identities", "organizations", "events"} and isinstance(value, list):
                 state["business"][key] = value
             elif key == "last_write_at":
                 state["business"][key] = value

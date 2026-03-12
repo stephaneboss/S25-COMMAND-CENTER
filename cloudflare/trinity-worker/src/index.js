@@ -806,14 +806,27 @@ function businessResponse(requestId, pathname, payload, status = 200) {
 
 function buildBusinessState(seed) {
   return {
+    organizations: [],
     clients: [...BUSINESS_CLIENT_REGISTRY_LIVE.records],
     jobs: [...BUSINESS_JOB_REGISTRY_LIVE.records],
     quotes_invoices: [...BUSINESS_QUOTES_INVOICES_LIVE.records],
     identities: [],
     wallets_custody: [],
+    events: [],
     last_write_at: null,
     ...(seed || {}),
   };
+}
+
+function normalizeBusinessState(seed) {
+  const business = buildBusinessState(seed);
+  business.organizations = Array.isArray(business.organizations) ? business.organizations : [];
+  business.clients = Array.isArray(business.clients) ? business.clients : [];
+  business.jobs = Array.isArray(business.jobs) ? business.jobs : [];
+  business.quotes_invoices = Array.isArray(business.quotes_invoices) ? business.quotes_invoices : [];
+  business.identities = Array.isArray(business.identities) ? business.identities : [];
+  business.events = Array.isArray(business.events) ? business.events : [];
+  return business;
 }
 
 async function deriveWalletCustodyRegistry(env, requestId) {
@@ -1509,6 +1522,15 @@ function deriveInternalOpsSummary(business) {
 }
 
 function deriveOrganizationsLive(business) {
+  const canonicalOrganizations = Array.isArray(business.organizations) ? business.organizations : [];
+  if (canonicalOrganizations.length > 0) {
+    return {
+      title: "Organizations live",
+      summary: "Registre canonique des organisations persiste dans le runtime business vivant de S25.",
+      total_organizations: canonicalOrganizations.length,
+      records: canonicalOrganizations,
+    };
+  }
   const clients = Array.isArray(business.clients) ? business.clients : [];
   const identities = Array.isArray(business.identities) ? business.identities : [];
   const jobs = Array.isArray(business.jobs) ? business.jobs : [];
@@ -1650,16 +1672,18 @@ function buildOperatorRoster(business) {
 
 function extractBusinessState(payload) {
   const candidate = payload?.state?.intel?.business_registry || payload?.state?.business || {};
-  return buildBusinessState(candidate);
+  return normalizeBusinessState(candidate);
 }
 
 function hasBusinessWrites(state) {
   return Boolean(
     state?.last_write_at ||
+    (Array.isArray(state?.organizations) && state.organizations.some((item) => item?.organization_id)) ||
     (Array.isArray(state?.clients) && state.clients.some((item) => item?.created_at)) ||
     (Array.isArray(state?.jobs) && state.jobs.some((item) => item?.created_at)) ||
     (Array.isArray(state?.quotes_invoices) && state.quotes_invoices.some((item) => item?.created_at)) ||
-    (Array.isArray(state?.identities) && state.identities.some((item) => item?.created_at || item?.identity_id)),
+    (Array.isArray(state?.identities) && state.identities.some((item) => item?.created_at || item?.identity_id)) ||
+    (Array.isArray(state?.events) && state.events.some((item) => item?.event_id)),
   );
 }
 
@@ -1686,7 +1710,7 @@ async function readBusinessState(env, requestId) {
     } catch {}
   }
 
-  return buildBusinessState();
+  return normalizeBusinessState();
 }
 
 async function writeBusinessState(env, requestId, business) {
@@ -1779,12 +1803,53 @@ function buildCreatedRecord(kind, body) {
   };
 }
 
+function appendBusinessEvent(business, event) {
+  const record = {
+    event_id: event.event_id || createRecordId("evt"),
+    event_type: event.event_type || "business_write",
+    lane: event.lane || "business",
+    subject_type: event.subject_type || "record",
+    subject_id: event.subject_id || null,
+    collection: event.collection || "business",
+    summary: event.summary || "Business state updated",
+    scope_id: event.scope_id || null,
+    metadata: event.metadata || {},
+    created_at: event.created_at || new Date().toISOString(),
+  };
+  business.events = [record, ...(business.events || [])].slice(0, 250);
+  return record;
+}
+
+function rebuildOrganizationRegistry(business) {
+  const previous = Array.isArray(business.organizations) ? business.organizations : [];
+  business.organizations = [];
+  const derived = deriveOrganizationsLive(business);
+  business.organizations = derived.records.map((record) => {
+    const existing = previous.find((item) => item.organization_id === record.organization_id) || {};
+    return {
+      organization_id: record.organization_id,
+      organization_name: record.organization_name,
+      client_count: record.client_count,
+      identity_count: record.identity_count,
+      job_count: record.job_count,
+      billing_count: record.billing_count,
+      scopes: record.scopes,
+      services: record.services,
+      account_states: record.account_states,
+      last_activity_at: record.last_activity_at,
+      ledger_state: existing.ledger_state || "active",
+      wallet_scope: existing.wallet_scope || "operations_scope",
+    };
+  });
+  return business.organizations;
+}
+
 async function handleBusinessCreate(request, pathname, requestId, env, kind) {
   const denied = requireBusinessSecret(request, env, requestId, pathname);
   if (denied) return denied;
 
   const body = await request.json().catch(() => ({}));
-  const business = await readBusinessState(env, requestId);
+  const business = normalizeBusinessState(await readBusinessState(env, requestId));
   const collectionKey =
     kind === "client"
       ? BUSINESS_COLLECTION_KEYS.clients
@@ -1795,6 +1860,29 @@ async function handleBusinessCreate(request, pathname, requestId, env, kind) {
           : BUSINESS_COLLECTION_KEYS.quotes_invoices;
   const created = buildCreatedRecord(kind, body);
   business[collectionKey] = [created, ...(business[collectionKey] || [])];
+  rebuildOrganizationRegistry(business);
+  appendBusinessEvent(business, {
+    event_type: `${kind}_created`,
+    lane: kind === "quote" ? "billing" : kind,
+    subject_type: kind,
+    subject_id:
+      created.client_id ||
+      created.job_id ||
+      created.identity_id ||
+      created.invoice_id ||
+      created.quote_id ||
+      null,
+    collection: collectionKey,
+    scope_id: created.scope_id || created.dispatch_scope || null,
+    summary: `${kind} created for ${created.organization_name || created.display_name || created.client_id || created.job_id || created.quote_id || created.invoice_id}`,
+    metadata: {
+      organization_id: created.organization_id || null,
+      client_id: created.client_id || null,
+      job_id: created.job_id || null,
+      role_id: created.role_id || null,
+      badge_id: created.badge_id || null,
+    },
+  });
   business.last_write_at = new Date().toISOString();
   await writeBusinessState(env, requestId, business);
   return businessResponse(
