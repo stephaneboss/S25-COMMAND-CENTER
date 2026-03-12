@@ -486,6 +486,7 @@ const BUSINESS_REGISTRY_MAP = {
     { key: "separation_architecture", path: `${BUSINESS_PREFIX}/separation-architecture`, purpose: "Official front-end versus back-end separation map" },
     { key: "admin_architecture", path: `${BUSINESS_PREFIX}/admin-architecture`, purpose: "Admin control-plane architecture split between interface and sovereign backend" },
     { key: "portal_separation", path: `${BUSINESS_PREFIX}/portal-separation`, purpose: "Portal-by-portal split for clients, staff and vendors" },
+    { key: "gemini_layer", path: `${BUSINESS_PREFIX}/gemini-layer`, purpose: "Unified Gemini intelligence layer distinct from Google Cloud infrastructure" },
     { key: "trading_showroom", path: `${BUSINESS_PREFIX}/trading-showroom`, purpose: "Multi-agent trading room with signal, risk, treasury and execution lanes" },
     { key: "internal_ops", path: `${BUSINESS_PREFIX}/internal-ops`, purpose: "Public operating summary for Smajor internal account" },
     { key: "empire_manifest", path: `${BUSINESS_PREFIX}/empire-manifest`, purpose: "Unified manifest of domains, towers, registries and command chain" },
@@ -1203,6 +1204,58 @@ function derivePortalSeparation() {
   };
 }
 
+function deriveGeminiLayer() {
+  return {
+    title: "Gemini unified layer",
+    summary: "Gemini reste le cerveau unifie du cockpit. Google Cloud reste une couche d'infrastructure et de custody, pas le centre du raisonnement.",
+    doctrine: [
+      "Gemini = intelligence, grounding, synthesis, memory and orchestration support",
+      "Google Cloud = secret custody, service accounts and runtime support",
+      "MERLIN porte la validation Gemini dans le mesh S25",
+      "TRINITY commande, MERLIN clarifie, COMET observe, S25 Lumiere gouverne le runtime",
+    ],
+    split: {
+      intelligence_plane: {
+        title: "Intelligence plane",
+        owners: ["MERLIN", "TRINITY", "COMET", "Gemini API"],
+        responsibilities: [
+          "reasoning and synthesis",
+          "provider interpretation",
+          "memory review",
+          "architecture validation",
+          "grounded search and context layering",
+        ],
+      },
+      infrastructure_plane: {
+        title: "Infrastructure plane",
+        owners: ["S25 Lumiere", "Akash", "Cloudflare", "Google Secret Manager"],
+        responsibilities: [
+          "runtime and gateway",
+          "custody and secret access",
+          "service account authority",
+          "public routing and portal delivery",
+        ],
+      },
+    },
+    command_chain: [
+      "User or operator -> Trinity",
+      "Trinity -> S25 Lumiere runtime",
+      "MERLIN/Gemini -> validate, clarify, synthesize",
+      "COMET -> gather live web/provider intelligence",
+      "S25 Lumiere -> persist, route, govern, expose state",
+    ],
+    surfaces: {
+      frontend: ["app.smajor.org/admin", "app.smajor.org/ai", "app.smajor.org/omega"],
+      backend: ["api.smajor.org/api/business/gemini-layer", "merlin.smajor.org/mcp", "s25.smajor.org/api/status"],
+    },
+    role_map: [
+      { agent: "MERLIN", role_id: "merlin_validator", function: "Gemini validation and memory lane" },
+      { agent: "TRINITY", role_id: "trinity_orchestrator", function: "mission control and operator relay" },
+      { agent: "COMET", role_id: "comet_watch", function: "live provider and web intelligence" },
+    ],
+  };
+}
+
 function deriveTradingShowroom() {
   return {
     title: "Trading showroom",
@@ -1604,6 +1657,9 @@ function handleBusinessRequest(request, pathname, requestId, env) {
   }
   if (pathname === `${BUSINESS_PREFIX}/portal-separation`) {
     return businessResponse(requestId, pathname, derivePortalSeparation());
+  }
+  if (pathname === `${BUSINESS_PREFIX}/gemini-layer`) {
+    return businessResponse(requestId, pathname, deriveGeminiLayer());
   }
   if (pathname === `${BUSINESS_PREFIX}/trading-showroom`) {
     return businessResponse(requestId, pathname, deriveTradingShowroom());
