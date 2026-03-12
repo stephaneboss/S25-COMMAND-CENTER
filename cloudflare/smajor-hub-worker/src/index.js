@@ -3225,6 +3225,45 @@ async function fetchJson(url) {
   return response.json();
 }
 
+async function fetchMasterWalletBalance(address) {
+  if (!address) {
+    return {
+      akt_balance: null,
+      akt_price_usd: null,
+      akt_value_usd: null,
+    };
+  }
+
+  const [balanceResult, priceResult] = await Promise.allSettled([
+    fetchJson(`https://rest.cosmos.directory/akash/cosmos/bank/v1beta1/balances/${address}`),
+    fetchJson("https://api.coingecko.com/api/v3/simple/price?ids=akash-network&vs_currencies=usd"),
+  ]);
+
+  let aktBalance = null;
+  let aktPriceUsd = null;
+
+  if (balanceResult.status === "fulfilled") {
+    const balances = balanceResult.value?.balances || [];
+    const match = balances.find((item) => item?.denom === "uakt");
+    if (match?.amount) {
+      aktBalance = Number(match.amount) / 1000000;
+    }
+  }
+
+  if (priceResult.status === "fulfilled") {
+    aktPriceUsd = priceResult.value?.["akash-network"]?.usd ?? null;
+  }
+
+  return {
+    akt_balance: aktBalance,
+    akt_price_usd: aktPriceUsd,
+    akt_value_usd:
+      aktBalance != null && aktPriceUsd != null
+        ? Number((aktBalance * aktPriceUsd).toFixed(2))
+        : null,
+  };
+}
+
 async function fetchSecureJson(url, env, method = "GET", body = null) {
   if (!env.S25_SHARED_SECRET) {
     throw new Error("shared_secret_missing");
@@ -3264,6 +3303,15 @@ async function fetchOpsSnapshot(env) {
     memoryResult.status === "fulfilled"
       ? memoryResult.value?.state?.intel?.business_registry || memoryResult.value?.state?.business || {}
       : {};
+  const statusPayload = statusResult.status === "fulfilled" ? statusResult.value : null;
+  const masterWalletAddress =
+    statusPayload?.wallet_creator_address || env.MASTER_WALLET_ADDRESS || null;
+  const walletFallback = await fetchMasterWalletBalance(masterWalletAddress);
+  if (statusPayload) {
+    statusPayload.wallet_creator_akt_balance ??= walletFallback.akt_balance;
+    statusPayload.wallet_creator_akt_price_usd ??= walletFallback.akt_price_usd;
+    statusPayload.wallet_creator_akt_value_usd ??= walletFallback.akt_value_usd;
+  }
   const internalOps = {
     title: "Smajor internal operations",
     account_live: Boolean(
@@ -3289,7 +3337,7 @@ async function fetchOpsSnapshot(env) {
   };
 
   return {
-    status: statusResult.status === "fulfilled" ? statusResult.value : null,
+    status: statusPayload,
     missions: missionsResult.status === "fulfilled" ? missionsResult.value : null,
     mesh: meshResult.status === "fulfilled" ? meshResult.value : null,
     vault: vaultResult.status === "fulfilled" ? vaultResult.value : null,
@@ -3928,6 +3976,17 @@ function buildOmegaDeck(env, snapshot) {
         text: vault.profitability?.data_state || "Le tunnel trade reste sous garde avant binding complet.",
       },
       {
+        label: "Master Wallet",
+        value:
+          status.wallet_creator_akt_balance != null
+            ? `${status.wallet_creator_akt_balance} AKT`
+            : "AKT pending",
+        text:
+          status.wallet_creator_akt_value_usd != null
+            ? `Adresse ${status.wallet_creator_address || "unknown"} · ~$${status.wallet_creator_akt_value_usd}`
+            : `Adresse ${status.wallet_creator_address || "unknown"} · custody ${status.wallet_custody || "gsm"}`,
+      },
+      {
         label: "Akash Cluster",
         value: `${infra.cluster?.cpu_ready ?? 0} CPU / ${infra.cluster?.gpu_tracked ?? 0} GPU`,
         text: infra.cluster?.doctrine || "Akash-first avec facade souveraine.",
@@ -4291,6 +4350,8 @@ function masterWalletSection(pathname, env, snapshot) {
   const walletLabel = env.MASTER_WALLET_LABEL || "Wallet master";
   const walletConnected = status.wallet_creator_connected != null ? Boolean(status.wallet_creator_connected) : Boolean(walletAddress && walletAddress !== "unconfigured");
   const walletCustody = status.wallet_custody || "google_secret_manager";
+  const aktBalance = status.wallet_creator_akt_balance;
+  const aktValueUsd = status.wallet_creator_akt_value_usd;
   return {
     title: "Master wallet status",
     intro: "Adresse publique du wallet creator et connexion live au cockpit S25.",
@@ -4301,6 +4362,7 @@ function masterWalletSection(pathname, env, snapshot) {
           walletAddress,
           `prefix=akash`,
           `connected=${walletConnected ? "true" : "false"}`,
+          `akt_balance=${aktBalance != null ? aktBalance : "--"}`,
         ],
       },
       {
@@ -4315,6 +4377,7 @@ function masterWalletSection(pathname, env, snapshot) {
         label: "Runtime",
         items: [
           `custody=${walletCustody}`,
+          `akt_value_usd=${aktValueUsd != null ? `$${aktValueUsd}` : "--"}`,
           `signal=${status.arkon5_action || "--"}`,
           `tunnel=${status.system?.tunnel || (status.tunnel_active ? "online" : "offline")}`,
           `ha=${status.ha_connected ? "linked" : "off"}`,
@@ -4328,6 +4391,8 @@ function masterWalletSection(pathname, env, snapshot) {
       wallet_prefix: "akash",
       creator_connected: walletConnected,
       custody: walletCustody,
+      akt_balance: aktBalance,
+      akt_value_usd: aktValueUsd,
       source_of_truth: "S25 Lumiere runtime status + Google Secret Manager derived public address",
       s25_connection: {
         pipeline_status: status.pipeline_status || "unknown",

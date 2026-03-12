@@ -108,6 +108,9 @@ def _default_agents_state() -> dict:
             "creator_address": MASTER_WALLET_ADDRESS,
             "creator_connected": bool(MASTER_WALLET_ADDRESS),
             "custody": "google_secret_manager",
+            "creator_akt_balance": None,
+            "creator_akt_price_usd": None,
+            "creator_akt_value_usd": None,
             "last_sync": None,
         },
         "missions": {
@@ -239,6 +242,53 @@ def _process_running(process_name: str) -> bool:
     return process_name in result.stdout
 
 
+def _fetch_creator_wallet_snapshot(address: str) -> dict:
+    """Read public wallet data for the creator wallet without exposing the seed."""
+    snapshot = {
+        "label": "Wallet creator",
+        "address": address,
+        "connected": bool(address),
+        "custody": "google_secret_manager",
+        "akt_balance": None,
+        "akt_price_usd": None,
+        "akt_value_usd": None,
+        "last_fetch": _utcnow_iso(),
+    }
+    if not address:
+        return snapshot
+
+    try:
+        response = requests.get(
+            f"https://rest.cosmos.directory/akash/cosmos/bank/v1beta1/balances/{address}",
+            timeout=8,
+        )
+        response.raise_for_status()
+        balances = response.json().get("balances", [])
+        for balance in balances:
+            if balance.get("denom") == "uakt":
+                snapshot["akt_balance"] = round(int(balance.get("amount", 0)) / 1_000_000, 6)
+                break
+    except Exception:
+        pass
+
+    try:
+        response = requests.get(
+            "https://api.coingecko.com/api/v3/simple/price",
+            params={"ids": "akash-network", "vs_currencies": "usd"},
+            timeout=8,
+        )
+        response.raise_for_status()
+        price = response.json().get("akash-network", {}).get("usd")
+        if price is not None:
+            snapshot["akt_price_usd"] = price
+            if snapshot["akt_balance"] is not None:
+                snapshot["akt_value_usd"] = round(snapshot["akt_balance"] * price, 2)
+    except Exception:
+        pass
+
+    return snapshot
+
+
 def _status_summary(status: dict) -> dict:
     """Normalize status for GPT-friendly summaries."""
     pipeline_status = (status.get("pipeline_status") or "INIT").strip() or "INIT"
@@ -317,9 +367,37 @@ def _hydrate_status_from_memory(status: dict) -> dict:
     status["mesh_agents_online"] = online_agents
     status["ha_connected"] = bool(HA_TOKEN)
     wallet_state = state.get("wallet", {})
-    status["wallet_creator_address"] = wallet_state.get("creator_address", MASTER_WALLET_ADDRESS)
-    status["wallet_creator_connected"] = bool(wallet_state.get("creator_connected"))
-    status["wallet_custody"] = wallet_state.get("custody", "google_secret_manager")
+    creator_snapshot = _fetch_creator_wallet_snapshot(
+        wallet_state.get("creator_address", MASTER_WALLET_ADDRESS)
+    )
+    state["wallet"].update(
+        {
+            "creator_label": creator_snapshot.get("label", "Wallet creator"),
+            "creator_address": creator_snapshot.get("address", MASTER_WALLET_ADDRESS),
+            "creator_connected": creator_snapshot.get("connected", bool(MASTER_WALLET_ADDRESS)),
+            "custody": creator_snapshot.get("custody", "google_secret_manager"),
+            "creator_akt_balance": creator_snapshot.get("akt_balance"),
+            "creator_akt_price_usd": creator_snapshot.get("akt_price_usd"),
+            "creator_akt_value_usd": creator_snapshot.get("akt_value_usd"),
+            "last_sync": creator_snapshot.get("last_fetch"),
+        }
+    )
+    status["wallet_creator_address"] = state["wallet"].get("creator_address", MASTER_WALLET_ADDRESS)
+    status["wallet_creator_connected"] = bool(state["wallet"].get("creator_connected"))
+    status["wallet_custody"] = state["wallet"].get("custody", "google_secret_manager")
+    status["wallet_creator_akt_balance"] = state["wallet"].get("creator_akt_balance")
+    status["wallet_creator_akt_price_usd"] = state["wallet"].get("creator_akt_price_usd")
+    status["wallet_creator_akt_value_usd"] = state["wallet"].get("creator_akt_value_usd")
+    status["wallet"] = {
+        "label": state["wallet"].get("creator_label", "Wallet creator"),
+        "address": state["wallet"].get("creator_address", MASTER_WALLET_ADDRESS),
+        "connected": bool(state["wallet"].get("creator_connected")),
+        "custody": state["wallet"].get("custody", "google_secret_manager"),
+        "akt_balance": state["wallet"].get("creator_akt_balance"),
+        "akt_price_usd": state["wallet"].get("creator_akt_price_usd"),
+        "akt_value_usd": state["wallet"].get("creator_akt_value_usd"),
+        "last_sync": state["wallet"].get("last_sync"),
+    }
 
     # When the mesh is alive but ARKON has not emitted a fresh trade signal yet,
     # surface readiness instead of stale INIT/HOLD defaults.
@@ -606,6 +684,9 @@ def api_status():
         "wallet_creator_address": MASTER_WALLET_ADDRESS,
         "wallet_creator_connected": bool(MASTER_WALLET_ADDRESS),
         "wallet_custody": "google_secret_manager",
+        "wallet_creator_akt_balance": None,
+        "wallet_creator_akt_price_usd": None,
+        "wallet_creator_akt_value_usd": None,
     }
 
     if not HA_TOKEN:
