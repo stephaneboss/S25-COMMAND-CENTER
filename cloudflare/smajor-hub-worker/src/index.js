@@ -1311,6 +1311,9 @@ const ADMIN_COMMAND_KIT_MODEL = {
         "GET /admin/api/runtime-business",
         "GET /admin/api/wallets-custody",
         "GET /admin/api/vaults-treasury",
+        "GET /admin/api/wallet-classes",
+        "GET /admin/api/wallet-scopes",
+        "GET /admin/api/wallet-policy-matrix",
       ],
     },
     {
@@ -5194,6 +5197,36 @@ export default {
       }
     }
 
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/wallet-classes") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      try {
+        return await fetchJson(`${env.PUBLIC_API_URL}/api/business/wallet-classes`).then((payload) => jsonResponse(payload));
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "admin_wallet_classes_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/wallet-scopes") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      try {
+        return await fetchJson(`${env.PUBLIC_API_URL}/api/business/wallet-scopes`).then((payload) => jsonResponse(payload));
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "admin_wallet_scopes_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/wallet-policy-matrix") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      try {
+        return await fetchJson(`${env.PUBLIC_API_URL}/api/business/wallet-policy-matrix`).then((payload) => jsonResponse(payload));
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "admin_wallet_policy_matrix_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
     if (hostname === "app.smajor.org" && url.pathname === "/admin/api/session") {
       if (request.method !== "POST") {
         return jsonResponse({ ok: false, error: "method_not_allowed" }, 405);
@@ -5495,6 +5528,48 @@ export default {
           "ajouter wallets secondaires et politiques par scope",
         ],
       });
+    }
+
+    if (url.pathname === "/models/wallet-classes.json") {
+      const payload = await fetchJson(`${env.PUBLIC_API_URL}/api/business/wallet-classes`).catch(() => null);
+      return jsonResponse(
+        payload || {
+          ok: true,
+          domain: "smajor.org",
+          source_of_truth: "api.smajor.org wallet classes",
+          title: "Wallet classes",
+          summary: "Classes de wallets pour creator, treasury, trading, ops et mirror.",
+          classes: [],
+        },
+      );
+    }
+
+    if (url.pathname === "/models/wallet-scopes.json") {
+      const payload = await fetchJson(`${env.PUBLIC_API_URL}/api/business/wallet-scopes`).catch(() => null);
+      return jsonResponse(
+        payload || {
+          ok: true,
+          domain: "smajor.org",
+          source_of_truth: "api.smajor.org wallet scopes",
+          title: "Wallet scopes",
+          summary: "Scopes des wallets et territoires d'action.",
+          scopes: [],
+        },
+      );
+    }
+
+    if (url.pathname === "/models/wallet-policy-matrix.json") {
+      const payload = await fetchJson(`${env.PUBLIC_API_URL}/api/business/wallet-policy-matrix`).catch(() => null);
+      return jsonResponse(
+        payload || {
+          ok: true,
+          domain: "smajor.org",
+          source_of_truth: "api.smajor.org wallet policy matrix",
+          title: "Wallet policy matrix",
+          summary: "Policies custody, execution et audit.",
+          policies: [],
+        },
+      );
     }
 
     if (url.pathname === "/models/mvp-registries.json") {
