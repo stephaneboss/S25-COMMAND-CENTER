@@ -1309,6 +1309,8 @@ const ADMIN_COMMAND_KIT_MODEL = {
         "GET /admin/api/live-registries",
         "GET /admin/api/operator-roster",
         "GET /admin/api/runtime-business",
+        "GET /admin/api/wallets-custody",
+        "GET /admin/api/vaults-treasury",
       ],
     },
     {
@@ -3395,8 +3397,10 @@ async function fetchOpsSnapshot(env) {
 
 async function fetchAdminSnapshot(env) {
   const runtimeBase = env.DIRECT_RUNTIME_URL || env.PUBLIC_S25_URL;
-  const [memoryResult] = await Promise.allSettled([
+  const [memoryResult, walletsResult, treasuryResult] = await Promise.allSettled([
     fetchSecureJson(`${runtimeBase}/api/memory/state`, env),
+    fetchJson(`${env.PUBLIC_API_URL}/api/business/wallets-custody`),
+    fetchJson(`${env.PUBLIC_API_URL}/api/business/vaults-treasury`),
   ]);
   const registry = memoryResult.status === "fulfilled"
     ? memoryResult.value?.state?.intel?.business_registry || memoryResult.value?.state?.business || {}
@@ -3421,7 +3425,9 @@ async function fetchAdminSnapshot(env) {
   return {
     liveRegistries: business,
     operatorRoster,
-    errors: [memoryResult]
+    walletsCustody: walletsResult.status === "fulfilled" ? walletsResult.value : null,
+    vaultsTreasury: treasuryResult.status === "fulfilled" ? treasuryResult.value : null,
+    errors: [memoryResult, walletsResult, treasuryResult]
       .filter((result) => result.status === "rejected")
       .map((result) => result.reason?.message || "secure_memory_upstream_error"),
   };
@@ -4753,6 +4759,8 @@ function adminConsoleSection(pathname, snapshot) {
     return null;
   }
   const business = snapshot.admin?.liveRegistries || {};
+  const wallets = snapshot.admin?.walletsCustody?.records || [];
+  const treasury = snapshot.admin?.vaultsTreasury?.treasury || {};
   const operatorCount = snapshot.admin?.operatorRoster?.total_operator_identities || 0;
   return {
     title: "Admin operator console",
@@ -4762,6 +4770,8 @@ function adminConsoleSection(pathname, snapshot) {
       { label: "Jobs live", value: String((business.jobs || []).length) },
       { label: "Finance live", value: String((business.quotes_invoices || []).length) },
       { label: "Operators", value: String(operatorCount) },
+      { label: "Wallets", value: String(wallets.length) },
+      { label: "Treasury AKT", value: treasury.akt_balance != null ? String(treasury.akt_balance) : "--" },
     ],
     endpoints: [
       "/admin/api/create-client-job-billing",
@@ -4771,6 +4781,8 @@ function adminConsoleSection(pathname, snapshot) {
       "/admin/api/issue-invoice",
       "/admin/api/create-identity",
       "/admin/api/issue-client-access",
+      "/admin/api/wallets-custody",
+      "/admin/api/vaults-treasury",
     ],
     flow: [
       "Ouvrir une session operateur signee avec le secret bootstrap.",
@@ -4778,6 +4790,7 @@ function adminConsoleSection(pathname, snapshot) {
       "Creer un compte client complet ou une identite seule.",
       "Lier ensuite le job au client actif.",
       "Sortir la quote ou la facture sans quitter le hub.",
+      "Lire la posture wallet/custody avant toute route treasury ou trading.",
       "Recharger le runtime pour verifier la persistence live.",
     ],
     forms: [
@@ -5156,6 +5169,28 @@ export default {
         });
       } catch (error) {
         return jsonResponse({ ok: false, error: "admin_runtime_business_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/wallets-custody") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      try {
+        const snapshot = await fetchAdminSnapshot(env);
+        return jsonResponse(snapshot.walletsCustody || { ok: false, error: "wallets_custody_unavailable" });
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "admin_wallets_custody_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/vaults-treasury") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      try {
+        const snapshot = await fetchAdminSnapshot(env);
+        return jsonResponse(snapshot.vaultsTreasury || { ok: false, error: "vaults_treasury_unavailable" });
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "admin_vaults_treasury_failed", detail: String(error?.message || error) }, 500);
       }
     }
 
