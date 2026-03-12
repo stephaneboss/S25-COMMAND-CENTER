@@ -484,6 +484,8 @@ const BUSINESS_REGISTRY_MAP = {
     { key: "frontend_surfaces", path: `${BUSINESS_PREFIX}/frontend-surfaces`, purpose: "Public and operator-facing surfaces exposed by smajor.org" },
     { key: "backend_surfaces", path: `${BUSINESS_PREFIX}/backend-surfaces`, purpose: "Runtime and service surfaces anchored in S25 Lumiere" },
     { key: "separation_architecture", path: `${BUSINESS_PREFIX}/separation-architecture`, purpose: "Official front-end versus back-end separation map" },
+    { key: "admin_architecture", path: `${BUSINESS_PREFIX}/admin-architecture`, purpose: "Admin control-plane architecture split between interface and sovereign backend" },
+    { key: "portal_separation", path: `${BUSINESS_PREFIX}/portal-separation`, purpose: "Portal-by-portal split for clients, staff and vendors" },
     { key: "internal_ops", path: `${BUSINESS_PREFIX}/internal-ops`, purpose: "Public operating summary for Smajor internal account" },
     { key: "empire_manifest", path: `${BUSINESS_PREFIX}/empire-manifest`, purpose: "Unified manifest of domains, towers, registries and command chain" },
     { key: "total_mesh_protocol", path: `${BUSINESS_PREFIX}/total-mesh-protocol`, purpose: "Protocol de synchronisation totale des agents vers le hub" },
@@ -1146,6 +1148,60 @@ function deriveSeparationArchitecture() {
   };
 }
 
+function deriveAdminArchitecture() {
+  return {
+    title: "Admin architecture",
+    summary: "Le poste admin reste une interface de commandement. La decision, la persistence et les garde-fous vivent dans S25, la gateway business et le coffre.",
+    frontend_plane: [
+      "admin shell",
+      "signed operator session",
+      "live runtime views",
+      "form submissions",
+    ],
+    backend_plane: [
+      "S25 runtime business registry",
+      "business API gateway",
+      "wallet and secret custody policy",
+      "audit trail and RBAC enforcement",
+    ],
+    command_contracts: [
+      "admin_reads_runtime_snapshot",
+      "admin_writes_via_signed_routes_only",
+      "admin_never_holds_raw_secret_values",
+      "admin_actions_must_leave_audit_trace",
+    ],
+  };
+}
+
+function derivePortalSeparation() {
+  return {
+    title: "Portal separation",
+    summary: "Chaque portail garde une interface simple; toute logique durable reste dans le backend souverain.",
+    portals: [
+      {
+        portal_id: "clients",
+        frontend_role: "request services, read quotes, invoices and job status",
+        backend_role: "client registry, billing state, secure access tokens, service orchestration",
+      },
+      {
+        portal_id: "staff",
+        frontend_role: "see assignments, shifts and field dashboard",
+        backend_role: "dispatch engine, job registry, audit trail, team scopes",
+      },
+      {
+        portal_id: "vendors",
+        frontend_role: "follow purchase requests and vendor-facing documents",
+        backend_role: "purchase state, cost linkage, approval gates and vendor registry",
+      },
+      {
+        portal_id: "admin",
+        frontend_role: "operate and supervise through signed control surfaces",
+        backend_role: "RBAC, runtime persistence, treasury, agents, policies and secrets",
+      },
+    ],
+  };
+}
+
 function findInternalOpsClient(business) {
   return (business.clients || []).find(
     (record) =>
@@ -1518,6 +1574,12 @@ function handleBusinessRequest(request, pathname, requestId, env) {
   }
   if (pathname === `${BUSINESS_PREFIX}/separation-architecture`) {
     return businessResponse(requestId, pathname, deriveSeparationArchitecture());
+  }
+  if (pathname === `${BUSINESS_PREFIX}/admin-architecture`) {
+    return businessResponse(requestId, pathname, deriveAdminArchitecture());
+  }
+  if (pathname === `${BUSINESS_PREFIX}/portal-separation`) {
+    return businessResponse(requestId, pathname, derivePortalSeparation());
   }
   if (pathname === `${BUSINESS_PREFIX}/internal-ops`) {
     return readBusinessState(env, requestId).then((business) =>
