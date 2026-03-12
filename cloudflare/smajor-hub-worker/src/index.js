@@ -1801,6 +1801,56 @@ function layout({
     `
     : "";
 
+  const staffConsoleHtml = moduleSection && moduleSection.staffConsole
+    ? `
+      <section class="blueprint-panel client-console-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Staff session</div>
+            <h2>${moduleSection.staffConsole.title}</h2>
+          </div>
+          <p>${moduleSection.staffConsole.intro}</p>
+        </div>
+        <div class="admin-console-grid">
+          <article class="blueprint-card admin-console-main">
+            <div class="label">Staff access token</div>
+            <label class="field-label" for="staff-token">Staff bearer token</label>
+            <input id="staff-token" class="field-input" type="password" placeholder="Coller le token staff emis par l'admin" />
+            <div class="action-row">
+              <button class="action-button" type="button" data-staff-load="true">Load staff dashboard</button>
+            </div>
+            <div class="label" style="margin-top:18px;">Staff flow</div>
+            <ul class="stack-list">
+              ${moduleSection.staffConsole.flow.map((item) => `<li>${item}</li>`).join("")}
+            </ul>
+          </article>
+          <article class="blueprint-card admin-console-main">
+            <div class="label">Staff metrics</div>
+            <div class="metrics">
+              ${moduleSection.staffConsole.metrics
+                .map(
+                  (metric) => `
+                    <div class="metric">
+                      <span>${metric.label}</span>
+                      <strong>${metric.value}</strong>
+                    </div>
+                  `,
+                )
+                .join("")}
+            </div>
+            <div class="label" style="margin-top:18px;">Dashboard surface</div>
+            <div class="pill-row">
+              ${moduleSection.staffConsole.endpoints.map((item) => `<span class="pill">${item}</span>`).join("")}
+            </div>
+          </article>
+        </div>
+        <div class="admin-console-log">
+          <pre id="staff-console-log">${moduleSection.staffConsole.initialLog}</pre>
+        </div>
+      </section>
+    `
+    : "";
+
   const empireManifestHtml = moduleSection && moduleSection.empireManifest
     ? `
       <section class="module-panel">
@@ -2779,11 +2829,12 @@ function layout({
       ${foundationHtml}
       ${registryWriteContractHtml}
       ${clientConsoleHtml}
+      ${staffConsoleHtml}
       ${internalOpsHtml}
       ${operatorAccountHtml}
       <div class="footer">Smajor est la facade. S25 Lumiere reste le backend central multi-agent.</div>
     </main>
-    ${moduleSection && (moduleSection.adminConsole || moduleSection.clientConsole) ? `
+    ${moduleSection && (moduleSection.adminConsole || moduleSection.clientConsole || moduleSection.staffConsole) ? `
       <script>
         (() => {
           const secretInput = document.getElementById("operator-secret");
@@ -2798,6 +2849,10 @@ function layout({
           const clientLogNode = document.getElementById("client-console-log");
           const clientLoadButton = document.querySelector("[data-client-load='true']");
           const clientTokenStorageKey = "smajor_client_token";
+          const staffTokenInput = document.getElementById("staff-token");
+          const staffLogNode = document.getElementById("staff-console-log");
+          const staffLoadButton = document.querySelector("[data-staff-load='true']");
+          const staffTokenStorageKey = "smajor_staff_token";
 
           const writeLog = (title, payload) => {
             if (!logNode) return;
@@ -2815,6 +2870,15 @@ function layout({
               typeof payload === "string" ? payload : JSON.stringify(payload, null, 2),
             ];
             clientLogNode.textContent = lines.join("\\n");
+          };
+
+          const writeStaffLog = (title, payload) => {
+            if (!staffLogNode) return;
+            const lines = [
+              "[" + new Date().toISOString() + "] " + title,
+              typeof payload === "string" ? payload : JSON.stringify(payload, null, 2),
+            ];
+            staffLogNode.textContent = lines.join("\\n");
           };
 
           const getSecret = () => {
@@ -2896,6 +2960,14 @@ function layout({
             }
           };
 
+          const hydrateStaffToken = () => {
+            if (!staffTokenInput) return;
+            const stored = sessionStorage.getItem(staffTokenStorageKey);
+            if (stored && !staffTokenInput.value) {
+              staffTokenInput.value = stored;
+            }
+          };
+
           const getClientToken = () => {
             if (!clientTokenInput) {
               throw new Error("client_token_input_missing");
@@ -2908,9 +2980,37 @@ function layout({
             return value;
           };
 
+          const getStaffToken = () => {
+            if (!staffTokenInput) {
+              throw new Error("staff_token_input_missing");
+            }
+            const value = staffTokenInput.value.trim();
+            if (!value) {
+              throw new Error("staff_token_missing");
+            }
+            sessionStorage.setItem(staffTokenStorageKey, value);
+            return value;
+          };
+
           const loadClientAccount = async () => {
             const token = getClientToken();
             const response = await fetch("/clients/api/account", {
+              method: "GET",
+              headers: {
+                "accept": "application/json",
+                "authorization": "Bearer " + token,
+              },
+            });
+            const payload = await response.json().catch(() => ({ ok: false, error: "invalid_json" }));
+            if (!response.ok) {
+              throw new Error(JSON.stringify(payload, null, 2));
+            }
+            return payload;
+          };
+
+          const loadStaffDashboard = async () => {
+            const token = getStaffToken();
+            const response = await fetch("/staff/api/dashboard", {
               method: "GET",
               headers: {
                 "accept": "application/json",
@@ -2952,6 +3052,18 @@ function layout({
             });
           }
 
+          if (staffLoadButton) {
+            staffLoadButton.addEventListener("click", async () => {
+              try {
+                writeStaffLog("Staff dashboard", { state: "pending" });
+                const payload = await loadStaffDashboard();
+                writeStaffLog("Staff dashboard ready", payload);
+              } catch (error) {
+                writeStaffLog("Staff dashboard failed", String(error.message || error));
+              }
+            });
+          }
+
           forms.forEach((form) => {
             form.addEventListener("submit", async (event) => {
               event.preventDefault();
@@ -2977,12 +3089,16 @@ function layout({
 
           hydrateSecret();
           hydrateClientToken();
+          hydrateStaffToken();
           if (getToken()) {
             const meta = sessionStorage.getItem(sessionMetaKey);
             writeLog("Operator session restored", meta ? JSON.parse(meta) : { restored: true });
           }
           if (sessionStorage.getItem(clientTokenStorageKey)) {
             writeClientLog("Client token restored", { restored: true });
+          }
+          if (sessionStorage.getItem(staffTokenStorageKey)) {
+            writeStaffLog("Staff token restored", { restored: true });
           }
         })();
       </script>
@@ -3565,6 +3681,40 @@ function buildClientPortalSnapshot(business, clientId) {
   };
 }
 
+function buildStaffPortalSnapshot(business, access) {
+  const identity = (business.identities || []).find((record) => record.identity_id === access.identity_id) || null;
+  if (!identity) {
+    return null;
+  }
+  const jobs = (business.jobs || []).filter((record) => {
+    if (access.assigned_team && record.assigned_team === access.assigned_team) {
+      return true;
+    }
+    if (access.scope_id && record.scope_id === access.scope_id) {
+      return true;
+    }
+    return false;
+  });
+  const organizationIds = Array.from(new Set(jobs.map((record) => record.organization_id).filter(Boolean)));
+  const clients = (business.clients || []).filter((record) => organizationIds.includes(record.organization_id));
+  const billing = (business.quotes_invoices || []).filter((record) => organizationIds.includes(record.organization_id));
+  return {
+    ok: true,
+    identity,
+    jobs,
+    clients,
+    billing,
+    metrics: {
+      jobs_total: jobs.length,
+      clients_total: clients.length,
+      billing_total: billing.length,
+      assigned_team: access.assigned_team || "unassigned",
+      scope_id: access.scope_id || "field_scope_default",
+    },
+    last_write_at: business.last_write_at || null,
+  };
+}
+
 async function issueClientAccess(request, env) {
   const body = await request.json().catch(() => ({}));
   const business = await readRuntimeBusinessState(env);
@@ -3601,6 +3751,46 @@ async function issueClientAccess(request, env) {
   });
 }
 
+async function issueStaffAccess(request, env) {
+  const body = await request.json().catch(() => ({}));
+  const business = await readRuntimeBusinessState(env);
+  const identityId = body.identity_id;
+  if (!identityId) {
+    return jsonResponse({ ok: false, error: "identity_id_required" }, 400);
+  }
+  const identity = (business.identities || []).find((record) => record.identity_id === identityId);
+  if (!identity) {
+    return jsonResponse({ ok: false, error: "identity_not_found", identity_id: identityId }, 404);
+  }
+  const roleId = identity.role_id || "staff_member";
+  const allowedRoles = ["dispatcher", "field_manager", "staff_member", "contractor", "executive_operator"];
+  if (!allowedRoles.includes(roleId)) {
+    return jsonResponse({ ok: false, error: "identity_not_staff_eligible", role_id: roleId }, 400);
+  }
+  const payload = {
+    sub: identity.identity_id,
+    session_type: "staff_portal",
+    identity_id: identity.identity_id,
+    organization_id: identity.organization_id,
+    role_id: roleId,
+    badge_id: identity.badge_id || "employee_badge",
+    scope_id: body.scope_id || identity.scope_id || "field_scope_default",
+    assigned_team: body.assigned_team || identity.assigned_team || "crew-north-01",
+    issued_at: new Date().toISOString(),
+    exp: Date.now() + (1000 * 60 * 60 * 24 * 3),
+  };
+  const token = await signOperatorSession(payload, env);
+  return jsonResponse({
+    ok: true,
+    session_type: "staff_portal_bearer",
+    identity_id: identity.identity_id,
+    display_name: identity.display_name,
+    token,
+    expires_at: new Date(payload.exp).toISOString(),
+    portal_url: `${env.PUBLIC_APP_URL || "https://app.smajor.org"}/staff`,
+  });
+}
+
 async function requireClientAccess(request, env) {
   const authHeader = request.headers.get("authorization") || "";
   const bearer = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
@@ -3610,6 +3800,19 @@ async function requireClientAccess(request, env) {
   }
   if (verified.payload.session_type !== "client_portal") {
     return { denied: jsonResponse({ ok: false, error: "client_session_required" }, 403) };
+  }
+  return { denied: null, payload: verified.payload };
+}
+
+async function requireStaffAccess(request, env) {
+  const authHeader = request.headers.get("authorization") || "";
+  const bearer = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+  const verified = await verifyOperatorSession(bearer, env);
+  if (!verified.ok) {
+    return { denied: jsonResponse({ ok: false, error: verified.error || "staff_session_missing" }, 401) };
+  }
+  if (verified.payload.session_type !== "staff_portal") {
+    return { denied: jsonResponse({ ok: false, error: "staff_session_required" }, 403) };
   }
   return { denied: null, payload: verified.payload };
 }
@@ -4053,6 +4256,46 @@ function clientFormSection(pathname) {
   };
 }
 
+function staffConsoleSection(pathname, snapshot) {
+  if (pathname !== "/staff") {
+    return null;
+  }
+  const business = snapshot.business || {};
+  const jobs = business.jobs?.records || [];
+  const billing = business.quotes_invoices?.records || [];
+  const identities = business.identities?.records || [];
+  return {
+    title: "Staff dashboard console",
+    intro: "Console legere pour charger un dashboard terrain signe, borne a l'identite staff, a son scope et a son equipe.",
+    metrics: [
+      { label: "Identites visibles", value: String(identities.length) },
+      { label: "Jobs visibles", value: String(jobs.length) },
+      { label: "Finance visible", value: String(billing.length) },
+      { label: "Mode", value: "Signed staff access" },
+    ],
+    endpoints: [
+      "/staff/api/dashboard",
+      "bearer token staff requis",
+      "lecture limitee au scope terrain",
+    ],
+    flow: [
+      "Recevoir un token staff emis par l'admin.",
+      "Coller le token dans la session staff.",
+      "Charger le dashboard terrain live, les jobs et la facturation visibles.",
+      "Garder l'acces borne a l'identite, a l'equipe et au scope terrain.",
+    ],
+    initialLog: JSON.stringify(
+      {
+        mode: "staff_portal_ready",
+        note: "Coller un token staff signe puis charger le dashboard live.",
+        sample_identity: identities[0]?.identity_id || null,
+      },
+      null,
+      2,
+    ),
+  };
+}
+
 function staffDashboardSection(pathname) {
   if (pathname !== "/staff" && pathname !== "/admin") {
     return null;
@@ -4253,6 +4496,18 @@ function adminConsoleSection(pathname, snapshot) {
         actionLabel: "Issue client access",
         fields: [
           { name: "client_id", label: "Client id", placeholder: "client-alpha-001", required: true },
+        ],
+      },
+      {
+        label: "Staff access",
+        title: "Issue staff dashboard access",
+        text: "Genere un bearer token staff borne a une identite terrain, a une equipe et a un scope d'action.",
+        endpoint: "/admin/api/issue-staff-access",
+        actionLabel: "Issue staff access",
+        fields: [
+          { name: "identity_id", label: "Identity id", placeholder: "ident-5a53ddda", required: true },
+          { name: "assigned_team", label: "Assigned team", placeholder: "crew-north-01" },
+          { name: "scope_id", label: "Scope id", placeholder: "field_scope_dispatch" },
         ],
       },
       {
@@ -4464,6 +4719,7 @@ function renderApp(env, pathname, hostname, snapshot) {
     operatorRoster: operatorRosterSection(pathname, snapshot),
     adminConsole: adminConsoleSection(pathname, snapshot),
     clientConsole: clientConsoleSection(pathname, snapshot),
+    staffConsole: staffConsoleSection(pathname, snapshot),
     adminCommandKit: adminCommandKitSection(pathname),
     agentActivation: agentActivationSection(pathname),
     agentServiceBindings: agentServiceBindingsSection(pathname),
@@ -4636,6 +4892,19 @@ export default {
       }
     }
 
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/issue-staff-access") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      if (request.method !== "POST") {
+        return jsonResponse({ ok: false, error: "method_not_allowed" }, 405);
+      }
+      try {
+        return await issueStaffAccess(request, env);
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "admin_issue_staff_access_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
     if (hostname === "app.smajor.org" && url.pathname === "/admin/api/issue-invoice") {
       const denied = await requireOperatorAccess(request, env);
       if (denied) return denied;
@@ -4685,6 +4954,33 @@ export default {
         });
       } catch (error) {
         return jsonResponse({ ok: false, error: "client_account_read_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/staff/api/dashboard") {
+      const access = await requireStaffAccess(request, env);
+      if (access.denied) return access.denied;
+      try {
+        const business = await readRuntimeBusinessState(env);
+        const snapshot = buildStaffPortalSnapshot(business, access.payload);
+        if (!snapshot) {
+          return jsonResponse({ ok: false, error: "staff_snapshot_not_found", identity_id: access.payload.identity_id }, 404);
+        }
+        return jsonResponse({
+          ok: true,
+          session: {
+            identity_id: access.payload.identity_id,
+            organization_id: access.payload.organization_id,
+            role_id: access.payload.role_id,
+            badge_id: access.payload.badge_id,
+            scope_id: access.payload.scope_id,
+            assigned_team: access.payload.assigned_team,
+            expires_at: new Date(access.payload.exp).toISOString(),
+          },
+          dashboard: snapshot,
+        });
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "staff_dashboard_read_failed", detail: String(error?.message || error) }, 500);
       }
     }
 
