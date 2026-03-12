@@ -1664,6 +1664,34 @@ function layout({
     `
     : "";
 
+  const executiveReportHtml = moduleSection && moduleSection.executiveReport
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Executive report</div>
+            <h2>${moduleSection.executiveReport.title}</h2>
+          </div>
+          <p>${moduleSection.executiveReport.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.executiveReport.columns
+            .map(
+              (column) => `
+                <article class="module-card">
+                  <div class="label">${column.label}</div>
+                  <ul>
+                    ${column.items.map((item) => `<li>${item}</li>`).join("")}
+                  </ul>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
   const adminConsoleHtml = moduleSection && moduleSection.adminConsole
     ? `
       <section class="blueprint-panel admin-console-panel">
@@ -2813,6 +2841,7 @@ function layout({
       ${registryHtml}
       ${mvpRegistryHtml}
       ${liveRegistryHtml}
+      ${executiveReportHtml}
       ${adminConsoleHtml}
       ${empireManifestHtml}
       ${totalMeshProtocolHtml}
@@ -4329,6 +4358,65 @@ function secureRoutesSection(pathname) {
   };
 }
 
+function executiveReportSection(pathname, snapshot) {
+  if (!["/", "/admin", "/ai"].includes(pathname)) {
+    return null;
+  }
+  const status = snapshot.status || {};
+  const mesh = snapshot.mesh || {};
+  const business = snapshot.business || {};
+  const admin = snapshot.admin || {};
+  const clients = business.clients?.records || [];
+  const jobs = business.jobs?.records || [];
+  const billing = business.quotes_invoices?.records || [];
+  const identities = business.identities?.records || [];
+  const operators = admin.operatorRoster?.identities || [];
+  const activeMissions = snapshot.missions?.active || [];
+  const roster = mesh.roster || [];
+  return {
+    title: "Rapport executif Smajor",
+    intro: "Vue courte pour voir si la base tient: mesh, operations business, portails signes et posture mirror fleet.",
+    columns: [
+      {
+        label: "Mesh",
+        items: [
+          `pipeline=${status.pipeline_status || "UNKNOWN"}`,
+          `agents_online=${mesh.agents_online ?? roster.length ?? 0}`,
+          `missions_active=${activeMissions.length}`,
+          `arkon_action=${status.arkon5_action || "UNKNOWN"}`,
+        ],
+      },
+      {
+        label: "Business",
+        items: [
+          `clients=${clients.length}`,
+          `jobs=${jobs.length}`,
+          `quotes_invoices=${billing.length}`,
+          `identities=${identities.length}`,
+        ],
+      },
+      {
+        label: "Portals",
+        items: [
+          "admin=operator session signed",
+          "clients=client bearer access live",
+          "staff=staff bearer access live",
+          `operators=${operators.length}`,
+        ],
+      },
+      {
+        label: "Mirror fleet",
+        items: [
+          "fleet=10 containers defined",
+          "merlin_authority=established",
+          "google_project=gen-lang-client-0046423999",
+          "next=create Secret Manager values",
+        ],
+      },
+    ],
+  };
+}
+
 function internalOpsSection(pathname, snapshot) {
   if (!["/clients", "/admin", "/ai"].includes(pathname)) {
     return null;
@@ -4702,6 +4790,7 @@ function renderApp(env, pathname, hostname, snapshot) {
     ...(pathname === "/" ? systemAxesSection() : (WORKBENCH_SECTIONS[pathname] || WORKBENCH_SECTIONS["/"])),
     blueprint: blueprintFromPath(pathname),
     accessModel: accessSectionFromPath(pathname),
+    executiveReport: executiveReportSection(pathname, snapshot),
     mvpRegistries: mvpRegistrySection(pathname),
     liveRegistries: liveRegistrySection(pathname, snapshot),
     empireManifest: empireManifestSection(pathname),
@@ -5023,6 +5112,21 @@ export default {
         domain: "smajor.org",
         source_of_truth: "api.smajor.org future facade + S25 governance",
         ...MASTER_REGISTRY,
+      });
+    }
+
+    if (url.pathname === "/models/executive-report.json") {
+      const snapshot = await fetchOpsSnapshot(env).catch(() => ({}));
+      const report = executiveReportSection("/", snapshot || {}) || {
+        title: "Rapport executif Smajor",
+        intro: "Fallback executive report while the live snapshot recovers.",
+        columns: [],
+      };
+      return jsonResponse({
+        ok: true,
+        domain: "smajor.org",
+        source_of_truth: "app.smajor.org + live runtime snapshot",
+        ...report,
       });
     }
 
