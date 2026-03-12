@@ -27,6 +27,7 @@ HA_TOKEN        = vault_get("HA_TOKEN", os.getenv("HA_TOKEN", "")) or ""
 GEMINI_API_KEY  = vault_get("GEMINI_API_KEY", os.getenv("GEMINI_API_KEY", "")) or ""
 GEMINI_MODEL    = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
 S25_SECRET      = vault_get("S25_SHARED_SECRET", os.getenv("S25_SHARED_SECRET", "")) or ""
+MASTER_WALLET_ADDRESS = os.getenv("MASTER_WALLET_ADDRESS", "akash1mw0trq8xgmdyqqjn482r9pfr05hfw06rzq2u9v")
 APP_BUILD_SHA   = os.getenv("APP_BUILD_SHA", "dev")
 ALLOW_PUBLIC_ACTIONS = os.getenv("ALLOW_PUBLIC_ACTIONS", "true").lower() in {"1", "true", "yes", "on"}
 gouv4_router = GOUV4Router()
@@ -101,6 +102,13 @@ def _default_agents_state() -> dict:
             "eth_usd": None,
             "fear_greed": None,
             "last_fetch": None,
+        },
+        "wallet": {
+            "creator_label": "Wallet creator",
+            "creator_address": MASTER_WALLET_ADDRESS,
+            "creator_connected": bool(MASTER_WALLET_ADDRESS),
+            "custody": "google_secret_manager",
+            "last_sync": None,
         },
         "missions": {
             "active": [],
@@ -308,6 +316,10 @@ def _hydrate_status_from_memory(status: dict) -> dict:
     status["missions_active"] = len(missions)
     status["mesh_agents_online"] = online_agents
     status["ha_connected"] = bool(HA_TOKEN)
+    wallet_state = state.get("wallet", {})
+    status["wallet_creator_address"] = wallet_state.get("creator_address", MASTER_WALLET_ADDRESS)
+    status["wallet_creator_connected"] = bool(wallet_state.get("creator_connected"))
+    status["wallet_custody"] = wallet_state.get("custody", "google_secret_manager")
 
     # When the mesh is alive but ARKON has not emitted a fresh trade signal yet,
     # surface readiness instead of stale INIT/HOLD defaults.
@@ -590,7 +602,10 @@ def api_status():
         "comet_intel": "En attente...",
         "tunnel_active": False,
         "missions_active": 0,
-        "ha_connected": bool(HA_TOKEN)
+        "ha_connected": bool(HA_TOKEN),
+        "wallet_creator_address": MASTER_WALLET_ADDRESS,
+        "wallet_creator_connected": bool(MASTER_WALLET_ADDRESS),
+        "wallet_custody": "google_secret_manager",
     }
 
     if not HA_TOKEN:
@@ -974,6 +989,7 @@ def api_memory_state_post():
     updates = body.get("updates", {})
     pipeline_updates = body.get("pipeline", {})
     market_updates = body.get("market", {})
+    wallet_updates = body.get("wallet", {})
     intel_updates = body.get("intel", {})
     business_updates = body.get("business", {})
 
@@ -988,6 +1004,10 @@ def api_memory_state_post():
 
     if market_updates and "market" in state:
         state["market"].update(market_updates)
+
+    if wallet_updates and "wallet" in state:
+        state["wallet"].update(wallet_updates)
+        state["wallet"]["last_sync"] = datetime.now(timezone.utc).isoformat()
 
     if intel_updates and "intel" in state:
         for key, value in intel_updates.items():
