@@ -3420,6 +3420,79 @@ async function createOperatorSession(request, env) {
   });
 }
 
+function buildClientPortalSnapshot(business, clientId) {
+  const client = (business.clients || []).find((record) => record.client_id === clientId) || null;
+  if (!client) {
+    return null;
+  }
+  const jobs = (business.jobs || []).filter((record) => record.client_id === clientId);
+  const billing = (business.quotes_invoices || []).filter((record) => record.client_id === clientId);
+  const identities = (business.identities || []).filter((record) => record.organization_id === client.organization_id);
+  return {
+    ok: true,
+    client,
+    jobs,
+    billing,
+    identities,
+    metrics: {
+      jobs_total: jobs.length,
+      billing_total: billing.length,
+      portal_state: client.portal_state || "pending_secure_access",
+      billing_state: client.billing_state || "quote_pending",
+    },
+    last_write_at: business.last_write_at || null,
+  };
+}
+
+async function issueClientAccess(request, env) {
+  const body = await request.json().catch(() => ({}));
+  const business = await readRuntimeBusinessState(env);
+  const clientId = body.client_id;
+  if (!clientId) {
+    return jsonResponse({ ok: false, error: "client_id_required" }, 400);
+  }
+  const client = (business.clients || []).find((record) => record.client_id === clientId);
+  if (!client) {
+    return jsonResponse({ ok: false, error: "client_not_found", client_id: clientId }, 404);
+  }
+  const payload = {
+    sub: client.identity_id || client.client_id,
+    session_type: "client_portal",
+    client_id: client.client_id,
+    organization_id: client.organization_id,
+    identity_id: client.identity_id,
+    role_id: client.role_id || "client_contact",
+    badge_id: client.badge_id || "client_badge",
+    scope_id: client.scope_id || "client_scope_default",
+    service_mix: Array.isArray(client.service_mix) ? client.service_mix : [],
+    issued_at: new Date().toISOString(),
+    exp: Date.now() + (1000 * 60 * 60 * 24 * 7),
+  };
+  const token = await signOperatorSession(payload, env);
+  return jsonResponse({
+    ok: true,
+    session_type: "client_portal_bearer",
+    client_id: client.client_id,
+    organization_name: client.organization_name,
+    token,
+    expires_at: new Date(payload.exp).toISOString(),
+    portal_url: `${env.PUBLIC_APP_URL || "https://app.smajor.org"}/clients`,
+  });
+}
+
+async function requireClientAccess(request, env) {
+  const authHeader = request.headers.get("authorization") || "";
+  const bearer = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+  const verified = await verifyOperatorSession(bearer, env);
+  if (!verified.ok) {
+    return { denied: jsonResponse({ ok: false, error: verified.error || "client_session_missing" }, 401) };
+  }
+  if (verified.payload.session_type !== "client_portal") {
+    return { denied: jsonResponse({ ok: false, error: "client_session_required" }, 403) };
+  }
+  return { denied: null, payload: verified.payload };
+}
+
 function buildOmegaDeck(env, snapshot) {
   const status = snapshot.status || {};
   const mesh = snapshot.mesh || {};
@@ -3996,6 +4069,7 @@ function adminConsoleSection(pathname, snapshot) {
       "/admin/api/create-job",
       "/admin/api/issue-invoice",
       "/admin/api/create-identity",
+      "/admin/api/issue-client-access",
     ],
     flow: [
       "Ouvrir une session operateur signee avec le secret bootstrap.",
@@ -4048,6 +4122,16 @@ function adminConsoleSection(pathname, snapshot) {
           { name: "role_id", label: "Role id", placeholder: "dispatcher" },
           { name: "badge_id", label: "Badge id", placeholder: "employee_badge" },
           { name: "scope_id", label: "Scope id", placeholder: "field_scope_dispatch" },
+        ],
+      },
+      {
+        label: "Client access",
+        title: "Issue client portal access",
+        text: "Genere un bearer token client limite a un seul compte pour ouvrir le portail sans exposer le secret operateur.",
+        endpoint: "/admin/api/issue-client-access",
+        actionLabel: "Issue client access",
+        fields: [
+          { name: "client_id", label: "Client id", placeholder: "client-alpha-001", required: true },
         ],
       },
       {
@@ -4377,6 +4461,19 @@ export default {
       }
     }
 
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/issue-client-access") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      if (request.method !== "POST") {
+        return jsonResponse({ ok: false, error: "method_not_allowed" }, 405);
+      }
+      try {
+        return await issueClientAccess(request, env);
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "admin_issue_client_access_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
     if (hostname === "app.smajor.org" && url.pathname === "/admin/api/issue-invoice") {
       const denied = await requireOperatorAccess(request, env);
       if (denied) return denied;
@@ -4400,6 +4497,32 @@ export default {
         return jsonResponse(await handleHubBusinessCreate(request, env, "identity"));
       } catch (error) {
         return jsonResponse({ ok: false, error: "admin_create_identity_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/clients/api/account") {
+      const access = await requireClientAccess(request, env);
+      if (access.denied) return access.denied;
+      try {
+        const business = await readRuntimeBusinessState(env);
+        const snapshot = buildClientPortalSnapshot(business, access.payload.client_id);
+        if (!snapshot) {
+          return jsonResponse({ ok: false, error: "client_snapshot_not_found", client_id: access.payload.client_id }, 404);
+        }
+        return jsonResponse({
+          ok: true,
+          session: {
+            client_id: access.payload.client_id,
+            organization_id: access.payload.organization_id,
+            role_id: access.payload.role_id,
+            badge_id: access.payload.badge_id,
+            scope_id: access.payload.scope_id,
+            expires_at: new Date(access.payload.exp).toISOString(),
+          },
+          account: snapshot,
+        });
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "client_account_read_failed", detail: String(error?.message || error) }, 500);
       }
     }
 
