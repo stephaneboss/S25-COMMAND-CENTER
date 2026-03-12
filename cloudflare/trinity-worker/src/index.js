@@ -242,6 +242,7 @@ const BUSINESS_EMPIRE_MANIFEST = {
     `${BUSINESS_PREFIX}/rbac-matrix`,
     `${BUSINESS_PREFIX}/agent-catalog`,
     `${BUSINESS_PREFIX}/wallets-custody`,
+    `${BUSINESS_PREFIX}/vaults-treasury`,
     `${BUSINESS_PREFIX}/secure/live-registries`,
     `${BUSINESS_PREFIX}/secure/wallets-custody`,
     `${BUSINESS_PREFIX}/secure/operator-roster`,
@@ -468,6 +469,7 @@ const BUSINESS_REGISTRY_MAP = {
     { key: "quotes_invoices_live", path: `${BUSINESS_PREFIX}/quotes-invoices-live`, purpose: "Seeded commercial and billing records" },
     { key: "identity_registry_live", path: `${BUSINESS_PREFIX}/identity-registry-live`, purpose: "Live identities bound to role, badge, scope and services" },
     { key: "wallets_custody", path: `${BUSINESS_PREFIX}/wallets-custody`, purpose: "Custody registry for creator wallet and sovereign vault chain" },
+    { key: "vaults_treasury", path: `${BUSINESS_PREFIX}/vaults-treasury`, purpose: "Treasury readiness, custody doctrine and sovereign wallet posture" },
     { key: "internal_ops", path: `${BUSINESS_PREFIX}/internal-ops`, purpose: "Public operating summary for Smajor internal account" },
     { key: "empire_manifest", path: `${BUSINESS_PREFIX}/empire-manifest`, purpose: "Unified manifest of domains, towers, registries and command chain" },
     { key: "total_mesh_protocol", path: `${BUSINESS_PREFIX}/total-mesh-protocol`, purpose: "Protocol de synchronisation totale des agents vers le hub" },
@@ -861,6 +863,44 @@ async function deriveWalletCustodyRegistry(env, requestId) {
   };
 }
 
+async function deriveVaultsTreasuryView(env, requestId) {
+  const registry = await deriveWalletCustodyRegistry(env, requestId);
+  const wallet = registry.records?.[0] || {};
+  return {
+    title: "Vaults and treasury command",
+    summary: "Posture de treasury souverain, coffre wallet creator et doctrine custody avant les routes de trading live.",
+    doctrine: [
+      "Le wallet creator reste sous Google Secret Manager.",
+      "Les seeds ne sont jamais exposees en facade publique.",
+      "Le trading reste sous politique de custody et d'audit avant execution live.",
+      "Akash et S25 pilotent l'operation; les exchanges restent secondaires.",
+    ],
+    treasury: {
+      wallet_id: wallet.wallet_id || "wallet-creator-001",
+      address: wallet.address || MASTER_WALLET_ADDRESS,
+      connected: wallet.connected ?? true,
+      custody: wallet.custody || "google_secret_manager",
+      akt_balance: wallet.akt_balance ?? null,
+      akt_price_usd: wallet.akt_price_usd ?? null,
+      akt_value_usd: wallet.akt_value_usd ?? null,
+      authority_principal:
+        wallet.authority_principal ||
+        "serviceAccount:merlin-agent@gen-lang-client-0046423999.iam.gserviceaccount.com",
+    },
+    policies: [
+      "policy_seed_gsm_only",
+      "policy_public_address_only",
+      "policy_operator_session_required",
+      "policy_full_audit_before_trading",
+    ],
+    next_steps: [
+      "brancher vault registry dans admin",
+      "lier treasury a omega",
+      "ajouter wallets secondaires et politiques par scope",
+    ],
+  };
+}
+
 function findInternalOpsClient(business) {
   return (business.clients || []).find(
     (record) =>
@@ -1203,6 +1243,11 @@ function handleBusinessRequest(request, pathname, requestId, env) {
   if (pathname === `${BUSINESS_PREFIX}/wallets-custody`) {
     return deriveWalletCustodyRegistry(env, requestId).then((registry) =>
       businessResponse(requestId, pathname, registry),
+    );
+  }
+  if (pathname === `${BUSINESS_PREFIX}/vaults-treasury`) {
+    return deriveVaultsTreasuryView(env, requestId).then((view) =>
+      businessResponse(requestId, pathname, view),
     );
   }
   if (pathname === `${BUSINESS_PREFIX}/internal-ops`) {

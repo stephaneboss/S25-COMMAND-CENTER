@@ -3312,6 +3312,43 @@ async function fetchOpsSnapshot(env) {
     statusPayload.wallet_creator_akt_price_usd ??= walletFallback.akt_price_usd;
     statusPayload.wallet_creator_akt_value_usd ??= walletFallback.akt_value_usd;
   }
+  const walletsCustody = {
+    title: "Wallets and custody registry",
+    records: [
+      {
+        wallet_id: "wallet-creator-001",
+        label: env.MASTER_WALLET_LABEL || "Wallet creator",
+        network: "akash",
+        address: masterWalletAddress || "unconfigured",
+        connected: Boolean(statusPayload?.wallet_creator_connected ?? masterWalletAddress),
+        custody: statusPayload?.wallet_custody || "google_secret_manager",
+        akt_balance: statusPayload?.wallet_creator_akt_balance ?? walletFallback.akt_balance ?? null,
+        akt_value_usd: statusPayload?.wallet_creator_akt_value_usd ?? walletFallback.akt_value_usd ?? null,
+      },
+    ],
+  };
+  const vaultsTreasury = {
+    title: "Vaults and treasury command",
+    treasury: {
+      wallet_id: "wallet-creator-001",
+      address: masterWalletAddress || "unconfigured",
+      connected: Boolean(statusPayload?.wallet_creator_connected ?? masterWalletAddress),
+      custody: statusPayload?.wallet_custody || "google_secret_manager",
+      akt_balance: statusPayload?.wallet_creator_akt_balance ?? walletFallback.akt_balance ?? null,
+      akt_value_usd: statusPayload?.wallet_creator_akt_value_usd ?? walletFallback.akt_value_usd ?? null,
+    },
+    policies: [
+      "policy_seed_gsm_only",
+      "policy_public_address_only",
+      "policy_operator_session_required",
+      "policy_full_audit_before_trading",
+    ],
+    next_steps: [
+      "brancher vault registry dans admin",
+      "lier treasury a omega",
+      "ajouter wallets secondaires et politiques par scope",
+    ],
+  };
   const internalOps = {
     title: "Smajor internal operations",
     account_live: Boolean(
@@ -3346,6 +3383,8 @@ async function fetchOpsSnapshot(env) {
       clients: { records: Array.isArray(registry.clients) ? registry.clients : [] },
       jobs: { records: Array.isArray(registry.jobs) ? registry.jobs : [] },
       quotes_invoices: { records: Array.isArray(registry.quotes_invoices) ? registry.quotes_invoices : [] },
+      wallets_custody: walletsCustody,
+      vaults_treasury: vaultsTreasury,
       internal_ops: internalOps,
     },
     errors: [statusResult, missionsResult, meshResult, memoryResult, vaultResult, infraResult]
@@ -3954,6 +3993,7 @@ function buildOmegaDeck(env, snapshot) {
   const missions = snapshot.missions || {};
   const activeMissions = Array.isArray(missions.active) ? missions.active : [];
   const vault = snapshot.vault || {};
+  const treasury = snapshot.business?.vaults_treasury || {};
   const infra = snapshot.infra || {};
   const deployments = Array.isArray(infra.deployments) ? infra.deployments : [];
   const history = Array.isArray(missions.history) ? missions.history.slice(0, 6) : [];
@@ -3983,8 +4023,8 @@ function buildOmegaDeck(env, snapshot) {
             : "AKT pending",
         text:
           status.wallet_creator_akt_value_usd != null
-            ? `Adresse ${status.wallet_creator_address || "unknown"} · ~$${status.wallet_creator_akt_value_usd}`
-            : `Adresse ${status.wallet_creator_address || "unknown"} · custody ${status.wallet_custody || "gsm"}`,
+            ? `Adresse ${status.wallet_creator_address || env.MASTER_WALLET_ADDRESS || "unknown"} · ~$${status.wallet_creator_akt_value_usd}`
+            : `Adresse ${status.wallet_creator_address || env.MASTER_WALLET_ADDRESS || "unknown"} · custody ${status.wallet_custody || "gsm"}`,
       },
       {
         label: "Akash Cluster",
@@ -4041,6 +4081,28 @@ function buildOmegaDeck(env, snapshot) {
             title: "Trade mode",
             value: vault.mode || "armed_readiness",
             status: vault.mode === "armed_readiness" ? "degraded" : "online",
+          },
+          {
+            title: "Custody policy",
+            value: treasury.policies?.join(" · ") || "seed_gsm_only · audit_before_trading",
+            status: "online",
+          },
+          {
+            title: "Master treasury",
+            value:
+              treasury.treasury?.akt_balance != null
+                ? `${treasury.treasury.akt_balance} AKT`
+                : status.wallet_creator_akt_balance != null
+                  ? `${status.wallet_creator_akt_balance} AKT`
+                  : "wallet staged",
+            status:
+              treasury.treasury?.connected != null
+                ? treasury.treasury.connected
+                  ? "online"
+                  : "degraded"
+                : status.wallet_creator_connected
+                  ? "online"
+                  : "degraded",
           },
           ...deployments.map((deployment) => ({
             title: `${deployment.label} · ${deployment.provider}`,
@@ -4547,6 +4609,7 @@ function executiveReportSection(pathname, snapshot) {
   const jobs = business.jobs?.records || [];
   const billing = business.quotes_invoices?.records || [];
   const identities = business.identities?.records || [];
+  const treasury = business.vaults_treasury || {};
   const operators = admin.operatorRoster?.identities || [];
   const activeMissions = snapshot.missions?.active || [];
   const roster = mesh.roster || [];
@@ -4588,6 +4651,15 @@ function executiveReportSection(pathname, snapshot) {
           "merlin_authority=established",
           "google_project=gen-lang-client-0046423999",
           "next=create Secret Manager values",
+        ],
+      },
+      {
+        label: "Treasury",
+        items: [
+          `custody=${treasury.treasury?.custody || "google_secret_manager"}`,
+          `wallet_connected=${treasury.treasury?.connected ? "true" : "false"}`,
+          `akt_balance=${treasury.treasury?.akt_balance ?? "--"}`,
+          `policy=${treasury.policies?.[0] || "seed_gsm_only"}`,
         ],
       },
     ],
@@ -5354,6 +5426,38 @@ export default {
             akt_value_usd: walletModel.akt_value_usd ?? null,
             source_of_truth: "S25 Lumiere runtime + Google Secret Manager",
           },
+        ],
+      });
+    }
+
+    if (url.pathname === "/models/vaults-treasury.json") {
+      const snapshot = await fetchOpsSnapshot(env).catch(() => ({}));
+      const treasury = snapshot.business?.vaults_treasury || {};
+      const walletModel = masterWalletSection("/wallet", env, snapshot || {})?.model || {};
+      return jsonResponse({
+        ok: true,
+        domain: "smajor.org",
+        source_of_truth: "api.smajor.org + S25 Lumiere runtime",
+        title: "Vaults and treasury command",
+        summary: "Posture treasury, custody et readiness avant le trading live.",
+        treasury: {
+          wallet_id: treasury.treasury?.wallet_id || "wallet-creator-001",
+          address: treasury.treasury?.address || walletModel.wallet_address || env.MASTER_WALLET_ADDRESS || "unconfigured",
+          connected: treasury.treasury?.connected ?? walletModel.creator_connected ?? false,
+          custody: treasury.treasury?.custody || walletModel.custody || "google_secret_manager",
+          akt_balance: treasury.treasury?.akt_balance ?? walletModel.akt_balance ?? null,
+          akt_value_usd: treasury.treasury?.akt_value_usd ?? walletModel.akt_value_usd ?? null,
+        },
+        policies: treasury.policies || [
+          "policy_seed_gsm_only",
+          "policy_public_address_only",
+          "policy_operator_session_required",
+          "policy_full_audit_before_trading",
+        ],
+        next_steps: treasury.next_steps || [
+          "brancher vault registry dans admin",
+          "lier treasury a omega",
+          "ajouter wallets secondaires et politiques par scope",
         ],
       });
     }
