@@ -5333,6 +5333,31 @@ export default {
       });
     }
 
+    if (url.pathname === "/models/wallets-custody.json") {
+      const snapshot = await fetchOpsSnapshot(env).catch(() => ({}));
+      const walletModel = masterWalletSection("/wallet", env, snapshot || {})?.model || {};
+      return jsonResponse({
+        ok: true,
+        domain: "smajor.org",
+        source_of_truth: "S25 Lumiere runtime + Google Secret Manager",
+        title: "Wallets and custody registry",
+        summary: "Registre public du wallet creator, de sa custody et de son etat live.",
+        records: [
+          {
+            wallet_id: "wallet-creator-001",
+            label: walletModel.label || env.MASTER_WALLET_LABEL || "Wallet creator",
+            network: "akash",
+            address: walletModel.wallet_address || env.MASTER_WALLET_ADDRESS || "unconfigured",
+            connected: walletModel.creator_connected ?? false,
+            custody: walletModel.custody || "google_secret_manager",
+            akt_balance: walletModel.akt_balance ?? null,
+            akt_value_usd: walletModel.akt_value_usd ?? null,
+            source_of_truth: "S25 Lumiere runtime + Google Secret Manager",
+          },
+        ],
+      });
+    }
+
     if (url.pathname === "/models/mvp-registries.json") {
       return jsonResponse({
         ok: true,
