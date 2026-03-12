@@ -101,6 +101,21 @@ Quand tu dis "ok vrai production":
 - `MEXC_API_KEY`
 - `MEXC_SECRET_KEY`
 
+## Wallet creator
+
+Pour la seed phrase createur:
+
+- ne pas la committer
+- ne pas la laisser dans `.env`
+- la garder dans le keyring local ou la pousser dans Google Secret Manager
+- exposer l'acces seulement a des service accounts nommes
+
+Pousser `s25-master-seed` vers Google Secret Manager:
+
+```powershell
+python scripts/push_wallet_seed_secret.py --project-id gen-lang-client-0046423999 --service-account service-account@project.iam.gserviceaccount.com
+```
+
 ## Google Drive
 
 Mode recommande:

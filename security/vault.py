@@ -54,6 +54,7 @@ class S25Vault:
         "ANTHROPIC_API_KEY": "Anthropic API key",
         "PERPLEXITY_API_KEY": "Perplexity API key",
         "KIMI_API_KEY": "Kimi API key",
+        "S25_MASTER_SEED": "Wallet creator master seed phrase",
         "TELEGRAM_BOT_TOKEN": "Telegram bot token",
         "TELEGRAM_CHAT_ID": "Telegram chat id",
         "OSMOSIS_MNEMONIC": "Osmosis wallet mnemonic",
