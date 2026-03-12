@@ -2432,6 +2432,35 @@ function layout({
     `
     : "";
 
+  const organizationActionKitHtml = moduleSection && moduleSection.organizationActionKit
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Organization action kit</div>
+            <h2>${moduleSection.organizationActionKit.title}</h2>
+          </div>
+          <p>${moduleSection.organizationActionKit.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.organizationActionKit.actions
+            .map(
+              (action) => `
+                <article class="module-card">
+                  <div class="label">${action.label}</div>
+                  <ul>
+                    <li>endpoint=${action.endpoint}</li>
+                    ${action.fields.map((field) => `<li>${field}</li>`).join("")}
+                  </ul>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
   const operationalChainHtml = moduleSection && moduleSection.operationalChain
     ? `
       <section class="module-panel">
@@ -3530,6 +3559,7 @@ function layout({
       ${backendLedgerHtml}
       ${organizationTreasuryHtml}
       ${organizationCommandMapHtml}
+      ${organizationActionKitHtml}
       ${businessTimelineHtml}
       ${operationalChainHtml}
       ${operationalPlaybookHtml}
@@ -4259,6 +4289,7 @@ async function fetchAdminSnapshot(env) {
 function buildRuntimeBusinessState(seed = {}) {
   return {
     organizations: Array.isArray(seed.organizations) ? seed.organizations : [],
+    organization_links: Array.isArray(seed.organization_links) ? seed.organization_links : [],
     clients: Array.isArray(seed.clients) ? seed.clients : [],
     jobs: Array.isArray(seed.jobs) ? seed.jobs : [],
     quotes_invoices: Array.isArray(seed.quotes_invoices) ? seed.quotes_invoices : [],
@@ -4431,6 +4462,18 @@ function rebuildHubOrganizationRegistry(business) {
     };
   });
   return business.organizations;
+}
+
+function upsertOrganizationLink(business, link) {
+  const links = Array.isArray(business.organization_links) ? business.organization_links : [];
+  const key = `${link.link_type}:${link.organization_id}:${link.subject_id || link.lane_id || "none"}`;
+  const next = {
+    link_id: link.link_id || createHubRecordId("olink"),
+    created_at: link.created_at || new Date().toISOString(),
+    ...link,
+  };
+  business.organization_links = [next, ...links.filter((item) => `${item.link_type}:${item.organization_id}:${item.subject_id || item.lane_id || "none"}` !== key)].slice(0, 250);
+  return next;
 }
 
 function buildHubBusinessRecord(kind, body) {
@@ -5137,6 +5180,126 @@ async function issueVendorAccess(request, env) {
     expires_at: new Date(payload.exp).toISOString(),
     portal_url: `${env.PUBLIC_APP_URL || "https://app.smajor.org"}/vendors`,
   });
+}
+
+async function assignOrganizationStaff(request, env) {
+  const body = await request.json().catch(() => ({}));
+  const business = await readRuntimeBusinessState(env);
+  const organizationId = body.organization_id;
+  const identityId = body.identity_id;
+  if (!organizationId || !identityId) {
+    return jsonResponse({ ok: false, error: "organization_id_and_identity_id_required" }, 400);
+  }
+  const organization = (business.organizations || []).find((record) => record.organization_id === organizationId);
+  const identity = (business.identities || []).find((record) => record.identity_id === identityId);
+  if (!organization) {
+    return jsonResponse({ ok: false, error: "organization_not_found", organization_id: organizationId }, 404);
+  }
+  if (!identity) {
+    return jsonResponse({ ok: false, error: "identity_not_found", identity_id: identityId }, 404);
+  }
+  identity.organization_id = organizationId;
+  identity.scope_id = body.scope_id || identity.scope_id || "field_scope_default";
+  identity.assigned_team = body.assigned_team || identity.assigned_team || "crew-auto-01";
+  const link = upsertOrganizationLink(business, {
+    link_type: "staff_assignment",
+    organization_id: organizationId,
+    subject_id: identityId,
+    scope_id: identity.scope_id,
+    assigned_team: identity.assigned_team,
+    role_id: identity.role_id,
+  });
+  business.last_write_at = new Date().toISOString();
+  const event = appendBusinessEvent(business, {
+    event_type: "organization_staff_assigned",
+    lane: "staff",
+    subject_type: "identity",
+    subject_id: identityId,
+    collection: "organization_links",
+    scope_id: identity.scope_id,
+    summary: `Staff ${identity.display_name || identityId} assigned to ${organization.organization_name || organizationId}`,
+    metadata: { organization_id: organizationId, role_id: identity.role_id, assigned_team: identity.assigned_team },
+  });
+  rebuildHubOrganizationRegistry(business);
+  await writeRuntimeBusinessState(env, business);
+  return jsonResponse({ ok: true, organization_id: organizationId, identity_id: identityId, link, event, last_write_at: business.last_write_at });
+}
+
+async function assignOrganizationVendor(request, env) {
+  const body = await request.json().catch(() => ({}));
+  const business = await readRuntimeBusinessState(env);
+  const organizationId = body.organization_id;
+  const identityId = body.identity_id;
+  if (!organizationId || !identityId) {
+    return jsonResponse({ ok: false, error: "organization_id_and_identity_id_required" }, 400);
+  }
+  const organization = (business.organizations || []).find((record) => record.organization_id === organizationId);
+  const identity = (business.identities || []).find((record) => record.identity_id === identityId);
+  if (!organization) {
+    return jsonResponse({ ok: false, error: "organization_not_found", organization_id: organizationId }, 404);
+  }
+  if (!identity) {
+    return jsonResponse({ ok: false, error: "identity_not_found", identity_id: identityId }, 404);
+  }
+  identity.organization_id = organizationId;
+  identity.scope_id = body.scope_id || identity.scope_id || "vendor_scope_default";
+  const link = upsertOrganizationLink(business, {
+    link_type: "vendor_assignment",
+    organization_id: organizationId,
+    subject_id: identityId,
+    scope_id: identity.scope_id,
+    vendor_class: body.vendor_class || "supplier",
+    role_id: identity.role_id,
+  });
+  business.last_write_at = new Date().toISOString();
+  const event = appendBusinessEvent(business, {
+    event_type: "organization_vendor_assigned",
+    lane: "vendor",
+    subject_type: "identity",
+    subject_id: identityId,
+    collection: "organization_links",
+    scope_id: identity.scope_id,
+    summary: `Vendor ${identity.display_name || identityId} assigned to ${organization.organization_name || organizationId}`,
+    metadata: { organization_id: organizationId, role_id: identity.role_id, vendor_class: body.vendor_class || "supplier" },
+  });
+  rebuildHubOrganizationRegistry(business);
+  await writeRuntimeBusinessState(env, business);
+  return jsonResponse({ ok: true, organization_id: organizationId, identity_id: identityId, link, event, last_write_at: business.last_write_at });
+}
+
+async function assignOrganizationLane(request, env) {
+  const body = await request.json().catch(() => ({}));
+  const business = await readRuntimeBusinessState(env);
+  const organizationId = body.organization_id;
+  const laneId = body.lane_id;
+  if (!organizationId || !laneId) {
+    return jsonResponse({ ok: false, error: "organization_id_and_lane_id_required" }, 400);
+  }
+  const organization = (business.organizations || []).find((record) => record.organization_id === organizationId);
+  if (!organization) {
+    return jsonResponse({ ok: false, error: "organization_not_found", organization_id: organizationId }, 404);
+  }
+  const link = upsertOrganizationLink(business, {
+    link_type: "trade_lane_assignment",
+    organization_id: organizationId,
+    lane_id: laneId,
+    policy_state: body.policy_state || "audit_first",
+    subject_id: laneId,
+  });
+  business.last_write_at = new Date().toISOString();
+  const event = appendBusinessEvent(business, {
+    event_type: "organization_trade_lane_assigned",
+    lane: "trade",
+    subject_type: "trade_lane",
+    subject_id: laneId,
+    collection: "organization_links",
+    scope_id: organization.wallet_scope || "operations_scope",
+    summary: `Trade lane ${laneId} assigned to ${organization.organization_name || organizationId}`,
+    metadata: { organization_id: organizationId, lane_id: laneId, policy_state: body.policy_state || "audit_first" },
+  });
+  rebuildHubOrganizationRegistry(business);
+  await writeRuntimeBusinessState(env, business);
+  return jsonResponse({ ok: true, organization_id: organizationId, lane_id: laneId, link, event, last_write_at: business.last_write_at });
 }
 
 async function requireVendorAccess(request, env) {
@@ -6144,11 +6307,38 @@ function adminActionSection(pathname) {
       },
       {
         label: "Write",
-        items: ["/admin/api/create-client", "/admin/api/create-job", "/admin/api/issue-invoice", "/admin/api/issue-vendor-access", "/admin/api/execute-playbook"],
+        items: ["/admin/api/create-client", "/admin/api/create-job", "/admin/api/issue-invoice", "/admin/api/issue-vendor-access", "/admin/api/assign-organization-staff", "/admin/api/assign-organization-vendor", "/admin/api/assign-organization-lane", "/admin/api/execute-playbook"],
       },
       {
         label: "Rule",
         items: ["server-side secret only", "same RBAC chain", "audit-first"],
+      },
+    ],
+  };
+}
+
+function organizationActionKitSection(pathname) {
+  if (pathname !== "/admin") {
+    return null;
+  }
+  return {
+    title: "Organization action kit",
+    intro: "Rattacher equipe, fournisseurs et lanes runtime a une organisation sans lier le systeme a une personne fixe.",
+    actions: [
+      {
+        label: "Assign staff",
+        endpoint: "/admin/api/assign-organization-staff",
+        fields: ["organization_id", "identity_id", "assigned_team", "scope_id"],
+      },
+      {
+        label: "Assign vendor",
+        endpoint: "/admin/api/assign-organization-vendor",
+        fields: ["organization_id", "identity_id", "vendor_class", "scope_id"],
+      },
+      {
+        label: "Assign trade lane",
+        endpoint: "/admin/api/assign-organization-lane",
+        fields: ["organization_id", "lane_id", "policy_state"],
       },
     ],
   };
@@ -6880,6 +7070,7 @@ function organizationCommandMapSection(pathname, snapshot) {
   const identities = business.identities || business.identities?.records || [];
   const jobs = business.jobs || business.jobs?.records || [];
   const events = snapshot.admin?.businessTimeline?.records || business.events || [];
+  const organizationLinks = business.organization_links || [];
   const trade = snapshot.admin?.tradingLaneMetrics || snapshot.tradingLaneMetrics || { lanes: [] };
   const lanes = Array.isArray(trade.lanes) ? trade.lanes : [];
 
@@ -6889,9 +7080,13 @@ function organizationCommandMapSection(pathname, snapshot) {
     const vendorCount = orgIdentities.filter((identity) => String(identity.role_id || "").includes("vendor")).length;
     const orgJobs = jobs.filter((job) => job.organization_id === organization.organization_id);
     const recentEvents = events.filter((event) => event?.metadata?.organization_id === organization.organization_id).slice(0, 3);
-    const tradeLane = organization.services?.some((service) => String(service).includes("ai") || String(service).includes("trade"))
-      ? lanes.find((lane) => lane.lane_id === "signal_lane") || lanes[0] || null
-      : lanes.find((lane) => lane.lane_id === "treasury_lane") || lanes[0] || null;
+    const links = organizationLinks.filter((link) => link.organization_id === organization.organization_id);
+    const tradeLink = links.find((link) => link.link_type === "trade_lane_assignment") || null;
+    const tradeLane = tradeLink
+      ? lanes.find((lane) => lane.lane_id === tradeLink.lane_id) || { lane_id: tradeLink.lane_id }
+      : organization.services?.some((service) => String(service).includes("ai") || String(service).includes("trade"))
+        ? lanes.find((lane) => lane.lane_id === "signal_lane") || lanes[0] || null
+        : lanes.find((lane) => lane.lane_id === "treasury_lane") || lanes[0] || null;
 
     return {
       title: organization.organization_name || organization.organization_id,
@@ -6901,6 +7096,7 @@ function organizationCommandMapSection(pathname, snapshot) {
         `vendors=${vendorCount}`,
         `jobs=${orgJobs.length}`,
         `trade_lane=${tradeLane?.lane_id || "unassigned"}`,
+        `bindings=${links.length}`,
         `last_event=${recentEvents[0]?.event_type || "--"}`,
       ],
     };
@@ -7230,6 +7426,7 @@ function renderApp(env, pathname, hostname, snapshot) {
     backendLedger: backendLedgerSection(pathname, snapshot),
     organizationTreasury: organizationTreasurySection(pathname, snapshot),
     organizationCommandMap: organizationCommandMapSection(pathname, snapshot),
+    organizationActionKit: organizationActionKitSection(pathname),
     businessTimeline: businessTimelineSection(pathname, snapshot),
     operationalChain: operationalChainSection(pathname, snapshot),
     operationalPlaybook: operationalPlaybookSection(pathname, snapshot),
@@ -7495,6 +7692,33 @@ export default {
       } catch (error) {
         return jsonResponse({ ok: false, error: "admin_execute_playbook_failed", detail: String(error?.message || error) }, 500);
       }
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/assign-organization-staff") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      if (request.method !== "POST") {
+        return jsonResponse({ ok: false, error: "method_not_allowed" }, 405);
+      }
+      return assignOrganizationStaff(request, env);
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/assign-organization-vendor") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      if (request.method !== "POST") {
+        return jsonResponse({ ok: false, error: "method_not_allowed" }, 405);
+      }
+      return assignOrganizationVendor(request, env);
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/assign-organization-lane") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      if (request.method !== "POST") {
+        return jsonResponse({ ok: false, error: "method_not_allowed" }, 405);
+      }
+      return assignOrganizationLane(request, env);
     }
 
     if (hostname === "app.smajor.org" && url.pathname === "/admin/api/session") {
