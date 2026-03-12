@@ -16,6 +16,7 @@ Cette brique prepare une flotte miroir Akash de 10 conteneurs pour `MERLIN / S25
 - `admin@merlin.ai` est traite comme email admin Workspace, pas comme service account GCP.
 - Le vrai service account GCP doit etre fourni separement sous la forme `name@project.iam.gserviceaccount.com` ou via une configuration ADC/WIF.
 - Le conteneur `mirror-01` est le conteneur test pour la pile trading.
+- `mirror-01` peut maintenant charger `S25_MASTER_SEED` depuis Google Secret Manager pour le wallet creator.
 
 ## Rendu du manifest
 
@@ -48,6 +49,12 @@ Chargement reel:
 
 ```powershell
 python C:\Users\Steph\Documents\Playground\S25-COMMAND-CENTER-git\agents\google_secret_manager_bootstrap.py --project-id <PROJECT_ID> --output C:\temp\mirror-01.env
+```
+
+Lecture directe du wallet creator seed par un agent:
+
+```powershell
+python C:\Users\Steph\Documents\Playground\S25-COMMAND-CENTER-git\scripts\read_wallet_seed_secret.py --project-id gen-lang-client-0046423999
 ```
 
 ## Confirmation MCP vers MERLIN
