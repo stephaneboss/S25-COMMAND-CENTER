@@ -4194,6 +4194,7 @@ async function fetchAdminSnapshot(env) {
 
 function buildRuntimeBusinessState(seed = {}) {
   return {
+    organizations: Array.isArray(seed.organizations) ? seed.organizations : [],
     clients: Array.isArray(seed.clients) ? seed.clients : [],
     jobs: Array.isArray(seed.jobs) ? seed.jobs : [],
     quotes_invoices: Array.isArray(seed.quotes_invoices) ? seed.quotes_invoices : [],
@@ -4232,6 +4233,140 @@ function appendBusinessEvent(business, event) {
   };
   business.events = [auditEvent, ...(business.events || [])].slice(0, 120);
   return auditEvent;
+}
+
+function rebuildHubOrganizationRegistry(business) {
+  const previous = Array.isArray(business.organizations) ? business.organizations : [];
+  const clients = Array.isArray(business.clients) ? business.clients : [];
+  const identities = Array.isArray(business.identities) ? business.identities : [];
+  const jobs = Array.isArray(business.jobs) ? business.jobs : [];
+  const billing = Array.isArray(business.quotes_invoices) ? business.quotes_invoices : [];
+  const events = Array.isArray(business.events) ? business.events : [];
+  const registry = new Map();
+
+  for (const client of clients) {
+    const organizationId = client.organization_id || `org-from-client-${client.client_id || createHubRecordId("org")}`;
+    const current = registry.get(organizationId) || {
+      organization_id: organizationId,
+      organization_name: client.organization_name || organizationId,
+      client_count: 0,
+      identity_count: 0,
+      job_count: 0,
+      billing_count: 0,
+      scopes: new Set(),
+      services: new Set(),
+      account_states: new Set(),
+      last_activity_at: client.created_at || null,
+    };
+    current.client_count += 1;
+    current.organization_name = current.organization_name || client.organization_name || organizationId;
+    if (client.scope_id) current.scopes.add(client.scope_id);
+    for (const service of client.service_mix || []) current.services.add(service);
+    if (client.account_status) current.account_states.add(client.account_status);
+    if (client.created_at && (!current.last_activity_at || client.created_at > current.last_activity_at)) {
+      current.last_activity_at = client.created_at;
+    }
+    registry.set(organizationId, current);
+  }
+
+  for (const identity of identities) {
+    if (!identity.organization_id) continue;
+    const current = registry.get(identity.organization_id) || {
+      organization_id: identity.organization_id,
+      organization_name: identity.organization_name || identity.display_name || identity.organization_id,
+      client_count: 0,
+      identity_count: 0,
+      job_count: 0,
+      billing_count: 0,
+      scopes: new Set(),
+      services: new Set(),
+      account_states: new Set(),
+      last_activity_at: identity.created_at || null,
+    };
+    current.identity_count += 1;
+    if (identity.scope_id) current.scopes.add(identity.scope_id);
+    for (const service of identity.service_entitlements || []) current.services.add(service);
+    if (identity.created_at && (!current.last_activity_at || identity.created_at > current.last_activity_at)) {
+      current.last_activity_at = identity.created_at;
+    }
+    registry.set(identity.organization_id, current);
+  }
+
+  for (const job of jobs) {
+    const client = clients.find((item) => item.client_id === job.client_id);
+    const organizationId = job.organization_id || client?.organization_id;
+    if (!organizationId) continue;
+    const current = registry.get(organizationId) || {
+      organization_id: organizationId,
+      organization_name: client?.organization_name || organizationId,
+      client_count: 0,
+      identity_count: 0,
+      job_count: 0,
+      billing_count: 0,
+      scopes: new Set(),
+      services: new Set(),
+      account_states: new Set(),
+      last_activity_at: job.created_at || null,
+    };
+    current.job_count += 1;
+    if (job.dispatch_scope) current.scopes.add(job.dispatch_scope);
+    if (job.service_type) current.services.add(job.service_type);
+    if (job.created_at && (!current.last_activity_at || job.created_at > current.last_activity_at)) {
+      current.last_activity_at = job.created_at;
+    }
+    registry.set(organizationId, current);
+  }
+
+  for (const entry of billing) {
+    const client = clients.find((item) => item.client_id === entry.client_id);
+    const organizationId = entry.organization_id || client?.organization_id;
+    if (!organizationId) continue;
+    const current = registry.get(organizationId) || {
+      organization_id: organizationId,
+      organization_name: client?.organization_name || organizationId,
+      client_count: 0,
+      identity_count: 0,
+      job_count: 0,
+      billing_count: 0,
+      scopes: new Set(),
+      services: new Set(),
+      account_states: new Set(),
+      last_activity_at: entry.created_at || null,
+    };
+    current.billing_count += 1;
+    if (entry.created_at && (!current.last_activity_at || entry.created_at > current.last_activity_at)) {
+      current.last_activity_at = entry.created_at;
+    }
+    registry.set(organizationId, current);
+  }
+
+  for (const event of events) {
+    const organizationId = event?.metadata?.organization_id;
+    if (!organizationId || !registry.has(organizationId)) continue;
+    const current = registry.get(organizationId);
+    if (event.created_at && (!current.last_activity_at || event.created_at > current.last_activity_at)) {
+      current.last_activity_at = event.created_at;
+    }
+  }
+
+  business.organizations = Array.from(registry.values()).map((record) => {
+    const existing = previous.find((item) => item.organization_id === record.organization_id) || {};
+    return {
+      organization_id: record.organization_id,
+      organization_name: record.organization_name,
+      client_count: record.client_count,
+      identity_count: record.identity_count,
+      job_count: record.job_count,
+      billing_count: record.billing_count,
+      scopes: Array.from(record.scopes),
+      services: Array.from(record.services),
+      account_states: Array.from(record.account_states),
+      last_activity_at: record.last_activity_at,
+      ledger_state: existing.ledger_state || "active",
+      wallet_scope: existing.wallet_scope || "operations_scope",
+    };
+  });
+  return business.organizations;
 }
 
 function buildHubBusinessRecord(kind, body) {
@@ -4345,6 +4480,7 @@ async function handleHubBusinessCreate(request, env, kind) {
       organization_id: record.organization_id || null,
     },
   });
+  rebuildHubOrganizationRegistry(business);
   await writeRuntimeBusinessState(env, business);
   return {
     ok: true,
@@ -4411,6 +4547,7 @@ async function handleHubClientPipelineCreate(request, env) {
       organization_id: organizationId,
     },
   });
+  rebuildHubOrganizationRegistry(business);
   await writeRuntimeBusinessState(env, business);
 
   return {
@@ -4473,6 +4610,7 @@ async function handleHubClientJobBillingCreate(request, env) {
   const jobRecord = {
     job_id: jobId,
     client_id: clientId,
+    organization_id: organizationId,
     service_type: body.service_type || "multi_service_exterior",
     assigned_team: body.assigned_team || "unassigned",
     equipment_required: Array.isArray(body.equipment_required) ? body.equipment_required : [],
@@ -4487,6 +4625,7 @@ async function handleHubClientJobBillingCreate(request, env) {
     invoice_id: body.invoice_id || null,
     client_id: clientId,
     job_id: jobId,
+    organization_id: organizationId,
     amount,
     currency: body.currency || "CAD",
     payment_status: body.payment_status || "quote_pending",
@@ -4513,8 +4652,10 @@ async function handleHubClientJobBillingCreate(request, env) {
       quote_id: billingRecord.quote_id,
       amount: billingRecord.amount,
       currency: billingRecord.currency,
+      organization_id: organizationId,
     },
   });
+  rebuildHubOrganizationRegistry(business);
   await writeRuntimeBusinessState(env, business);
 
   return {
@@ -6559,7 +6700,7 @@ function businessTimelineSection(pathname, snapshot) {
     intro: "Audit trail vivant des creations, acces et ecritures. L'admin voit la chaine complete sans fouiller la memoire brute.",
     rows: events.slice(0, 12).map((event) => ({
       title: event.summary,
-      detail: `${event.event_type} | ${event.lane} | ${event.subject_type} | ${event.subject_id || "--"}`,
+      detail: `${event.event_type} | ${event.lane} | ${event.subject_type} | ${event.subject_id || "--"} | org=${event.metadata?.organization_id || "--"}`,
       timestamp: event.created_at || "--",
     })),
   };
@@ -6665,6 +6806,7 @@ function operationalChainSection(pathname, snapshot) {
     return {
       title: client.organization_name || client.client_id,
       items: [
+        `organization=${client.organization_id || "--"}`,
         `client=${client.client_id}`,
         `identity=${identity?.identity_id || client.identity_id || "--"}`,
         `role=${identity?.role_id || client.role_id || "--"}`,
