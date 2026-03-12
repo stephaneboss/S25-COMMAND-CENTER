@@ -5920,6 +5920,15 @@ function operationalChainSection(pathname, snapshot) {
       const metadata = item.metadata || {};
       return item.subject_id === client.client_id || metadata.client_id === client.client_id || metadata.identity_id === client.identity_id;
     });
+    const lastEvent = clientEvents[0] || null;
+    let nextAction = "monitor_account";
+    if (clientJobs.length === 0) {
+      nextAction = "create_job";
+    } else if (clientBilling.length === 0) {
+      nextAction = "issue_invoice";
+    } else if ((client.portal_state || identity?.portal_state || "") !== "live") {
+      nextAction = "issue_portal_access";
+    }
     return {
       title: client.organization_name || client.client_id,
       items: [
@@ -5930,6 +5939,8 @@ function operationalChainSection(pathname, snapshot) {
         `billing=${clientBilling.length}`,
         `portal=${client.portal_state || identity?.portal_state || "--"}`,
         `access_events=${clientEvents.length}`,
+        `next_action=${nextAction}`,
+        `last_event=${lastEvent?.event_type || "--"}`,
       ],
     };
   });
@@ -5937,6 +5948,40 @@ function operationalChainSection(pathname, snapshot) {
   return {
     title: "Operational chain",
     intro: "Vue chaine complete: identite, client, job, billing et acces sur une seule surface admin.",
+    rows,
+  };
+}
+
+function operationalPlaybookSection(pathname, snapshot) {
+  if (pathname !== "/admin") {
+    return null;
+  }
+  const chain = operationalChainSection(pathname, snapshot);
+  const rows = (chain?.rows || []).map((row) => {
+    const itemMap = Object.fromEntries(
+      row.items.map((item) => {
+        const [key, ...rest] = item.split("=");
+        return [key, rest.join("=")];
+      }),
+    );
+    const nextAction = itemMap.next_action || "monitor_account";
+    const actionGuide = {
+      create_job: "Open the admin console and create the first operational job for this client.",
+      issue_invoice: "Issue the first quote or invoice so billing enters the runtime chain.",
+      issue_portal_access: "Generate signed client portal access and confirm the portal is live.",
+      monitor_account: "Monitor job execution, billing state, and keep the account healthy.",
+    };
+    return {
+      title: row.title,
+      client_id: itemMap.client || "--",
+      next_action: nextAction,
+      guide: actionGuide[nextAction] || actionGuide.monitor_account,
+      last_event: itemMap.last_event || "--",
+    };
+  });
+  return {
+    title: "Operational playbook",
+    intro: "Each live account gets a concrete next move so the admin plane can push the business forward without guessing.",
     rows,
   };
 }
@@ -6274,6 +6319,21 @@ export default {
         });
       } catch (error) {
         return jsonResponse({ ok: false, error: "admin_operational_chain_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/operational-playbook") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      try {
+        const snapshot = await fetchAdminSnapshot(env);
+        return jsonResponse({
+          ok: true,
+          secure: true,
+          ...(operationalPlaybookSection("/admin", snapshot) || { title: "Operational playbook", rows: [] }),
+        });
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "admin_operational_playbook_failed", detail: String(error?.message || error) }, 500);
       }
     }
 
@@ -6875,6 +6935,22 @@ export default {
         domain: "smajor.org",
         source_of_truth: "s25 runtime business registry + signed admin writes",
         ...(operationalChainSection("/admin", snapshot) || { title: "Operational chain", rows: [] }),
+      });
+    }
+
+    if (url.pathname === "/models/operational-playbook.json") {
+      const snapshot = {
+        admin: await fetchAdminSnapshot(env).catch((error) => ({
+          liveRegistries: {},
+          businessTimeline: { records: [] },
+          errors: [error?.message || "admin_snapshot_failed"],
+        })),
+      };
+      return jsonResponse({
+        ok: true,
+        domain: "smajor.org",
+        source_of_truth: "s25 runtime business registry + signed admin writes",
+        ...(operationalPlaybookSection("/admin", snapshot) || { title: "Operational playbook", rows: [] }),
       });
     }
 
