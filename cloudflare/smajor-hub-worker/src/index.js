@@ -3862,13 +3862,14 @@ async function fetchOpsSnapshot(env) {
 
 async function fetchAdminSnapshot(env) {
   const runtimeBase = env.DIRECT_RUNTIME_URL || env.PUBLIC_S25_URL;
-  const [memoryResult, walletsResult, treasuryResult, secretCustodyResult, secretFallbackResult, geminiLayerResult] = await Promise.allSettled([
+  const [memoryResult, walletsResult, treasuryResult, secretCustodyResult, secretFallbackResult, geminiLayerResult, tradingLaneMetricsResult] = await Promise.allSettled([
     fetchSecureJson(`${runtimeBase}/api/memory/state`, env),
     fetchJson(`${env.PUBLIC_API_URL}/api/business/wallets-custody`),
     fetchJson(`${env.PUBLIC_API_URL}/api/business/vaults-treasury`),
     fetchJson(`${env.PUBLIC_API_URL}/api/business/secret-custody`),
     fetchJson(`${env.PUBLIC_API_URL}/api/business/secret-fallback-policy`),
     fetchJson(`${env.PUBLIC_API_URL}/api/business/gemini-layer`),
+    fetchJson(`${env.PUBLIC_API_URL}/api/business/trading-lane-metrics`),
   ]);
   const registry = memoryResult.status === "fulfilled"
     ? memoryResult.value?.state?.intel?.business_registry || memoryResult.value?.state?.business || {}
@@ -3907,7 +3908,8 @@ async function fetchAdminSnapshot(env) {
     secretCustody: secretCustodyResult.status === "fulfilled" ? secretCustodyResult.value : null,
     secretFallbackPolicy: secretFallbackResult.status === "fulfilled" ? secretFallbackResult.value : null,
     geminiLayer: geminiLayerResult.status === "fulfilled" ? geminiLayerResult.value : null,
-    errors: [memoryResult, walletsResult, treasuryResult, secretCustodyResult, secretFallbackResult, geminiLayerResult]
+    tradingLaneMetrics: tradingLaneMetricsResult.status === "fulfilled" ? tradingLaneMetricsResult.value : null,
+    errors: [memoryResult, walletsResult, treasuryResult, secretCustodyResult, secretFallbackResult, geminiLayerResult, tradingLaneMetricsResult]
       .filter((result) => result.status === "rejected")
       .map((result) => result.reason?.message || "secure_memory_upstream_error"),
   };
@@ -6217,7 +6219,41 @@ function operationalPlaybookSection(pathname, snapshot) {
       };
     });
 
-  const rows = [...clientRows, ...staffRows, ...vendorRows];
+  const treasury = snapshot.admin?.vaultsTreasury?.treasury || {};
+  const treasuryPolicies = snapshot.admin?.vaultsTreasury?.policies || [];
+  const treasuryRows = treasury.wallet_id
+    ? [
+        {
+          title: "Master treasury",
+          domain: "treasury",
+          target_id: treasury.wallet_id,
+          client_id: treasury.wallet_id,
+          next_action: Number(treasury.akt_balance || 0) > 0 ? "monitor_account" : "fund_wallet",
+          guide:
+            Number(treasury.akt_balance || 0) > 0
+              ? `Monitor treasury balance, custody posture, and policy state. akt=${treasury.akt_balance}`
+              : "Fund the sovereign treasury wallet before activating heavier trade or mirror flows.",
+          last_event: treasuryPolicies[0]?.policy_id || "--",
+        },
+      ]
+    : [];
+
+  const laneMetrics = snapshot.admin?.tradingLaneMetrics?.lanes || snapshot.modules?.trading_lane_metrics?.lanes || [];
+  const tradeRows = laneMetrics.map((lane) => ({
+    title: String(lane.lane_id || "trade_lane").replace(/_/g, " "),
+    domain: "trade",
+    target_id: lane.lane_id || "trade_lane",
+    client_id: lane.lane_id || "trade_lane",
+    next_action: lane.live_state === "online" ? "monitor_account" : "activate_lane",
+    guide: lane.live_state === "online"
+      ? `Lane is online. missions=${lane.mission_count || 0} members=${(lane.members || []).map((member) => member.agent_id).join(", ")}`
+      : `Activate ${String(lane.lane_id || "trade_lane").replace(/_/g, " ")} runtime and verify agent chain ${(
+          lane.members || []
+        ).map((member) => member.agent_id).join(", ")}.`,
+    last_event: lane.headline || "--",
+  }));
+
+  const rows = [...clientRows, ...staffRows, ...vendorRows, ...treasuryRows, ...tradeRows];
   return {
     title: "Operational playbook",
     intro: "Each live account gets a concrete next move so the admin plane can push the business forward without guessing.",
