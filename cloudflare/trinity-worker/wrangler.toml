@@ -8,8 +8,8 @@ routes = [
 ]
 
 [vars]
-ORIGIN_BASE = "http://fpog7pbvepbkrfae1529ics23k.ingress.cap-test-compute.com"
-ORIGIN_HOST_HEADER = "fpog7pbvepbkrfae1529ics23k.ingress.cap-test-compute.com"
+ORIGIN_BASE = "http://ntvkk09ocl8m9cuu402bfnel80.ingress.cap-test-compute.com"
+ORIGIN_HOST_HEADER = "ntvkk09ocl8m9cuu402bfnel80.ingress.cap-test-compute.com"
 PUBLIC_GATEWAY_URL = "https://api.smajor.org"
 PUBLIC_RUNTIME_URL = "https://s25.smajor.org"
 PROXY_TIMEOUT_MS = "15000"
