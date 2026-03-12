@@ -1,6 +1,6 @@
 param(
   [string]$OutputPath = "",
-  [string]$CockpitUrl = "https://trinity-s25-proxy.trinitys25steph.workers.dev"
+  [string]$CockpitUrl = "https://s25.smajor.org"
 )
 
 $ErrorActionPreference = "Stop"
