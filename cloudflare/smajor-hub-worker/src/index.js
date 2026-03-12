@@ -2432,6 +2432,34 @@ function layout({
     `
     : "";
 
+  const organizationProfileHtml = moduleSection && moduleSection.organizationProfile
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Organization profiles</div>
+            <h2>${moduleSection.organizationProfile.title}</h2>
+          </div>
+          <p>${moduleSection.organizationProfile.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.organizationProfile.columns
+            .map(
+              (column) => `
+                <article class="module-card">
+                  <div class="label">${column.label}</div>
+                  <ul>
+                    ${column.items.map((item) => `<li>${item}</li>`).join("")}
+                  </ul>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
   const organizationActionKitHtml = moduleSection && moduleSection.organizationActionKit
     ? `
       <section class="module-panel">
@@ -3559,6 +3587,7 @@ function layout({
       ${backendLedgerHtml}
       ${organizationTreasuryHtml}
       ${organizationCommandMapHtml}
+      ${organizationProfileHtml}
       ${organizationActionKitHtml}
       ${businessTimelineHtml}
       ${operationalChainHtml}
@@ -7109,6 +7138,50 @@ function organizationCommandMapSection(pathname, snapshot) {
   };
 }
 
+function organizationProfileSection(pathname, snapshot) {
+  if (pathname !== "/admin") {
+    return null;
+  }
+  const organizations = snapshot.admin?.organizationsLive?.records || [];
+  const business = snapshot.admin?.liveRegistries || snapshot.business || {};
+  const identities = business.identities || business.identities?.records || [];
+  const jobs = business.jobs || business.jobs?.records || [];
+  const quotes = business.quotes_invoices || business.quotes_invoices?.records || [];
+  const links = business.organization_links || [];
+  const wallets = snapshot.admin?.walletsCustody?.records || [];
+  const treasury = snapshot.admin?.vaultsTreasury?.treasury || null;
+  const lanes = snapshot.admin?.tradingLaneMetrics?.lanes || [];
+
+  const profiles = organizations.slice(0, 4).map((organization) => {
+    const orgIdentities = identities.filter((identity) => identity.organization_id === organization.organization_id);
+    const orgJobs = jobs.filter((job) => job.organization_id === organization.organization_id);
+    const orgQuotes = quotes.filter((entry) => entry.organization_id === organization.organization_id);
+    const orgLinks = links.filter((link) => link.organization_id === organization.organization_id);
+    const laneLink = orgLinks.find((link) => link.link_type === "trade_lane_assignment") || null;
+    const lane = laneLink ? lanes.find((item) => item.lane_id === laneLink.lane_id) || null : null;
+    return {
+      label: organization.organization_name || organization.organization_id,
+      items: [
+        `organization=${organization.organization_id}`,
+        `clients=${organization.client_count || 0}`,
+        `staff=${orgIdentities.filter((identity) => ["dispatcher", "field_manager", "staff_member", "contractor"].includes(identity.role_id)).length}`,
+        `vendors=${orgIdentities.filter((identity) => String(identity.role_id || "").includes("vendor")).length}`,
+        `jobs=${orgJobs.length}`,
+        `billing=${orgQuotes.length}`,
+        `wallet_scope=${organization.wallet_scope || "operations_scope"}`,
+        `trade_lane=${lane?.lane_id || laneLink?.lane_id || "unassigned"}`,
+        `treasury=${treasury?.wallet_id || wallets[0]?.wallet_id || "wallet-creator-001"}`,
+      ],
+    };
+  });
+
+  return {
+    title: "Organization profiles",
+    intro: "Vue unifiee par organisation: business, equipe, fournisseurs, treasury et runtime lane se lisent sur un seul profil.",
+    columns: profiles,
+  };
+}
+
 function deriveOperationalAction(client, identity, jobs, billing, events) {
   const clientJobs = jobs.filter((item) => item.client_id === client.client_id);
   const clientBilling = billing.filter((item) => item.client_id === client.client_id);
@@ -7426,6 +7499,7 @@ function renderApp(env, pathname, hostname, snapshot) {
     backendLedger: backendLedgerSection(pathname, snapshot),
     organizationTreasury: organizationTreasurySection(pathname, snapshot),
     organizationCommandMap: organizationCommandMapSection(pathname, snapshot),
+    organizationProfile: organizationProfileSection(pathname, snapshot),
     organizationActionKit: organizationActionKitSection(pathname),
     businessTimeline: businessTimelineSection(pathname, snapshot),
     operationalChain: operationalChainSection(pathname, snapshot),
@@ -8360,6 +8434,25 @@ export default {
         domain: "smajor.org",
         source_of_truth: "signed admin organization assignment routes",
         ...(organizationActionKitSection("/admin") || { title: "Organization action kit", actions: [] }),
+      });
+    }
+
+    if (url.pathname === "/models/organization-profiles.json") {
+      const snapshot = {
+        admin: await fetchAdminSnapshot(env).catch((error) => ({
+          organizationsLive: { records: [] },
+          liveRegistries: {},
+          walletsCustody: { records: [] },
+          vaultsTreasury: { treasury: null },
+          tradingLaneMetrics: { lanes: [] },
+          errors: [error?.message || "admin_snapshot_failed"],
+        })),
+      };
+      return jsonResponse({
+        ok: true,
+        domain: "smajor.org",
+        source_of_truth: "organization-first durable backbone",
+        ...(organizationProfileSection("/admin", snapshot) || { title: "Organization profiles", columns: [] }),
       });
     }
 
