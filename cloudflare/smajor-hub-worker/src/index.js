@@ -2898,7 +2898,7 @@ async function fetchOpsSnapshot(env) {
   ]);
   const registry =
     memoryResult.status === "fulfilled"
-      ? memoryResult.value?.state?.intel?.business_registry || {}
+      ? memoryResult.value?.state?.intel?.business_registry || memoryResult.value?.state?.business || {}
       : {};
   const internalOps = {
     title: "Smajor internal operations",
@@ -2948,7 +2948,7 @@ async function fetchAdminSnapshot(env) {
     fetchSecureJson(`${runtimeBase}/api/memory/state`, env),
   ]);
   const registry = memoryResult.status === "fulfilled"
-    ? memoryResult.value?.state?.intel?.business_registry || {}
+    ? memoryResult.value?.state?.intel?.business_registry || memoryResult.value?.state?.business || {}
     : {};
   const business = {
     title: "Live business registries",
@@ -3975,7 +3975,7 @@ export default {
         return jsonResponse({
           ok: true,
           source: "s25_runtime_memory",
-          business_registry: memory?.state?.intel?.business_registry || {},
+          business_registry: memory?.state?.intel?.business_registry || memory?.state?.business || {},
         });
       } catch (error) {
         return jsonResponse({ ok: false, error: "admin_runtime_business_failed", detail: String(error?.message || error) }, 500);

@@ -113,6 +113,7 @@ def _default_agents_state() -> dict:
             "clients": [],
             "jobs": [],
             "quotes_invoices": [],
+            "identities": [],
             "last_write_at": None,
         },
     }
@@ -994,7 +995,7 @@ def api_memory_state_post():
 
     if business_updates and "business" in state:
         for key, value in business_updates.items():
-            if key in {"clients", "jobs", "quotes_invoices"} and isinstance(value, list):
+            if key in {"clients", "jobs", "quotes_invoices", "identities"} and isinstance(value, list):
                 state["business"][key] = value
             elif key == "last_write_at":
                 state["business"][key] = value
