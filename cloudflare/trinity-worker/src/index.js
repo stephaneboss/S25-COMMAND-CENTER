@@ -481,6 +481,9 @@ const BUSINESS_REGISTRY_MAP = {
     { key: "wallet_policy_matrix", path: `${BUSINESS_PREFIX}/wallet-policy-matrix`, purpose: "Policy matrix for custody, execution and audit" },
     { key: "secret_custody", path: `${BUSINESS_PREFIX}/secret-custody`, purpose: "Primary and fallback custody chain for critical secrets" },
     { key: "secret_fallback_policy", path: `${BUSINESS_PREFIX}/secret-fallback-policy`, purpose: "Fallback order if Google Secret Manager is offline" },
+    { key: "frontend_surfaces", path: `${BUSINESS_PREFIX}/frontend-surfaces`, purpose: "Public and operator-facing surfaces exposed by smajor.org" },
+    { key: "backend_surfaces", path: `${BUSINESS_PREFIX}/backend-surfaces`, purpose: "Runtime and service surfaces anchored in S25 Lumiere" },
+    { key: "separation_architecture", path: `${BUSINESS_PREFIX}/separation-architecture`, purpose: "Official front-end versus back-end separation map" },
     { key: "internal_ops", path: `${BUSINESS_PREFIX}/internal-ops`, purpose: "Public operating summary for Smajor internal account" },
     { key: "empire_manifest", path: `${BUSINESS_PREFIX}/empire-manifest`, purpose: "Unified manifest of domains, towers, registries and command chain" },
     { key: "total_mesh_protocol", path: `${BUSINESS_PREFIX}/total-mesh-protocol`, purpose: "Protocol de synchronisation totale des agents vers le hub" },
@@ -1092,6 +1095,57 @@ function deriveSecretFallbackPolicy() {
   };
 }
 
+function deriveFrontendSurfaces() {
+  return {
+    title: "Frontend surfaces",
+    summary: "Surfaces humaines de smajor.org. Elles organisent l'acces, mais ne portent pas la logique critique durable.",
+    surfaces: [
+      { surface_id: "public_site", host: "smajor.org", role: "public_brand_and_entry", data_mode: "read_only_curated" },
+      { surface_id: "ops_hub", host: "app.smajor.org", role: "operator_shell", data_mode: "read_with_signed_actions" },
+      { surface_id: "omega", host: "app.smajor.org/omega", role: "command_center_ui", data_mode: "read_only_operational" },
+      { surface_id: "client_portal", host: "app.smajor.org/clients", role: "client_experience", data_mode: "signed_portal_access" },
+      { surface_id: "staff_portal", host: "app.smajor.org/staff", role: "field_execution_ui", data_mode: "signed_staff_access" },
+      { surface_id: "admin_portal", host: "app.smajor.org/admin", role: "operator_control_plane", data_mode: "signed_operator_access" },
+    ],
+  };
+}
+
+function deriveBackendSurfaces() {
+  return {
+    title: "Backend surfaces",
+    summary: "Surfaces runtime et services souverains. La logique critique, les secrets et la persistence vivent ici.",
+    surfaces: [
+      { surface_id: "s25_runtime", host: "s25.smajor.org", role: "lumiere_runtime", authority: "source_of_truth" },
+      { surface_id: "business_gateway", host: "api.smajor.org", role: "business_api_gateway", authority: "public_business_facade" },
+      { surface_id: "merlin_mcp", host: "merlin.smajor.org", role: "validation_and_mcp_bridge", authority: "agent_validation_plane" },
+      { surface_id: "akash_cluster", host: "akash", role: "compute_and_container_runtime", authority: "execution_muscle" },
+      { surface_id: "google_secret_manager", host: "gcp", role: "primary_secret_custody", authority: "secret_root" },
+      { surface_id: "local_vault", host: "operator_hosts", role: "fallback_secret_custody", authority: "recovery_only" },
+    ],
+  };
+}
+
+function deriveSeparationArchitecture() {
+  return {
+    title: "Frontend backend separation",
+    summary: "Carte officielle pour garder smajor.org lisible pendant que S25 grandit. Le front montre et orchestre; le back decide, persiste et securise.",
+    doctrine: [
+      "Le front expose des experiences et des vues gouvernees.",
+      "Le backend porte la logique critique, la persistence et les secrets.",
+      "Aucune seed, aucun secret brut, aucune politique critique n'est definie dans le front.",
+      "Les actions sensibles passent par une session signee puis un backend S25 ou gateway protegee.",
+    ],
+    frontend: deriveFrontendSurfaces().surfaces,
+    backend: deriveBackendSurfaces().surfaces,
+    contracts: [
+      "front_reads_status_from_runtime",
+      "front_writes_only_via_signed_admin_routes",
+      "business_api_sanitizes_public_data",
+      "secret_policy_never_leaks_to_public_runtime",
+    ],
+  };
+}
+
 function findInternalOpsClient(business) {
   return (business.clients || []).find(
     (record) =>
@@ -1455,6 +1509,15 @@ function handleBusinessRequest(request, pathname, requestId, env) {
   }
   if (pathname === `${BUSINESS_PREFIX}/secret-fallback-policy`) {
     return businessResponse(requestId, pathname, deriveSecretFallbackPolicy());
+  }
+  if (pathname === `${BUSINESS_PREFIX}/frontend-surfaces`) {
+    return businessResponse(requestId, pathname, deriveFrontendSurfaces());
+  }
+  if (pathname === `${BUSINESS_PREFIX}/backend-surfaces`) {
+    return businessResponse(requestId, pathname, deriveBackendSurfaces());
+  }
+  if (pathname === `${BUSINESS_PREFIX}/separation-architecture`) {
+    return businessResponse(requestId, pathname, deriveSeparationArchitecture());
   }
   if (pathname === `${BUSINESS_PREFIX}/internal-ops`) {
     return readBusinessState(env, requestId).then((business) =>

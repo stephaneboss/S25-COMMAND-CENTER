@@ -17,6 +17,11 @@ const APP_SECTIONS = {
         text: "Le shell ne remplace pas S25. Il organise les points d'entree humains au-dessus du mesh Akash.",
       },
       {
+        label: "Separation",
+        title: "Front distinct du back",
+        text: "smajor.org montre, collecte et pilote. S25, api.smajor.org et MERLIN portent la logique, les secrets et la persistence.",
+      },
+      {
         label: "Priorite",
         title: "Visibilite totale",
         text: "Le but est de rendre l'ensemble lisible: clients, staff, fournisseurs, IA et missions.",
@@ -63,6 +68,11 @@ const APP_SECTIONS = {
         label: "Pilotage",
         title: "Etat live",
         text: "Le backoffice doit afficher le status S25, les missions, les alertes et les registres metier modifiables.",
+      },
+      {
+        label: "Architecture",
+        title: "Front securise, back souverain",
+        text: "L'admin agit via sessions signees et routes gouvernees; la persistence, le coffre et les policies restent dans le backend.",
       },
       {
         label: "Finance",
@@ -1313,6 +1323,9 @@ const ADMIN_COMMAND_KIT_MODEL = {
         "GET /admin/api/vaults-treasury",
         "GET /admin/api/secret-custody",
         "GET /admin/api/secret-fallback-policy",
+        "GET /api/business/frontend-surfaces",
+        "GET /api/business/backend-surfaces",
+        "GET /api/business/separation-architecture",
         "GET /admin/api/wallet-classes",
         "GET /admin/api/wallet-scopes",
         "GET /admin/api/wallet-policy-matrix",
@@ -5632,6 +5645,49 @@ export default {
           title: "Secret fallback policy",
           summary: "Fallback order if Google Secret Manager is unavailable.",
           fallback_order: [],
+        },
+      );
+    }
+
+    if (url.pathname === "/models/frontend-surfaces.json") {
+      const payload = await fetchJson(`${env.PUBLIC_API_URL}/api/business/frontend-surfaces`).catch(() => null);
+      return jsonResponse(
+        payload || {
+          ok: true,
+          domain: "smajor.org",
+          source_of_truth: "api.smajor.org frontend surfaces",
+          title: "Frontend surfaces",
+          summary: "Public and operator-facing surfaces.",
+          surfaces: [],
+        },
+      );
+    }
+
+    if (url.pathname === "/models/backend-surfaces.json") {
+      const payload = await fetchJson(`${env.PUBLIC_API_URL}/api/business/backend-surfaces`).catch(() => null);
+      return jsonResponse(
+        payload || {
+          ok: true,
+          domain: "smajor.org",
+          source_of_truth: "api.smajor.org backend surfaces",
+          title: "Backend surfaces",
+          summary: "Runtime and sovereign service surfaces.",
+          surfaces: [],
+        },
+      );
+    }
+
+    if (url.pathname === "/models/separation-architecture.json") {
+      const payload = await fetchJson(`${env.PUBLIC_API_URL}/api/business/separation-architecture`).catch(() => null);
+      return jsonResponse(
+        payload || {
+          ok: true,
+          domain: "smajor.org",
+          source_of_truth: "api.smajor.org separation architecture",
+          title: "Frontend backend separation",
+          summary: "Official map for front-end versus back-end separation.",
+          frontend: [],
+          backend: [],
         },
       );
     }
