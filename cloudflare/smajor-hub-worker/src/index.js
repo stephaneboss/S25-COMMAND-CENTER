@@ -3398,6 +3398,54 @@ function layout({
       ${tradingLaneMetricsHtml}
       ${foundationHtml}
       ${registryWriteContractHtml}
+      ${moduleSection.organizationRegistry ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Organizations</div>
+            <h2>${moduleSection.organizationRegistry.title}</h2>
+          </div>
+          <p>${moduleSection.organizationRegistry.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.organizationRegistry.columns
+            .map(
+              (column) => `
+                <article class="module-card">
+                  <div class="label">${column.label}</div>
+                  <ul>
+                    ${column.items.map((item) => `<li>${item}</li>`).join("")}
+                  </ul>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>` : ""}
+      ${moduleSection.backendLedger ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Backend ledger</div>
+            <h2>${moduleSection.backendLedger.title}</h2>
+          </div>
+          <p>${moduleSection.backendLedger.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.backendLedger.columns
+            .map(
+              (column) => `
+                <article class="module-card">
+                  <div class="label">${column.label}</div>
+                  <ul>
+                    ${column.items.map((item) => `<li>${item}</li>`).join("")}
+                  </ul>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>` : ""}
       ${clientConsoleHtml}
       ${staffConsoleHtml}
       ${vendorConsoleHtml}
@@ -3949,7 +3997,7 @@ async function fetchOpsSnapshot(env) {
 
 async function fetchAdminSnapshot(env) {
   const runtimeBase = env.DIRECT_RUNTIME_URL || env.PUBLIC_S25_URL;
-  const [memoryResult, walletsResult, treasuryResult, secretCustodyResult, secretFallbackResult, geminiLayerResult, tradingLaneMetricsResult, backendFoundationResult, backendCoreResult, trinityLinkResult] = await Promise.allSettled([
+  const [memoryResult, walletsResult, treasuryResult, secretCustodyResult, secretFallbackResult, geminiLayerResult, tradingLaneMetricsResult, backendFoundationResult, backendCoreResult, trinityLinkResult, organizationsLiveResult, backendLedgerResult] = await Promise.allSettled([
     fetchSecureJson(`${runtimeBase}/api/memory/state`, env),
     fetchJson(`${env.PUBLIC_API_URL}/api/business/wallets-custody`),
     fetchJson(`${env.PUBLIC_API_URL}/api/business/vaults-treasury`),
@@ -3960,6 +4008,8 @@ async function fetchAdminSnapshot(env) {
     fetchJson(`${env.PUBLIC_API_URL}/api/business/backend-foundation`),
     fetchJson(`${env.PUBLIC_API_URL}/api/business/backend-core`),
     fetchJson(`${env.PUBLIC_API_URL}/api/business/trinity-link`),
+    fetchJson(`${env.PUBLIC_API_URL}/api/business/organizations-live`),
+    fetchJson(`${env.PUBLIC_API_URL}/api/business/backend-ledger`),
   ]);
   const registry = memoryResult.status === "fulfilled"
     ? memoryResult.value?.state?.intel?.business_registry || memoryResult.value?.state?.business || {}
@@ -4044,8 +4094,10 @@ async function fetchAdminSnapshot(env) {
     backendFoundation: backendFoundationResult.status === "fulfilled" ? backendFoundationResult.value : null,
     backendCore: backendCoreResult.status === "fulfilled" ? backendCoreResult.value : null,
     trinityLink: trinityLinkResult.status === "fulfilled" ? trinityLinkResult.value : null,
+    organizationsLive: organizationsLiveResult.status === "fulfilled" ? organizationsLiveResult.value : null,
+    backendLedger: backendLedgerResult.status === "fulfilled" ? backendLedgerResult.value : null,
     tradingLaneMetrics: derivedTradingLaneMetrics,
-    errors: [memoryResult, walletsResult, treasuryResult, secretCustodyResult, secretFallbackResult, geminiLayerResult, tradingLaneMetricsResult, backendFoundationResult, backendCoreResult, trinityLinkResult]
+    errors: [memoryResult, walletsResult, treasuryResult, secretCustodyResult, secretFallbackResult, geminiLayerResult, tradingLaneMetricsResult, backendFoundationResult, backendCoreResult, trinityLinkResult, organizationsLiveResult, backendLedgerResult]
       .filter((result) => result.status === "rejected")
       .map((result) => result.reason?.message || "secure_memory_upstream_error"),
   };
@@ -6377,6 +6429,64 @@ function businessTimelineSection(pathname, snapshot) {
   };
 }
 
+function organizationRegistrySection(pathname, snapshot) {
+  if (!["/admin", "/omega"].includes(pathname)) {
+    return null;
+  }
+  const registry = snapshot.admin?.organizationsLive || {
+    title: "Organizations live",
+    summary: "Registre organisationnel indisponible",
+    records: [],
+  };
+  return {
+    title: registry.title,
+    intro: registry.summary,
+    columns: (registry.records || []).slice(0, 6).map((record) => ({
+      label: record.organization_name || record.organization_id,
+      items: [
+        `clients=${record.client_count || 0}`,
+        `identities=${record.identity_count || 0}`,
+        `jobs=${record.job_count || 0}`,
+        `billing=${record.billing_count || 0}`,
+      ],
+    })),
+  };
+}
+
+function backendLedgerSection(pathname, snapshot) {
+  if (!["/admin", "/omega"].includes(pathname)) {
+    return null;
+  }
+  const ledger = snapshot.admin?.backendLedger || {
+    title: "Backend ledger",
+    summary: "Ledger backend indisponible",
+    totals: {},
+    durable_contracts: [],
+  };
+  return {
+    title: ledger.title,
+    intro: ledger.summary,
+    columns: [
+      {
+        label: "Totals",
+        items: Object.entries(ledger.totals || {}).map(([key, value]) => `${key}=${value}`),
+      },
+      {
+        label: "Contracts",
+        items: ledger.durable_contracts || [],
+      },
+      {
+        label: "Cadence",
+        items: [
+          `last_write_at=${ledger.last_write_at || "unknown"}`,
+          "runtime=S25 Lumiere",
+          "gateway=api.smajor.org",
+        ],
+      },
+    ],
+  };
+}
+
 function deriveOperationalAction(client, identity, jobs, billing, events) {
   const clientJobs = jobs.filter((item) => item.client_id === client.client_id);
   const clientBilling = billing.filter((item) => item.client_id === client.client_id);
@@ -6688,6 +6798,8 @@ function renderApp(env, pathname, hostname, snapshot) {
     foundationStack: foundationStackSection(pathname),
     masterWallet: masterWalletSection(pathname, env, snapshot),
     registryWriteContract: registryWriteContractSection(pathname),
+    organizationRegistry: organizationRegistrySection(pathname, snapshot),
+    backendLedger: backendLedgerSection(pathname, snapshot),
     businessTimeline: businessTimelineSection(pathname, snapshot),
     operationalChain: operationalChainSection(pathname, snapshot),
     operationalPlaybook: operationalPlaybookSection(pathname, snapshot),
