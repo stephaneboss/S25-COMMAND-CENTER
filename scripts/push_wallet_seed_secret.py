@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 from typing import List
 
-from google.api_core.exceptions import AlreadyExists, NotFound
+from google.api_core.exceptions import AlreadyExists, InvalidArgument, NotFound
 from google.cloud import secretmanager
 from google.iam.v1 import iam_policy_pb2, policy_pb2
 
@@ -28,7 +28,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--service-account",
         action="append",
         default=[],
-        help="Service account email allowed to access this secret. Repeatable.",
+        help="IAM principal allowed to access this secret. Accepts user/service account email or full member syntax. Repeatable.",
     )
     parser.add_argument("--seed")
     parser.add_argument("--from-vault-key", default="S25_MASTER_SEED")
@@ -79,7 +79,7 @@ def add_version(client: secretmanager.SecretManagerServiceClient, secret_name: s
 def normalize_member(raw: str) -> str:
     value = raw.strip()
     if ":" in value:
-      return value
+        return value
     if value.endswith(".gserviceaccount.com"):
         return f"serviceAccount:{value}"
     return f"user:{value}"
@@ -132,7 +132,12 @@ def main() -> int:
     client = secretmanager.SecretManagerServiceClient()
     secret_name = ensure_secret(client, args.project_id, args.secret_id)
     version_name = add_version(client, secret_name, seed)
-    bound_members = bind_accessors(client, secret_name, args.service_account)
+    bind_error = None
+    bound_members: List[str] = []
+    try:
+        bound_members = bind_accessors(client, secret_name, args.service_account)
+    except InvalidArgument as exc:
+        bind_error = str(exc)
 
     summary.update(
         {
@@ -142,8 +147,11 @@ def main() -> int:
             "bound_members": bound_members,
         }
     )
+    if bind_error:
+        summary["warning"] = "secret_stored_but_iam_binding_failed"
+        summary["bind_error"] = bind_error
     print(json.dumps(summary, indent=2))
-    return 0
+    return 0 if not bind_error else 2
 
 
 if __name__ == "__main__":
