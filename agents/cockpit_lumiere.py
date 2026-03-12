@@ -30,6 +30,7 @@ S25_SECRET      = vault_get("S25_SHARED_SECRET", os.getenv("S25_SHARED_SECRET", 
 MASTER_WALLET_ADDRESS = os.getenv("MASTER_WALLET_ADDRESS", "REDACTED_WALLET_ADDRESS")
 APP_BUILD_SHA   = os.getenv("APP_BUILD_SHA", "dev")
 ALLOW_PUBLIC_ACTIONS = os.getenv("ALLOW_PUBLIC_ACTIONS", "true").lower() in {"1", "true", "yes", "on"}
+PUBLIC_RUNTIME_BASE = os.getenv("PUBLIC_RUNTIME_BASE", "https://s25.smajor.org")
 gouv4_router = GOUV4Router()
 
 
@@ -111,6 +112,21 @@ def _default_agents_state() -> dict:
             "creator_akt_balance": None,
             "creator_akt_price_usd": None,
             "creator_akt_value_usd": None,
+            "last_sync": None,
+        },
+        "runtime_bridge": {
+            "bridge_id": "s25_direct_bridge_v1",
+            "bridge_state": "direct_runtime_linked",
+            "public_base_url": PUBLIC_RUNTIME_BASE,
+            "direct_bridge_endpoint": f"{PUBLIC_RUNTIME_BASE}/api/trinity",
+            "direct_ping_endpoint": f"{PUBLIC_RUNTIME_BASE}/api/trinity/ping",
+            "status_endpoint": f"{PUBLIC_RUNTIME_BASE}/api/status",
+            "secure_memory_endpoint": f"{PUBLIC_RUNTIME_BASE}/api/memory/state",
+            "authority_header": "x-s25-secret",
+            "source_of_truth": "S25 Lumiere runtime",
+            "gemini_layer": "MERLIN / Gemini validation core",
+            "runtime_marker": None,
+            "probe_at": None,
             "last_sync": None,
         },
         "missions": {
@@ -324,6 +340,9 @@ def _status_summary(status: dict) -> dict:
         "status": "online",
         "service": "S25 Lumiere Status",
         "summary_fr": " ".join(summary_parts),
+        "runtime_bridge_state": status.get("runtime_bridge_state"),
+        "runtime_bridge_endpoint": status.get("runtime_bridge_endpoint"),
+        "runtime_bridge_marker": status.get("runtime_bridge_marker"),
         "system": {
             "pipeline": pipeline_status,
             "signal": action,
@@ -332,7 +351,38 @@ def _status_summary(status: dict) -> dict:
             "hashrate": status.get("hashrate", "--"),
             "temperature": status.get("temp", "--"),
             "intel": status.get("comet_intel", "En attente..."),
+            "runtime_bridge": {
+                "state": status.get("runtime_bridge_state"),
+                "endpoint": status.get("runtime_bridge_endpoint"),
+                "marker": status.get("runtime_bridge_marker"),
+            },
         },
+    }
+
+
+def _runtime_bridge_snapshot(state: dict | None = None) -> dict:
+    state = state or _load_agents_state()
+    missions_active = len(state.get("missions", {}).get("active", []))
+    trinity_state = state.get("agents", {}).get("TRINITY", {})
+    trinity_status = trinity_state.get("status", "unknown")
+    probe_at = _utcnow_iso()
+    return {
+        "bridge_id": "s25_direct_bridge_v1",
+        "bridge_state": "direct_runtime_linked",
+        "public_base_url": PUBLIC_RUNTIME_BASE,
+        "direct_bridge_endpoint": f"{PUBLIC_RUNTIME_BASE}/api/trinity",
+        "direct_ping_endpoint": f"{PUBLIC_RUNTIME_BASE}/api/trinity/ping",
+        "status_endpoint": f"{PUBLIC_RUNTIME_BASE}/api/status",
+        "secure_memory_endpoint": f"{PUBLIC_RUNTIME_BASE}/api/memory/state",
+        "authority_header": "x-s25-secret",
+        "source_of_truth": "S25 Lumiere runtime",
+        "gemini_layer": "MERLIN / Gemini validation core",
+        "trinity_agent_status": trinity_status,
+        "trinity_last_intent": trinity_state.get("last_intent"),
+        "missions_active": missions_active,
+        "runtime_marker": f"s25-direct::{APP_BUILD_SHA}::{trinity_status}::{missions_active}::{probe_at}",
+        "probe_at": probe_at,
+        "last_sync": state.get("_meta", {}).get("updated_at"),
     }
 
 
@@ -409,6 +459,13 @@ def _hydrate_status_from_memory(status: dict) -> dict:
         "akt_value_usd": state["wallet"].get("creator_akt_value_usd"),
         "last_sync": state["wallet"].get("last_sync"),
     }
+    state["runtime_bridge"] = _runtime_bridge_snapshot(state)
+    status["runtime_bridge"] = state["runtime_bridge"]
+    status["runtime_bridge_id"] = state["runtime_bridge"]["bridge_id"]
+    status["runtime_bridge_state"] = state["runtime_bridge"]["bridge_state"]
+    status["runtime_bridge_endpoint"] = state["runtime_bridge"]["direct_bridge_endpoint"]
+    status["runtime_bridge_marker"] = state["runtime_bridge"]["runtime_marker"]
+    status["runtime_bridge_probe_at"] = state["runtime_bridge"]["probe_at"]
 
     # When the mesh is alive but ARKON has not emitted a fresh trade signal yet,
     # surface readiness instead of stale INIT/HOLD defaults.
@@ -742,6 +799,11 @@ def api_status():
         "wallet_creator_akt_balance": None,
         "wallet_creator_akt_price_usd": None,
         "wallet_creator_akt_value_usd": None,
+        "runtime_bridge_id": "s25_direct_bridge_v1",
+        "runtime_bridge_state": "direct_runtime_linked",
+        "runtime_bridge_endpoint": f"{PUBLIC_RUNTIME_BASE}/api/trinity",
+        "runtime_bridge_marker": None,
+        "runtime_bridge_probe_at": None,
     }
 
     if not HA_TOKEN:
@@ -1091,6 +1153,7 @@ def api_memory_get():
         shared_md = SHARED_MEMORY_FILE.read_text(encoding="utf-8")
 
     state = _load_agents_state()
+    state["runtime_bridge"] = _runtime_bridge_snapshot(state)
 
     return jsonify({
         "ok": True,
@@ -1105,7 +1168,9 @@ def api_memory_state_get():
     """Retourne uniquement agents_state.json (léger, pour polling fréquent)."""
     if not _trinity_auth():
         return jsonify({"ok": False, "error": "Unauthorized"}), 401
-    return jsonify({"ok": True, "state": _load_agents_state()})
+    state = _load_agents_state()
+    state["runtime_bridge"] = _runtime_bridge_snapshot(state)
+    return jsonify({"ok": True, "state": state})
 
 
 @app.route('/api/memory/state', methods=['POST'])
@@ -1129,6 +1194,7 @@ def api_memory_state_post():
     intel_updates = body.get("intel", {})
     trading_updates = body.get("trading", {})
     business_updates = body.get("business", {})
+    runtime_bridge_updates = body.get("runtime_bridge", {})
 
     state = _load_agents_state()
 
@@ -1170,6 +1236,10 @@ def api_memory_state_post():
                 state["business"][key] = value
         state["business"]["last_write_at"] = datetime.now(timezone.utc).isoformat()
 
+    if runtime_bridge_updates and "runtime_bridge" in state:
+        state["runtime_bridge"].update(runtime_bridge_updates)
+
+    state["runtime_bridge"] = _runtime_bridge_snapshot(state)
     _save_agents_state(state)
 
     return jsonify({"ok": True, "agent": agent, "state": state["agents"].get(agent, {})})

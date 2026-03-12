@@ -2092,6 +2092,34 @@ function layout({
     `
     : "";
 
+  const runtimeBridgeHtml = moduleSection && moduleSection.runtimeBridge
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Runtime bridge</div>
+            <h2>${moduleSection.runtimeBridge.title}</h2>
+          </div>
+          <p>${moduleSection.runtimeBridge.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.runtimeBridge.columns
+            .map(
+              (column) => `
+                <article class="module-card">
+                  <div class="label">${column.label}</div>
+                  <ul>
+                    ${column.items.map((item) => `<li>${item}</li>`).join("")}
+                  </ul>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
   const clientConsoleHtml = moduleSection && moduleSection.clientConsole
     ? `
       <section class="blueprint-panel client-console-panel">
@@ -3378,6 +3406,7 @@ function layout({
       ${backendCoreHtml}
       ${geminiLayerHtml}
       ${trinityLinkHtml}
+      ${runtimeBridgeHtml}
       ${empireManifestHtml}
       ${totalMeshProtocolHtml}
       ${controlPlaneHtml}
@@ -3997,7 +4026,7 @@ async function fetchOpsSnapshot(env) {
 
 async function fetchAdminSnapshot(env) {
   const runtimeBase = env.DIRECT_RUNTIME_URL || env.PUBLIC_S25_URL;
-  const [memoryResult, walletsResult, treasuryResult, secretCustodyResult, secretFallbackResult, geminiLayerResult, tradingLaneMetricsResult, backendFoundationResult, backendCoreResult, trinityLinkResult, organizationsLiveResult, backendLedgerResult] = await Promise.allSettled([
+  const [memoryResult, walletsResult, treasuryResult, secretCustodyResult, secretFallbackResult, geminiLayerResult, tradingLaneMetricsResult, backendFoundationResult, backendCoreResult, trinityLinkResult, runtimeBridgeResult, organizationsLiveResult, backendLedgerResult] = await Promise.allSettled([
     fetchSecureJson(`${runtimeBase}/api/memory/state`, env),
     fetchJson(`${env.PUBLIC_API_URL}/api/business/wallets-custody`),
     fetchJson(`${env.PUBLIC_API_URL}/api/business/vaults-treasury`),
@@ -4008,6 +4037,7 @@ async function fetchAdminSnapshot(env) {
     fetchJson(`${env.PUBLIC_API_URL}/api/business/backend-foundation`),
     fetchJson(`${env.PUBLIC_API_URL}/api/business/backend-core`),
     fetchJson(`${env.PUBLIC_API_URL}/api/business/trinity-link`),
+    fetchJson(`${env.PUBLIC_API_URL}/api/business/runtime-bridge`),
     fetchJson(`${env.PUBLIC_API_URL}/api/business/organizations-live`),
     fetchJson(`${env.PUBLIC_API_URL}/api/business/backend-ledger`),
   ]);
@@ -4094,10 +4124,11 @@ async function fetchAdminSnapshot(env) {
     backendFoundation: backendFoundationResult.status === "fulfilled" ? backendFoundationResult.value : null,
     backendCore: backendCoreResult.status === "fulfilled" ? backendCoreResult.value : null,
     trinityLink: trinityLinkResult.status === "fulfilled" ? trinityLinkResult.value : null,
+    runtimeBridge: runtimeBridgeResult.status === "fulfilled" ? runtimeBridgeResult.value : null,
     organizationsLive: organizationsLiveResult.status === "fulfilled" ? organizationsLiveResult.value : null,
     backendLedger: backendLedgerResult.status === "fulfilled" ? backendLedgerResult.value : null,
     tradingLaneMetrics: derivedTradingLaneMetrics,
-    errors: [memoryResult, walletsResult, treasuryResult, secretCustodyResult, secretFallbackResult, geminiLayerResult, tradingLaneMetricsResult, backendFoundationResult, backendCoreResult, trinityLinkResult, organizationsLiveResult, backendLedgerResult]
+    errors: [memoryResult, walletsResult, treasuryResult, secretCustodyResult, secretFallbackResult, geminiLayerResult, tradingLaneMetricsResult, backendFoundationResult, backendCoreResult, trinityLinkResult, runtimeBridgeResult, organizationsLiveResult, backendLedgerResult]
       .filter((result) => result.status === "rejected")
       .map((result) => result.reason?.message || "secure_memory_upstream_error"),
   };
@@ -6059,6 +6090,53 @@ function trinityLinkSection(pathname, snapshot) {
   };
 }
 
+function runtimeBridgeSection(pathname, snapshot) {
+  if (!["/admin", "/ai", "/omega"].includes(pathname)) {
+    return null;
+  }
+  const bridge = snapshot.admin?.runtimeBridge || {
+    title: "Runtime bridge marker",
+    summary: "Runtime bridge indisponible",
+    direct_runtime: {},
+    runtime_status: {},
+  };
+  return {
+    title: bridge.title,
+    intro: bridge.summary,
+    columns: [
+      {
+        label: "Bridge marker",
+        items: [
+          `bridge_id=${bridge.bridge_id || "unknown"}`,
+          `state=${bridge.bridge_state || "unknown"}`,
+          `marker=${bridge.runtime_marker || "unknown"}`,
+          `probe_at=${bridge.probe_at || "unknown"}`,
+        ],
+      },
+      {
+        label: "Direct runtime",
+        items: [
+          bridge.direct_runtime?.endpoint || "runtime unavailable",
+          `ping=${bridge.direct_runtime?.ping || "unknown"}`,
+          `status=${bridge.direct_runtime?.status || "unknown"}`,
+          `memory=${bridge.direct_runtime?.secure_memory || "unknown"}`,
+          `authority=${bridge.direct_runtime?.authority || "unknown"}`,
+        ],
+      },
+      {
+        label: "Runtime proof",
+        items: [
+          `pipeline=${bridge.runtime_status?.pipeline_status || "unknown"}`,
+          `mesh_agents_online=${bridge.runtime_status?.mesh_agents_online ?? "unknown"}`,
+          `missions_active=${bridge.runtime_status?.missions_active ?? "unknown"}`,
+          `trinity_status=${bridge.runtime_status?.trinity_agent_status || "unknown"}`,
+          `gemini_layer=${bridge.gemini_layer || "unknown"}`,
+        ],
+      },
+    ],
+  };
+}
+
 function tradingShowroomSection(pathname) {
   if (!["/trade", "/ai", "/omega"].includes(pathname)) {
     return null;
@@ -6790,6 +6868,7 @@ function renderApp(env, pathname, hostname, snapshot) {
     portalSeparation: portalSeparationSection(pathname),
     geminiLayer: geminiLayerSection(pathname, snapshot),
     trinityLink: trinityLinkSection(pathname, snapshot),
+    runtimeBridge: runtimeBridgeSection(pathname, snapshot),
     adminCommandKit: adminCommandKitSection(pathname),
     agentActivation: agentActivationSection(pathname),
     agentServiceBindings: agentServiceBindingsSection(pathname),
