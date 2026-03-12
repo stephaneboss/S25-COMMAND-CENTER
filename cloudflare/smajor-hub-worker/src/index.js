@@ -2320,6 +2320,62 @@ function layout({
     `
     : "";
 
+  const organizationRegistryHtml = moduleSection && moduleSection.organizationRegistry
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Organization backbone</div>
+            <h2>${moduleSection.organizationRegistry.title}</h2>
+          </div>
+          <p>${moduleSection.organizationRegistry.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.organizationRegistry.columns
+            .map(
+              (column) => `
+                <article class="module-card">
+                  <div class="label">${column.label}</div>
+                  <ul>
+                    ${column.items.map((item) => `<li>${item}</li>`).join("")}
+                  </ul>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
+  const backendLedgerHtml = moduleSection && moduleSection.backendLedger
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Backend durable</div>
+            <h2>${moduleSection.backendLedger.title}</h2>
+          </div>
+          <p>${moduleSection.backendLedger.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.backendLedger.columns
+            .map(
+              (column) => `
+                <article class="module-card">
+                  <div class="label">${column.label}</div>
+                  <ul>
+                    ${column.items.map((item) => `<li>${item}</li>`).join("")}
+                  </ul>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
   const operationalChainHtml = moduleSection && moduleSection.operationalChain
     ? `
       <section class="module-panel">
@@ -3414,6 +3470,8 @@ function layout({
       ${identityRegistryHtml}
       ${portalActivationHtml}
       ${portalSeparationHtml}
+      ${organizationRegistryHtml}
+      ${backendLedgerHtml}
       ${businessTimelineHtml}
       ${operationalChainHtml}
       ${operationalPlaybookHtml}
@@ -7073,6 +7131,36 @@ export default {
       }
     }
 
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/organizations-live") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      try {
+        const snapshot = await fetchAdminSnapshot(env);
+        return jsonResponse({
+          ok: true,
+          secure: true,
+          ...(organizationRegistrySection("/admin", snapshot) || { title: "Organizations live", columns: [] }),
+        });
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "admin_organizations_live_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/backend-ledger") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      try {
+        const snapshot = await fetchAdminSnapshot(env);
+        return jsonResponse({
+          ok: true,
+          secure: true,
+          ...(backendLedgerSection("/admin", snapshot) || { title: "Backend ledger", columns: [] }),
+        });
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "admin_backend_ledger_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
     if (hostname === "app.smajor.org" && url.pathname === "/admin/api/operational-chain") {
       const denied = await requireOperatorAccess(request, env);
       if (denied) return denied;
@@ -7698,6 +7786,36 @@ export default {
         domain: "smajor.org",
         source_of_truth: "s25 runtime business registry + signed admin writes",
         ...(businessTimelineSection("/admin", snapshot) || { title: "Business timeline", rows: [] }),
+      });
+    }
+
+    if (url.pathname === "/models/organizations-live.json") {
+      const snapshot = {
+        admin: await fetchAdminSnapshot(env).catch((error) => ({
+          organizationsLive: { records: [] },
+          errors: [error?.message || "admin_snapshot_failed"],
+        })),
+      };
+      return jsonResponse({
+        ok: true,
+        domain: "smajor.org",
+        source_of_truth: "s25 runtime business registry + canonical organizations backbone",
+        ...(organizationRegistrySection("/admin", snapshot) || { title: "Organizations live", columns: [] }),
+      });
+    }
+
+    if (url.pathname === "/models/backend-ledger.json") {
+      const snapshot = {
+        admin: await fetchAdminSnapshot(env).catch((error) => ({
+          backendLedger: { totals: {}, durable_contracts: [] },
+          errors: [error?.message || "admin_snapshot_failed"],
+        })),
+      };
+      return jsonResponse({
+        ok: true,
+        domain: "smajor.org",
+        source_of_truth: "s25 runtime business registry + durable event ledger",
+        ...(backendLedgerSection("/admin", snapshot) || { title: "Backend ledger", columns: [] }),
       });
     }
 
