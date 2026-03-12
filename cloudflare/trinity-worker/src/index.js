@@ -474,6 +474,8 @@ const BUSINESS_REGISTRY_MAP = {
     { key: "job_registry_live", path: `${BUSINESS_PREFIX}/job-registry-live`, purpose: "Seeded operations jobs aligned with dispatch scopes" },
     { key: "quotes_invoices_live", path: `${BUSINESS_PREFIX}/quotes-invoices-live`, purpose: "Seeded commercial and billing records" },
     { key: "identity_registry_live", path: `${BUSINESS_PREFIX}/identity-registry-live`, purpose: "Live identities bound to role, badge, scope and services" },
+    { key: "organizations_live", path: `${BUSINESS_PREFIX}/organizations-live`, purpose: "Canonical organization registry derived from live business state" },
+    { key: "backend_ledger", path: `${BUSINESS_PREFIX}/backend-ledger`, purpose: "Durable backend ledger for counts, write cadence and industrial state" },
     { key: "wallets_custody", path: `${BUSINESS_PREFIX}/wallets-custody`, purpose: "Custody registry for creator wallet and sovereign vault chain" },
     { key: "vaults_treasury", path: `${BUSINESS_PREFIX}/vaults-treasury`, purpose: "Treasury readiness, custody doctrine and sovereign wallet posture" },
     { key: "wallet_classes", path: `${BUSINESS_PREFIX}/wallet-classes`, purpose: "Wallet classes for creator, treasury, trading, ops and mirror lanes" },
@@ -1470,6 +1472,134 @@ function deriveInternalOpsSummary(business) {
   };
 }
 
+function deriveOrganizationsLive(business) {
+  const clients = Array.isArray(business.clients) ? business.clients : [];
+  const identities = Array.isArray(business.identities) ? business.identities : [];
+  const jobs = Array.isArray(business.jobs) ? business.jobs : [];
+  const billing = Array.isArray(business.quotes_invoices) ? business.quotes_invoices : [];
+  const organizations = new Map();
+
+  for (const client of clients) {
+    const organizationId = client.organization_id || `org-from-client-${client.client_id}`;
+    if (!organizations.has(organizationId)) {
+      organizations.set(organizationId, {
+        organization_id: organizationId,
+        organization_name: client.organization_name || "Unnamed Organization",
+        client_ids: [],
+        identity_ids: [],
+        job_ids: [],
+        quote_invoice_ids: [],
+        scopes: new Set(),
+        services: new Set(),
+        account_states: new Set(),
+        last_activity_at: client.created_at || null,
+      });
+    }
+    const record = organizations.get(organizationId);
+    record.client_ids.push(client.client_id);
+    if (client.identity_id) record.identity_ids.push(client.identity_id);
+    if (client.scope_id) record.scopes.add(client.scope_id);
+    for (const service of client.service_mix || []) record.services.add(service);
+    if (client.account_status) record.account_states.add(client.account_status);
+    if (!record.last_activity_at || (client.created_at && client.created_at > record.last_activity_at)) {
+      record.last_activity_at = client.created_at;
+    }
+  }
+
+  for (const identity of identities) {
+    const organizationId = identity.organization_id;
+    if (!organizationId) continue;
+    if (!organizations.has(organizationId)) {
+      organizations.set(organizationId, {
+        organization_id: organizationId,
+        organization_name: identity.display_name || "Unbound Organization",
+        client_ids: [],
+        identity_ids: [],
+        job_ids: [],
+        quote_invoice_ids: [],
+        scopes: new Set(),
+        services: new Set(),
+        account_states: new Set(),
+        last_activity_at: identity.created_at || null,
+      });
+    }
+    const record = organizations.get(organizationId);
+    if (!record.identity_ids.includes(identity.identity_id)) {
+      record.identity_ids.push(identity.identity_id);
+    }
+    if (identity.scope_id) record.scopes.add(identity.scope_id);
+    for (const service of identity.service_entitlements || []) record.services.add(service);
+    if (!record.last_activity_at || (identity.created_at && identity.created_at > record.last_activity_at)) {
+      record.last_activity_at = identity.created_at;
+    }
+  }
+
+  for (const job of jobs) {
+    const client = clients.find((item) => item.client_id === job.client_id);
+    const organizationId = client?.organization_id;
+    if (!organizationId || !organizations.has(organizationId)) continue;
+    const record = organizations.get(organizationId);
+    record.job_ids.push(job.job_id);
+    if (job.dispatch_scope) record.scopes.add(job.dispatch_scope);
+    if (!record.last_activity_at || (job.created_at && job.created_at > record.last_activity_at)) {
+      record.last_activity_at = job.created_at;
+    }
+  }
+
+  for (const entry of billing) {
+    const client = clients.find((item) => item.client_id === entry.client_id);
+    const organizationId = client?.organization_id;
+    if (!organizationId || !organizations.has(organizationId)) continue;
+    const record = organizations.get(organizationId);
+    const billingId = entry.invoice_id || entry.quote_id || `billing-${record.quote_invoice_ids.length + 1}`;
+    record.quote_invoice_ids.push(billingId);
+    if (!record.last_activity_at || (entry.created_at && entry.created_at > record.last_activity_at)) {
+      record.last_activity_at = entry.created_at;
+    }
+  }
+
+  return {
+    title: "Organizations live",
+    summary: "Registre canonique des organisations derive du runtime business vivant de S25.",
+    total_organizations: organizations.size,
+    records: Array.from(organizations.values()).map((record) => ({
+      organization_id: record.organization_id,
+      organization_name: record.organization_name,
+      client_count: record.client_ids.length,
+      identity_count: record.identity_ids.length,
+      job_count: record.job_ids.length,
+      billing_count: record.quote_invoice_ids.length,
+      scopes: Array.from(record.scopes),
+      services: Array.from(record.services),
+      account_states: Array.from(record.account_states),
+      last_activity_at: record.last_activity_at,
+    })),
+  };
+}
+
+function deriveBackendLedger(business) {
+  const organizations = deriveOrganizationsLive(business);
+  return {
+    title: "Backend ledger",
+    summary: "Ledger durable du backend central: volumes, cadence d'ecriture et posture industrielle du socle S25.",
+    last_write_at: business.last_write_at || null,
+    totals: {
+      organizations: organizations.total_organizations,
+      clients: Array.isArray(business.clients) ? business.clients.length : 0,
+      identities: Array.isArray(business.identities) ? business.identities.length : 0,
+      jobs: Array.isArray(business.jobs) ? business.jobs.length : 0,
+      quotes_invoices: Array.isArray(business.quotes_invoices) ? business.quotes_invoices.length : 0,
+      events: Array.isArray(business.events) ? business.events.length : 0,
+    },
+    durable_contracts: [
+      "organizations anchor clients and identities",
+      "jobs attach to clients and scopes",
+      "quotes_invoices attach to clients and jobs",
+      "events remain the audit trail of every durable write",
+    ],
+  };
+}
+
 function buildOperatorRoster(business) {
   const identities = business.identities || [];
   const operators = identities.filter((record) => record.badge_id === "major_badge");
@@ -1761,6 +1891,16 @@ function handleBusinessRequest(request, pathname, requestId, env) {
         live_store: true,
         last_write_at: business.last_write_at,
       }),
+    );
+  }
+  if (pathname === `${BUSINESS_PREFIX}/organizations-live`) {
+    return readBusinessState(env, requestId).then((business) =>
+      businessResponse(requestId, pathname, deriveOrganizationsLive(business)),
+    );
+  }
+  if (pathname === `${BUSINESS_PREFIX}/backend-ledger`) {
+    return readBusinessState(env, requestId).then((business) =>
+      businessResponse(requestId, pathname, deriveBackendLedger(business)),
     );
   }
   if (pathname === `${BUSINESS_PREFIX}/identity-registry-live`) {
