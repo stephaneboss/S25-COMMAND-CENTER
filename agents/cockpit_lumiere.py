@@ -120,6 +120,17 @@ def _default_agents_state() -> dict:
         "intel": {
             "comet_feed": [],
         },
+        "trading": {
+            "lanes": {
+                "signal_lane": {"headline": "READY", "last_sync": None},
+                "risk_lane": {"headline": "MESH_READY", "last_sync": None},
+                "treasury_lane": {"headline": "treasury online", "last_sync": None},
+                "execution_lane": {"headline": "mirror wallet armed", "last_sync": None},
+            },
+            "policy_state": "audit_first",
+            "mode": "showroom",
+            "last_sync": None,
+        },
         "business": {
             "clients": [],
             "jobs": [],
@@ -412,6 +423,50 @@ def _hydrate_status_from_memory(status: dict) -> dict:
         status["btc_usd"] = market.get("btc_usd")
     if market.get("eth_usd") is not None:
         status["eth_usd"] = market.get("eth_usd")
+
+    trading_state = state.get("trading", {})
+    lanes_state = trading_state.get("lanes", {})
+
+    def _lane_payload(lane_id: str, members: list[str], fallback_headline: str) -> dict:
+        online = 0
+        member_states = []
+        for agent_id in members:
+            runtime = agents.get(agent_id, {})
+            agent_status = runtime.get("status", "offline")
+            if str(agent_status).lower() == "online":
+                online += 1
+            member_states.append(
+                {
+                    "agent_id": agent_id,
+                    "status": agent_status,
+                    "last_task": runtime.get("last_task"),
+                    "last_seen": runtime.get("last_seen"),
+                }
+            )
+        lane_runtime = lanes_state.get(lane_id, {})
+        mission_count = len([mission for mission in missions if mission.get("target") in members])
+        return {
+            "lane_id": lane_id,
+            "headline": lane_runtime.get("headline", fallback_headline),
+            "online_count": online,
+            "member_count": len(members),
+            "mission_count": mission_count,
+            "live_state": "online" if online else "standby",
+            "members": member_states,
+            "last_sync": lane_runtime.get("last_sync", trading_state.get("last_sync")),
+        }
+
+    status["trading"] = {
+        "mode": trading_state.get("mode", "showroom"),
+        "policy_state": trading_state.get("policy_state", "audit_first"),
+        "lanes": [
+            _lane_payload("signal_lane", ["TRINITY", "KIMI", "ORACLE"], status.get("arkon5_action", "READY")),
+            _lane_payload("risk_lane", ["MERLIN", "ONCHAIN_GUARDIAN", "GOUV4"], status.get("pipeline_status", "MESH_READY")),
+            _lane_payload("treasury_lane", ["TREASURY"], f"{status.get('wallet_creator_akt_balance') or '--'} AKT"),
+            _lane_payload("execution_lane", ["ARKON"], "mirror wallet armed"),
+        ],
+        "last_sync": trading_state.get("last_sync"),
+    }
 
     return status
 
@@ -1072,6 +1127,7 @@ def api_memory_state_post():
     market_updates = body.get("market", {})
     wallet_updates = body.get("wallet", {})
     intel_updates = body.get("intel", {})
+    trading_updates = body.get("trading", {})
     business_updates = body.get("business", {})
 
     state = _load_agents_state()
@@ -1093,6 +1149,18 @@ def api_memory_state_post():
     if intel_updates and "intel" in state:
         for key, value in intel_updates.items():
             state["intel"][key] = value
+
+    if trading_updates and "trading" in state:
+        for key, value in trading_updates.items():
+            if key == "lanes" and isinstance(value, dict):
+                for lane_id, lane_payload in value.items():
+                    state["trading"].setdefault("lanes", {}).setdefault(lane_id, {})
+                    if isinstance(lane_payload, dict):
+                        state["trading"]["lanes"][lane_id].update(lane_payload)
+                        state["trading"]["lanes"][lane_id]["last_sync"] = datetime.now(timezone.utc).isoformat()
+            else:
+                state["trading"][key] = value
+        state["trading"]["last_sync"] = datetime.now(timezone.utc).isoformat()
 
     if business_updates and "business" in state:
         for key, value in business_updates.items():
