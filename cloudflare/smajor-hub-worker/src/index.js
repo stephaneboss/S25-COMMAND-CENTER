@@ -9433,11 +9433,13 @@ function productionTransitionSection(pathname, snapshot) {
   const ledger = business.identity_rollout && typeof business.identity_rollout === "object" ? business.identity_rollout : {};
   const stagedCount = ["admin", "staff", "vendors", "clients"].filter((domain) => String(ledger[domain]?.state || "").startsWith("staged_")).length;
   const status = snapshot.status || snapshot.admin?.status || {};
-  const organizations = snapshot.admin?.organizationsLive?.records || [];
-  const orgRuntimeLive = organizations.filter((record) => String(record.runtime_state || "").includes("runtime_live")).length;
+  const organizations = snapshot.admin?.organizationsLive?.records || snapshot.organizationsLive?.records || [];
+  const organizationLinks = Array.isArray(business.organization_links) ? business.organization_links : [];
   const organizationIds = new Set(organizations.map((record) => record.organization_id).filter(Boolean));
   const identitiesSource = business.identities?.records || business.identities || [];
   const clientsSource = business.clients?.records || business.clients || [];
+  const jobsSource = business.jobs?.records || business.jobs || [];
+  const billingSource = business.quotes_invoices?.records || business.quotes_invoices || [];
   const identities = (Array.isArray(identitiesSource) ? identitiesSource : []).filter((identity) => {
     if (!organizationIds.size) return true;
     return organizationIds.has(identity.organization_id);
@@ -9446,9 +9448,26 @@ function productionTransitionSection(pathname, snapshot) {
     if (!organizationIds.size) return true;
     return organizationIds.has(client.organization_id);
   });
+  const jobs = (Array.isArray(jobsSource) ? jobsSource : []).filter((job) => {
+    if (!organizationIds.size) return true;
+    return organizationIds.has(job.organization_id);
+  });
+  const billing = (Array.isArray(billingSource) ? billingSource : []).filter((entry) => {
+    if (!organizationIds.size) return true;
+    return organizationIds.has(entry.organization_id);
+  });
   const issuedCredentials = identities.filter((identity) => identity.credential_state === "issued").length;
   const liveIdentityPortals = identities.filter((identity) => identity.portal_state === "live").length;
   const liveClientPortals = clients.filter((client) => client.portal_state === "live").length;
+  const runtimeLiveCount = organizations.filter((record) => {
+    if (String(record.runtime_state || "").includes("runtime_live")) {
+      return true;
+    }
+    const hasLane = organizationLinks.some((link) => link.organization_id === record.organization_id && link.link_type === "trade_lane_assignment");
+    const hasJobs = jobs.some((job) => job.organization_id === record.organization_id);
+    const hasBilling = billing.some((entry) => entry.organization_id === record.organization_id);
+    return hasLane && hasJobs && hasBilling;
+  }).length;
   return {
     title: "Production transition board",
     intro: "Vue go/no-go avant la vraie prod. On synthétise runtime, auth, fallback et backbone métier pour décider si la transition peut sortir du mode pré-prod.",
@@ -9470,7 +9489,7 @@ function productionTransitionSection(pathname, snapshot) {
       },
       {
         label: "Organizations live",
-        state: `${orgRuntimeLive}/${organizations.length} runtime_live`,
+        state: `${runtimeLiveCount}/${organizations.length} runtime_live`,
         detail: "Chaque organisation active doit être branchée à son lane, son équipe et sa gouvernance treasury.",
       },
       {
