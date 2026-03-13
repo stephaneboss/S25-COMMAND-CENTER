@@ -2876,6 +2876,33 @@ function layout({
     `
     : "";
 
+  const adminBootstrapRotationHtml = moduleSection && moduleSection.adminBootstrapRotation
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Bootstrap rotation</div>
+            <h2>${moduleSection.adminBootstrapRotation.title}</h2>
+          </div>
+          <p>${moduleSection.adminBootstrapRotation.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.adminBootstrapRotation.rows
+            .map(
+              (row) => `
+                <article class="module-card">
+                  <div class="label">${row.label}</div>
+                  <h3>${row.state}</h3>
+                  <p>${row.detail}</p>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
   const operationalChainHtml = moduleSection && moduleSection.operationalChain
     ? `
       <section class="module-panel">
@@ -3990,6 +4017,7 @@ function layout({
       ${adminProviderAssertionHtml}
       ${adminProviderCaptureHtml}
       ${adminProviderPromotionHtml}
+      ${adminBootstrapRotationHtml}
       ${businessTimelineHtml}
       ${operationalChainHtml}
       ${operationalPlaybookHtml}
@@ -8469,6 +8497,48 @@ function adminProviderPromotionSection(pathname, snapshot) {
   };
 }
 
+function adminBootstrapRotationSection(pathname, snapshot) {
+  if (pathname !== "/admin") {
+    return null;
+  }
+  const runtimeBridgeState =
+    snapshot.status?.runtime_bridge_state ||
+    snapshot.admin?.status?.runtime_bridge_state ||
+    snapshot.runtimeBridge?.state ||
+    "pending";
+  return {
+    title: "Bootstrap rotation review",
+    intro: "La rotation du bootstrap n'arrive qu'apres promotion provider, revue d'audit et validation que le mode break-glass reste recuperable.",
+    rows: [
+      {
+        label: "Rotation gate",
+        state: "provider_promotion_review",
+        detail: "Aucune rotation tant que la promotion provider n'est pas revue et acceptee.",
+      },
+      {
+        label: "Fallback",
+        state: "break_glass_preserved",
+        detail: "Le secours offline doit rester disponible meme apres la rotation du secret quotidien.",
+      },
+      {
+        label: "Runtime lock",
+        state: runtimeBridgeState,
+        detail: "Le runtime bridge doit rester direct et stable pendant toute la revue de rotation.",
+      },
+      {
+        label: "Audit trail",
+        state: "mandatory",
+        detail: "Chaque rotation doit laisser un evenement canonique lisible dans le backend durable.",
+      },
+      {
+        label: "Next",
+        state: "provider_cutover_approval",
+        detail: "L'etape suivante est l'approbation explicite du cutover puis la rotation controlee.",
+      },
+    ],
+  };
+}
+
 function organizationCommandMapSection(pathname, snapshot) {
   if (pathname !== "/admin") {
     return null;
@@ -9082,6 +9152,7 @@ function renderApp(env, pathname, hostname, snapshot) {
     adminProviderAssertion: adminProviderAssertionSection(pathname, snapshot),
     adminProviderCapture: adminProviderCaptureSection(pathname, snapshot),
     adminProviderPromotion: adminProviderPromotionSection(pathname, snapshot),
+    adminBootstrapRotation: adminBootstrapRotationSection(pathname, snapshot),
     organizationCommandMap: organizationCommandMapSection(pathname, snapshot),
     organizationProfile: organizationProfileSection(pathname, snapshot),
     organizationLifecycle: organizationLifecycleSection(pathname, snapshot),
@@ -9639,6 +9710,48 @@ export default {
         });
       } catch (error) {
         return jsonResponse({ ok: false, error: "promote_admin_provider_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/admin-bootstrap-rotation") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      try {
+        const snapshot = {
+          ...(await fetchAdminSnapshot(env)),
+          status: await fetchJson(`${env.PUBLIC_S25_URL}/api/status`),
+        };
+        return jsonResponse({
+          ok: true,
+          secure: true,
+          ...(adminBootstrapRotationSection("/admin", snapshot) || { title: "Bootstrap rotation review", rows: [] }),
+        });
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "admin_bootstrap_rotation_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/review-bootstrap-rotation") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      if (request.method !== "POST") {
+        return jsonResponse({ ok: false, error: "method_not_allowed" }, 405);
+      }
+      try {
+        const body = await request.json().catch(() => ({}));
+        const status = await fetchJson(`${env.PUBLIC_S25_URL}/api/status`);
+        return jsonResponse({
+          ok: true,
+          secure: true,
+          mode: "staged_rotation_review",
+          operator_id: body.operator_id || "ident-major-stef-001",
+          runtime_bridge: status.runtime_bridge_state || "pending",
+          fallback: "break_glass_preserved",
+          next: "provider_cutover_approval",
+          note: "Review staged only. La rotation bootstrap reste en attente tant que l'approbation finale n'est pas donnee.",
+        });
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "review_bootstrap_rotation_failed", detail: String(error?.message || error) }, 500);
       }
     }
 
@@ -10704,6 +10817,32 @@ export default {
           ok: false,
           domain: "smajor.org",
           error: "admin_provider_promotion_model_failed",
+          detail: String(error?.message || error),
+        }, 500);
+      }
+    }
+
+    if (url.pathname === "/models/admin-bootstrap-rotation.json") {
+      try {
+        const snapshot = {
+          admin: await fetchAdminSnapshot(env).catch((error) => ({
+            organizationsLive: { records: [] },
+            liveRegistries: {},
+            errors: [error?.message || "admin_snapshot_failed"],
+          })),
+          status: await fetchJson(`${env.PUBLIC_S25_URL}/api/status`),
+        };
+        return jsonResponse({
+          ok: true,
+          domain: "smajor.org",
+          source_of_truth: "admin bootstrap rotation review",
+          ...(adminBootstrapRotationSection("/admin", snapshot) || { title: "Bootstrap rotation review", rows: [] }),
+        });
+      } catch (error) {
+        return jsonResponse({
+          ok: false,
+          domain: "smajor.org",
+          error: "admin_bootstrap_rotation_model_failed",
           detail: String(error?.message || error),
         }, 500);
       }
