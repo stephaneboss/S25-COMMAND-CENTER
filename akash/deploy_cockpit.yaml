@@ -1,29 +1,39 @@
 # ============================================================
 # S25 LUMIERE - Akash Deployment SDL v2
-# Image: ghcr.io/stephaneboss/s25-command-center@sha256:f0b96704f4f0efb2191cd6b0f7e37b68e9c2e2d1e5e404c9098973d901745eb7
+# Image: ghcr.io/stephaneboss/s25-command-center:main
 # Auto-built by GitHub Actions on every push to main
 # Prod cockpit with TRINITY + memory routes
+#
+# VARIABLES CRITIQUES A SETTER AVANT DEPLOY:
+#   HA_TOKEN      -> Long-lived token HA (Profil -> Tokens)
+#   GEMINI_API_KEY -> Cle Gemini Flash (aistudio.google.com)
+#   S25_SHARED_SECRET -> Secret TRINITY auth (meme valeur dans wrangler)
+#   HA_URL        -> http://10.0.0.136:8123 (LAN) OU nabu.casa si Akash
 # ============================================================
 ---
 version: "2.0"
 
 services:
   s25-cockpit:
-    image: ghcr.io/stephaneboss/s25-command-center@sha256:f0b96704f4f0efb2191cd6b0f7e37b68e9c2e2d1e5e404c9098973d901745eb7
+    image: ghcr.io/stephaneboss/s25-command-center:main
     expose:
       - port: 7777
         as: 80
         to:
           - global: true
     env:
-      - HA_URL=https://6p2zycvv0xvyjzzgxprj3u5n7r8p3eoq.ui.nabu.casa
+      # HA local LAN preferee (nabu.casa echoue depuis Akash)
+      - HA_URL=http://10.0.0.136:8123
+      # REQUIS: setter manuellement dans Akash Console -> Leases -> Update Env
       - HA_TOKEN=
       - GEMINI_API_KEY=
       - MEMORY_DIR=/app/memory
       - PORT=7777
       - CHECK_INTERVAL=60
       - S25_SHARED_SECRET=
-      - BUILD=20260309g
+      - BUILD=20260313h
+      - OLLAMA_URL=http://10.0.0.202:11434
+      - OLLAMA_MODEL=llama3:latest
       - RUN_ORACLE_AGENT=true
       - RUN_ONCHAIN_GUARDIAN=true
       - ORACLE_POLL_SECONDS=300

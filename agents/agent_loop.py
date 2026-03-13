@@ -35,6 +35,8 @@ COCKPIT_URL   = os.getenv("COCKPIT_URL", "http://localhost:7777")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL  = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
 GEMINI_URL    = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
+OLLAMA_URL    = os.getenv("OLLAMA_URL", "http://10.0.0.202:11434")
+OLLAMA_MODEL  = os.getenv("OLLAMA_MODEL", "llama3:latest")
 
 PRICE_CHANGE_WARN     = 3.0
 PRICE_CHANGE_ALERT    = 7.0
@@ -230,6 +232,24 @@ def merlin_analyze(prompt: str) -> str:
     return ""
 
 
+def ollama_analyze(prompt: str) -> str:
+    """Fallback IA local -- Ollama sur DELL-LINUX (10.0.0.202:11434).
+    Active automatiquement quand Gemini est offline ou GEMINI_API_KEY absent."""
+    try:
+        r = requests.post(
+            f"{OLLAMA_URL}/api/generate",
+            json={"model": OLLAMA_MODEL, "prompt": prompt, "stream": False},
+            timeout=60,
+        )
+        if r.status_code == 200:
+            return r.json().get("response", "").strip()
+        else:
+            log.warning(f"Ollama error: {r.status_code}")
+    except Exception as e:
+        log.warning(f"Ollama error: {e}")
+    return ""
+
+
 def hourly_merlin_report():
     """Rapport horaire via Merlin (Gemini) -- synthese externe pour le command center."""
     prices = fetch_prices()
@@ -255,7 +275,13 @@ Format: SENTIMENT | OPPORTUNITE | SIGNAL"""
         push_intel("MERLIN_GEMINI", analysis[:400], "INFO", f"model={GEMINI_MODEL}")
         log.info(f"Merlin report: {analysis[:100]}...")
     else:
-        log.info("Merlin non disponible -- rapport horaire skipped")
+        log.info("Merlin non disponible -- tentative Ollama fallback (DELL-LINUX)...")
+        analysis = ollama_analyze(prompt)
+        if analysis:
+            push_intel("OLLAMA_LOCAL", analysis[:400], "INFO", f"model={OLLAMA_MODEL}")
+            log.info(f"Ollama report: {analysis[:100]}...")
+        else:
+            log.info("Ollama non disponible -- rapport horaire skipped")
 
 
 class AgentLoop:
