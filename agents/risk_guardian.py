@@ -17,9 +17,9 @@ import asyncio
 import logging
 import requests
 from datetime import datetime, date
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 
-from .base import BaseAgent, AgentStatus
+from .base import BaseAgent
 
 logger = logging.getLogger("s25.risk_guardian")
 

@@ -5,9 +5,9 @@
 # Maximise les quotas gratuits — Orchestration intelligente
 # ============================================================
 
-import os, json, time, logging
-import requests
-from datetime import datetime, timedelta
+import json
+import logging
+from datetime import datetime
 from collections import defaultdict
 
 log = logging.getLogger("gouv4")
@@ -71,7 +71,7 @@ AGENTS = {
 # Tâches → meilleur agent
 TASK_ROUTING = {
     "trading_analysis":  "gemini",
-    "knowledge_retrieval":"gemini",
+    "knowledge_retrieval": "gemini",
     "semantic_memory":   "gemini",
     "market_news":       "perplexity",
     "code_generation":   "claude",
@@ -95,14 +95,14 @@ class QuotaTracker:
             with open(self.state_file) as f:
                 data = json.load(f)
                 self.usage.update(data)
-        except:
+        except Exception:
             pass
 
     def save(self):
         try:
             with open(self.state_file, "w") as f:
                 json.dump(dict(self.usage), f, indent=2)
-        except:
+        except Exception:
             pass
 
     def reset_if_needed(self, agent_id):

@@ -16,7 +16,6 @@ Schedule:
 
 import os
 import time
-import json
 import logging
 import threading
 import requests
@@ -47,7 +46,7 @@ PAIRS = ["bitcoin", "ethereum", "akash-network", "cosmos"]
 PAIRS_LABEL = {
     "bitcoin":      "BTC/USDT",
     "ethereum":     "ETH/USDT",
-    "akash-network":"AKT/USDT",
+    "akash-network": "AKT/USDT",
     "cosmos":       "ATOM/USDT",
 }
 _last_prices: dict = {}
@@ -111,7 +110,6 @@ def fetch_prices() -> dict:
 
 def check_prices():
     """Compare prix vs derniere valeur connue -- push si mouvement significatif."""
-    global _last_prices
     data = fetch_prices()
     if not data:
         log.warning("CoinGecko: no data")

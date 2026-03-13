@@ -59,7 +59,7 @@ def get_prices(coin_ids: list) -> dict:
             timeout=10
         )
         return {k: v.get("usd", 0) for k, v in r.json().items()}
-    except:
+    except Exception:
         return {}
 
 def get_cosmos_balance(lcd: str, address: str, denom: str, decimals: int) -> float:
@@ -137,6 +137,7 @@ def run_balance_sentinel():
             log.error(f"Sentinel error: {e}")
         time.sleep(CHECK_INTERVAL)
 
+
 if __name__ == "__main__":
     import sys
     if "--once" in sys.argv:
@@ -145,4 +146,3 @@ if __name__ == "__main__":
         print(json.dumps({"prices": prices, "wallet": AKASH_WALLET}, indent=2))
     else:
         run_balance_sentinel()
-
