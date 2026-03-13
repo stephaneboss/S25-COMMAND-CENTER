@@ -2571,6 +2571,34 @@ function layout({
     `
     : "";
 
+  const authHardeningHtml = moduleSection && moduleSection.authHardening
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Identity hardening</div>
+            <h2>${moduleSection.authHardening.title}</h2>
+          </div>
+          <p>${moduleSection.authHardening.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.authHardening.columns
+            .map(
+              (column) => `
+                <article class="module-card">
+                  <div class="label">${column.label}</div>
+                  <ul>
+                    ${column.items.map((item) => `<li>${item}</li>`).join("")}
+                  </ul>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
   const operationalChainHtml = moduleSection && moduleSection.operationalChain
     ? `
       <section class="module-panel">
@@ -3674,6 +3702,7 @@ function layout({
       ${organizationActionKitHtml}
       ${organizationTeamBoardHtml}
       ${organizationAuthReadinessHtml}
+      ${authHardeningHtml}
       ${businessTimelineHtml}
       ${operationalChainHtml}
       ${operationalPlaybookHtml}
@@ -7568,6 +7597,66 @@ function organizationAuthReadinessSection(pathname, snapshot) {
   };
 }
 
+function authHardeningSection(pathname, snapshot) {
+  if (pathname !== "/admin") {
+    return null;
+  }
+  const organizations = snapshot.admin?.organizationsLive?.records || [];
+  const business = snapshot.admin?.liveRegistries || snapshot.business || {};
+  const clients = business.clients || business.clients?.records || [];
+  const identities = business.identities || business.identities?.records || [];
+  const clientPortals = clients.filter((client) => client.portal_state === "live").length;
+  const issuedCredentials = identities.filter((identity) => identity.credential_state === "issued").length;
+  const liveIdentityPortals = identities.filter((identity) => identity.portal_state === "live").length;
+  const totalOrganizations = organizations.length;
+  const runtimeBridgeState = snapshot.status?.runtime_bridge_state || snapshot.runtimeBridge?.state || "pending";
+  return {
+    title: "Identity hardening board",
+    intro: "Vue de transition pre-prod: on garde le bootstrap secret pour l’instant, mais on expose clairement le chemin vers une auth forte et rotative.",
+    columns: [
+      {
+        label: "Current state",
+        items: [
+          `organizations=${totalOrganizations}`,
+          `client_portals_live=${clientPortals}/${clients.length}`,
+          `identity_credentials_issued=${issuedCredentials}/${identities.length}`,
+          `identity_portals_live=${liveIdentityPortals}/${identities.length}`,
+          "operator_session=hs256_signed",
+          `runtime_bridge=${runtimeBridgeState}`,
+        ],
+      },
+      {
+        label: "Hardening steps",
+        items: [
+          "introduce external identity provider",
+          "split admin / staff / client / vendor trust chains",
+          "rotate bootstrap secret out of daily operations",
+          "bind operator sessions to stronger identity assertions",
+          "preserve break-glass recovery path",
+        ],
+      },
+      {
+        label: "Guardrails",
+        items: [
+          "no critical power tied to a fixed human identity",
+          "organization-first RBAC remains the law",
+          "all auth upgrades must keep audit trail intact",
+          "google outage must not kill access recovery",
+        ],
+      },
+      {
+        label: "Recovery chain",
+        items: [
+          "google_secret_manager",
+          "local_keyring_vault",
+          "encrypted_sync_bundle",
+          "break_glass_offline",
+        ],
+      },
+    ],
+  };
+}
+
 function organizationCommandMapSection(pathname, snapshot) {
   if (pathname !== "/admin") {
     return null;
@@ -8170,6 +8259,7 @@ function renderApp(env, pathname, hostname, snapshot) {
     organizationTreasury: organizationTreasurySection(pathname, snapshot),
     organizationTeamBoard: organizationTeamBoardSection(pathname, snapshot),
     organizationAuthReadiness: organizationAuthReadinessSection(pathname, snapshot),
+    authHardening: authHardeningSection(pathname, snapshot),
     organizationCommandMap: organizationCommandMapSection(pathname, snapshot),
     organizationProfile: organizationProfileSection(pathname, snapshot),
     organizationLifecycle: organizationLifecycleSection(pathname, snapshot),
@@ -8457,6 +8547,21 @@ export default {
         });
       } catch (error) {
         return jsonResponse({ ok: false, error: "admin_organization_mission_board_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/auth-hardening") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      try {
+        const snapshot = await fetchAdminSnapshot(env);
+        return jsonResponse({
+          ok: true,
+          secure: true,
+          ...(authHardeningSection("/admin", snapshot) || { title: "Identity hardening board", columns: [] }),
+        });
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "admin_auth_hardening_failed", detail: String(error?.message || error) }, 500);
       }
     }
 
@@ -9238,6 +9343,16 @@ export default {
         domain: "smajor.org",
         source_of_truth: "organization-first auth readiness board",
         ...(organizationAuthReadinessSection("/admin", snapshot) || { title: "Organization auth readiness", rows: [] }),
+      });
+    }
+
+    if (url.pathname === "/models/auth-hardening.json") {
+      const snapshot = await fetchHubSnapshot(env);
+      return jsonResponse({
+        ok: true,
+        domain: "smajor.org",
+        source_of_truth: "pre-prod identity hardening board",
+        ...(authHardeningSection("/admin", snapshot) || { title: "Identity hardening board", columns: [] }),
       });
     }
 
