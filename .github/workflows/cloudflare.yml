@@ -1,0 +1,48 @@
+name: Deploy Cloudflare Workers
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'cloudflare/**'
+      - '.github/workflows/cloudflare.yml'
+
+jobs:
+  deploy-smajor-hub:
+    name: Deploy smajor-hub-worker
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy smajor-hub → smajor.org / app.smajor.org
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: cloudflare/smajor-hub-worker
+
+  deploy-trinity-proxy:
+    name: Deploy trinity-s25-proxy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy trinity-s25-proxy → s25.smajor.org / api.smajor.org
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: cloudflare/trinity-worker
+
+  deploy-merlin-proxy:
+    name: Deploy merlin-s25-proxy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy merlin-s25-proxy → merlin.smajor.org
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: cloudflare/merlin-mcp-worker
