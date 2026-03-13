@@ -7601,17 +7601,28 @@ function authHardeningSection(pathname, snapshot) {
   if (pathname !== "/admin") {
     return null;
   }
-  const organizations = snapshot.admin?.organizationsLive?.records || [];
-  const business = snapshot.admin?.liveRegistries || snapshot.business || {};
+  const organizations = snapshot.admin?.organizationsLive?.records || snapshot.organizationsLive?.records || [];
+  const business = snapshot.admin?.liveRegistries || snapshot.liveRegistries || snapshot.business || {};
   const clientsSource = business.clients?.records || business.clients || [];
   const identitiesSource = business.identities?.records || business.identities || [];
-  const clients = Array.isArray(clientsSource) ? clientsSource : [];
-  const identities = Array.isArray(identitiesSource) ? identitiesSource : [];
+  const organizationIds = new Set(organizations.map((organization) => organization.organization_id).filter(Boolean));
+  const clients = (Array.isArray(clientsSource) ? clientsSource : []).filter((client) => {
+    if (!organizationIds.size) return true;
+    return organizationIds.has(client.organization_id);
+  });
+  const identities = (Array.isArray(identitiesSource) ? identitiesSource : []).filter((identity) => {
+    if (!organizationIds.size) return true;
+    return organizationIds.has(identity.organization_id);
+  });
   const clientPortals = clients.filter((client) => client.portal_state === "live").length;
   const issuedCredentials = identities.filter((identity) => identity.credential_state === "issued").length;
   const liveIdentityPortals = identities.filter((identity) => identity.portal_state === "live").length;
   const totalOrganizations = organizations.length;
-  const runtimeBridgeState = snapshot.status?.runtime_bridge_state || snapshot.runtimeBridge?.state || "pending";
+  const runtimeBridgeState =
+    snapshot.status?.runtime_bridge_state ||
+    snapshot.admin?.status?.runtime_bridge_state ||
+    snapshot.runtimeBridge?.state ||
+    "pending";
   return {
     title: "Identity hardening board",
     intro: "Vue de transition pre-prod: on garde le bootstrap secret pour l’instant, mais on expose clairement le chemin vers une auth forte et rotative.",
