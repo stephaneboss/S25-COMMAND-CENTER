@@ -4994,7 +4994,7 @@ async function fetchOpsSnapshot(env) {
 
 async function fetchAdminSnapshot(env) {
   const runtimeBase = env.DIRECT_RUNTIME_URL || env.PUBLIC_S25_URL;
-  const [memoryResult, walletsResult, treasuryResult, secretCustodyResult, secretFallbackResult, geminiLayerResult, tradingLaneMetricsResult, backendFoundationResult, backendCoreResult, trinityLinkResult, runtimeBridgeResult, organizationsLiveResult, backendLedgerResult, walletClassesResult, walletScopesResult, walletPolicyMatrixResult] = await Promise.allSettled([
+  const [memoryResult, walletsResult, treasuryResult, secretCustodyResult, secretFallbackResult, geminiLayerResult, tradingLaneMetricsResult, backendFoundationResult, backendCoreResult, trinityLinkResult, runtimeBridgeResult, runtimeStabilizationResult, organizationsLiveResult, backendLedgerResult, walletClassesResult, walletScopesResult, walletPolicyMatrixResult] = await Promise.allSettled([
     fetchSecureJson(`${runtimeBase}/api/memory/state`, env),
     fetchJson(`${env.PUBLIC_API_URL}/api/business/wallets-custody`),
     fetchJson(`${env.PUBLIC_API_URL}/api/business/vaults-treasury`),
@@ -5006,6 +5006,7 @@ async function fetchAdminSnapshot(env) {
     fetchJson(`${env.PUBLIC_API_URL}/api/business/backend-core`),
     fetchJson(`${env.PUBLIC_API_URL}/api/business/trinity-link`),
     fetchJson(`${env.PUBLIC_API_URL}/api/business/runtime-bridge`),
+    fetchJson(`${env.PUBLIC_API_URL}/api/business/runtime-stabilization`),
     fetchJson(`${env.PUBLIC_API_URL}/api/business/organizations-live`),
     fetchJson(`${env.PUBLIC_API_URL}/api/business/backend-ledger`),
     fetchJson(`${env.PUBLIC_API_URL}/api/business/wallet-classes`),
@@ -5129,13 +5130,14 @@ async function fetchAdminSnapshot(env) {
     backendCore: backendCoreResult.status === "fulfilled" ? backendCoreResult.value : null,
     trinityLink: trinityLinkResult.status === "fulfilled" ? trinityLinkResult.value : null,
     runtimeBridge: runtimeBridgeResult.status === "fulfilled" ? runtimeBridgeResult.value : null,
+    runtimeStabilization: runtimeStabilizationResult.status === "fulfilled" ? runtimeStabilizationResult.value : null,
     organizationsLive: derivedOrganizationsLive,
     backendLedger: derivedBackendLedger,
     walletClasses: walletClassesResult.status === "fulfilled" ? walletClassesResult.value : null,
     walletScopes: walletScopesResult.status === "fulfilled" ? walletScopesResult.value : null,
     walletPolicyMatrix: walletPolicyMatrixResult.status === "fulfilled" ? walletPolicyMatrixResult.value : null,
     tradingLaneMetrics: derivedTradingLaneMetrics,
-    errors: [memoryResult, walletsResult, treasuryResult, secretCustodyResult, secretFallbackResult, geminiLayerResult, tradingLaneMetricsResult, backendFoundationResult, backendCoreResult, trinityLinkResult, runtimeBridgeResult, organizationsLiveResult, backendLedgerResult, walletClassesResult, walletScopesResult, walletPolicyMatrixResult]
+    errors: [memoryResult, walletsResult, treasuryResult, secretCustodyResult, secretFallbackResult, geminiLayerResult, tradingLaneMetricsResult, backendFoundationResult, backendCoreResult, trinityLinkResult, runtimeBridgeResult, runtimeStabilizationResult, organizationsLiveResult, backendLedgerResult, walletClassesResult, walletScopesResult, walletPolicyMatrixResult]
       .filter((result) => result.status === "rejected")
       .map((result) => result.reason?.message || "secure_memory_upstream_error"),
   };
@@ -9535,6 +9537,31 @@ function productionTransitionSection(pathname, snapshot) {
   };
 }
 
+function runtimeStabilizationSection(pathname, snapshot) {
+  if (!["/admin", "/omega", "/ai"].includes(pathname)) {
+    return null;
+  }
+  const board = snapshot.admin?.runtimeStabilization || snapshot.runtimeStabilization || {
+    title: "Runtime stabilization",
+    summary: "Derniers agents a normaliser pour atteindre un runtime prod clean total.",
+    runtime_bridge_state: "unknown",
+    tunnel_mode: "unknown",
+    targets: [],
+  };
+  return {
+    title: board.title || "Runtime stabilization",
+    intro: `${board.summary || "Derniers agents a normaliser."} bridge=${board.runtime_bridge_state || "unknown"} tunnel=${board.tunnel_mode || "unknown"}`,
+    rows: (board.targets || []).map((target) => ({
+      title: target.agent_id || target.name || "agent",
+      items: [
+        `current=${target.current_status || "unknown"}`,
+        `target=${target.target_status || "unknown"}`,
+        `reason=${target.reason || "runtime_cleanup"}`,
+      ],
+    })),
+  };
+}
+
 function organizationCommandMapSection(pathname, snapshot) {
   if (pathname !== "/admin") {
     return null;
@@ -10162,6 +10189,7 @@ function renderApp(env, pathname, hostname, snapshot) {
     identityRolloutLedger: identityRolloutLedgerSection(pathname, snapshot),
     identityRolloutCompletion: identityRolloutCompletionSection(pathname, snapshot),
     productionTransition: productionTransitionSection(pathname, snapshot),
+    runtimeStabilization: runtimeStabilizationSection(pathname, snapshot),
     organizationCommandMap: organizationCommandMapSection(pathname, snapshot),
     organizationProfile: organizationProfileSection(pathname, snapshot),
     organizationLifecycle: organizationLifecycleSection(pathname, snapshot),
@@ -11060,6 +11088,24 @@ export default {
       }
     }
 
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/runtime-stabilization") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      try {
+        const snapshot = {
+          ...(await fetchAdminSnapshot(env)),
+          status: await fetchJson(`${env.PUBLIC_S25_URL}/api/status`),
+        };
+        return jsonResponse({
+          ok: true,
+          secure: true,
+          ...(runtimeStabilizationSection("/admin", snapshot) || { title: "Runtime stabilization", rows: [] }),
+        });
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "runtime_stabilization_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
     if (hostname === "app.smajor.org" && url.pathname === "/admin/api/staff-cutover-readiness") {
       const denied = await requireOperatorAccess(request, env);
       if (denied) return denied;
@@ -11929,9 +11975,15 @@ export default {
     }
 
     if (url.pathname === "/models/runtime-stabilization.json") {
-      const payload = await fetchJson(`${env.PUBLIC_API_URL}/api/business/runtime-stabilization`).catch(() => null);
+      const snapshot = await fetchAdminSnapshot(env).catch(() => null);
       return jsonResponse(
-        payload || {
+        (snapshot
+          ? {
+              ok: true,
+              secure: true,
+              ...(runtimeStabilizationSection("/admin", snapshot) || { title: "Runtime stabilization", rows: [] }),
+            }
+          : null) || {
           ok: true,
           domain: "smajor.org",
           source_of_truth: "api.smajor.org runtime stabilization",
