@@ -2655,6 +2655,34 @@ function layout({
     `
     : "";
 
+  const adminIdentityBindingHtml = moduleSection && moduleSection.adminIdentityBinding
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Admin identity binding</div>
+            <h2>${moduleSection.adminIdentityBinding.title}</h2>
+          </div>
+          <p>${moduleSection.adminIdentityBinding.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.adminIdentityBinding.columns
+            .map(
+              (column) => `
+                <article class="module-card">
+                  <div class="label">${column.label}</div>
+                  <ul>
+                    ${column.items.map((item) => `<li>${item}</li>`).join("")}
+                  </ul>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
   const operationalChainHtml = moduleSection && moduleSection.operationalChain
     ? `
       <section class="module-panel">
@@ -3761,6 +3789,7 @@ function layout({
       ${authHardeningHtml}
       ${identityCutoverHtml}
       ${identityProvidersHtml}
+      ${adminIdentityBindingHtml}
       ${businessTimelineHtml}
       ${operationalChainHtml}
       ${operationalPlaybookHtml}
@@ -7834,6 +7863,59 @@ function identityProvidersSection(pathname, snapshot) {
   };
 }
 
+function adminIdentityBindingSection(pathname, snapshot) {
+  if (pathname !== "/admin") {
+    return null;
+  }
+  const runtimeBridgeState =
+    snapshot.status?.runtime_bridge_state ||
+    snapshot.admin?.status?.runtime_bridge_state ||
+    snapshot.runtimeBridge?.state ||
+    "pending";
+  return {
+    title: "Admin identity binding plan",
+    intro: "Plan concret de bascule pour l’admin: l’operator bootstrap reste une cle break-glass, mais la gouvernance quotidienne doit passer sur une identite admin plus forte.",
+    columns: [
+      {
+        label: "Current admin lane",
+        items: [
+          "operator_id=ident-major-stef-001",
+          "scope=founder_scope",
+          "session=hs256_signed_operator_session",
+          `runtime_bridge=${runtimeBridgeState}`,
+        ],
+      },
+      {
+        label: "Binding target",
+        items: [
+          "bind admin to workforce or managed operator identity",
+          "keep executive_operator role",
+          "preserve founder_scope and audit lineage",
+          "separate daily auth from bootstrap secret",
+        ],
+      },
+      {
+        label: "Cutover sequence",
+        items: [
+          "1. issue stronger admin identity",
+          "2. validate admin session against provider assertion",
+          "3. keep bootstrap as break-glass only",
+          "4. rotate bootstrap after cutover validation",
+        ],
+      },
+      {
+        label: "Non-negotiables",
+        items: [
+          "no loss of audit trail",
+          "no role drift during cutover",
+          "no dependency on a single cloud provider",
+          "organization-first RBAC remains sovereign",
+        ],
+      },
+    ],
+  };
+}
+
 function organizationCommandMapSection(pathname, snapshot) {
   if (pathname !== "/admin") {
     return null;
@@ -8439,6 +8521,7 @@ function renderApp(env, pathname, hostname, snapshot) {
     authHardening: authHardeningSection(pathname, snapshot),
     identityCutover: identityCutoverSection(pathname, snapshot),
     identityProviders: identityProvidersSection(pathname, snapshot),
+    adminIdentityBinding: adminIdentityBindingSection(pathname, snapshot),
     organizationCommandMap: organizationCommandMapSection(pathname, snapshot),
     organizationProfile: organizationProfileSection(pathname, snapshot),
     organizationLifecycle: organizationLifecycleSection(pathname, snapshot),
@@ -8780,6 +8863,24 @@ export default {
         });
       } catch (error) {
         return jsonResponse({ ok: false, error: "admin_identity_providers_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/admin-identity-binding") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      try {
+        const snapshot = {
+          ...(await fetchAdminSnapshot(env)),
+          status: await fetchJson(`${env.PUBLIC_S25_URL}/api/status`),
+        };
+        return jsonResponse({
+          ok: true,
+          secure: true,
+          ...(adminIdentityBindingSection("/admin", snapshot) || { title: "Admin identity binding plan", columns: [] }),
+        });
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "admin_identity_binding_failed", detail: String(error?.message || error) }, 500);
       }
     }
 
@@ -9637,6 +9738,32 @@ export default {
           ok: false,
           domain: "smajor.org",
           error: "identity_providers_model_failed",
+          detail: String(error?.message || error),
+        }, 500);
+      }
+    }
+
+    if (url.pathname === "/models/admin-identity-binding.json") {
+      try {
+        const snapshot = {
+          admin: await fetchAdminSnapshot(env).catch((error) => ({
+            organizationsLive: { records: [] },
+            liveRegistries: {},
+            errors: [error?.message || "admin_snapshot_failed"],
+          })),
+          status: await fetchJson(`${env.PUBLIC_S25_URL}/api/status`),
+        };
+        return jsonResponse({
+          ok: true,
+          domain: "smajor.org",
+          source_of_truth: "admin identity binding plan",
+          ...(adminIdentityBindingSection("/admin", snapshot) || { title: "Admin identity binding plan", columns: [] }),
+        });
+      } catch (error) {
+        return jsonResponse({
+          ok: false,
+          domain: "smajor.org",
+          error: "admin_identity_binding_model_failed",
           detail: String(error?.message || error),
         }, 500);
       }
