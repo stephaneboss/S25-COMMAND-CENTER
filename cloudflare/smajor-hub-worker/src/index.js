@@ -9356,7 +9356,7 @@ export default {
             liveRegistries: {},
             errors: [error?.message || "admin_snapshot_failed"],
           })),
-          status: await fetchJsonSafe(`${env.PUBLIC_S25_URL}/api/status`),
+          status: await fetchJson(`${env.PUBLIC_S25_URL}/api/status`),
         };
         return jsonResponse({
           ok: true,
