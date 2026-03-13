@@ -1349,8 +1349,8 @@ function deriveTrinityLink() {
 async function deriveRuntimeBridge(env, requestId) {
   const probeAt = new Date().toISOString();
   const [statusResult, memoryResult] = await Promise.allSettled([
-    fetchOriginJson("/api/status", env, requestId),
-    fetchOriginJson("/api/memory/state", env, requestId),
+    fetchOriginJson("/api/status", env, requestId).catch(() => fetchPublicRuntimeJson("/api/status", env, requestId)),
+    fetchOriginJson("/api/memory/state", env, requestId).catch(() => fetchPublicRuntimeJson("/api/memory/state", env, requestId)),
   ]);
   const status = statusResult.status === "fulfilled" ? statusResult.value : {};
   const memory = memoryResult.status === "fulfilled" ? memoryResult.value?.state || {} : {};
