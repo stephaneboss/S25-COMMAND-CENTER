@@ -4261,6 +4261,35 @@ async function fetchAdminSnapshot(env) {
     events: Array.isArray(registry.events) ? registry.events : [],
     last_write_at: registry.last_write_at || null,
   };
+  const runtimeBusiness = buildRuntimeBusinessState(business);
+  rebuildHubOrganizationRegistry(runtimeBusiness);
+  const derivedOrganizationsLive = {
+    ok: true,
+    title: "Organizations live",
+    summary: "Registre canonique derive directement du runtime business securise S25.",
+    records: runtimeBusiness.organizations || [],
+    last_write_at: runtimeBusiness.last_write_at || null,
+  };
+  const derivedBackendLedger = {
+    ok: true,
+    title: "Backend ledger",
+    summary: "Ledger durable derive directement du runtime business securise S25.",
+    totals: {
+      organizations: (runtimeBusiness.organizations || []).length,
+      clients: (runtimeBusiness.clients || []).length,
+      identities: (runtimeBusiness.identities || []).length,
+      jobs: (runtimeBusiness.jobs || []).length,
+      quotes_invoices: (runtimeBusiness.quotes_invoices || []).length,
+      events: (runtimeBusiness.events || []).length,
+    },
+    durable_contracts: [
+      "organizations anchor clients and identities",
+      "jobs attach to clients and scopes",
+      "quotes_invoices attach to clients and jobs",
+      "events remain the audit trail of every durable write",
+    ],
+    last_write_at: runtimeBusiness.last_write_at || null,
+  };
   const memoryState = memoryResult.status === "fulfilled" ? memoryResult.value?.state || {} : {};
   const memoryAgents = memoryState.agents || {};
   const runtimeTradingState =
@@ -4332,8 +4361,8 @@ async function fetchAdminSnapshot(env) {
     backendCore: backendCoreResult.status === "fulfilled" ? backendCoreResult.value : null,
     trinityLink: trinityLinkResult.status === "fulfilled" ? trinityLinkResult.value : null,
     runtimeBridge: runtimeBridgeResult.status === "fulfilled" ? runtimeBridgeResult.value : null,
-    organizationsLive: organizationsLiveResult.status === "fulfilled" ? organizationsLiveResult.value : null,
-    backendLedger: backendLedgerResult.status === "fulfilled" ? backendLedgerResult.value : null,
+    organizationsLive: derivedOrganizationsLive,
+    backendLedger: derivedBackendLedger,
     walletClasses: walletClassesResult.status === "fulfilled" ? walletClassesResult.value : null,
     walletScopes: walletScopesResult.status === "fulfilled" ? walletScopesResult.value : null,
     walletPolicyMatrix: walletPolicyMatrixResult.status === "fulfilled" ? walletPolicyMatrixResult.value : null,
@@ -4556,6 +4585,7 @@ function buildHubBusinessRecord(kind, body) {
     return {
       job_id: body.job_id || createHubRecordId("job"),
       client_id: body.client_id || "",
+      organization_id: body.organization_id || "",
       service_type: body.service_type || "multi_service_exterior",
       assigned_team: body.assigned_team || "unassigned",
       equipment_required: Array.isArray(body.equipment_required) ? body.equipment_required : [],
@@ -4586,6 +4616,7 @@ function buildHubBusinessRecord(kind, body) {
     invoice_id: body.invoice_id || null,
     client_id: body.client_id || "",
     job_id: body.job_id || "",
+    organization_id: body.organization_id || "",
     amount: body.amount ? Number(body.amount) : 0,
     currency: body.currency || "CAD",
     payment_status: body.payment_status || "quote_pending",
@@ -5411,7 +5442,7 @@ async function executeOperationalPlaybook(request, env) {
     return jsonResponse({ ok: false, error: "target_id_required" }, 400);
   }
   const business = await readRuntimeBusinessState(env);
-  const organizations = business.organizations || [];
+  let organizations = business.organizations || [];
   const clients = business.clients || [];
   const jobs = business.jobs || [];
   const billing = business.quotes_invoices || [];
@@ -5534,6 +5565,10 @@ async function executeOperationalPlaybook(request, env) {
   }
 
   if (domain === "organizations") {
+    if (!Array.isArray(organizations) || organizations.length === 0) {
+      const snapshot = await fetchAdminSnapshot(env).catch(() => null);
+      organizations = snapshot?.organizationsLive?.records || [];
+    }
     const organization = organizations.find((record) => record.organization_id === targetId) || null;
     if (!organization) {
       return jsonResponse({ ok: false, error: "organization_not_found", organization_id: targetId }, 404);
