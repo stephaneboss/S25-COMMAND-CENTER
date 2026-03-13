@@ -4254,6 +4254,7 @@ async function fetchAdminSnapshot(env) {
   const business = {
     title: "Live business registries",
     secure: true,
+    organizations: Array.isArray(registry.organizations) ? registry.organizations : [],
     organization_links: Array.isArray(registry.organization_links) ? registry.organization_links : [],
     clients: Array.isArray(registry.clients) ? registry.clients : [],
     jobs: Array.isArray(registry.jobs) ? registry.jobs : [],
@@ -5821,6 +5822,71 @@ async function executeOperationalPlaybook(request, env) {
   });
 }
 
+async function assignOrganizationWalletScope(request, env) {
+  const body = await request.json().catch(() => ({}));
+  const organizationId = body.organization_id;
+  const walletScope = body.wallet_scope || "operations_scope";
+  const walletClass = body.wallet_class || (
+    walletScope === "treasury_scope"
+      ? "treasury_wallet"
+      : walletScope === "mirror_scope"
+        ? "mirror_wallet"
+        : walletScope === "trading_scope"
+          ? "trading_wallet"
+          : "operations_wallet"
+  );
+  const policyStack = Array.isArray(body.policies) && body.policies.length > 0
+    ? body.policies
+    : walletClass === "treasury_wallet"
+      ? ["policy_seed_gsm_only", "policy_operator_session_required", "policy_full_audit_before_trading"]
+      : walletClass === "mirror_wallet"
+        ? ["policy_seed_gsm_only", "policy_fleet_authority_gate"]
+        : walletClass === "trading_wallet"
+          ? ["policy_seed_gsm_only", "policy_operator_session_required", "policy_full_audit_before_trading"]
+          : ["policy_seed_gsm_only", "policy_public_address_only"];
+  if (!organizationId) {
+    return jsonResponse({ ok: false, error: "organization_id_required" }, 400);
+  }
+  const business = await readRuntimeBusinessState(env);
+  const organizations = Array.isArray(business.organizations) ? business.organizations : [];
+  const organization = organizations.find((record) => record.organization_id === organizationId);
+  if (!organization) {
+    return jsonResponse({ ok: false, error: "organization_not_found", organization_id: organizationId }, 404);
+  }
+  organization.wallet_scope = walletScope;
+  organization.wallet_class = walletClass;
+  organization.policy_stack = policyStack;
+  organization.updated_at = new Date().toISOString();
+  const event = appendBusinessEvent(business, {
+    event_type: "organization_wallet_scope_assigned",
+    lane: "treasury",
+    actor_type: "operator",
+    actor_id: "smajor_operator_console",
+    subject_type: "wallet_scope",
+    subject_id: walletScope,
+    collection: "organizations",
+    scope_id: walletScope,
+    summary: `Wallet scope ${walletScope} assigned to ${organization.organization_name}`,
+    metadata: {
+      organization_id: organization.organization_id,
+      wallet_scope: walletScope,
+      wallet_class: walletClass,
+      policies: policyStack,
+    },
+  });
+  business.last_write_at = new Date().toISOString();
+  await writeRuntimeBusinessState(env, business);
+  return jsonResponse({
+    ok: true,
+    organization_id: organization.organization_id,
+    wallet_scope: walletScope,
+    wallet_class: walletClass,
+    policies: policyStack,
+    event,
+    last_write_at: business.last_write_at,
+  });
+}
+
 function buildOmegaDeck(env, snapshot) {
   const status = snapshot.status || {};
   const mesh = snapshot.mesh || {};
@@ -6582,7 +6648,7 @@ function adminActionSection(pathname) {
       },
       {
         label: "Write",
-        items: ["/admin/api/create-client", "/admin/api/create-job", "/admin/api/issue-invoice", "/admin/api/issue-vendor-access", "/admin/api/assign-organization-staff", "/admin/api/assign-organization-vendor", "/admin/api/assign-organization-lane", "/admin/api/execute-playbook", "/admin/api/execute-organization-control", "/admin/api/execute-organization-mission"],
+        items: ["/admin/api/create-client", "/admin/api/create-job", "/admin/api/issue-invoice", "/admin/api/issue-vendor-access", "/admin/api/assign-organization-staff", "/admin/api/assign-organization-vendor", "/admin/api/assign-organization-lane", "/admin/api/assign-organization-wallet-scope", "/admin/api/execute-playbook", "/admin/api/execute-organization-control", "/admin/api/execute-organization-mission"],
       },
       {
         label: "Rule",
@@ -6614,6 +6680,11 @@ function organizationActionKitSection(pathname) {
         label: "Assign trade lane",
         endpoint: "/admin/api/assign-organization-lane",
         fields: ["organization_id", "lane_id", "policy_state"],
+      },
+      {
+        label: "Assign wallet scope",
+        endpoint: "/admin/api/assign-organization-wallet-scope",
+        fields: ["organization_id", "wallet_scope", "wallet_class", "policies"],
       },
       {
         label: "Execute lifecycle step",
@@ -7342,6 +7413,47 @@ function organizationTreasurySection(pathname, snapshot) {
   return {
     title: "Organization treasury bindings",
     intro: "Chaque organisation doit se rattacher a une classe wallet, un scope et une pile de policies. Le pouvoir reste sur la structure, jamais sur une personne.",
+    rows,
+  };
+}
+
+function organizationTreasuryBoardSection(pathname, snapshot) {
+  if (pathname !== "/admin") {
+    return null;
+  }
+  const organizations = snapshot.admin?.organizationsLive?.records || [];
+  const business = snapshot.admin?.liveRegistries || snapshot.business || {};
+  const events = snapshot.admin?.businessTimeline?.records || business.events || [];
+  const rows = organizations.slice(0, 6).map((organization) => {
+    const lastEvent = events.find((event) => event?.metadata?.organization_id === organization.organization_id && String(event.event_type || "").includes("wallet_scope")) || null;
+    const walletScope = organization.wallet_scope || "operations_scope";
+    const walletClass = organization.wallet_class || (
+      walletScope === "treasury_scope"
+        ? "treasury_wallet"
+        : walletScope === "mirror_scope"
+          ? "mirror_wallet"
+          : walletScope === "trading_scope"
+            ? "trading_wallet"
+            : "operations_wallet"
+    );
+    const policyStack = Array.isArray(organization.policy_stack) && organization.policy_stack.length > 0
+      ? organization.policy_stack
+      : walletClass === "treasury_wallet"
+        ? ["policy_seed_gsm_only", "policy_operator_session_required", "policy_full_audit_before_trading"]
+        : walletClass === "mirror_wallet"
+          ? ["policy_seed_gsm_only", "policy_fleet_authority_gate"]
+          : walletClass === "trading_wallet"
+            ? ["policy_seed_gsm_only", "policy_operator_session_required", "policy_full_audit_before_trading"]
+            : ["policy_seed_gsm_only", "policy_public_address_only"];
+    return {
+      title: organization.organization_name || organization.organization_id,
+      detail: `wallet_scope=${walletScope} | wallet_class=${walletClass} | policies=${policyStack.join(", ")} | last_event=${lastEvent?.event_type || "--"}`,
+      timestamp: lastEvent?.created_at || organization.updated_at || organization.last_activity_at || "--",
+    };
+  });
+  return {
+    title: "Organization treasury board",
+    intro: "Tableau de gouvernance treasury par organisation: scope, classe wallet et pile de policies restent attaches a la structure durable.",
     rows,
   };
 }
@@ -8326,6 +8438,15 @@ export default {
       return assignOrganizationLane(request, env);
     }
 
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/assign-organization-wallet-scope") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      if (request.method !== "POST") {
+        return jsonResponse({ ok: false, error: "method_not_allowed" }, 405);
+      }
+      return assignOrganizationWalletScope(request, env);
+    }
+
     if (hostname === "app.smajor.org" && url.pathname === "/admin/api/session") {
       if (request.method !== "POST") {
         return jsonResponse({ ok: false, error: "method_not_allowed" }, 405);
@@ -8956,6 +9077,23 @@ export default {
         domain: "smajor.org",
         source_of_truth: "s25 runtime business registry + organization-first admin command map",
         ...(organizationCommandMapSection("/admin", snapshot) || { title: "Organization command map", rows: [] }),
+      });
+    }
+
+    if (url.pathname === "/models/organization-treasury-board.json") {
+      const snapshot = {
+        admin: await fetchAdminSnapshot(env).catch((error) => ({
+          organizationsLive: { records: [] },
+          liveRegistries: {},
+          businessTimeline: { records: [] },
+          errors: [error?.message || "admin_snapshot_failed"],
+        })),
+      };
+      return jsonResponse({
+        ok: true,
+        domain: "smajor.org",
+        source_of_truth: "organization-first treasury governance board",
+        ...(organizationTreasuryBoardSection("/admin", snapshot) || { title: "Organization treasury board", rows: [] }),
       });
     }
 
