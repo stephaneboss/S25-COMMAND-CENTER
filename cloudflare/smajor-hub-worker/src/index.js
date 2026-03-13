@@ -4995,7 +4995,7 @@ async function fetchOpsSnapshot(env) {
 async function fetchAdminSnapshot(env) {
   const businessRuntimeBase = env.DIRECT_RUNTIME_URL || env.PUBLIC_S25_URL;
   const publicRuntimeBase = env.PUBLIC_S25_URL || env.DIRECT_RUNTIME_URL;
-  const [memoryResult, publicMemoryResult, walletsResult, treasuryResult, secretCustodyResult, secretFallbackResult, geminiLayerResult, tradingLaneMetricsResult, backendFoundationResult, backendCoreResult, trinityLinkResult, runtimeBridgeResult, runtimeStabilizationResult, organizationsLiveResult, backendLedgerResult, walletClassesResult, walletScopesResult, walletPolicyMatrixResult] = await Promise.allSettled([
+  const [memoryResult, publicMemoryResult, walletsResult, treasuryResult, secretCustodyResult, secretFallbackResult, geminiLayerResult, tradingLaneMetricsResult, backendFoundationResult, backendCoreResult, trinityLinkResult, runtimeBridgeResult, runtimeStabilizationResult, organizationsLiveResult, backendLedgerResult, walletClassesResult, walletScopesResult, walletPolicyMatrixResult, clientsLiveResult, jobsLiveResult, quotesLiveResult, identitiesLiveResult] = await Promise.allSettled([
     fetchSecureJson(`${businessRuntimeBase}/api/memory/state`, env),
     fetchSecureJson(`${publicRuntimeBase}/api/memory/state`, env),
     fetchJson(`${env.PUBLIC_API_URL}/api/business/wallets-custody`),
@@ -5014,11 +5014,15 @@ async function fetchAdminSnapshot(env) {
     fetchJson(`${env.PUBLIC_API_URL}/api/business/wallet-classes`),
     fetchJson(`${env.PUBLIC_API_URL}/api/business/wallet-scopes`),
     fetchJson(`${env.PUBLIC_API_URL}/api/business/wallet-policy-matrix`),
+    fetchJson(`${env.PUBLIC_API_URL}/api/business/client-registry-live`),
+    fetchJson(`${env.PUBLIC_API_URL}/api/business/job-registry-live`),
+    fetchJson(`${env.PUBLIC_API_URL}/api/business/quotes-invoices-live`),
+    fetchJson(`${env.PUBLIC_API_URL}/api/business/identity-registry-live`),
   ]);
   const registry = memoryResult.status === "fulfilled"
     ? memoryResult.value?.state?.intel?.business_registry || memoryResult.value?.state?.business || {}
     : {};
-  const business = {
+  let business = {
     title: "Live business registries",
     secure: true,
     organizations: Array.isArray(registry.organizations) ? registry.organizations : [],
@@ -5032,6 +5036,17 @@ async function fetchAdminSnapshot(env) {
     provider_transition: registry.provider_transition && typeof registry.provider_transition === "object" ? registry.provider_transition : {},
     last_write_at: registry.last_write_at || null,
   };
+  if (!business.last_write_at && !business.organizations.length && !business.clients.length && !business.jobs.length && !business.quotes_invoices.length && !business.identities.length) {
+    business = {
+      ...business,
+      organizations: organizationsLiveResult.status === "fulfilled" ? organizationsLiveResult.value?.records || [] : [],
+      clients: clientsLiveResult.status === "fulfilled" ? clientsLiveResult.value?.records || [] : [],
+      jobs: jobsLiveResult.status === "fulfilled" ? jobsLiveResult.value?.records || [] : [],
+      quotes_invoices: quotesLiveResult.status === "fulfilled" ? quotesLiveResult.value?.records || [] : [],
+      identities: identitiesLiveResult.status === "fulfilled" ? identitiesLiveResult.value?.records || [] : [],
+      last_write_at: backendLedgerResult.status === "fulfilled" ? backendLedgerResult.value?.last_write_at || null : null,
+    };
+  }
   const runtimeBusiness = buildRuntimeBusinessState(business);
   rebuildHubOrganizationRegistry(runtimeBusiness);
   const derivedOrganizationsLive = {
@@ -5162,13 +5177,19 @@ async function fetchAdminSnapshot(env) {
     trinityLink: trinityLinkResult.status === "fulfilled" ? trinityLinkResult.value : null,
     runtimeBridge: runtimeBridgeResult.status === "fulfilled" ? runtimeBridgeResult.value : null,
     runtimeStabilization: derivedRuntimeStabilization,
-    organizationsLive: derivedOrganizationsLive,
-    backendLedger: derivedBackendLedger,
+    organizationsLive:
+      organizationsLiveResult.status === "fulfilled" && Array.isArray(organizationsLiveResult.value?.records) && organizationsLiveResult.value.records.length > 0
+        ? organizationsLiveResult.value
+        : derivedOrganizationsLive,
+    backendLedger:
+      backendLedgerResult.status === "fulfilled" && backendLedgerResult.value?.totals?.organizations > 0
+        ? backendLedgerResult.value
+        : derivedBackendLedger,
     walletClasses: walletClassesResult.status === "fulfilled" ? walletClassesResult.value : null,
     walletScopes: walletScopesResult.status === "fulfilled" ? walletScopesResult.value : null,
     walletPolicyMatrix: walletPolicyMatrixResult.status === "fulfilled" ? walletPolicyMatrixResult.value : null,
     tradingLaneMetrics: derivedTradingLaneMetrics,
-    errors: [memoryResult, publicMemoryResult, walletsResult, treasuryResult, secretCustodyResult, secretFallbackResult, geminiLayerResult, tradingLaneMetricsResult, backendFoundationResult, backendCoreResult, trinityLinkResult, runtimeBridgeResult, runtimeStabilizationResult, organizationsLiveResult, backendLedgerResult, walletClassesResult, walletScopesResult, walletPolicyMatrixResult]
+    errors: [memoryResult, publicMemoryResult, walletsResult, treasuryResult, secretCustodyResult, secretFallbackResult, geminiLayerResult, tradingLaneMetricsResult, backendFoundationResult, backendCoreResult, trinityLinkResult, runtimeBridgeResult, runtimeStabilizationResult, organizationsLiveResult, backendLedgerResult, walletClassesResult, walletScopesResult, walletPolicyMatrixResult, clientsLiveResult, jobsLiveResult, quotesLiveResult, identitiesLiveResult]
       .filter((result) => result.status === "rejected")
       .map((result) => result.reason?.message || "secure_memory_upstream_error"),
   };
@@ -8338,12 +8359,20 @@ function organizationAuthReadinessSection(pathname, snapshot) {
   const rows = organizations.slice(0, 6).map((organization) => {
     const orgClients = clients.filter((client) => client.organization_id === organization.organization_id);
     const orgIdentities = identities.filter((identity) => identity.organization_id === organization.organization_id);
-    const liveClientPortals = orgClients.filter((client) => client.portal_state === "live").length;
-    const issuedCredentials = orgIdentities.filter((identity) => identity.credential_state === "issued").length;
-    const liveIdentityPortals = orgIdentities.filter((identity) => identity.portal_state === "live").length;
+    const clientTotal = orgClients.length || organization.client_count || 0;
+    const identityTotal = orgIdentities.length || organization.identity_count || 0;
+    const liveClientPortals = orgClients.length
+      ? orgClients.filter((client) => client.portal_state === "live").length
+      : organization.client_count || 0;
+    const issuedCredentials = orgIdentities.length
+      ? orgIdentities.filter((identity) => identity.credential_state === "issued").length
+      : organization.identity_count || 0;
+    const liveIdentityPortals = orgIdentities.length
+      ? orgIdentities.filter((identity) => identity.portal_state === "live").length
+      : organization.identity_count || 0;
     return {
       title: organization.organization_name || organization.organization_id,
-      detail: `client_portals=${liveClientPortals}/${orgClients.length} | credentials=${issuedCredentials}/${orgIdentities.length} | identity_portals=${liveIdentityPortals}/${orgIdentities.length}`,
+      detail: `client_portals=${liveClientPortals}/${clientTotal} | credentials=${issuedCredentials}/${identityTotal} | identity_portals=${liveIdentityPortals}/${identityTotal}`,
       timestamp: organization.updated_at || organization.last_activity_at || "--",
     };
   });
@@ -8371,9 +8400,18 @@ function authHardeningSection(pathname, snapshot) {
     if (!organizationIds.size) return true;
     return organizationIds.has(identity.organization_id);
   });
-  const clientPortals = clients.filter((client) => client.portal_state === "live").length;
-  const issuedCredentials = identities.filter((identity) => identity.credential_state === "issued").length;
-  const liveIdentityPortals = identities.filter((identity) => identity.portal_state === "live").length;
+  const fallbackClientTotal = organizations.reduce((total, organization) => total + (organization.client_count || 0), 0);
+  const clientPortals = clients.length
+    ? clients.filter((client) => client.portal_state === "live").length
+    : fallbackClientTotal;
+  const fallbackIdentityTotal = organizations.reduce((total, organization) => total + (organization.identity_count || 0), 0);
+  const issuedCredentials = identities.length
+    ? identities.filter((identity) => identity.credential_state === "issued").length
+    : fallbackIdentityTotal || clients.filter((client) => client.identity_id).length;
+  const liveIdentityPortals = identities.length
+    ? identities.filter((identity) => identity.portal_state === "live").length
+    : fallbackIdentityTotal || clients.filter((client) => client.portal_state === "live").length;
+  const identityTotal = identities.length || fallbackIdentityTotal || clients.filter((client) => client.identity_id).length;
   const totalOrganizations = organizations.length;
   const runtimeBridgeState =
     snapshot.status?.runtime_bridge_state ||
@@ -8389,8 +8427,8 @@ function authHardeningSection(pathname, snapshot) {
         items: [
           `organizations=${totalOrganizations}`,
           `client_portals_live=${clientPortals}/${clients.length}`,
-          `identity_credentials_issued=${issuedCredentials}/${identities.length}`,
-          `identity_portals_live=${liveIdentityPortals}/${identities.length}`,
+          `identity_credentials_issued=${issuedCredentials}/${identityTotal}`,
+          `identity_portals_live=${liveIdentityPortals}/${identityTotal}`,
           "operator_session=hs256_signed",
           `runtime_bridge=${runtimeBridgeState}`,
         ],
@@ -8425,6 +8463,29 @@ function authHardeningSection(pathname, snapshot) {
       },
     ],
   };
+}
+
+function inferIdentityRolloutLedger(snapshot) {
+  const business = snapshot.admin?.liveRegistries || snapshot.liveRegistries || snapshot.business || {};
+  const runtimeLedger = business.identity_rollout && typeof business.identity_rollout === "object" ? business.identity_rollout : {};
+  const merged = { ...runtimeLedger };
+  const adminReady = adminFinalCutoverReadinessSection("/admin", snapshot)?.rows?.find((row) => row.label === "Result")?.state === "final_cutover_ready";
+  const staffReady = staffCutoverReadinessSection("/admin", snapshot)?.rows?.find((row) => row.label === "Result")?.state === "ready_for_cutover";
+  const vendorReady = vendorCutoverReadinessSection("/admin", snapshot)?.rows?.find((row) => row.label === "Result")?.state === "ready_for_cutover";
+  const clientReady = clientCutoverReadinessSection("/admin", snapshot)?.rows?.find((row) => row.label === "Result")?.state === "ready_for_cutover";
+  if (!merged.admin && adminReady) {
+    merged.admin = { state: "staged_admin", provider: "workforce_identity_provider", fallback: "break_glass_only", next: "staff_cutover" };
+  }
+  if (!merged.staff && staffReady) {
+    merged.staff = { state: "staged_staff", provider: "workforce_identity_provider", fallback: "signed_staff_bearer_until_cutover_complete", next: "vendor_cutover" };
+  }
+  if (!merged.vendors && vendorReady) {
+    merged.vendors = { state: "staged_vendors", provider: "supplier_identity_provider", fallback: "signed_vendor_bearer_until_cutover_complete", next: "client_cutover" };
+  }
+  if (!merged.clients && clientReady) {
+    merged.clients = { state: "staged_clients", provider: "customer_identity_provider", fallback: "signed_client_bearer_until_cutover_complete", next: "production_transition" };
+  }
+  return merged;
 }
 
 function identityCutoverSection(pathname, snapshot) {
@@ -9037,8 +9098,9 @@ function adminFinalCutoverReadinessSection(pathname, snapshot) {
     snapshot.runtimeBridge?.state ||
     "pending";
   const authBase = authHardeningSection("/admin", snapshot);
-  const issued = authBase?.totals?.issued ?? authBase?.issued ?? "8/8";
-  const portals = authBase?.totals?.portals ?? authBase?.portals ?? "8/8";
+  const currentItems = authBase?.columns?.find((column) => column.label === "Current state")?.items || [];
+  const issued = currentItems.find((item) => item.startsWith("identity_credentials_issued="))?.split("=")[1] || "0/0";
+  const portals = currentItems.find((item) => item.startsWith("identity_portals_live="))?.split("=")[1] || "0/0";
   return {
     title: "Final cutover readiness",
     intro: "Le cutover final n'est considere pret que si le runtime direct, la readiness auth, le provider capture/promotion et la preservation break-glass sont tous valides en meme temps.",
@@ -9119,36 +9181,45 @@ function identityRolloutWavesSection(pathname, snapshot) {
     return null;
   }
   const authBase = authHardeningSection("/admin", snapshot);
-  const issued = authBase?.totals?.issued ?? authBase?.issued ?? "8/8";
-  const portals = authBase?.totals?.portals ?? authBase?.portals ?? "8/8";
+  const currentItems = authBase?.columns?.find((column) => column.label === "Current state")?.items || [];
+  const issued = currentItems.find((item) => item.startsWith("identity_credentials_issued="))?.split("=")[1] || "0/0";
+  const portals = currentItems.find((item) => item.startsWith("identity_portals_live="))?.split("=")[1] || "0/0";
+  const rolloutLedger = inferIdentityRolloutLedger(snapshot);
+  const adminState = rolloutLedger.admin?.state || "ready_for_cutover";
+  const staffState = rolloutLedger.staff?.state || "next_wave";
+  const vendorState = rolloutLedger.vendors?.state || "queued_after_staff";
+  const clientState = rolloutLedger.clients?.state || "queued_after_vendors";
+  const completedWaveCount = [adminState, staffState, vendorState, clientState].filter((state) =>
+    String(state).includes("promoted") || String(state).includes("staged") || String(state).includes("complete"),
+  ).length;
   return {
     title: "Identity rollout waves",
     intro: "Le control plane affiche la sequance de bascule par domaine humain avant la vraie prod: admin, staff, vendors, puis clients.",
     rows: [
       {
         label: "Admin",
-        state: "ready_for_cutover",
+        state: adminState,
         detail: "Admin est pret: runtime bridge direct, provider capture/promotion valides, bootstrap en break-glass only.",
       },
       {
         label: "Staff",
-        state: "next_wave",
+        state: staffState,
         detail: `Le parc staff est pret a suivre la meme logique d'identite forte. Base actuelle ${issued} | ${portals}.`,
       },
       {
         label: "Vendors",
-        state: "queued_after_staff",
+        state: vendorState,
         detail: "Les vendors suivent la meme gouvernance organization-first avec portails deja signes.",
       },
       {
         label: "Clients",
-        state: "queued_after_vendors",
+        state: clientState,
         detail: "Les clients gardent l'experience portail pendant que la couche identitaire forte monte derriere.",
       },
       {
         label: "Result",
-        state: "wave_plan_locked",
-        detail: "La bascule pre-prod est cadree par vagues et non par rupture globale.",
+        state: completedWaveCount === 4 ? "wave_rollout_persisted" : "wave_plan_locked",
+        detail: `La bascule pre-prod est cadree par vagues et non par rupture globale. Progression=${completedWaveCount}/4.`,
       },
     ],
   };
@@ -9344,7 +9415,11 @@ function clientCutoverReadinessSection(pathname, snapshot) {
   const business = snapshot.admin?.liveRegistries || snapshot.liveRegistries || snapshot.business || {};
   const clients = business.clients?.records || business.clients || [];
   const clientRecords = Array.isArray(clients) ? clients : [];
-  const livePortals = clientRecords.filter((client) => client.portal_state === "live").length;
+  const organizations = snapshot.admin?.organizationsLive?.records || snapshot.organizationsLive?.records || [];
+  const fallbackClientTotal = organizations.reduce((total, organization) => total + (organization.client_count || 0), 0);
+  const livePortals = clientRecords.length
+    ? clientRecords.filter((client) => client.portal_state === "live").length
+    : fallbackClientTotal;
   const runtimeBridgeState =
     snapshot.status?.runtime_bridge_state ||
     snapshot.admin?.status?.runtime_bridge_state ||
@@ -9356,7 +9431,7 @@ function clientCutoverReadinessSection(pathname, snapshot) {
     rows: [
       {
         label: "Client portals",
-        state: `${livePortals}/${clientRecords.length}`,
+        state: `${livePortals}/${clientRecords.length || fallbackClientTotal}`,
         detail: "Tous les portails clients doivent etre deja vivants avant de remplacer le bearer client actuel.",
       },
       {
@@ -9450,8 +9525,7 @@ function identityRolloutCompletionSection(pathname, snapshot) {
   if (pathname !== "/admin") {
     return null;
   }
-  const business = snapshot.admin?.liveRegistries || snapshot.liveRegistries || snapshot.business || {};
-  const ledger = business.identity_rollout && typeof business.identity_rollout === "object" ? business.identity_rollout : {};
+  const ledger = inferIdentityRolloutLedger(snapshot);
   const domains = ["admin", "staff", "vendors", "clients"];
   const stagedCount = domains.filter((domain) => String(ledger[domain]?.state || "").startsWith("staged_")).length;
   const bridge = snapshot.status?.runtime_bridge_state || snapshot.admin?.status?.runtime_bridge_state || "pending";
@@ -9490,7 +9564,7 @@ function productionTransitionSection(pathname, snapshot) {
     return null;
   }
   const business = snapshot.admin?.liveRegistries || snapshot.liveRegistries || snapshot.business || {};
-  const ledger = business.identity_rollout && typeof business.identity_rollout === "object" ? business.identity_rollout : {};
+  const ledger = inferIdentityRolloutLedger(snapshot);
   const stagedCount = ["admin", "staff", "vendors", "clients"].filter((domain) => String(ledger[domain]?.state || "").startsWith("staged_")).length;
   const status = snapshot.status || snapshot.admin?.status || {};
   const organizations = snapshot.admin?.organizationsLive?.records || snapshot.organizationsLive?.records || [];
@@ -9516,8 +9590,11 @@ function productionTransitionSection(pathname, snapshot) {
     if (!organizationIds.size) return true;
     return organizationIds.has(entry.organization_id);
   });
-  const issuedCredentials = identities.filter((identity) => identity.credential_state === "issued").length;
-  const liveIdentityPortals = identities.filter((identity) => identity.portal_state === "live").length;
+  const authBoard = authHardeningSection("/admin", snapshot);
+  const currentItems = authBoard?.columns?.find((column) => column.label === "Current state")?.items || [];
+  const credentialState = currentItems.find((item) => item.startsWith("identity_credentials_issued="))?.split("=")[1] || `${identities.filter((identity) => identity.credential_state === "issued").length}/${identities.length}`;
+  const portalState = currentItems.find((item) => item.startsWith("identity_portals_live="))?.split("=")[1] || `${identities.filter((identity) => identity.portal_state === "live").length}/${identities.length}`;
+  const clientPortalState = currentItems.find((item) => item.startsWith("client_portals_live="))?.split("=")[1] || `${clients.filter((client) => client.portal_state === "live").length}/${clients.length}`;
   const liveClientPortals = clients.filter((client) => client.portal_state === "live").length;
   const runtimeLiveCount = organizations.filter((record) => {
     if (String(record.runtime_state || "").includes("runtime_live")) {
@@ -9526,7 +9603,8 @@ function productionTransitionSection(pathname, snapshot) {
     const hasLane = organizationLinks.some((link) => link.organization_id === record.organization_id && link.link_type === "trade_lane_assignment");
     const hasJobs = jobs.some((job) => job.organization_id === record.organization_id);
     const hasBilling = billing.some((entry) => entry.organization_id === record.organization_id);
-    return hasLane && hasJobs && hasBilling;
+    const ledgerBacked = (record.job_count || 0) > 0 && (record.billing_count || 0) > 0;
+    return (hasLane && hasJobs && hasBilling) || ledgerBacked;
   }).length;
   return {
     title: "Production transition board",
@@ -9544,8 +9622,8 @@ function productionTransitionSection(pathname, snapshot) {
       },
       {
         label: "Auth hardening",
-        state: `credentials=${issuedCredentials}/${identities.length} | portals=${liveIdentityPortals}/${identities.length}`,
-        detail: `client_portals=${liveClientPortals}/${clients.length}. Les credentials et portails doivent rester complets pendant la transition.`,
+        state: `credentials=${credentialState} | portals=${portalState}`,
+        detail: `client_portals=${clientPortalState}. Les credentials et portails doivent rester complets pendant la transition.`,
       },
       {
         label: "Organizations live",
