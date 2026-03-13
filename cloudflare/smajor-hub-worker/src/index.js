@@ -4417,6 +4417,14 @@ function appendBusinessEvent(business, event) {
   return auditEvent;
 }
 
+function normalizeOrganizationLabel(name, organizationId) {
+  const normalized = String(name || "").trim();
+  if (!normalized || normalized === "Unnamed Organization" || normalized === "Unnamed Operator") {
+    return organizationId;
+  }
+  return normalized;
+}
+
 function rebuildHubOrganizationRegistry(business) {
   const previous = Array.isArray(business.organizations) ? business.organizations : [];
   const clients = Array.isArray(business.clients) ? business.clients : [];
@@ -4430,7 +4438,7 @@ function rebuildHubOrganizationRegistry(business) {
     const organizationId = client.organization_id || `org-from-client-${client.client_id || createHubRecordId("org")}`;
     const current = registry.get(organizationId) || {
       organization_id: organizationId,
-      organization_name: client.organization_name || organizationId,
+      organization_name: normalizeOrganizationLabel(client.organization_name, organizationId),
       client_count: 0,
       identity_count: 0,
       job_count: 0,
@@ -4441,7 +4449,7 @@ function rebuildHubOrganizationRegistry(business) {
       last_activity_at: client.created_at || null,
     };
     current.client_count += 1;
-    current.organization_name = current.organization_name || client.organization_name || organizationId;
+    current.organization_name = normalizeOrganizationLabel(current.organization_name || client.organization_name, organizationId);
     if (client.scope_id) current.scopes.add(client.scope_id);
     for (const service of client.service_mix || []) current.services.add(service);
     if (client.account_status) current.account_states.add(client.account_status);
@@ -4453,9 +4461,18 @@ function rebuildHubOrganizationRegistry(business) {
 
   for (const identity of identities) {
     if (!identity.organization_id) continue;
-    const current = registry.get(identity.organization_id) || {
+    const roleId = String(identity.role_id || "");
+    const entitlements = Array.isArray(identity.service_entitlements) ? identity.service_entitlements : [];
+    const current = registry.get(identity.organization_id) || null;
+    const externalIdentity =
+      roleId.includes("client") ||
+      roleId.includes("vendor") ||
+      entitlements.includes("client_portal") ||
+      entitlements.includes("vendor_portal");
+    if (!current && !externalIdentity) continue;
+    const next = current || {
       organization_id: identity.organization_id,
-      organization_name: identity.organization_name || identity.display_name || identity.organization_id,
+      organization_name: normalizeOrganizationLabel(identity.organization_name || identity.display_name, identity.organization_id),
       client_count: 0,
       identity_count: 0,
       job_count: 0,
@@ -4465,13 +4482,14 @@ function rebuildHubOrganizationRegistry(business) {
       account_states: new Set(),
       last_activity_at: identity.created_at || null,
     };
-    current.identity_count += 1;
-    if (identity.scope_id) current.scopes.add(identity.scope_id);
-    for (const service of identity.service_entitlements || []) current.services.add(service);
-    if (identity.created_at && (!current.last_activity_at || identity.created_at > current.last_activity_at)) {
-      current.last_activity_at = identity.created_at;
+    next.identity_count += 1;
+    next.organization_name = normalizeOrganizationLabel(next.organization_name || identity.organization_name || identity.display_name, identity.organization_id);
+    if (identity.scope_id) next.scopes.add(identity.scope_id);
+    for (const service of identity.service_entitlements || []) next.services.add(service);
+    if (identity.created_at && (!next.last_activity_at || identity.created_at > next.last_activity_at)) {
+      next.last_activity_at = identity.created_at;
     }
-    registry.set(identity.organization_id, current);
+    registry.set(identity.organization_id, next);
   }
 
   for (const job of jobs) {
@@ -4480,7 +4498,7 @@ function rebuildHubOrganizationRegistry(business) {
     if (!organizationId) continue;
     const current = registry.get(organizationId) || {
       organization_id: organizationId,
-      organization_name: client?.organization_name || organizationId,
+      organization_name: normalizeOrganizationLabel(client?.organization_name, organizationId),
       client_count: 0,
       identity_count: 0,
       job_count: 0,
@@ -4505,7 +4523,7 @@ function rebuildHubOrganizationRegistry(business) {
     if (!organizationId) continue;
     const current = registry.get(organizationId) || {
       organization_id: organizationId,
-      organization_name: client?.organization_name || organizationId,
+      organization_name: normalizeOrganizationLabel(client?.organization_name, organizationId),
       client_count: 0,
       identity_count: 0,
       job_count: 0,
@@ -4531,11 +4549,13 @@ function rebuildHubOrganizationRegistry(business) {
     }
   }
 
-  business.organizations = Array.from(registry.values()).map((record) => {
+  business.organizations = Array.from(registry.values())
+    .filter((record) => (record.client_count || 0) > 0 || (record.job_count || 0) > 0 || (record.billing_count || 0) > 0)
+    .map((record) => {
     const existing = previous.find((item) => item.organization_id === record.organization_id) || {};
     return {
       organization_id: record.organization_id,
-      organization_name: record.organization_name,
+      organization_name: normalizeOrganizationLabel(record.organization_name, record.organization_id),
       client_count: record.client_count,
       identity_count: record.identity_count,
       job_count: record.job_count,
