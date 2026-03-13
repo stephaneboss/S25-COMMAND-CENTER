@@ -2683,6 +2683,61 @@ function layout({
     `
     : "";
 
+  const identityRolloutHtml = moduleSection && moduleSection.identityRollout
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Identity rollout</div>
+            <h2>${moduleSection.identityRollout.title}</h2>
+          </div>
+          <p>${moduleSection.identityRollout.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.identityRollout.columns
+            .map(
+              (column) => `
+                <article class="module-card">
+                  <div class="label">${column.label}</div>
+                  <ul>
+                    ${column.items.map((item) => `<li>${item}</li>`).join("")}
+                  </ul>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
+  const adminProviderReadinessHtml = moduleSection && moduleSection.adminProviderReadiness
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Admin provider readiness</div>
+            <h2>${moduleSection.adminProviderReadiness.title}</h2>
+          </div>
+          <p>${moduleSection.adminProviderReadiness.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.adminProviderReadiness.checks
+            .map(
+              (check) => `
+                <article class="module-card">
+                  <div class="label">${check.label}</div>
+                  <h3>${check.state}</h3>
+                  <p>${check.detail}</p>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
   const operationalChainHtml = moduleSection && moduleSection.operationalChain
     ? `
       <section class="module-panel">
@@ -3790,6 +3845,8 @@ function layout({
       ${identityCutoverHtml}
       ${identityProvidersHtml}
       ${adminIdentityBindingHtml}
+      ${identityRolloutHtml}
+      ${adminProviderReadinessHtml}
       ${businessTimelineHtml}
       ${operationalChainHtml}
       ${operationalPlaybookHtml}
@@ -7916,6 +7973,112 @@ function adminIdentityBindingSection(pathname, snapshot) {
   };
 }
 
+function identityRolloutSection(pathname, snapshot) {
+  if (pathname !== "/admin") {
+    return null;
+  }
+  const runtimeBridgeState =
+    snapshot.status?.runtime_bridge_state ||
+    snapshot.admin?.status?.runtime_bridge_state ||
+    snapshot.runtimeBridge?.state ||
+    "pending";
+  return {
+    title: "Identity rollout matrix",
+    intro: "Ordre de bascule recommande avant prod: on migre les surfaces en gardant le control plane, le runtime bridge et la reprise break-glass intacts.",
+    columns: [
+      {
+        label: "Wave 1",
+        items: [
+          "admin operator identity",
+          "goal=remove daily dependence on bootstrap secret",
+          "gate=runtime bridge stable and audit intact",
+          `runtime_bridge=${runtimeBridgeState}`,
+        ],
+      },
+      {
+        label: "Wave 2",
+        items: [
+          "staff and vendor portals",
+          "goal=separate workforce and supplier trust chains",
+          "gate=organization scopes and bindings already live",
+          "fallback=portal bearer remains break-glass",
+        ],
+      },
+      {
+        label: "Wave 3",
+        items: [
+          "client portal identities",
+          "goal=self-service login without secret knowledge",
+          "gate=billing and portal flows already stable",
+          "fallback=client bearer only for controlled recovery",
+        ],
+      },
+      {
+        label: "Prod guard",
+        items: [
+          "rotate bootstrap after admin cutover validation",
+          "keep Google-offline recovery chain ready",
+          "audit every auth change into ledger",
+          "never break organization-first RBAC",
+        ],
+      },
+    ],
+  };
+}
+
+function adminProviderReadinessSection(pathname, snapshot) {
+  if (pathname !== "/admin") {
+    return null;
+  }
+  const runtimeBridgeState =
+    snapshot.status?.runtime_bridge_state ||
+    snapshot.admin?.status?.runtime_bridge_state ||
+    snapshot.runtimeBridge?.state ||
+    "pending";
+  const identityCutover = identityCutoverSection("/admin", snapshot);
+  const organizations = snapshot.admin?.organizationsLive?.records || snapshot.organizationsLive?.records || [];
+  const business = snapshot.admin?.liveRegistries || snapshot.liveRegistries || snapshot.business || {};
+  const clientsSource = business.clients?.records || business.clients || [];
+  const identitiesSource = business.identities?.records || business.identities || [];
+  const organizationIds = new Set(organizations.map((organization) => organization.organization_id).filter(Boolean));
+  const clients = (Array.isArray(clientsSource) ? clientsSource : []).filter((client) => {
+    if (!organizationIds.size) return true;
+    return organizationIds.has(client.organization_id);
+  });
+  const identities = (Array.isArray(identitiesSource) ? identitiesSource : []).filter((identity) => {
+    if (!organizationIds.size) return true;
+    return organizationIds.has(identity.organization_id);
+  });
+  const issued = `${identities.filter((identity) => identity.credential_state === "issued").length}/${identities.length}`;
+  const portals = `${identities.filter((identity) => identity.portal_state === "live").length}/${identities.length}`;
+  return {
+    title: "Admin provider cutover readiness",
+    intro: "Cette vue dit si l'admin peut sortir du bootstrap secret et passer sur une identité plus forte sans casser le runtime S25.",
+    checks: [
+      {
+        label: "Runtime bridge",
+        state: runtimeBridgeState,
+        detail: "La ligne directe TRINITY/S25 doit rester stable pendant la bascule.",
+      },
+      {
+        label: "Auth hardening",
+        state: issued,
+        detail: `Credentials emis=${issued} | Portails lives=${portals}`,
+      },
+      {
+        label: "Bootstrap fallback",
+        state: "break_glass_only",
+        detail: "Le secret operateur reste disponible uniquement pour recovery apres validation du cutover.",
+      },
+      {
+        label: "Cutover target",
+        state: "external_idp_pending",
+        detail: identityCutover?.intro || "Preparation de l'identite forte admin en attente.",
+      },
+    ],
+  };
+}
+
 function organizationCommandMapSection(pathname, snapshot) {
   if (pathname !== "/admin") {
     return null;
@@ -8522,6 +8685,8 @@ function renderApp(env, pathname, hostname, snapshot) {
     identityCutover: identityCutoverSection(pathname, snapshot),
     identityProviders: identityProvidersSection(pathname, snapshot),
     adminIdentityBinding: adminIdentityBindingSection(pathname, snapshot),
+    identityRollout: identityRolloutSection(pathname, snapshot),
+    adminProviderReadiness: adminProviderReadinessSection(pathname, snapshot),
     organizationCommandMap: organizationCommandMapSection(pathname, snapshot),
     organizationProfile: organizationProfileSection(pathname, snapshot),
     organizationLifecycle: organizationLifecycleSection(pathname, snapshot),
@@ -8881,6 +9046,42 @@ export default {
         });
       } catch (error) {
         return jsonResponse({ ok: false, error: "admin_identity_binding_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/identity-rollout") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      try {
+        const snapshot = {
+          ...(await fetchAdminSnapshot(env)),
+          status: await fetchJson(`${env.PUBLIC_S25_URL}/api/status`),
+        };
+        return jsonResponse({
+          ok: true,
+          secure: true,
+          ...(identityRolloutSection("/admin", snapshot) || { title: "Identity rollout matrix", columns: [] }),
+        });
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "admin_identity_rollout_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/admin-provider-readiness") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      try {
+        const snapshot = {
+          ...(await fetchAdminSnapshot(env)),
+          status: await fetchJson(`${env.PUBLIC_S25_URL}/api/status`),
+        };
+        return jsonResponse({
+          ok: true,
+          secure: true,
+          ...(adminProviderReadinessSection("/admin", snapshot) || { title: "Admin provider cutover readiness", checks: [] }),
+        });
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "admin_provider_readiness_failed", detail: String(error?.message || error) }, 500);
       }
     }
 
@@ -9764,6 +9965,58 @@ export default {
           ok: false,
           domain: "smajor.org",
           error: "admin_identity_binding_model_failed",
+          detail: String(error?.message || error),
+        }, 500);
+      }
+    }
+
+    if (url.pathname === "/models/identity-rollout.json") {
+      try {
+        const snapshot = {
+          admin: await fetchAdminSnapshot(env).catch((error) => ({
+            organizationsLive: { records: [] },
+            liveRegistries: {},
+            errors: [error?.message || "admin_snapshot_failed"],
+          })),
+          status: await fetchJson(`${env.PUBLIC_S25_URL}/api/status`),
+        };
+        return jsonResponse({
+          ok: true,
+          domain: "smajor.org",
+          source_of_truth: "identity rollout matrix",
+          ...(identityRolloutSection("/admin", snapshot) || { title: "Identity rollout matrix", columns: [] }),
+        });
+      } catch (error) {
+        return jsonResponse({
+          ok: false,
+          domain: "smajor.org",
+          error: "identity_rollout_model_failed",
+          detail: String(error?.message || error),
+        }, 500);
+      }
+    }
+
+    if (url.pathname === "/models/admin-provider-readiness.json") {
+      try {
+        const snapshot = {
+          admin: await fetchAdminSnapshot(env).catch((error) => ({
+            organizationsLive: { records: [] },
+            liveRegistries: {},
+            errors: [error?.message || "admin_snapshot_failed"],
+          })),
+          status: await fetchJson(`${env.PUBLIC_S25_URL}/api/status`),
+        };
+        return jsonResponse({
+          ok: true,
+          domain: "smajor.org",
+          source_of_truth: "admin provider cutover readiness",
+          ...(adminProviderReadinessSection("/admin", snapshot) || { title: "Admin provider cutover readiness", checks: [] }),
+        });
+      } catch (error) {
+        return jsonResponse({
+          ok: false,
+          domain: "smajor.org",
+          error: "admin_provider_readiness_model_failed",
           detail: String(error?.message || error),
         }, 500);
       }
