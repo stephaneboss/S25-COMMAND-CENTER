@@ -3065,6 +3065,60 @@ function layout({
     `
     : "";
 
+  const vendorCutoverReadinessHtml = moduleSection && moduleSection.vendorCutoverReadiness
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Vendor cutover readiness</div>
+            <h2>${moduleSection.vendorCutoverReadiness.title}</h2>
+          </div>
+          <p>${moduleSection.vendorCutoverReadiness.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.vendorCutoverReadiness.rows
+            .map(
+              (row) => `
+                <article class="module-card">
+                  <div class="label">${row.label}</div>
+                  <h3>${row.state}</h3>
+                  <p>${row.detail}</p>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
+  const vendorCutoverExecutionHtml = moduleSection && moduleSection.vendorCutoverExecution
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Vendor cutover execution</div>
+            <h2>${moduleSection.vendorCutoverExecution.title}</h2>
+          </div>
+          <p>${moduleSection.vendorCutoverExecution.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.vendorCutoverExecution.rows
+            .map(
+              (row) => `
+                <article class="module-card">
+                  <div class="label">${row.label}</div>
+                  <h3>${row.state}</h3>
+                  <p>${row.detail}</p>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
   const operationalChainHtml = moduleSection && moduleSection.operationalChain
     ? `
       <section class="module-panel">
@@ -4186,6 +4240,8 @@ function layout({
       ${identityRolloutWavesHtml}
       ${staffCutoverReadinessHtml}
       ${staffCutoverExecutionHtml}
+      ${vendorCutoverReadinessHtml}
+      ${vendorCutoverExecutionHtml}
       ${businessTimelineHtml}
       ${operationalChainHtml}
       ${operationalPlaybookHtml}
@@ -8967,6 +9023,97 @@ function staffCutoverExecutionSection(pathname, snapshot) {
   };
 }
 
+function vendorCutoverReadinessSection(pathname, snapshot) {
+  if (pathname !== "/admin") {
+    return null;
+  }
+  const business = snapshot.admin?.liveRegistries || snapshot.liveRegistries || snapshot.business || {};
+  const identities = business.identities?.records || business.identities || [];
+  const vendorIdentities = (Array.isArray(identities) ? identities : []).filter(
+    (identity) => identity.badge_id === "vendor_badge" || identity.role_id === "vendor_contact" || identity.role_id === "vendor_manager",
+  );
+  const issued = vendorIdentities.filter((identity) => identity.credential_state === "issued").length;
+  const live = vendorIdentities.filter((identity) => identity.portal_state === "live").length;
+  const runtimeBridgeState =
+    snapshot.status?.runtime_bridge_state ||
+    snapshot.admin?.status?.runtime_bridge_state ||
+    snapshot.runtimeBridge?.state ||
+    "pending";
+  return {
+    title: "Vendor cutover readiness",
+    intro: "Avant la vraie bascule vendor, le cockpit verifie que les comptes fournisseurs sont propres, vivants et compatibles avec une assertion plus forte.",
+    rows: [
+      {
+        label: "Vendor credentials",
+        state: `${issued}/${vendorIdentities.length}`,
+        detail: "Toutes les identites vendor doivent avoir une credential emise avant la sortie du bearer signe actuel.",
+      },
+      {
+        label: "Vendor portals",
+        state: `${live}/${vendorIdentities.length}`,
+        detail: "Les portails vendor doivent etre deja en etat live avant la bascule d'identite plus forte.",
+      },
+      {
+        label: "Runtime bridge",
+        state: runtimeBridgeState,
+        detail: "Le runtime direct reste le verrou pour eviter toute rupture pendant la transition vendor.",
+      },
+      {
+        label: "Target",
+        state: "supplier_identity_provider",
+        detail: "La vague vendor cible une chaine fournisseur plus forte, sans casser la gouvernance organization-first.",
+      },
+      {
+        label: "Result",
+        state: issued === vendorIdentities.length && live === vendorIdentities.length ? "ready_for_cutover" : "cleanup_required",
+        detail: "Le cutover vendor ne demarre que lorsque les credentials et les portails sont tous propres.",
+      },
+    ],
+  };
+}
+
+function vendorCutoverExecutionSection(pathname, snapshot) {
+  if (pathname !== "/admin") {
+    return null;
+  }
+  const runtimeBridgeState =
+    snapshot.status?.runtime_bridge_state ||
+    snapshot.admin?.status?.runtime_bridge_state ||
+    snapshot.runtimeBridge?.state ||
+    "pending";
+  return {
+    title: "Vendor cutover execution",
+    intro: "La vague vendor suit la vague staff: les comptes fournisseurs passent sur une assertion fournisseur plus forte tout en gardant audit et fallback jusqu'au cutover complet.",
+    rows: [
+      {
+        label: "Wave",
+        state: "vendor_cutover_staged",
+        detail: "Les comptes vendor passent apres la vague staff, sans rupture globale des operations fournisseurs.",
+      },
+      {
+        label: "Provider",
+        state: "supplier_identity_provider",
+        detail: "Le provider fournisseur devient la source de confiance pour les sessions vendor actives.",
+      },
+      {
+        label: "Runtime bridge",
+        state: runtimeBridgeState,
+        detail: "Le runtime S25 et la ligne directe TRINITY restent verrouilles pendant cette vague.",
+      },
+      {
+        label: "Fallback",
+        state: "signed_vendor_bearer_until_cutover_complete",
+        detail: "Le bearer vendor actuel reste en secours tant que la verification post-cutover n'est pas terminee.",
+      },
+      {
+        label: "Next",
+        state: "client_cutover_queue",
+        detail: "Une fois la vague vendor propre, la meme logique peut s'etendre aux clients.",
+      },
+    ],
+  };
+}
+
 function organizationCommandMapSection(pathname, snapshot) {
   if (pathname !== "/admin") {
     return null;
@@ -9587,6 +9734,8 @@ function renderApp(env, pathname, hostname, snapshot) {
     identityRolloutWaves: identityRolloutWavesSection(pathname, snapshot),
     staffCutoverReadiness: staffCutoverReadinessSection(pathname, snapshot),
     staffCutoverExecution: staffCutoverExecutionSection(pathname, snapshot),
+    vendorCutoverReadiness: vendorCutoverReadinessSection(pathname, snapshot),
+    vendorCutoverExecution: vendorCutoverExecutionSection(pathname, snapshot),
     organizationCommandMap: organizationCommandMapSection(pathname, snapshot),
     organizationProfile: organizationProfileSection(pathname, snapshot),
     organizationLifecycle: organizationLifecycleSection(pathname, snapshot),
@@ -10369,6 +10518,67 @@ export default {
         });
       } catch (error) {
         return jsonResponse({ ok: false, error: "execute_staff_cutover_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/vendor-cutover-readiness") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      try {
+        const snapshot = {
+          ...(await fetchAdminSnapshot(env)),
+          status: await fetchJson(`${env.PUBLIC_S25_URL}/api/status`),
+        };
+        return jsonResponse({
+          ok: true,
+          secure: true,
+          ...(vendorCutoverReadinessSection("/admin", snapshot) || { title: "Vendor cutover readiness", rows: [] }),
+        });
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "vendor_cutover_readiness_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/vendor-cutover-execution") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      try {
+        const snapshot = {
+          ...(await fetchAdminSnapshot(env)),
+          status: await fetchJson(`${env.PUBLIC_S25_URL}/api/status`),
+        };
+        return jsonResponse({
+          ok: true,
+          secure: true,
+          ...(vendorCutoverExecutionSection("/admin", snapshot) || { title: "Vendor cutover execution", rows: [] }),
+        });
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "vendor_cutover_execution_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/execute-vendor-cutover") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      if (request.method !== "POST") {
+        return jsonResponse({ ok: false, error: "method_not_allowed" }, 405);
+      }
+      try {
+        const body = await request.json().catch(() => ({}));
+        const status = await fetchJson(`${env.PUBLIC_S25_URL}/api/status`);
+        return jsonResponse({
+          ok: true,
+          secure: true,
+          mode: "staged_vendor_cutover",
+          operator_id: body.operator_id || "ident-major-stef-001",
+          runtime_bridge: status.runtime_bridge_state || "pending",
+          provider: "supplier_identity_provider",
+          fallback: "signed_vendor_bearer_until_cutover_complete",
+          next: "client_cutover_queue",
+          note: "Vendor cutover staged only. Les portails vendor sont prets a migrer vers une assertion plus forte sans rupture immediate.",
+        });
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "execute_vendor_cutover_failed", detail: String(error?.message || error) }, 500);
       }
     }
 
@@ -11616,6 +11826,58 @@ export default {
           ok: false,
           domain: "smajor.org",
           error: "staff_cutover_execution_model_failed",
+          detail: String(error?.message || error),
+        }, 500);
+      }
+    }
+
+    if (url.pathname === "/models/vendor-cutover-readiness.json") {
+      try {
+        const snapshot = {
+          admin: await fetchAdminSnapshot(env).catch((error) => ({
+            organizationsLive: { records: [] },
+            liveRegistries: {},
+            errors: [error?.message || "admin_snapshot_failed"],
+          })),
+          status: await fetchJson(`${env.PUBLIC_S25_URL}/api/status`),
+        };
+        return jsonResponse({
+          ok: true,
+          domain: "smajor.org",
+          source_of_truth: "vendor cutover readiness",
+          ...(vendorCutoverReadinessSection("/admin", snapshot) || { title: "Vendor cutover readiness", rows: [] }),
+        });
+      } catch (error) {
+        return jsonResponse({
+          ok: false,
+          domain: "smajor.org",
+          error: "vendor_cutover_readiness_model_failed",
+          detail: String(error?.message || error),
+        }, 500);
+      }
+    }
+
+    if (url.pathname === "/models/vendor-cutover-execution.json") {
+      try {
+        const snapshot = {
+          admin: await fetchAdminSnapshot(env).catch((error) => ({
+            organizationsLive: { records: [] },
+            liveRegistries: {},
+            errors: [error?.message || "admin_snapshot_failed"],
+          })),
+          status: await fetchJson(`${env.PUBLIC_S25_URL}/api/status`),
+        };
+        return jsonResponse({
+          ok: true,
+          domain: "smajor.org",
+          source_of_truth: "vendor cutover execution",
+          ...(vendorCutoverExecutionSection("/admin", snapshot) || { title: "Vendor cutover execution", rows: [] }),
+        });
+      } catch (error) {
+        return jsonResponse({
+          ok: false,
+          domain: "smajor.org",
+          error: "vendor_cutover_execution_model_failed",
           detail: String(error?.message || error),
         }, 500);
       }
