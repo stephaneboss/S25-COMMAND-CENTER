@@ -2738,6 +2738,36 @@ function layout({
     `
     : "";
 
+  const adminProviderCutoverHtml = moduleSection && moduleSection.adminProviderCutover
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Admin provider cutover</div>
+            <h2>${moduleSection.adminProviderCutover.title}</h2>
+          </div>
+          <p>${moduleSection.adminProviderCutover.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.adminProviderCutover.steps
+            .map(
+              (step) => `
+                <article class="module-card">
+                  <div class="label">${step.phase}</div>
+                  <h3>${step.state}</h3>
+                  <p>${step.goal}</p>
+                  <ul>
+                    ${step.items.map((item) => `<li>${item}</li>`).join("")}
+                  </ul>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
   const operationalChainHtml = moduleSection && moduleSection.operationalChain
     ? `
       <section class="module-panel">
@@ -3847,6 +3877,7 @@ function layout({
       ${adminIdentityBindingHtml}
       ${identityRolloutHtml}
       ${adminProviderReadinessHtml}
+      ${adminProviderCutoverHtml}
       ${businessTimelineHtml}
       ${operationalChainHtml}
       ${operationalPlaybookHtml}
@@ -8079,6 +8110,73 @@ function adminProviderReadinessSection(pathname, snapshot) {
   };
 }
 
+function adminProviderCutoverSection(pathname, snapshot) {
+  if (pathname !== "/admin") {
+    return null;
+  }
+  const runtimeBridgeState =
+    snapshot.status?.runtime_bridge_state ||
+    snapshot.admin?.status?.runtime_bridge_state ||
+    snapshot.runtimeBridge?.state ||
+    "pending";
+  const organizations = snapshot.admin?.organizationsLive?.records || snapshot.organizationsLive?.records || [];
+  const business = snapshot.admin?.liveRegistries || snapshot.liveRegistries || snapshot.business || {};
+  const identitiesSource = business.identities?.records || business.identities || [];
+  const organizationIds = new Set(organizations.map((organization) => organization.organization_id).filter(Boolean));
+  const identities = (Array.isArray(identitiesSource) ? identitiesSource : []).filter((identity) => {
+    if (!organizationIds.size) return true;
+    return organizationIds.has(identity.organization_id);
+  });
+  const issued = identities.filter((identity) => identity.credential_state === "issued").length;
+  const live = identities.filter((identity) => identity.portal_state === "live").length;
+  return {
+    title: "Admin identity cutover plan",
+    intro: "Plan de bascule progressif: on sort l'admin du bootstrap secret quotidien sans casser l'acces, l'audit ni le runtime bridge.",
+    steps: [
+      {
+        phase: "Phase 1",
+        state: runtimeBridgeState === "direct_runtime_linked" ? "ready" : "blocked",
+        goal: "Verrouiller la ligne directe avant la bascule auth.",
+        items: [
+          `runtime_bridge=${runtimeBridgeState}`,
+          "status et memory lisibles via s25.smajor.org",
+          "break-glass garde en reserve",
+        ],
+      },
+      {
+        phase: "Phase 2",
+        state: issued === live && issued > 0 ? "ready" : "in_progress",
+        goal: "Uniformiser les identites signees et l'audit avant le provider fort.",
+        items: [
+          `credentials_issued=${issued}/${identities.length}`,
+          `portals_live=${live}/${identities.length}`,
+          "organization-first RBAC maintenu",
+        ],
+      },
+      {
+        phase: "Phase 3",
+        state: "pending",
+        goal: "Attacher l'admin a un provider plus fort que la session bootstrap.",
+        items: [
+          "operator=ident-major-stef-001",
+          "target=external_idp_assertion",
+          "session bootstrap devient break-glass only",
+        ],
+      },
+      {
+        phase: "Phase 4",
+        state: "pending",
+        goal: "Rotater le bootstrap et fermer la boucle pre-prod.",
+        items: [
+          "rotation du secret operateur apres validation",
+          "audit event obligatoire",
+          "recovery Google-offline intacte",
+        ],
+      },
+    ],
+  };
+}
+
 function organizationCommandMapSection(pathname, snapshot) {
   if (pathname !== "/admin") {
     return null;
@@ -8687,6 +8785,7 @@ function renderApp(env, pathname, hostname, snapshot) {
     adminIdentityBinding: adminIdentityBindingSection(pathname, snapshot),
     identityRollout: identityRolloutSection(pathname, snapshot),
     adminProviderReadiness: adminProviderReadinessSection(pathname, snapshot),
+    adminProviderCutover: adminProviderCutoverSection(pathname, snapshot),
     organizationCommandMap: organizationCommandMapSection(pathname, snapshot),
     organizationProfile: organizationProfileSection(pathname, snapshot),
     organizationLifecycle: organizationLifecycleSection(pathname, snapshot),
@@ -9082,6 +9181,24 @@ export default {
         });
       } catch (error) {
         return jsonResponse({ ok: false, error: "admin_provider_readiness_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/admin-provider-cutover") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      try {
+        const snapshot = {
+          ...(await fetchAdminSnapshot(env)),
+          status: await fetchJson(`${env.PUBLIC_S25_URL}/api/status`),
+        };
+        return jsonResponse({
+          ok: true,
+          secure: true,
+          ...(adminProviderCutoverSection("/admin", snapshot) || { title: "Admin identity cutover plan", steps: [] }),
+        });
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "admin_provider_cutover_failed", detail: String(error?.message || error) }, 500);
       }
     }
 
@@ -10017,6 +10134,32 @@ export default {
           ok: false,
           domain: "smajor.org",
           error: "admin_provider_readiness_model_failed",
+          detail: String(error?.message || error),
+        }, 500);
+      }
+    }
+
+    if (url.pathname === "/models/admin-provider-cutover.json") {
+      try {
+        const snapshot = {
+          admin: await fetchAdminSnapshot(env).catch((error) => ({
+            organizationsLive: { records: [] },
+            liveRegistries: {},
+            errors: [error?.message || "admin_snapshot_failed"],
+          })),
+          status: await fetchJson(`${env.PUBLIC_S25_URL}/api/status`),
+        };
+        return jsonResponse({
+          ok: true,
+          domain: "smajor.org",
+          source_of_truth: "admin provider cutover plan",
+          ...(adminProviderCutoverSection("/admin", snapshot) || { title: "Admin identity cutover plan", steps: [] }),
+        });
+      } catch (error) {
+        return jsonResponse({
+          ok: false,
+          domain: "smajor.org",
+          error: "admin_provider_cutover_model_failed",
           detail: String(error?.message || error),
         }, 500);
       }
