@@ -33,31 +33,31 @@ class AuditLog:
 
     # Event types
     EVENTS = {
-        "API_CALL":          "External API call",
-        "TRADE_SIGNAL":      "Trading signal received",
-        "ORDER_PLACED":      "Exchange order placed",
-        "ORDER_CANCELLED":   "Exchange order cancelled",
-        "ORDER_FILLED":      "Exchange order filled",
-        "SWAP_EXECUTED":     "Cross-chain swap executed",
-        "SWAP_FAILED":       "Cross-chain swap failed",
-        "KEY_ACCESSED":      "API key accessed",
-        "CONFIG_CHANGED":    "System config changed",
-        "AGENT_STARTED":     "Agent started",
-        "AGENT_STOPPED":     "Agent stopped",
-        "AGENT_ERROR":       "Agent encountered error",
-        "CIRCUIT_BREAKER":   "Circuit breaker triggered",
-        "BALANCE_LOW":       "Balance below threshold",
-        "BALANCE_CRITICAL":  "Balance critically low",
-        "HA_UPDATE":         "HA entity updated",
-        "RISK_BREACH":       "Risk limit breached",
-        "MANUAL_OVERRIDE":   "Manual operator override",
+        "API_CALL": "External API call",
+        "TRADE_SIGNAL": "Trading signal received",
+        "ORDER_PLACED": "Exchange order placed",
+        "ORDER_CANCELLED": "Exchange order cancelled",
+        "ORDER_FILLED": "Exchange order filled",
+        "SWAP_EXECUTED": "Cross-chain swap executed",
+        "SWAP_FAILED": "Cross-chain swap failed",
+        "KEY_ACCESSED": "API key accessed",
+        "CONFIG_CHANGED": "System config changed",
+        "AGENT_STARTED": "Agent started",
+        "AGENT_STOPPED": "Agent stopped",
+        "AGENT_ERROR": "Agent encountered error",
+        "CIRCUIT_BREAKER": "Circuit breaker triggered",
+        "BALANCE_LOW": "Balance below threshold",
+        "BALANCE_CRITICAL": "Balance critically low",
+        "HA_UPDATE": "HA entity updated",
+        "RISK_BREACH": "Risk limit breached",
+        "MANUAL_OVERRIDE": "Manual operator override",
     }
 
     # Risk levels
-    RISK_INFO     = "INFO"
-    RISK_LOW      = "LOW"
-    RISK_MEDIUM   = "MEDIUM"
-    RISK_HIGH     = "HIGH"
+    RISK_INFO = "INFO"
+    RISK_LOW = "LOW"
+    RISK_MEDIUM = "MEDIUM"
+    RISK_HIGH = "HIGH"
     RISK_CRITICAL = "CRITICAL"
 
     # Fields that should never appear in logs
@@ -74,10 +74,10 @@ class AuditLog:
     def log(
         self,
         event_type: str,
-        agent:      str,
-        details:    Dict[str, Any],
-        risk:       str = "INFO",
-        summary:    str = ""
+        agent: str,
+        details: Dict[str, Any],
+        risk: str = "INFO",
+        summary: str = ""
     ):
         """
         Log an audit event.
@@ -92,14 +92,14 @@ class AuditLog:
         self._count += 1
 
         entry = {
-            "n":       self._count,
-            "ts":      datetime.utcnow().isoformat() + "Z",
-            "event":   event_type,
-            "agent":   agent,
-            "risk":    risk,
+            "n": self._count,
+            "ts": datetime.utcnow().isoformat() + "Z",
+            "event": event_type,
+            "agent": agent,
+            "risk": risk,
             "summary": summary or details.get("summary", ""),
             "details": self._sanitize(details),
-            "hash":    ""
+            "hash": ""
         }
 
         # Integrity hash (covers all fields except hash itself)
@@ -147,7 +147,7 @@ class AuditLog:
 
         try:
             lines = self.log_file.read_text(encoding="utf-8").strip().split("\n")
-            entries = [json.loads(l) for l in lines if l.strip()]
+            entries = [json.loads(line) for line in lines if line.strip()]
 
             if risk_filter:
                 entries = [e for e in entries if e.get("risk") == risk_filter]
@@ -171,11 +171,11 @@ class AuditLog:
             event_counts[e.get("event", "?")] = event_counts.get(e.get("event", "?"), 0) + 1
 
         return {
-            "total":        len(entries),
-            "by_risk":      risk_counts,
-            "by_event":     event_counts,
-            "first_entry":  entries[0].get("ts") if entries else None,
-            "last_entry":   entries[-1].get("ts") if entries else None,
+            "total": len(entries),
+            "by_risk": risk_counts,
+            "by_event": event_counts,
+            "first_entry": entries[0].get("ts") if entries else None,
+            "last_entry": entries[-1].get("ts") if entries else None,
         }
 
     def verify_integrity(self, n: int = 100) -> Dict:
@@ -198,9 +198,9 @@ class AuditLog:
                 invalid.append(entry.get("n"))
 
         return {
-            "checked":      len(entries),
-            "valid":        valid,
-            "tampered":     len(invalid),
+            "checked": len(entries),
+            "valid": valid,
+            "tampered": len(invalid),
             "tampered_ids": invalid
         }
 
