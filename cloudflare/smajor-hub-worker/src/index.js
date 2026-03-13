@@ -6895,7 +6895,8 @@ function buildLiveBlocks(env, snapshot) {
         { label: "HA lateral", value: status.ha_connected ? "linked" : "off" },
       ],
       links: [
-        { label: "MERLIN MCP", href: `${env.PUBLIC_MERLIN_URL}/health` },
+        { label: "MERLIN MCP", href: `${env.PUBLIC_MERLIN_URL}/mcp` },
+        { label: "MERLIN bridge", href: `${env.PUBLIC_APP_URL}/models/merlin-bridge.json` },
         { label: "API", href: `${env.PUBLIC_API_URL}/api/version` },
       ],
     },
@@ -10042,7 +10043,7 @@ function renderPublic(env) {
     ctas: [
       { label: "Entrer dans l'app", href: env.PUBLIC_APP_URL },
       { label: "Cockpit S25", href: env.PUBLIC_S25_URL, kind: "secondary" },
-      { label: "MERLIN MCP", href: `${env.PUBLIC_MERLIN_URL}/health`, kind: "secondary" },
+      { label: "MERLIN MCP", href: `${env.PUBLIC_MERLIN_URL}/mcp`, kind: "secondary" },
     ],
     blocks: [
       {
@@ -10068,7 +10069,7 @@ function renderPublic(env) {
         title: "MERLIN + TRINITY",
         text: "MERLIN valide, TRINITY orchestre, COMET surveille, KIMI capte le Web3. Le domaine ne remplace pas le mesh, il le rend presentable.",
         links: [
-          { label: "MERLIN health", href: `${env.PUBLIC_MERLIN_URL}/health` },
+          { label: "MERLIN MCP", href: `${env.PUBLIC_MERLIN_URL}/mcp` },
           { label: "API", href: `${env.PUBLIC_API_URL}/api/version` },
         ],
       },
@@ -10183,7 +10184,7 @@ function renderApp(env, pathname, hostname, snapshot) {
     ctas: [
       { label: "Status public", href: `${env.PUBLIC_S25_URL}/api/status` },
       { label: "Missions", href: `${env.PUBLIC_S25_URL}/api/missions`, kind: "secondary" },
-      { label: "MERLIN MCP", href: `${env.PUBLIC_MERLIN_URL}/health`, kind: "secondary" },
+      { label: "MERLIN MCP", href: `${env.PUBLIC_MERLIN_URL}/mcp`, kind: "secondary" },
     ],
     blocks: section.cards,
     liveBlocks: buildLiveBlocks(env, snapshot),
@@ -10224,6 +10225,22 @@ export default {
         display: "standalone",
         background_color: "#071311",
         theme_color: "#7cf6d4",
+      });
+    }
+
+    if (url.pathname === "/models/merlin-bridge.json") {
+      return jsonResponse({
+        title: "MERLIN bridge",
+        endpoint: `${env.PUBLIC_MERLIN_URL}/mcp`,
+        protocol: "mcp_streamable_http",
+        runtime_state: "online",
+        browser_result: "406_not_acceptable_expected",
+        note: "Le bridge MERLIN est vivant. Un navigateur simple ou un client HTTP sans Accept MCP recoit 406 par design.",
+        direct_line: {
+          validation_plane: "MERLIN",
+          command_plane: "TRINITY",
+          runtime_plane: env.PUBLIC_S25_URL,
+        },
       });
     }
 
