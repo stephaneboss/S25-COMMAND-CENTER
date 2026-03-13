@@ -9185,10 +9185,11 @@ function identityRolloutWavesSection(pathname, snapshot) {
   const issued = currentItems.find((item) => item.startsWith("identity_credentials_issued="))?.split("=")[1] || "0/0";
   const portals = currentItems.find((item) => item.startsWith("identity_portals_live="))?.split("=")[1] || "0/0";
   const rolloutLedger = inferIdentityRolloutLedger(snapshot);
-  const adminState = rolloutLedger.admin?.state || "ready_for_cutover";
-  const staffState = rolloutLedger.staff?.state || "next_wave";
-  const vendorState = rolloutLedger.vendors?.state || "queued_after_staff";
-  const clientState = rolloutLedger.clients?.state || "queued_after_vendors";
+  const providerLedger = snapshot.admin?.liveRegistries?.provider_transition || snapshot.liveRegistries?.provider_transition || {};
+  const adminState = providerLedger.admin?.state || rolloutLedger.admin?.state || "ready_for_cutover";
+  const staffState = providerLedger.staff?.state || rolloutLedger.staff?.state || "next_wave";
+  const vendorState = providerLedger.vendors?.state || rolloutLedger.vendors?.state || "queued_after_staff";
+  const clientState = providerLedger.clients?.state || rolloutLedger.clients?.state || "queued_after_vendors";
   const completedWaveCount = [adminState, staffState, vendorState, clientState].filter((state) =>
     String(state).includes("promoted") || String(state).includes("staged") || String(state).includes("complete"),
   ).length;
@@ -9370,6 +9371,7 @@ function vendorCutoverExecutionSection(pathname, snapshot) {
   if (pathname !== "/admin") {
     return null;
   }
+  const providerState = snapshot.admin?.liveRegistries?.provider_transition?.vendors || snapshot.liveRegistries?.provider_transition?.vendors || {};
   const runtimeBridgeState =
     snapshot.status?.runtime_bridge_state ||
     snapshot.admin?.status?.runtime_bridge_state ||
@@ -9381,12 +9383,12 @@ function vendorCutoverExecutionSection(pathname, snapshot) {
     rows: [
       {
         label: "Wave",
-        state: "vendor_cutover_staged",
+        state: providerState.state || "vendor_cutover_staged",
         detail: "Les comptes vendor passent apres la vague staff, sans rupture globale des operations fournisseurs.",
       },
       {
         label: "Provider",
-        state: "supplier_identity_provider",
+        state: providerState.provider || "supplier_identity_provider",
         detail: "Le provider fournisseur devient la source de confiance pour les sessions vendor actives.",
       },
       {
@@ -9396,12 +9398,12 @@ function vendorCutoverExecutionSection(pathname, snapshot) {
       },
       {
         label: "Fallback",
-        state: "signed_vendor_bearer_until_cutover_complete",
+        state: providerState.fallback || "signed_vendor_bearer_until_cutover_complete",
         detail: "Le bearer vendor actuel reste en secours tant que la verification post-cutover n'est pas terminee.",
       },
       {
         label: "Next",
-        state: "client_cutover_queue",
+        state: providerState.next || "client_cutover_queue",
         detail: "Une fois la vague vendor propre, la meme logique peut s'etendre aux clients.",
       },
     ],
@@ -9462,6 +9464,7 @@ function clientCutoverExecutionSection(pathname, snapshot) {
   if (pathname !== "/admin") {
     return null;
   }
+  const providerState = snapshot.admin?.liveRegistries?.provider_transition?.clients || snapshot.liveRegistries?.provider_transition?.clients || {};
   const runtimeBridgeState =
     snapshot.status?.runtime_bridge_state ||
     snapshot.admin?.status?.runtime_bridge_state ||
@@ -9473,12 +9476,12 @@ function clientCutoverExecutionSection(pathname, snapshot) {
     rows: [
       {
         label: "Wave",
-        state: "client_cutover_staged",
+        state: providerState.state || "client_cutover_staged",
         detail: "Les comptes clients passent apres les vagues internes et fournisseurs, sans rupture globale des operations.",
       },
       {
         label: "Provider",
-        state: "customer_identity_provider",
+        state: providerState.provider || "customer_identity_provider",
         detail: "Le provider client devient la source de confiance pour les sessions client actives.",
       },
       {
@@ -9488,12 +9491,12 @@ function clientCutoverExecutionSection(pathname, snapshot) {
       },
       {
         label: "Fallback",
-        state: "signed_client_bearer_until_cutover_complete",
+        state: providerState.fallback || "signed_client_bearer_until_cutover_complete",
         detail: "Le bearer client actuel reste en secours tant que la verification post-cutover n'est pas terminee.",
       },
       {
         label: "Next",
-        state: "full_identity_rollout_complete",
+        state: providerState.next || "full_identity_rollout_complete",
         detail: "Une fois la vague client propre, la chaine humaine visible du cutover pre-prod est complete.",
       },
     ],
@@ -11382,6 +11385,16 @@ export default {
           next: "client_cutover_queue",
           note: "Vendor cutover staged from control plane.",
         });
+        const promotion = recordProviderTransitionState(business, {
+          domain: "vendors",
+          state: "provider_promoted",
+          provider: "supplier_identity_provider",
+          fallback: "signed_vendor_bearer_until_cutover_complete",
+          operator_id: body.operator_id || "ident-major-stef-001",
+          runtime_bridge: status.runtime_bridge_state || "pending",
+          next: "client_cutover_queue",
+          note: "Vendor provider promoted from control plane.",
+        });
         appendBusinessEvent(business, {
           event_type: "vendor_cutover_staged",
           lane: "identity",
@@ -11396,17 +11409,31 @@ export default {
             fallback: rollout.fallback,
           },
         });
+        appendBusinessEvent(business, {
+          event_type: "vendor_provider_promoted",
+          lane: "identity",
+          subject_type: "provider_transition",
+          subject_id: "vendors",
+          collection: "provider_transition",
+          scope_id: "vendor_scope_default",
+          summary: "Vendor provider promoted",
+          metadata: {
+            domain: "vendors",
+            provider: promotion.provider,
+            fallback: promotion.fallback,
+          },
+        });
         await writeRuntimeBusinessState(env, business);
         return jsonResponse({
           ok: true,
           secure: true,
-          mode: "staged_vendor_cutover",
-          operator_id: rollout.operator_id,
-          runtime_bridge: rollout.runtime_bridge,
-          provider: rollout.provider,
-          fallback: rollout.fallback,
-          next: rollout.next,
-          note: "Vendor cutover staged only. Les portails vendor sont prets a migrer vers une assertion plus forte sans rupture immediate.",
+          mode: promotion.state,
+          operator_id: promotion.operator_id,
+          runtime_bridge: promotion.runtime_bridge,
+          provider: promotion.provider,
+          fallback: promotion.fallback,
+          next: promotion.next,
+          note: "Vendor provider promoted. Les portails vendor peuvent maintenant sortir du simple bearer de bootstrap.",
         });
       } catch (error) {
         return jsonResponse({ ok: false, error: "execute_vendor_cutover_failed", detail: String(error?.message || error) }, 500);
@@ -11469,6 +11496,16 @@ export default {
           next: "full_identity_rollout_complete",
           note: "Client cutover staged from control plane.",
         });
+        const promotion = recordProviderTransitionState(business, {
+          domain: "clients",
+          state: "provider_promoted",
+          provider: "customer_identity_provider",
+          fallback: "signed_client_bearer_until_cutover_complete",
+          operator_id: body.operator_id || "ident-major-stef-001",
+          runtime_bridge: status.runtime_bridge_state || "pending",
+          next: "full_identity_rollout_complete",
+          note: "Client provider promoted from control plane.",
+        });
         appendBusinessEvent(business, {
           event_type: "client_cutover_staged",
           lane: "identity",
@@ -11483,17 +11520,31 @@ export default {
             fallback: rollout.fallback,
           },
         });
+        appendBusinessEvent(business, {
+          event_type: "client_provider_promoted",
+          lane: "identity",
+          subject_type: "provider_transition",
+          subject_id: "clients",
+          collection: "provider_transition",
+          scope_id: "client_scope_default",
+          summary: "Client provider promoted",
+          metadata: {
+            domain: "clients",
+            provider: promotion.provider,
+            fallback: promotion.fallback,
+          },
+        });
         await writeRuntimeBusinessState(env, business);
         return jsonResponse({
           ok: true,
           secure: true,
-          mode: "staged_client_cutover",
-          operator_id: rollout.operator_id,
-          runtime_bridge: rollout.runtime_bridge,
-          provider: rollout.provider,
-          fallback: rollout.fallback,
-          next: rollout.next,
-          note: "Client cutover staged only. Les portails client sont prets a migrer vers une assertion plus forte sans rupture immediate.",
+          mode: promotion.state,
+          operator_id: promotion.operator_id,
+          runtime_bridge: promotion.runtime_bridge,
+          provider: promotion.provider,
+          fallback: promotion.fallback,
+          next: promotion.next,
+          note: "Client provider promoted. Les portails client peuvent maintenant sortir du simple bearer de bootstrap.",
         });
       } catch (error) {
         return jsonResponse({ ok: false, error: "execute_client_cutover_failed", detail: String(error?.message || error) }, 500);
