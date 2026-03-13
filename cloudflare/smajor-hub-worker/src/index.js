@@ -2795,6 +2795,33 @@ function layout({
     `
     : "";
 
+  const adminProviderAssertionHtml = moduleSection && moduleSection.adminProviderAssertion
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Provider assertion</div>
+            <h2>${moduleSection.adminProviderAssertion.title}</h2>
+          </div>
+          <p>${moduleSection.adminProviderAssertion.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.adminProviderAssertion.items
+            .map(
+              (item) => `
+                <article class="module-card">
+                  <div class="label">${item.label}</div>
+                  <h3>${item.state}</h3>
+                  <p>${item.detail}</p>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
   const operationalChainHtml = moduleSection && moduleSection.operationalChain
     ? `
       <section class="module-panel">
@@ -3906,6 +3933,7 @@ function layout({
       ${adminProviderReadinessHtml}
       ${adminProviderCutoverHtml}
       ${adminIdpBindingHtml}
+      ${adminProviderAssertionHtml}
       ${businessTimelineHtml}
       ${operationalChainHtml}
       ${operationalPlaybookHtml}
@@ -8248,6 +8276,53 @@ function adminIdpBindingSection(pathname, snapshot) {
   };
 }
 
+function adminProviderAssertionSection(pathname, snapshot) {
+  if (pathname !== "/admin") {
+    return null;
+  }
+  const runtimeBridgeState =
+    snapshot.status?.runtime_bridge_state ||
+    snapshot.admin?.status?.runtime_bridge_state ||
+    snapshot.runtimeBridge?.state ||
+    "pending";
+  const organizations = snapshot.admin?.organizationsLive?.records || snapshot.organizationsLive?.records || [];
+  const business = snapshot.admin?.liveRegistries || snapshot.liveRegistries || snapshot.business || {};
+  const identitiesSource = business.identities?.records || business.identities || [];
+  const organizationIds = new Set(organizations.map((organization) => organization.organization_id).filter(Boolean));
+  const identities = (Array.isArray(identitiesSource) ? identitiesSource : []).filter((identity) => {
+    if (!organizationIds.size) return true;
+    return organizationIds.has(identity.organization_id);
+  });
+  const issued = identities.filter((identity) => identity.credential_state === "issued").length;
+  const live = identities.filter((identity) => identity.portal_state === "live").length;
+  return {
+    title: "Provider assertion checklist",
+    intro: "Checklist minimale avant d'activer un vrai provider admin: runtime stable, identites propres, fallback de secours et trace d'audit.",
+    items: [
+      {
+        label: "Runtime",
+        state: runtimeBridgeState,
+        detail: "Le runtime bridge doit rester direct et stable pendant tout le cutover.",
+      },
+      {
+        label: "Identities",
+        state: `${issued}/${identities.length}`,
+        detail: `Portails live=${live}/${identities.length}. La base active doit etre propre avant assertion externe.`,
+      },
+      {
+        label: "Fallback",
+        state: "break_glass_ready",
+        detail: "Bootstrap secret conserve uniquement pour recovery et rotation finale.",
+      },
+      {
+        label: "Assertion target",
+        state: "external_idp_assertion_pending",
+        detail: "Le binding final doit fournir une assertion forte et auditable pour ident-major-stef-001.",
+      },
+    ],
+  };
+}
+
 function organizationCommandMapSection(pathname, snapshot) {
   if (pathname !== "/admin") {
     return null;
@@ -8858,6 +8933,7 @@ function renderApp(env, pathname, hostname, snapshot) {
     adminProviderReadiness: adminProviderReadinessSection(pathname, snapshot),
     adminProviderCutover: adminProviderCutoverSection(pathname, snapshot),
     adminIdpBinding: adminIdpBindingSection(pathname, snapshot),
+    adminProviderAssertion: adminProviderAssertionSection(pathname, snapshot),
     organizationCommandMap: organizationCommandMapSection(pathname, snapshot),
     organizationProfile: organizationProfileSection(pathname, snapshot),
     organizationLifecycle: organizationLifecycleSection(pathname, snapshot),
@@ -9289,6 +9365,47 @@ export default {
         });
       } catch (error) {
         return jsonResponse({ ok: false, error: "admin_idp_binding_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/admin-provider-assertion") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      try {
+        const snapshot = {
+          ...(await fetchAdminSnapshot(env)),
+          status: await fetchJson(`${env.PUBLIC_S25_URL}/api/status`),
+        };
+        return jsonResponse({
+          ok: true,
+          secure: true,
+          ...(adminProviderAssertionSection("/admin", snapshot) || { title: "Provider assertion checklist", items: [] }),
+        });
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "admin_provider_assertion_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/activate-admin-provider") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      if (request.method !== "POST") {
+        return jsonResponse({ ok: false, error: "method_not_allowed" }, 405);
+      }
+      try {
+        const body = await request.json().catch(() => ({}));
+        return jsonResponse({
+          ok: true,
+          secure: true,
+          mode: "staged",
+          operator_id: body.operator_id || "ident-major-stef-001",
+          target: body.target || "external_idp_assertion",
+          runtime_bridge: (await fetchJson(`${env.PUBLIC_S25_URL}/api/status`)).runtime_bridge_state || "pending",
+          next: "provider_assertion_capture",
+          note: "Route staged only. Elle prepare le cutover sans modifier encore la session admin active.",
+        });
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "activate_admin_provider_failed", detail: String(error?.message || error) }, 500);
       }
     }
 
@@ -10276,6 +10393,32 @@ export default {
           ok: false,
           domain: "smajor.org",
           error: "admin_idp_binding_model_failed",
+          detail: String(error?.message || error),
+        }, 500);
+      }
+    }
+
+    if (url.pathname === "/models/admin-provider-assertion.json") {
+      try {
+        const snapshot = {
+          admin: await fetchAdminSnapshot(env).catch((error) => ({
+            organizationsLive: { records: [] },
+            liveRegistries: {},
+            errors: [error?.message || "admin_snapshot_failed"],
+          })),
+          status: await fetchJson(`${env.PUBLIC_S25_URL}/api/status`),
+        };
+        return jsonResponse({
+          ok: true,
+          domain: "smajor.org",
+          source_of_truth: "admin provider assertion checklist",
+          ...(adminProviderAssertionSection("/admin", snapshot) || { title: "Provider assertion checklist", items: [] }),
+        });
+      } catch (error) {
+        return jsonResponse({
+          ok: false,
+          domain: "smajor.org",
+          error: "admin_provider_assertion_model_failed",
           detail: String(error?.message || error),
         }, 500);
       }
