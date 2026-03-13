@@ -8567,7 +8567,10 @@ export default {
       const denied = await requireOperatorAccess(request, env);
       if (denied) return denied;
       try {
-        const snapshot = await fetchAdminSnapshot(env);
+        const snapshot = {
+          ...(await fetchAdminSnapshot(env)),
+          status: await fetchJson(`${env.PUBLIC_S25_URL}/api/status`),
+        };
         return jsonResponse({
           ok: true,
           secure: true,
