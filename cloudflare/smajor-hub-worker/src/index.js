@@ -3227,6 +3227,33 @@ function layout({
     `
     : "";
 
+  const productionTransitionHtml = moduleSection && moduleSection.productionTransition
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Production transition</div>
+            <h2>${moduleSection.productionTransition.title}</h2>
+          </div>
+          <p>${moduleSection.productionTransition.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.productionTransition.rows
+            .map(
+              (row) => `
+                <article class="module-card">
+                  <div class="label">${row.label}</div>
+                  <h3>${row.state}</h3>
+                  <p>${row.detail}</p>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
   const operationalChainHtml = moduleSection && moduleSection.operationalChain
     ? `
       <section class="module-panel">
@@ -4354,6 +4381,7 @@ function layout({
       ${clientCutoverExecutionHtml}
       ${identityRolloutLedgerHtml}
       ${identityRolloutCompletionHtml}
+      ${productionTransitionHtml}
       ${businessTimelineHtml}
       ${operationalChainHtml}
       ${operationalPlaybookHtml}
@@ -9397,6 +9425,70 @@ function identityRolloutCompletionSection(pathname, snapshot) {
   };
 }
 
+function productionTransitionSection(pathname, snapshot) {
+  if (pathname !== "/admin") {
+    return null;
+  }
+  const business = snapshot.admin?.liveRegistries || snapshot.liveRegistries || snapshot.business || {};
+  const ledger = business.identity_rollout && typeof business.identity_rollout === "object" ? business.identity_rollout : {};
+  const stagedCount = ["admin", "staff", "vendors", "clients"].filter((domain) => String(ledger[domain]?.state || "").startsWith("staged_")).length;
+  const status = snapshot.status || snapshot.admin?.status || {};
+  const organizations = snapshot.admin?.organizationsLive?.records || [];
+  const orgRuntimeLive = organizations.filter((record) => String(record.runtime_state || "").includes("runtime_live")).length;
+  const organizationIds = new Set(organizations.map((record) => record.organization_id).filter(Boolean));
+  const identitiesSource = business.identities?.records || business.identities || [];
+  const clientsSource = business.clients?.records || business.clients || [];
+  const identities = (Array.isArray(identitiesSource) ? identitiesSource : []).filter((identity) => {
+    if (!organizationIds.size) return true;
+    return organizationIds.has(identity.organization_id);
+  });
+  const clients = (Array.isArray(clientsSource) ? clientsSource : []).filter((client) => {
+    if (!organizationIds.size) return true;
+    return organizationIds.has(client.organization_id);
+  });
+  const issuedCredentials = identities.filter((identity) => identity.credential_state === "issued").length;
+  const liveIdentityPortals = identities.filter((identity) => identity.portal_state === "live").length;
+  const liveClientPortals = clients.filter((client) => client.portal_state === "live").length;
+  return {
+    title: "Production transition board",
+    intro: "Vue go/no-go avant la vraie prod. On synthétise runtime, auth, fallback et backbone métier pour décider si la transition peut sortir du mode pré-prod.",
+    rows: [
+      {
+        label: "Runtime core",
+        state: status.runtime_bridge_state || "pending",
+        detail: `bridge=${status.runtime_bridge_id || "--"} | mesh=${status.mesh_agents_online ?? "--"} agents | pipeline=${status.pipeline_status || "--"}`,
+      },
+      {
+        label: "Identity rollout",
+        state: `${stagedCount}/4 staged`,
+        detail: "Les quatre vagues humaines doivent être tracées dans le runtime avant la bascule prod.",
+      },
+      {
+        label: "Auth hardening",
+        state: `credentials=${issuedCredentials}/${identities.length} | portals=${liveIdentityPortals}/${identities.length}`,
+        detail: `client_portals=${liveClientPortals}/${clients.length}. Les credentials et portails doivent rester complets pendant la transition.`,
+      },
+      {
+        label: "Organizations live",
+        state: `${orgRuntimeLive}/${organizations.length} runtime_live`,
+        detail: "Chaque organisation active doit être branchée à son lane, son équipe et sa gouvernance treasury.",
+      },
+      {
+        label: "Fallback posture",
+        state: "break_glass_only",
+        detail: "Le bootstrap secret reste uniquement en secours; les surfaces quotidiennes basculent vers des assertions plus fortes.",
+      },
+      {
+        label: "Result",
+        state: stagedCount === 4 && status.runtime_bridge_state === "direct_runtime_linked" ? "prod_transition_window_open" : "preprod_hardening_continues",
+        detail: stagedCount === 4 && status.runtime_bridge_state === "direct_runtime_linked"
+          ? "La fenêtre de transition prod est ouverte. La prochaine étape est la promotion contrôlée des identités fortes."
+          : "Le système reste en durcissement pré-prod tant que le runtime bridge ou le rollout n'est pas complètement verrouillé.",
+      },
+    ],
+  };
+}
+
 function organizationCommandMapSection(pathname, snapshot) {
   if (pathname !== "/admin") {
     return null;
@@ -10023,6 +10115,7 @@ function renderApp(env, pathname, hostname, snapshot) {
     clientCutoverExecution: clientCutoverExecutionSection(pathname, snapshot),
     identityRolloutLedger: identityRolloutLedgerSection(pathname, snapshot),
     identityRolloutCompletion: identityRolloutCompletionSection(pathname, snapshot),
+    productionTransition: productionTransitionSection(pathname, snapshot),
     organizationCommandMap: organizationCommandMapSection(pathname, snapshot),
     organizationProfile: organizationProfileSection(pathname, snapshot),
     organizationLifecycle: organizationLifecycleSection(pathname, snapshot),
@@ -10806,6 +10899,24 @@ export default {
         });
       } catch (error) {
         return jsonResponse({ ok: false, error: "identity_rollout_completion_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/production-transition") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      try {
+        const snapshot = {
+          ...(await fetchAdminSnapshot(env)),
+          status: await fetchJson(`${env.PUBLIC_S25_URL}/api/status`),
+        };
+        return jsonResponse({
+          ok: true,
+          secure: true,
+          ...(productionTransitionSection("/admin", snapshot) || { title: "Production transition board", rows: [] }),
+        });
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "production_transition_failed", detail: String(error?.message || error) }, 500);
       }
     }
 
@@ -12470,6 +12581,32 @@ export default {
           ok: false,
           domain: "smajor.org",
           error: "identity_rollout_completion_model_failed",
+          detail: String(error?.message || error),
+        }, 500);
+      }
+    }
+
+    if (url.pathname === "/models/production-transition.json") {
+      try {
+        const snapshot = {
+          admin: await fetchAdminSnapshot(env).catch((error) => ({
+            organizationsLive: { records: [] },
+            liveRegistries: {},
+            errors: [error?.message || "admin_snapshot_failed"],
+          })),
+          status: await fetchJson(`${env.PUBLIC_S25_URL}/api/status`),
+        };
+        return jsonResponse({
+          ok: true,
+          domain: "smajor.org",
+          source_of_truth: "production transition board",
+          ...(productionTransitionSection("/admin", snapshot) || { title: "Production transition board", rows: [] }),
+        });
+      } catch (error) {
+        return jsonResponse({
+          ok: false,
+          domain: "smajor.org",
+          error: "production_transition_model_failed",
           detail: String(error?.message || error),
         }, 500);
       }
