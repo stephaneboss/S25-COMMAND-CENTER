@@ -5162,13 +5162,18 @@ async function issueClientAccess(request, env) {
     scope_id: payload.scope_id,
     summary: `Client access issued for ${client.organization_name}`,
     metadata: {
+      organization_id: client.organization_id,
       identity_id: client.identity_id,
       role_id: payload.role_id,
     },
   });
-  identity.portal_state = "live";
-  identity.credential_state = "issued";
-  identity.assigned_team = payload.assigned_team;
+  if (identity) {
+    identity.portal_state = "live";
+    identity.credential_state = "issued";
+    if (payload.assigned_team) {
+      identity.assigned_team = payload.assigned_team;
+    }
+  }
   business.last_write_at = new Date().toISOString();
   await writeRuntimeBusinessState(env, business);
   return jsonResponse({
