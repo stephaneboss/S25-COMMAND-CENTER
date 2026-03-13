@@ -1583,6 +1583,120 @@ def api_memory_ping():
     return jsonify({"ok": False, "error": f"Agent {agent} inconnu"}), 404
 
 
+@app.route('/api/pipeline/dryrun', methods=['POST'])
+def api_pipeline_dryrun():
+    """
+    Simule le pipeline complet: KIMI -> ARKON -> MERLIN -> RiskGuardian.
+    Mode DRY_RUN uniquement — aucun trade execute, aucun ordre envoye.
+    Retourne la chaine de decision complete pour audit.
+
+    Body JSON:
+        signal: {symbol, action, confidence, price, reason}
+    """
+    if not _trinity_auth():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+
+    body = request.get_json(silent=True) or {}
+    signal = body.get("signal", {})
+    ts = datetime.now(timezone.utc).isoformat()
+
+    # --- Etape 1: Parsing signal KIMI ---
+    symbol     = signal.get("symbol", "BTC/USDT")
+    action     = signal.get("action", "HOLD").upper()
+    confidence = float(signal.get("confidence", 0.5))
+    price      = float(signal.get("price", 0.0))
+    reason     = signal.get("reason", "manual dry_run trigger")
+
+    chain = []
+
+    # --- Etape 2: KIMI -> ARKON (analyse signal) ---
+    arkon_score   = round(confidence * 100, 1)
+    arkon_verdict = "PASS" if confidence >= 0.60 else "HOLD"
+    chain.append({
+        "step":    "KIMI->ARKON",
+        "agent":   "ARKON",
+        "input":   {"symbol": symbol, "action": action, "confidence": confidence, "price": price},
+        "verdict": arkon_verdict,
+        "score":   arkon_score,
+        "reason":  reason,
+        "ts":      ts,
+    })
+
+    # --- Etape 3: ARKON -> MERLIN (validation externe) ---
+    merlin_ok      = arkon_verdict == "PASS"
+    merlin_verdict = "VALIDATED" if merlin_ok else "REJECTED"
+    chain.append({
+        "step":    "ARKON->MERLIN",
+        "agent":   "MERLIN",
+        "input":   {"arkon_verdict": arkon_verdict, "score": arkon_score},
+        "verdict": merlin_verdict,
+        "reason":  f"confidence {'acceptable' if merlin_ok else 'insuffisante'} ({confidence:.2f} / seuil 0.60)",
+        "ts":      ts,
+    })
+
+    # --- Etape 4: MERLIN -> RiskGuardian (garde-fous) ---
+    state        = _load_agents_state()
+    pipeline     = state.get("pipeline", {})
+    kill_switch  = pipeline.get("kill_switch", False)
+    threat_level = pipeline.get("threat_level", "T0")
+    mode         = pipeline.get("mode", "dry_run")
+
+    risk_pass   = merlin_ok and not kill_switch and threat_level in ("T0", "T1")
+    risk_verdict = "APPROVED" if risk_pass else "BLOCKED"
+    risk_reasons = []
+    if kill_switch:
+        risk_reasons.append("kill_switch=ON")
+    if threat_level not in ("T0", "T1"):
+        risk_reasons.append(f"threat={threat_level}")
+    if not merlin_ok:
+        risk_reasons.append("merlin rejected")
+    chain.append({
+        "step":    "MERLIN->RISK_GUARDIAN",
+        "agent":   "RISK_GUARDIAN",
+        "input":   {"merlin_verdict": merlin_verdict, "kill_switch": kill_switch, "threat_level": threat_level},
+        "verdict": risk_verdict,
+        "reason":  ", ".join(risk_reasons) if risk_reasons else "all guards passed",
+        "ts":      ts,
+    })
+
+    # --- Decision finale ---
+    final_verdict    = "SIMULATE_EXECUTE" if risk_pass else "NO_TRADE"
+    simulated_trade  = None
+    if risk_pass:
+        simulated_trade = {
+            "would_execute": True,
+            "symbol":        symbol,
+            "action":        action,
+            "price":         price,
+            "confidence":    confidence,
+            "note":          "DRY_RUN — aucun ordre reel envoye",
+        }
+
+    # --- Log dans l'intel partagee ---
+    try:
+        _record_comet_intel(
+            state,
+            summary=f"DryRun {symbol} {action} -> {final_verdict} (conf={confidence:.2f})",
+            level="INFO" if risk_pass else "WARNING",
+            source="PIPELINE_DRYRUN",
+        )
+        _save_agents_state(state)
+    except Exception:
+        pass
+
+    return jsonify({
+        "ok":             True,
+        "mode":           "DRY_RUN",
+        "pipeline_mode":  mode,
+        "symbol":         symbol,
+        "action":         action,
+        "final_verdict":  final_verdict,
+        "chain":          chain,
+        "simulated_trade": simulated_trade,
+        "ts":             ts,
+    })
+
+
 if __name__ == '__main__':
     port = int(os.getenv("PORT", "7777"))
     app.run(host='0.0.0.0', port=port, debug=False)

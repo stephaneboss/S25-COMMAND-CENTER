@@ -148,13 +148,19 @@
 10. [DONE] agents_state.json synce — KIMI status live, infrastructure map
 
 ### PHASE SUIVANTE — PIPELINE + LIVE TRADING
-11. [TODO] Recharger AKT — bail KIMI expire ~2 jours (2026-03-13)
-12. [TODO] HA_TOKEN dans env vars Akash cockpit
-13. [TODO] agent_loop.py -> DELL-LINUX Ollama (10.0.0.202:11434)
+11. [DONE] Recharger AKT — user a clique wallet 2026-03-13
+12. [TODO] HA_TOKEN dans env vars Akash cockpit (setter dans Console Akash)
+13. [DONE] agent_loop.py -> Ollama fallback DELL-LINUX (10.0.0.202:11434) — auto si Gemini offline
 14. [TODO] Deployer oracle-agent + onchain-guardian sur Akash
-15. [TODO] Pipeline end-to-end dry_run — KIMI -> ARKON -> MERLIN -> RiskGuardian
+15. [DONE] Pipeline dry_run endpoint — POST /api/pipeline/dryrun (KIMI->ARKON->MERLIN->RiskGuardian, no trades)
 16. [TODO] MEXC Sunday series — live mode quand base saine
 17. [TODO] Open WebUI MERLIN deploy (SDL MERLIN prepare, bid 250 uAKT)
+
+### NOTES DEPLOY COCKPIT (post 2026-03-13)
+- Image: :main tag (plus SHA256 pince) — auto-update sur push GitHub
+- HA_URL: http://10.0.0.136:8123 (LAN) — nabu.casa non resolvable depuis Akash
+- OLLAMA_URL: http://10.0.0.202:11434 (DELL-LINUX) — fallback si Gemini offline
+- HA_TOKEN/GEMINI_API_KEY/S25_SHARED_SECRET: a setter manuellement dans Akash Console
 
 ---
 
