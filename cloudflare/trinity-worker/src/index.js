@@ -1355,6 +1355,17 @@ async function deriveRuntimeBridge(env, requestId) {
   const status = statusResult.status === "fulfilled" ? statusResult.value : {};
   const memory = memoryResult.status === "fulfilled" ? memoryResult.value?.state || {} : {};
   const runtimeBridge = memory.runtime_bridge || status.runtime_bridge || {};
+  const agents = memory.agents || {};
+  const missionsActive =
+    Array.isArray(memory.missions?.active) ? memory.missions.active.length : status.missions_active || 0;
+  const meshAgentsOnline =
+    status.mesh_agents_online ||
+    Object.values(agents).filter((agent) =>
+      ["online", "lateral_ready", "watch_ready", "observe", "armed"].includes(String(agent?.status || "").toLowerCase()),
+    ).length;
+  const pipelineStatus =
+    status.pipeline_status ||
+    (runtimeBridge.bridge_state === "direct_runtime_linked" ? "MESH_READY" : "unknown");
 
   return {
     title: "Runtime bridge marker",
@@ -1371,9 +1382,9 @@ async function deriveRuntimeBridge(env, requestId) {
       authority: runtimeBridge.authority_header || "x-s25-secret",
     },
     runtime_status: {
-      pipeline_status: status.pipeline_status || "unknown",
-      mesh_agents_online: status.mesh_agents_online || 0,
-      missions_active: status.missions_active || 0,
+      pipeline_status: pipelineStatus,
+      mesh_agents_online: meshAgentsOnline,
+      missions_active: missionsActive,
       trinity_agent_status: runtimeBridge.trinity_agent_status || memory.agents?.TRINITY?.status || "unknown",
     },
     gemini_layer: runtimeBridge.gemini_layer || "MERLIN / Gemini validation core",
