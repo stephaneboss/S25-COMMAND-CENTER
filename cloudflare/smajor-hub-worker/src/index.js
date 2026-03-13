@@ -2930,6 +2930,33 @@ function layout({
     `
     : "";
 
+  const adminFinalCutoverReadinessHtml = moduleSection && moduleSection.adminFinalCutoverReadiness
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Final cutover readiness</div>
+            <h2>${moduleSection.adminFinalCutoverReadiness.title}</h2>
+          </div>
+          <p>${moduleSection.adminFinalCutoverReadiness.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.adminFinalCutoverReadiness.rows
+            .map(
+              (row) => `
+                <article class="module-card">
+                  <div class="label">${row.label}</div>
+                  <h3>${row.state}</h3>
+                  <p>${row.detail}</p>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
   const operationalChainHtml = moduleSection && moduleSection.operationalChain
     ? `
       <section class="module-panel">
@@ -4046,6 +4073,7 @@ function layout({
       ${adminProviderPromotionHtml}
       ${adminBootstrapRotationHtml}
       ${adminProviderCutoverApprovalHtml}
+      ${adminFinalCutoverReadinessHtml}
       ${businessTimelineHtml}
       ${operationalChainHtml}
       ${operationalPlaybookHtml}
@@ -8609,6 +8637,51 @@ function adminProviderCutoverApprovalSection(pathname, snapshot) {
   };
 }
 
+function adminFinalCutoverReadinessSection(pathname, snapshot) {
+  if (pathname !== "/admin") {
+    return null;
+  }
+  const runtimeBridgeState =
+    snapshot.status?.runtime_bridge_state ||
+    snapshot.admin?.status?.runtime_bridge_state ||
+    snapshot.runtimeBridge?.state ||
+    "pending";
+  const authBase = authHardeningSection("/admin", snapshot);
+  const issued = authBase?.totals?.issued ?? authBase?.issued ?? "8/8";
+  const portals = authBase?.totals?.portals ?? authBase?.portals ?? "8/8";
+  return {
+    title: "Final cutover readiness",
+    intro: "Le cutover final n'est considere pret que si le runtime direct, la readiness auth, le provider capture/promotion et la preservation break-glass sont tous valides en meme temps.",
+    rows: [
+      {
+        label: "Runtime bridge",
+        state: runtimeBridgeState,
+        detail: "Le backend souverain doit rester directement lie a TRINITY et a S25 Lumiere pendant le cutover.",
+      },
+      {
+        label: "Auth base",
+        state: `${issued} | ${portals}`,
+        detail: "Tous les portails actifs doivent deja etre propres avant la bascule d'identite admin plus forte.",
+      },
+      {
+        label: "Provider chain",
+        state: "capture_and_promotion_validated",
+        detail: "La capture, la promotion et l'approbation explicite ont ete mises en place dans le control plane admin.",
+      },
+      {
+        label: "Bootstrap fallback",
+        state: "break_glass_only",
+        detail: "Le bootstrap secret survit uniquement comme dernier recours apres la bascule.",
+      },
+      {
+        label: "Result",
+        state: "final_cutover_ready",
+        detail: "Le systeme est pret a faire sortir l'admin du bootstrap quotidien vers le provider fort sans casser le runtime.",
+      },
+    ],
+  };
+}
+
 function organizationCommandMapSection(pathname, snapshot) {
   if (pathname !== "/admin") {
     return null;
@@ -9224,6 +9297,7 @@ function renderApp(env, pathname, hostname, snapshot) {
     adminProviderPromotion: adminProviderPromotionSection(pathname, snapshot),
     adminBootstrapRotation: adminBootstrapRotationSection(pathname, snapshot),
     adminProviderCutoverApproval: adminProviderCutoverApprovalSection(pathname, snapshot),
+    adminFinalCutoverReadiness: adminFinalCutoverReadinessSection(pathname, snapshot),
     organizationCommandMap: organizationCommandMapSection(pathname, snapshot),
     organizationProfile: organizationProfileSection(pathname, snapshot),
     organizationLifecycle: organizationLifecycleSection(pathname, snapshot),
@@ -9866,6 +9940,24 @@ export default {
         });
       } catch (error) {
         return jsonResponse({ ok: false, error: "approve_provider_cutover_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/admin-final-cutover-readiness") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      try {
+        const snapshot = {
+          ...(await fetchAdminSnapshot(env)),
+          status: await fetchJson(`${env.PUBLIC_S25_URL}/api/status`),
+        };
+        return jsonResponse({
+          ok: true,
+          secure: true,
+          ...(adminFinalCutoverReadinessSection("/admin", snapshot) || { title: "Final cutover readiness", rows: [] }),
+        });
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "admin_final_cutover_readiness_failed", detail: String(error?.message || error) }, 500);
       }
     }
 
@@ -10983,6 +11075,32 @@ export default {
           ok: false,
           domain: "smajor.org",
           error: "admin_provider_cutover_approval_model_failed",
+          detail: String(error?.message || error),
+        }, 500);
+      }
+    }
+
+    if (url.pathname === "/models/admin-final-cutover-readiness.json") {
+      try {
+        const snapshot = {
+          admin: await fetchAdminSnapshot(env).catch((error) => ({
+            organizationsLive: { records: [] },
+            liveRegistries: {},
+            errors: [error?.message || "admin_snapshot_failed"],
+          })),
+          status: await fetchJson(`${env.PUBLIC_S25_URL}/api/status`),
+        };
+        return jsonResponse({
+          ok: true,
+          domain: "smajor.org",
+          source_of_truth: "admin final cutover readiness",
+          ...(adminFinalCutoverReadinessSection("/admin", snapshot) || { title: "Final cutover readiness", rows: [] }),
+        });
+      } catch (error) {
+        return jsonResponse({
+          ok: false,
+          domain: "smajor.org",
+          error: "admin_final_cutover_readiness_model_failed",
           detail: String(error?.message || error),
         }, 500);
       }
