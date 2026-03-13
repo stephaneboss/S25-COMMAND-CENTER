@@ -2353,15 +2353,36 @@ async function probeUrl(url) {
 }
 
 async function handleMeshGateway(requestId, env) {
-  const [meshResult, statusResult, missionsResult] = await Promise.allSettled([
-    fetchOriginJson("/api/mesh/status", env, requestId),
+  const directOriginMemoryUrl = new URL("/api/memory/state", env.ORIGIN_BASE).toString();
+  const directOriginStatusUrl = new URL("/api/status", env.ORIGIN_BASE).toString();
+  const [statusResult, missionsResult, memoryResult, publicMemoryResult, directOriginMemoryResult, directOriginStatusResult] = await Promise.allSettled([
     fetchOriginJson("/api/status", env, requestId),
     fetchOriginJson("/api/missions", env, requestId),
+    fetchOriginJson("/api/memory/state", env, requestId),
+    fetchPublicRuntimeJson("/api/memory/state", env, requestId),
+    probeJson(directOriginMemoryUrl),
+    probeJson(directOriginStatusUrl),
   ]);
-  const meshPayload = meshResult.status === "fulfilled" ? meshResult.value : { mesh: { agents: {} } };
-  const statusPayload = statusResult.status === "fulfilled" ? statusResult.value : {};
+  const originStatusPayload = statusResult.status === "fulfilled" ? statusResult.value : {};
   const missionsPayload = missionsResult.status === "fulfilled" ? missionsResult.value : { active: [] };
-  const liveAgents = meshPayload?.mesh?.agents || {};
+  const originMemoryPayload = memoryResult.status === "fulfilled" ? memoryResult.value : { state: { agents: {} } };
+  const publicMemoryPayload = publicMemoryResult.status === "fulfilled" ? publicMemoryResult.value : { state: { agents: {} } };
+  const directOriginMemoryPayload =
+    directOriginMemoryResult.status === "fulfilled" && directOriginMemoryResult.value?.ok
+      ? directOriginMemoryResult.value.payload
+      : { state: { agents: {} } };
+  const directOriginStatusPayload =
+    directOriginStatusResult.status === "fulfilled" && directOriginStatusResult.value?.ok
+      ? directOriginStatusResult.value.payload
+      : {};
+  const memoryPayload =
+    Object.keys(originMemoryPayload?.state?.agents || {}).length
+      ? originMemoryPayload
+      : Object.keys(directOriginMemoryPayload?.state?.agents || {}).length
+        ? directOriginMemoryPayload
+        : publicMemoryPayload;
+  const statusPayload = Object.keys(originStatusPayload || {}).length ? originStatusPayload : directOriginStatusPayload;
+  const liveAgents = memoryPayload?.state?.agents || {};
   const roster = OMEGA_AGENT_ORDER.map((name) => {
     const runtime = liveAgents[name] || {};
     const matrix = OMEGA_AGENT_MATRIX[name] || {};
@@ -2379,7 +2400,15 @@ async function handleMeshGateway(requestId, env) {
   const onlineCount = roster.filter((agent) => !["offline", "unknown"].includes(agent.status)).length;
   const readiness = onlineCount >= 12 ? "mesh_total" : onlineCount >= 8 ? "mesh_partial" : "mesh_fragile";
   return jsonResponse({
-    ...(meshPayload || {}),
+    ok: true,
+    request_id: requestId,
+    source: "s25_memory_runtime",
+    mesh: {
+      agents: liveAgents,
+      intel_entries: memoryPayload?.state?.intel?.comet_feed?.length || 0,
+      missions_active: missionsPayload?.active?.length || 0,
+      pipeline: memoryPayload?.state?.pipeline || null,
+    },
     omega: {
       protocol: "S25_OMEGA_PROTOCOL",
       readiness,
