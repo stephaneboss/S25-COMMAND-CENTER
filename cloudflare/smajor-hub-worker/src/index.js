@@ -6511,7 +6511,7 @@ function adminActionSection(pathname) {
     columns: [
       {
         label: "Read",
-        items: ["/admin/api/live-registries", "/admin/api/operator-roster", "/admin/api/business-timeline", "/admin/api/operational-chain", "/admin/api/operational-playbook"],
+        items: ["/admin/api/live-registries", "/admin/api/operator-roster", "/admin/api/business-timeline", "/admin/api/operational-chain", "/admin/api/operational-playbook", "/admin/api/organization-control-panel"],
       },
       {
         label: "Write",
@@ -7427,6 +7427,75 @@ function organizationLifecycleSection(pathname, snapshot) {
   };
 }
 
+function organizationControlPanelSection(pathname, snapshot) {
+  if (pathname !== "/admin") {
+    return null;
+  }
+  const organizations = snapshot.admin?.organizationsLive?.records || [];
+  const business = snapshot.admin?.liveRegistries || snapshot.business || {};
+  const clients = business.clients || business.clients?.records || [];
+  const jobs = business.jobs || business.jobs?.records || [];
+  const billing = business.quotes_invoices || business.quotes_invoices?.records || [];
+  const identities = business.identities || business.identities?.records || [];
+  const links = business.organization_links || [];
+  const events = snapshot.admin?.businessTimeline?.records || business.events || [];
+  const lanes = snapshot.admin?.tradingLaneMetrics?.lanes || [];
+
+  const rows = organizations.slice(0, 6).map((organization) => {
+    const orgClients = clients.filter((client) => client.organization_id === organization.organization_id);
+    const orgJobs = jobs.filter((job) => job.organization_id === organization.organization_id);
+    const orgBilling = billing.filter((entry) => entry.organization_id === organization.organization_id);
+    const orgIdentities = identities.filter((identity) => identity.organization_id === organization.organization_id);
+    const orgEvents = events.filter((event) => (event?.metadata || {}).organization_id === organization.organization_id);
+    const orgLinks = links.filter((link) => link.organization_id === organization.organization_id);
+    const laneLink = orgLinks.find((link) => link.link_type === "trade_lane_assignment") || null;
+    const lane = laneLink ? lanes.find((item) => item.lane_id === laneLink.lane_id) || null : null;
+    const stage = orgClients.length === 0
+      ? "create"
+      : orgJobs.length === 0
+        ? "onboard"
+        : orgBilling.length === 0
+          ? "operate"
+          : !orgEvents.some((event) => String(event.event_type || "").includes("access_issued"))
+            ? "access"
+            : orgLinks.length === 0
+              ? "govern"
+              : "runtime_live";
+    const nextAction = stage === "create"
+      ? "create_client_pipeline"
+      : stage === "onboard"
+        ? "create_job"
+        : stage === "operate"
+          ? "issue_invoice"
+          : stage === "access"
+            ? "issue_portal_access"
+            : stage === "govern"
+              ? "assign_trade_lane"
+              : "monitor_account";
+    return {
+      title: organization.organization_name || organization.organization_id,
+      items: [
+        `organization=${organization.organization_id}`,
+        `stage=${stage}`,
+        `next_action=${nextAction}`,
+        `clients=${orgClients.length}`,
+        `jobs=${orgJobs.length}`,
+        `billing=${orgBilling.length}`,
+        `identities=${orgIdentities.length}`,
+        `bindings=${orgLinks.length}`,
+        `trade_lane=${lane?.lane_id || laneLink?.lane_id || "unassigned"}`,
+        `last_event=${orgEvents[0]?.event_type || "--"}`,
+      ],
+    };
+  });
+
+  return {
+    title: "Organization control panel",
+    intro: "Vue unique par organisation: lifecycle, binds, lane runtime et prochaine action. Le pilotage se fait par organisation, pas par fragments.",
+    rows,
+  };
+}
+
 function deriveOperationalAction(client, identity, jobs, billing, events) {
   const clientJobs = jobs.filter((item) => item.client_id === client.client_id);
   const clientBilling = billing.filter((item) => item.client_id === client.client_id);
@@ -7746,6 +7815,7 @@ function renderApp(env, pathname, hostname, snapshot) {
     organizationCommandMap: organizationCommandMapSection(pathname, snapshot),
     organizationProfile: organizationProfileSection(pathname, snapshot),
     organizationLifecycle: organizationLifecycleSection(pathname, snapshot),
+    organizationControlPanel: organizationControlPanelSection(pathname, snapshot),
     organizationActionKit: organizationActionKitSection(pathname),
     businessTimeline: businessTimelineSection(pathname, snapshot),
     operationalChain: operationalChainSection(pathname, snapshot),
@@ -7998,6 +8068,21 @@ export default {
         });
       } catch (error) {
         return jsonResponse({ ok: false, error: "admin_operational_playbook_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/organization-control-panel") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      try {
+        const snapshot = await fetchAdminSnapshot(env);
+        return jsonResponse({
+          ok: true,
+          secure: true,
+          ...(organizationControlPanelSection("/admin", snapshot) || { title: "Organization control panel", rows: [] }),
+        });
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "admin_organization_control_panel_failed", detail: String(error?.message || error) }, 500);
       }
     }
 
@@ -8716,6 +8801,24 @@ export default {
         domain: "smajor.org",
         source_of_truth: "organization-first durable lifecycle",
         ...(organizationLifecycleSection("/admin", snapshot) || { title: "Organization lifecycle", rows: [] }),
+      });
+    }
+
+    if (url.pathname === "/models/organization-control-panel.json") {
+      const snapshot = {
+        admin: await fetchAdminSnapshot(env).catch((error) => ({
+          organizationsLive: { records: [] },
+          liveRegistries: {},
+          businessTimeline: { records: [] },
+          tradingLaneMetrics: { lanes: [] },
+          errors: [error?.message || "admin_snapshot_failed"],
+        })),
+      };
+      return jsonResponse({
+        ok: true,
+        domain: "smajor.org",
+        source_of_truth: "organization-first durable command panel",
+        ...(organizationControlPanelSection("/admin", snapshot) || { title: "Organization control panel", rows: [] }),
       });
     }
 
