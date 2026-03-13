@@ -42,6 +42,22 @@ def replace_env_line(text: str, key: str, value: str) -> str:
     return "\n".join(updated) + "\n"
 
 
+def replace_image(text: str, image: str) -> str:
+    marker = "    image: "
+    lines = text.splitlines()
+    updated = []
+    replaced = False
+    for line in lines:
+        if line.startswith(marker):
+            updated.append(f"{marker}{image}")
+            replaced = True
+        else:
+            updated.append(line)
+    if not replaced:
+        raise ValueError("Could not find image line in template")
+    return "\n".join(updated) + "\n"
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Render Akash cockpit manifest with secrets from the S25 vault")
     parser.add_argument(
@@ -54,6 +70,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Output YAML path. Defaults to a temp file outside the repo.",
     )
     parser.add_argument("--env-file", default=".env", help="Fallback env file path")
+    parser.add_argument("--image", help="Override container image reference")
     return parser
 
 
@@ -68,6 +85,9 @@ def main() -> int:
 
     template_path = Path(args.template)
     rendered = template_path.read_text(encoding="utf-8").replace("\r\n", "\n")
+
+    if args.image:
+        rendered = replace_image(rendered, args.image.strip())
 
     for key in REQUIRED_KEYS:
         rendered = replace_env_line(rendered, key, normalize_secret(key, vault.require(key)))
