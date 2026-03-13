@@ -20,6 +20,11 @@ if [ "${S25_BOOTSTRAP_GOOGLE_SECRETS:-false}" = "true" ]; then
   bootstrap_google_secrets
 fi
 
+if [ "${RUN_AGENT_LOOP:-false}" = "true" ]; then
+  echo "[S25] starting agent-loop (prix 5min / F&G 15min / Reddit 30min / rapport 60min)"
+  python -m agents.agent_loop &
+fi
+
 if [ "${RUN_ORACLE_AGENT:-false}" = "true" ]; then
   echo "[S25] starting oracle-agent"
   python -m agents.oracle_agent &

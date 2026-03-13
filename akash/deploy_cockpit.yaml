@@ -34,6 +34,7 @@ services:
       - BUILD=20260313h
       - OLLAMA_URL=http://10.0.0.202:11434
       - OLLAMA_MODEL=llama3:latest
+      - RUN_AGENT_LOOP=true
       - RUN_ORACLE_AGENT=true
       - RUN_ONCHAIN_GUARDIAN=true
       - ORACLE_POLL_SECONDS=300

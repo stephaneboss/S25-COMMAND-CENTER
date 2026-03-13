@@ -1583,6 +1583,106 @@ def api_memory_ping():
     return jsonify({"ok": False, "error": f"Agent {agent} inconnu"}), 404
 
 
+@app.route('/api/intel', methods=['POST'])
+def api_intel():
+    """
+    Reception d'intel depuis agent_loop.py, oracle_agent, KIMI, etc.
+    Endpoint public leger — authentification par secret optionnel.
+    Stocke dans comet_feed pour cross-agent consumption.
+
+    Body JSON: {source, summary, level, details}
+    """
+    body    = request.get_json(silent=True) or {}
+    source  = body.get("source", "UNKNOWN")[:50]
+    summary = body.get("summary", "")[:500]
+    level   = body.get("level", "INFO")
+    details = body.get("details", "")[:500]
+
+    state = _load_agents_state()
+    entry = _record_comet_intel(state, summary=summary, level=level, source=source)
+    # Aussi mettre a jour le compteur intel
+    state.setdefault("intel", {})["last_source"] = source
+    state["intel"]["last_level"] = level
+    _save_agents_state(state)
+
+    return jsonify({"ok": True, "entry": entry})
+
+
+@app.route('/api/signal', methods=['POST'])
+def api_signal():
+    """
+    Reception d'un signal de trading depuis agent_loop.py, KIMI, ou ORACLE.
+    Auto-evalue via pipeline (dry_run) et stocke le resultat.
+    Ne execute AUCUN trade — simulation uniquement tant que mode=dry_run.
+
+    Body JSON: {action, symbol, confidence, price, reason, source}
+    """
+    body       = request.get_json(silent=True) or {}
+    action     = body.get("action", "HOLD").upper()
+    symbol     = body.get("symbol", "BTC/USDT")
+    confidence = float(body.get("confidence", 0.5))
+    price      = float(body.get("price", 0.0))
+    reason     = body.get("reason", "")[:300]
+    source     = body.get("source", "AGENT")
+
+    state    = _load_agents_state()
+    pipeline = state.get("pipeline", {})
+    ts       = _utcnow_iso()
+
+    # Evaluation automatique pipeline
+    kill_switch  = pipeline.get("kill_switch", False)
+    threat_level = pipeline.get("threat_level", "T0")
+    mode         = pipeline.get("mode", "dry_run")
+
+    arkon_pass   = confidence >= 0.60
+    risk_pass    = arkon_pass and not kill_switch and threat_level in ("T0", "T1")
+    verdict      = "SIMULATE_EXECUTE" if risk_pass else "NO_TRADE"
+
+    # Persister le dernier signal
+    pipeline["last_signal"] = {
+        "symbol":     symbol,
+        "action":     action,
+        "confidence": confidence,
+        "price":      price,
+        "reason":     reason,
+        "source":     source,
+        "verdict":    verdict,
+        "ts":         ts,
+    }
+    state["pipeline"] = pipeline
+
+    # Mettre a jour agent source si connu
+    agent_key = source.upper()
+    if agent_key in state.get("agents", {}):
+        state["agents"][agent_key]["last_seen"] = ts
+
+    # Log intel
+    level_log = "INFO" if verdict == "SIMULATE_EXECUTE" else "WARNING"
+    _record_comet_intel(
+        state,
+        summary=f"Signal {source}: {symbol} {action} conf={confidence:.2f} -> {verdict}",
+        level=level_log,
+        source=source,
+    )
+    _save_agents_state(state)
+
+    return jsonify({
+        "ok":       True,
+        "mode":     mode,
+        "symbol":   symbol,
+        "action":   action,
+        "verdict":  verdict,
+        "pipeline": {
+            "kill_switch":  kill_switch,
+            "threat_level": threat_level,
+            "confidence":   confidence,
+            "arkon_pass":   arkon_pass,
+            "risk_pass":    risk_pass,
+        },
+        "ts": ts,
+    })
+
+
 @app.route('/api/pipeline/dryrun', methods=['POST'])
 def api_pipeline_dryrun():
     """
