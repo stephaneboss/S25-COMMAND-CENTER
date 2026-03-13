@@ -2517,6 +2517,60 @@ function layout({
     `
     : "";
 
+  const organizationTeamBoardHtml = moduleSection && moduleSection.organizationTeamBoard
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Organization team board</div>
+            <h2>${moduleSection.organizationTeamBoard.title}</h2>
+          </div>
+          <p>${moduleSection.organizationTeamBoard.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.organizationTeamBoard.rows
+            .map(
+              (row) => `
+                <article class="module-card">
+                  <div class="label">${row.title}</div>
+                  <p class="muted">${row.detail}</p>
+                  <div class="label">${row.timestamp}</div>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
+  const organizationAuthReadinessHtml = moduleSection && moduleSection.organizationAuthReadiness
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Organization auth readiness</div>
+            <h2>${moduleSection.organizationAuthReadiness.title}</h2>
+          </div>
+          <p>${moduleSection.organizationAuthReadiness.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.organizationAuthReadiness.rows
+            .map(
+              (row) => `
+                <article class="module-card">
+                  <div class="label">${row.title}</div>
+                  <p class="muted">${row.detail}</p>
+                  <div class="label">${row.timestamp}</div>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
   const operationalChainHtml = moduleSection && moduleSection.operationalChain
     ? `
       <section class="module-panel">
@@ -3618,6 +3672,8 @@ function layout({
       ${organizationProfileHtml}
       ${organizationLifecycleHtml}
       ${organizationActionKitHtml}
+      ${organizationTeamBoardHtml}
+      ${organizationAuthReadinessHtml}
       ${businessTimelineHtml}
       ${operationalChainHtml}
       ${operationalPlaybookHtml}
@@ -7485,6 +7541,33 @@ function organizationTeamBoardSection(pathname, snapshot) {
   };
 }
 
+function organizationAuthReadinessSection(pathname, snapshot) {
+  if (pathname !== "/admin") {
+    return null;
+  }
+  const organizations = snapshot.admin?.organizationsLive?.records || [];
+  const business = snapshot.admin?.liveRegistries || snapshot.business || {};
+  const clients = business.clients || business.clients?.records || [];
+  const identities = business.identities || business.identities?.records || [];
+  const rows = organizations.slice(0, 6).map((organization) => {
+    const orgClients = clients.filter((client) => client.organization_id === organization.organization_id);
+    const orgIdentities = identities.filter((identity) => identity.organization_id === organization.organization_id);
+    const liveClientPortals = orgClients.filter((client) => client.portal_state === "live").length;
+    const issuedCredentials = orgIdentities.filter((identity) => identity.credential_state === "issued").length;
+    const liveIdentityPortals = orgIdentities.filter((identity) => identity.portal_state === "live").length;
+    return {
+      title: organization.organization_name || organization.organization_id,
+      detail: `client_portals=${liveClientPortals}/${orgClients.length} | credentials=${issuedCredentials}/${orgIdentities.length} | identity_portals=${liveIdentityPortals}/${orgIdentities.length}`,
+      timestamp: organization.updated_at || organization.last_activity_at || "--",
+    };
+  });
+  return {
+    title: "Organization auth readiness",
+    intro: "Lecture readiness avant vraie prod: credentials et portails doivent etre vivants par organisation, pas seulement au niveau global.",
+    rows,
+  };
+}
+
 function organizationCommandMapSection(pathname, snapshot) {
   if (pathname !== "/admin") {
     return null;
@@ -8085,6 +8168,8 @@ function renderApp(env, pathname, hostname, snapshot) {
     organizationRegistry: organizationRegistrySection(pathname, snapshot),
     backendLedger: backendLedgerSection(pathname, snapshot),
     organizationTreasury: organizationTreasurySection(pathname, snapshot),
+    organizationTeamBoard: organizationTeamBoardSection(pathname, snapshot),
+    organizationAuthReadiness: organizationAuthReadinessSection(pathname, snapshot),
     organizationCommandMap: organizationCommandMapSection(pathname, snapshot),
     organizationProfile: organizationProfileSection(pathname, snapshot),
     organizationLifecycle: organizationLifecycleSection(pathname, snapshot),
@@ -9137,6 +9222,22 @@ export default {
         domain: "smajor.org",
         source_of_truth: "organization-first team and vendor governance board",
         ...(organizationTeamBoardSection("/admin", snapshot) || { title: "Organization team board", rows: [] }),
+      });
+    }
+
+    if (url.pathname === "/models/organization-auth-readiness.json") {
+      const snapshot = {
+        admin: await fetchAdminSnapshot(env).catch((error) => ({
+          organizationsLive: { records: [] },
+          liveRegistries: {},
+          errors: [error?.message || "admin_snapshot_failed"],
+        })),
+      };
+      return jsonResponse({
+        ok: true,
+        domain: "smajor.org",
+        source_of_truth: "organization-first auth readiness board",
+        ...(organizationAuthReadinessSection("/admin", snapshot) || { title: "Organization auth readiness", rows: [] }),
       });
     }
 
