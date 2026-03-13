@@ -6515,7 +6515,7 @@ function adminActionSection(pathname) {
       },
       {
         label: "Write",
-        items: ["/admin/api/create-client", "/admin/api/create-job", "/admin/api/issue-invoice", "/admin/api/issue-vendor-access", "/admin/api/assign-organization-staff", "/admin/api/assign-organization-vendor", "/admin/api/assign-organization-lane", "/admin/api/execute-playbook"],
+        items: ["/admin/api/create-client", "/admin/api/create-job", "/admin/api/issue-invoice", "/admin/api/issue-vendor-access", "/admin/api/assign-organization-staff", "/admin/api/assign-organization-vendor", "/admin/api/assign-organization-lane", "/admin/api/execute-playbook", "/admin/api/execute-organization-control"],
       },
       {
         label: "Rule",
@@ -6547,6 +6547,11 @@ function organizationActionKitSection(pathname) {
         label: "Assign trade lane",
         endpoint: "/admin/api/assign-organization-lane",
         fields: ["organization_id", "lane_id", "policy_state"],
+      },
+      {
+        label: "Execute lifecycle step",
+        endpoint: "/admin/api/execute-organization-control",
+        fields: ["organization_id", "action_hint"],
       },
     ],
   };
@@ -8083,6 +8088,31 @@ export default {
         });
       } catch (error) {
         return jsonResponse({ ok: false, error: "admin_organization_control_panel_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/execute-organization-control") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      if (request.method !== "POST") {
+        return jsonResponse({ ok: false, error: "method_not_allowed" }, 405);
+      }
+      try {
+        const body = await request.json().catch(() => ({}));
+        return await executeOperationalPlaybook(
+          new Request("https://app.smajor.org/admin/api/execute-playbook", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              ...body,
+              domain: "organizations",
+              target_id: body.target_id || body.organization_id,
+            }),
+          }),
+          env,
+        );
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "admin_execute_organization_control_failed", detail: String(error?.message || error) }, 500);
       }
     }
 
