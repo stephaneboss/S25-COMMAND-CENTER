@@ -2822,6 +2822,33 @@ function layout({
     `
     : "";
 
+  const adminProviderCaptureHtml = moduleSection && moduleSection.adminProviderCapture
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Provider assertion capture</div>
+            <h2>${moduleSection.adminProviderCapture.title}</h2>
+          </div>
+          <p>${moduleSection.adminProviderCapture.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.adminProviderCapture.rows
+            .map(
+              (row) => `
+                <article class="module-card">
+                  <div class="label">${row.label}</div>
+                  <h3>${row.state}</h3>
+                  <p>${row.detail}</p>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
   const operationalChainHtml = moduleSection && moduleSection.operationalChain
     ? `
       <section class="module-panel">
@@ -3934,6 +3961,7 @@ function layout({
       ${adminProviderCutoverHtml}
       ${adminIdpBindingHtml}
       ${adminProviderAssertionHtml}
+      ${adminProviderCaptureHtml}
       ${businessTimelineHtml}
       ${operationalChainHtml}
       ${operationalPlaybookHtml}
@@ -8323,6 +8351,54 @@ function adminProviderAssertionSection(pathname, snapshot) {
   };
 }
 
+function adminProviderCaptureSection(pathname, snapshot) {
+  if (pathname !== "/admin") {
+    return null;
+  }
+  const runtimeBridgeState =
+    snapshot.status?.runtime_bridge_state ||
+    snapshot.admin?.status?.runtime_bridge_state ||
+    snapshot.runtimeBridge?.state ||
+    "pending";
+  const hardening = authHardeningSection("/admin", snapshot);
+  const hardeningItems = hardening?.columns?.find((column) => column.label === "Current state")?.items || [];
+  const issuedState =
+    hardeningItems.find((item) => item.startsWith("identity_credentials_issued="))?.split("=")[1] || "0/0";
+  const liveState =
+    hardeningItems.find((item) => item.startsWith("identity_portals_live="))?.split("=")[1] || "0/0";
+  return {
+    title: "Provider assertion capture",
+    intro: "Derniere etape avant une bascule admin forte: capturer une assertion provider, garder le bootstrap en break-glass et journaliser la trace de cutover.",
+    rows: [
+      {
+        label: "Operator",
+        state: "ident-major-stef-001",
+        detail: "L'assertion doit etre attachee au scope founder_scope sans casser le RBAC organization-first.",
+      },
+      {
+        label: "Capture target",
+        state: "external_idp_assertion",
+        detail: "Le provider externe doit fournir une preuve forte et auditable, pas juste un bearer portal.",
+      },
+      {
+        label: "Runtime gate",
+        state: runtimeBridgeState,
+        detail: "La ligne directe TRINITY/S25 doit rester en direct pendant toute la capture.",
+      },
+      {
+        label: "Auth base",
+        state: `${issuedState} | ${liveState}`,
+        detail: "La base identitaire active est propre. Le bootstrap reste seulement en secours tant que l'assertion n'est pas promue.",
+      },
+      {
+        label: "Activation route",
+        state: "staged_capture_ready",
+        detail: "La route securisee capture l'intention maintenant, sans remplacer encore la session admin active.",
+      },
+    ],
+  };
+}
+
 function organizationCommandMapSection(pathname, snapshot) {
   if (pathname !== "/admin") {
     return null;
@@ -8934,6 +9010,7 @@ function renderApp(env, pathname, hostname, snapshot) {
     adminProviderCutover: adminProviderCutoverSection(pathname, snapshot),
     adminIdpBinding: adminIdpBindingSection(pathname, snapshot),
     adminProviderAssertion: adminProviderAssertionSection(pathname, snapshot),
+    adminProviderCapture: adminProviderCaptureSection(pathname, snapshot),
     organizationCommandMap: organizationCommandMapSection(pathname, snapshot),
     organizationProfile: organizationProfileSection(pathname, snapshot),
     organizationLifecycle: organizationLifecycleSection(pathname, snapshot),
@@ -9406,6 +9483,49 @@ export default {
         });
       } catch (error) {
         return jsonResponse({ ok: false, error: "activate_admin_provider_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/admin-provider-capture") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      try {
+        const snapshot = {
+          ...(await fetchAdminSnapshot(env)),
+          status: await fetchJson(`${env.PUBLIC_S25_URL}/api/status`),
+        };
+        return jsonResponse({
+          ok: true,
+          secure: true,
+          ...(adminProviderCaptureSection("/admin", snapshot) || { title: "Provider assertion capture", rows: [] }),
+        });
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "admin_provider_capture_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/capture-provider-assertion") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      if (request.method !== "POST") {
+        return jsonResponse({ ok: false, error: "method_not_allowed" }, 405);
+      }
+      try {
+        const body = await request.json().catch(() => ({}));
+        const status = await fetchJson(`${env.PUBLIC_S25_URL}/api/status`);
+        return jsonResponse({
+          ok: true,
+          secure: true,
+          mode: "staged_capture",
+          operator_id: body.operator_id || "ident-major-stef-001",
+          provider: body.provider || "external_idp",
+          assertion_ref: body.assertion_ref || "pending_capture",
+          runtime_bridge: status.runtime_bridge_state || "pending",
+          next: "provider_assertion_review",
+          note: "Capture staged only. L'assertion est enregistree comme intention de cutover sans promotion immediate.",
+        });
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "capture_provider_assertion_failed", detail: String(error?.message || error) }, 500);
       }
     }
 
@@ -10419,6 +10539,32 @@ export default {
           ok: false,
           domain: "smajor.org",
           error: "admin_provider_assertion_model_failed",
+          detail: String(error?.message || error),
+        }, 500);
+      }
+    }
+
+    if (url.pathname === "/models/admin-provider-capture.json") {
+      try {
+        const snapshot = {
+          admin: await fetchAdminSnapshot(env).catch((error) => ({
+            organizationsLive: { records: [] },
+            liveRegistries: {},
+            errors: [error?.message || "admin_snapshot_failed"],
+          })),
+          status: await fetchJson(`${env.PUBLIC_S25_URL}/api/status`),
+        };
+        return jsonResponse({
+          ok: true,
+          domain: "smajor.org",
+          source_of_truth: "admin provider assertion capture",
+          ...(adminProviderCaptureSection("/admin", snapshot) || { title: "Provider assertion capture", rows: [] }),
+        });
+      } catch (error) {
+        return jsonResponse({
+          ok: false,
+          domain: "smajor.org",
+          error: "admin_provider_capture_model_failed",
           detail: String(error?.message || error),
         }, 500);
       }
