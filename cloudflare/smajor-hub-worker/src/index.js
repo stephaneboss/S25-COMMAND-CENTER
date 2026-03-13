@@ -2768,6 +2768,33 @@ function layout({
     `
     : "";
 
+  const adminIdpBindingHtml = moduleSection && moduleSection.adminIdpBinding
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Admin IDP binding</div>
+            <h2>${moduleSection.adminIdpBinding.title}</h2>
+          </div>
+          <p>${moduleSection.adminIdpBinding.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.adminIdpBinding.rows
+            .map(
+              (row) => `
+                <article class="module-card">
+                  <div class="label">${row.label}</div>
+                  <h3>${row.state}</h3>
+                  <p>${row.detail}</p>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
   const operationalChainHtml = moduleSection && moduleSection.operationalChain
     ? `
       <section class="module-panel">
@@ -3878,6 +3905,7 @@ function layout({
       ${identityRolloutHtml}
       ${adminProviderReadinessHtml}
       ${adminProviderCutoverHtml}
+      ${adminIdpBindingHtml}
       ${businessTimelineHtml}
       ${operationalChainHtml}
       ${operationalPlaybookHtml}
@@ -8177,6 +8205,49 @@ function adminProviderCutoverSection(pathname, snapshot) {
   };
 }
 
+function adminIdpBindingSection(pathname, snapshot) {
+  if (pathname !== "/admin") {
+    return null;
+  }
+  const runtimeBridgeState =
+    snapshot.status?.runtime_bridge_state ||
+    snapshot.admin?.status?.runtime_bridge_state ||
+    snapshot.runtimeBridge?.state ||
+    "pending";
+  const identityBinding = adminIdentityBindingSection("/admin", snapshot);
+  const authHardening = authHardeningSection("/admin", snapshot);
+  const currentStateItems = authHardening?.columns?.find((column) => column.label === "Current state")?.items || [];
+  const readiness =
+    currentStateItems.find((item) => item.startsWith("identity_credentials_issued="))?.split("=")[1] ||
+    "0/0";
+  return {
+    title: "Admin IDP binding readiness",
+    intro: "Preparation de la liaison finale entre l'admin operateur et un vrai provider d'identite plus fort que le bootstrap secret.",
+    rows: [
+      {
+        label: "Operator identity",
+        state: identityBinding?.operatorId || "pending",
+        detail: `scope=${identityBinding?.scopeId || "founder_scope"} | session=${identityBinding?.sessionMode || "hs256_signed_operator_session"}`,
+      },
+      {
+        label: "Runtime bridge",
+        state: runtimeBridgeState,
+        detail: "La ligne directe S25 doit rester stable pendant toute la phase de binding.",
+      },
+      {
+        label: "Credential readiness",
+        state: readiness,
+        detail: "Les identites actives doivent deja etre propres avant la bascule admin.",
+      },
+      {
+        label: "Binding mode",
+        state: "provider_assertion_pending",
+        detail: "Le prochain pas est d'attacher l'operateur a un vrai provider, puis de releguer le bootstrap en break-glass only.",
+      },
+    ],
+  };
+}
+
 function organizationCommandMapSection(pathname, snapshot) {
   if (pathname !== "/admin") {
     return null;
@@ -8786,6 +8857,7 @@ function renderApp(env, pathname, hostname, snapshot) {
     identityRollout: identityRolloutSection(pathname, snapshot),
     adminProviderReadiness: adminProviderReadinessSection(pathname, snapshot),
     adminProviderCutover: adminProviderCutoverSection(pathname, snapshot),
+    adminIdpBinding: adminIdpBindingSection(pathname, snapshot),
     organizationCommandMap: organizationCommandMapSection(pathname, snapshot),
     organizationProfile: organizationProfileSection(pathname, snapshot),
     organizationLifecycle: organizationLifecycleSection(pathname, snapshot),
@@ -9199,6 +9271,24 @@ export default {
         });
       } catch (error) {
         return jsonResponse({ ok: false, error: "admin_provider_cutover_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/admin-idp-binding") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      try {
+        const snapshot = {
+          ...(await fetchAdminSnapshot(env)),
+          status: await fetchJson(`${env.PUBLIC_S25_URL}/api/status`),
+        };
+        return jsonResponse({
+          ok: true,
+          secure: true,
+          ...(adminIdpBindingSection("/admin", snapshot) || { title: "Admin IDP binding readiness", rows: [] }),
+        });
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "admin_idp_binding_failed", detail: String(error?.message || error) }, 500);
       }
     }
 
@@ -10160,6 +10250,32 @@ export default {
           ok: false,
           domain: "smajor.org",
           error: "admin_provider_cutover_model_failed",
+          detail: String(error?.message || error),
+        }, 500);
+      }
+    }
+
+    if (url.pathname === "/models/admin-idp-binding.json") {
+      try {
+        const snapshot = {
+          admin: await fetchAdminSnapshot(env).catch((error) => ({
+            organizationsLive: { records: [] },
+            liveRegistries: {},
+            errors: [error?.message || "admin_snapshot_failed"],
+          })),
+          status: await fetchJson(`${env.PUBLIC_S25_URL}/api/status`),
+        };
+        return jsonResponse({
+          ok: true,
+          domain: "smajor.org",
+          source_of_truth: "admin idp binding readiness",
+          ...(adminIdpBindingSection("/admin", snapshot) || { title: "Admin IDP binding readiness", rows: [] }),
+        });
+      } catch (error) {
+        return jsonResponse({
+          ok: false,
+          domain: "smajor.org",
+          error: "admin_idp_binding_model_failed",
           detail: String(error?.message || error),
         }, 500);
       }
