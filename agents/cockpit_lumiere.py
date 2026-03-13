@@ -1596,7 +1596,7 @@ def api_intel():
     source  = body.get("source", "UNKNOWN")[:50]
     summary = body.get("summary", "")[:500]
     level   = body.get("level", "INFO")
-        _details = body.get("details", "")[:500]  # noqa: F841
+    _details = body.get("details", "")[:500]  # noqa: F841
 
     state = _load_agents_state()
     entry = _record_comet_intel(state, summary=summary, level=level, source=source)
