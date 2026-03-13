@@ -3173,6 +3173,33 @@ function layout({
     `
     : "";
 
+  const identityRolloutLedgerHtml = moduleSection && moduleSection.identityRolloutLedger
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Identity rollout ledger</div>
+            <h2>${moduleSection.identityRolloutLedger.title}</h2>
+          </div>
+          <p>${moduleSection.identityRolloutLedger.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.identityRolloutLedger.rows
+            .map(
+              (row) => `
+                <article class="module-card">
+                  <div class="label">${row.label}</div>
+                  <h3>${row.state}</h3>
+                  <p>${row.detail}</p>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
   const operationalChainHtml = moduleSection && moduleSection.operationalChain
     ? `
       <section class="module-panel">
@@ -4298,6 +4325,7 @@ function layout({
       ${vendorCutoverExecutionHtml}
       ${clientCutoverReadinessHtml}
       ${clientCutoverExecutionHtml}
+      ${identityRolloutLedgerHtml}
       ${businessTimelineHtml}
       ${operationalChainHtml}
       ${operationalPlaybookHtml}
@@ -4941,6 +4969,7 @@ async function fetchAdminSnapshot(env) {
     quotes_invoices: Array.isArray(registry.quotes_invoices) ? registry.quotes_invoices : [],
     identities: Array.isArray(registry.identities) ? registry.identities : [],
     events: Array.isArray(registry.events) ? registry.events : [],
+    identity_rollout: registry.identity_rollout && typeof registry.identity_rollout === "object" ? registry.identity_rollout : {},
     last_write_at: registry.last_write_at || null,
   };
   const runtimeBusiness = buildRuntimeBusinessState(business);
@@ -5064,6 +5093,7 @@ function buildRuntimeBusinessState(seed = {}) {
     quotes_invoices: Array.isArray(seed.quotes_invoices) ? seed.quotes_invoices : [],
     identities: Array.isArray(seed.identities) ? seed.identities : [],
     events: Array.isArray(seed.events) ? seed.events : [],
+    identity_rollout: seed.identity_rollout && typeof seed.identity_rollout === "object" ? seed.identity_rollout : {},
     last_write_at: seed.last_write_at || null,
   };
 }
@@ -5097,6 +5127,27 @@ function appendBusinessEvent(business, event) {
   };
   business.events = [auditEvent, ...(business.events || [])].slice(0, 120);
   return auditEvent;
+}
+
+function recordIdentityRolloutState(business, config) {
+  const now = config.timestamp || new Date().toISOString();
+  const current = business.identity_rollout && typeof business.identity_rollout === "object" ? business.identity_rollout : {};
+  business.identity_rollout = {
+    ...current,
+    [config.domain]: {
+      domain: config.domain,
+      state: config.state,
+      provider: config.provider,
+      fallback: config.fallback,
+      operator_id: config.operator_id || "ident-major-stef-001",
+      runtime_bridge: config.runtime_bridge || "pending",
+      next: config.next || null,
+      updated_at: now,
+      note: config.note || null,
+    },
+  };
+  business.last_write_at = now;
+  return business.identity_rollout[config.domain];
 }
 
 function normalizeOrganizationLabel(name, organizationId) {
@@ -9258,6 +9309,27 @@ function clientCutoverExecutionSection(pathname, snapshot) {
   };
 }
 
+function identityRolloutLedgerSection(pathname, snapshot) {
+  if (pathname !== "/admin") {
+    return null;
+  }
+  const business = snapshot.admin?.liveRegistries || snapshot.liveRegistries || snapshot.business || {};
+  const ledger = business.identity_rollout && typeof business.identity_rollout === "object" ? business.identity_rollout : {};
+  const rows = ["admin", "staff", "vendors", "clients"].map((domain) => {
+    const entry = ledger[domain] || null;
+    return {
+      label: domain,
+      state: entry?.state || "not_started",
+      detail: `provider=${entry?.provider || "--"} | fallback=${entry?.fallback || "--"} | next=${entry?.next || "--"} | updated=${entry?.updated_at || "--"}`,
+    };
+  });
+  return {
+    title: "Identity rollout ledger",
+    intro: "Ledger canonique des vagues de cutover ecrit dans le runtime S25. Chaque domaine humain laisse une trace lisible au-dela des seuls panneaux UI.",
+    rows,
+  };
+}
+
 function organizationCommandMapSection(pathname, snapshot) {
   if (pathname !== "/admin") {
     return null;
@@ -9882,6 +9954,7 @@ function renderApp(env, pathname, hostname, snapshot) {
     vendorCutoverExecution: vendorCutoverExecutionSection(pathname, snapshot),
     clientCutoverReadiness: clientCutoverReadinessSection(pathname, snapshot),
     clientCutoverExecution: clientCutoverExecutionSection(pathname, snapshot),
+    identityRolloutLedger: identityRolloutLedgerSection(pathname, snapshot),
     organizationCommandMap: organizationCommandMapSection(pathname, snapshot),
     organizationProfile: organizationProfileSection(pathname, snapshot),
     organizationLifecycle: organizationLifecycleSection(pathname, snapshot),
@@ -10572,15 +10645,41 @@ export default {
       try {
         const body = await request.json().catch(() => ({}));
         const status = await fetchJson(`${env.PUBLIC_S25_URL}/api/status`);
+        const business = await readRuntimeBusinessState(env);
+        const rollout = recordIdentityRolloutState(business, {
+          domain: "admin",
+          state: "staged_admin_cutover",
+          provider: "provider_asserted_admin_session",
+          fallback: "break_glass_only",
+          operator_id: body.operator_id || "ident-major-stef-001",
+          runtime_bridge: status.runtime_bridge_state || "pending",
+          next: "staff_vendor_client_rollout",
+          note: "Admin cutover staged from control plane.",
+        });
+        appendBusinessEvent(business, {
+          event_type: "admin_cutover_staged",
+          lane: "identity",
+          subject_type: "identity_rollout",
+          subject_id: "admin",
+          collection: "identity_rollout",
+          scope_id: "founder_scope",
+          summary: "Admin cutover staged",
+          metadata: {
+            domain: "admin",
+            provider: rollout.provider,
+            fallback: rollout.fallback,
+          },
+        });
+        await writeRuntimeBusinessState(env, business);
         return jsonResponse({
           ok: true,
           secure: true,
           mode: "staged_admin_cutover",
-          operator_id: body.operator_id || "ident-major-stef-001",
-          runtime_bridge: status.runtime_bridge_state || "pending",
-          bootstrap_mode: "break_glass_only",
-          provider_session: "provider_asserted_admin_session",
-          next: "staff_vendor_client_rollout",
+          operator_id: rollout.operator_id,
+          runtime_bridge: rollout.runtime_bridge,
+          bootstrap_mode: rollout.fallback,
+          provider_session: rollout.provider,
+          next: rollout.next,
           note: "Cutover staged only. L'admin est considere pret a sortir du bootstrap quotidien sans bascule destructive immediate.",
         });
       } catch (error) {
@@ -10651,15 +10750,41 @@ export default {
       try {
         const body = await request.json().catch(() => ({}));
         const status = await fetchJson(`${env.PUBLIC_S25_URL}/api/status`);
+        const business = await readRuntimeBusinessState(env);
+        const rollout = recordIdentityRolloutState(business, {
+          domain: "staff",
+          state: "staged_staff_cutover",
+          provider: "workforce_identity_provider",
+          fallback: "signed_staff_bearer_until_cutover_complete",
+          operator_id: body.operator_id || "ident-major-stef-001",
+          runtime_bridge: status.runtime_bridge_state || "pending",
+          next: "vendor_cutover_queue",
+          note: "Staff cutover staged from control plane.",
+        });
+        appendBusinessEvent(business, {
+          event_type: "staff_cutover_staged",
+          lane: "identity",
+          subject_type: "identity_rollout",
+          subject_id: "staff",
+          collection: "identity_rollout",
+          scope_id: "field_scope_dispatch",
+          summary: "Staff cutover staged",
+          metadata: {
+            domain: "staff",
+            provider: rollout.provider,
+            fallback: rollout.fallback,
+          },
+        });
+        await writeRuntimeBusinessState(env, business);
         return jsonResponse({
           ok: true,
           secure: true,
           mode: "staged_staff_cutover",
-          operator_id: body.operator_id || "ident-major-stef-001",
-          runtime_bridge: status.runtime_bridge_state || "pending",
-          provider: "workforce_identity_provider",
-          fallback: "signed_staff_bearer_until_cutover_complete",
-          next: "vendor_cutover_queue",
+          operator_id: rollout.operator_id,
+          runtime_bridge: rollout.runtime_bridge,
+          provider: rollout.provider,
+          fallback: rollout.fallback,
+          next: rollout.next,
           note: "Staff cutover staged only. Les portails staff sont prets a migrer vers une assertion plus forte sans rupture immediate.",
         });
       } catch (error) {
@@ -10712,15 +10837,41 @@ export default {
       try {
         const body = await request.json().catch(() => ({}));
         const status = await fetchJson(`${env.PUBLIC_S25_URL}/api/status`);
+        const business = await readRuntimeBusinessState(env);
+        const rollout = recordIdentityRolloutState(business, {
+          domain: "vendors",
+          state: "staged_vendor_cutover",
+          provider: "supplier_identity_provider",
+          fallback: "signed_vendor_bearer_until_cutover_complete",
+          operator_id: body.operator_id || "ident-major-stef-001",
+          runtime_bridge: status.runtime_bridge_state || "pending",
+          next: "client_cutover_queue",
+          note: "Vendor cutover staged from control plane.",
+        });
+        appendBusinessEvent(business, {
+          event_type: "vendor_cutover_staged",
+          lane: "identity",
+          subject_type: "identity_rollout",
+          subject_id: "vendors",
+          collection: "identity_rollout",
+          scope_id: "vendor_scope_default",
+          summary: "Vendor cutover staged",
+          metadata: {
+            domain: "vendors",
+            provider: rollout.provider,
+            fallback: rollout.fallback,
+          },
+        });
+        await writeRuntimeBusinessState(env, business);
         return jsonResponse({
           ok: true,
           secure: true,
           mode: "staged_vendor_cutover",
-          operator_id: body.operator_id || "ident-major-stef-001",
-          runtime_bridge: status.runtime_bridge_state || "pending",
-          provider: "supplier_identity_provider",
-          fallback: "signed_vendor_bearer_until_cutover_complete",
-          next: "client_cutover_queue",
+          operator_id: rollout.operator_id,
+          runtime_bridge: rollout.runtime_bridge,
+          provider: rollout.provider,
+          fallback: rollout.fallback,
+          next: rollout.next,
           note: "Vendor cutover staged only. Les portails vendor sont prets a migrer vers une assertion plus forte sans rupture immediate.",
         });
       } catch (error) {
@@ -10773,15 +10924,41 @@ export default {
       try {
         const body = await request.json().catch(() => ({}));
         const status = await fetchJson(`${env.PUBLIC_S25_URL}/api/status`);
+        const business = await readRuntimeBusinessState(env);
+        const rollout = recordIdentityRolloutState(business, {
+          domain: "clients",
+          state: "staged_client_cutover",
+          provider: "customer_identity_provider",
+          fallback: "signed_client_bearer_until_cutover_complete",
+          operator_id: body.operator_id || "ident-major-stef-001",
+          runtime_bridge: status.runtime_bridge_state || "pending",
+          next: "full_identity_rollout_complete",
+          note: "Client cutover staged from control plane.",
+        });
+        appendBusinessEvent(business, {
+          event_type: "client_cutover_staged",
+          lane: "identity",
+          subject_type: "identity_rollout",
+          subject_id: "clients",
+          collection: "identity_rollout",
+          scope_id: "client_scope_default",
+          summary: "Client cutover staged",
+          metadata: {
+            domain: "clients",
+            provider: rollout.provider,
+            fallback: rollout.fallback,
+          },
+        });
+        await writeRuntimeBusinessState(env, business);
         return jsonResponse({
           ok: true,
           secure: true,
           mode: "staged_client_cutover",
-          operator_id: body.operator_id || "ident-major-stef-001",
-          runtime_bridge: status.runtime_bridge_state || "pending",
-          provider: "customer_identity_provider",
-          fallback: "signed_client_bearer_until_cutover_complete",
-          next: "full_identity_rollout_complete",
+          operator_id: rollout.operator_id,
+          runtime_bridge: rollout.runtime_bridge,
+          provider: rollout.provider,
+          fallback: rollout.fallback,
+          next: rollout.next,
           note: "Client cutover staged only. Les portails client sont prets a migrer vers une assertion plus forte sans rupture immediate.",
         });
       } catch (error) {
@@ -12137,6 +12314,32 @@ export default {
           ok: false,
           domain: "smajor.org",
           error: "client_cutover_execution_model_failed",
+          detail: String(error?.message || error),
+        }, 500);
+      }
+    }
+
+    if (url.pathname === "/models/identity-rollout-ledger.json") {
+      try {
+        const snapshot = {
+          admin: await fetchAdminSnapshot(env).catch((error) => ({
+            organizationsLive: { records: [] },
+            liveRegistries: {},
+            errors: [error?.message || "admin_snapshot_failed"],
+          })),
+          status: await fetchJson(`${env.PUBLIC_S25_URL}/api/status`),
+        };
+        return jsonResponse({
+          ok: true,
+          domain: "smajor.org",
+          source_of_truth: "identity rollout ledger",
+          ...(identityRolloutLedgerSection("/admin", snapshot) || { title: "Identity rollout ledger", rows: [] }),
+        });
+      } catch (error) {
+        return jsonResponse({
+          ok: false,
+          domain: "smajor.org",
+          error: "identity_rollout_ledger_model_failed",
           detail: String(error?.message || error),
         }, 500);
       }
