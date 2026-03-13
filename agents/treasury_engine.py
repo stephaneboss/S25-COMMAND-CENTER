@@ -66,7 +66,7 @@ def get_akt_price() -> float:
             timeout=10
         )
         return r.json().get("akash-network", {}).get("usd", 0.34)
-    except:
+    except Exception:
         return 0.34
 
 def get_atom_price() -> float:
@@ -78,7 +78,7 @@ def get_atom_price() -> float:
             timeout=10
         )
         return r.json().get("cosmos", {}).get("usd", 6.50)
-    except:
+    except Exception:
         return 6.50
 
 # --- Wallet Balance ----------------------------------------
@@ -235,6 +235,7 @@ def run_treasury_sentinel(deployments: list = None):
         except Exception as e:
             log.error(f"Treasury sentinel error: {e}")
         time.sleep(CHECK_INTERVAL)
+
 
 if __name__ == "__main__":
     import sys
