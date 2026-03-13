@@ -2903,6 +2903,33 @@ function layout({
     `
     : "";
 
+  const adminProviderCutoverApprovalHtml = moduleSection && moduleSection.adminProviderCutoverApproval
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Provider cutover approval</div>
+            <h2>${moduleSection.adminProviderCutoverApproval.title}</h2>
+          </div>
+          <p>${moduleSection.adminProviderCutoverApproval.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.adminProviderCutoverApproval.rows
+            .map(
+              (row) => `
+                <article class="module-card">
+                  <div class="label">${row.label}</div>
+                  <h3>${row.state}</h3>
+                  <p>${row.detail}</p>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
   const operationalChainHtml = moduleSection && moduleSection.operationalChain
     ? `
       <section class="module-panel">
@@ -4018,6 +4045,7 @@ function layout({
       ${adminProviderCaptureHtml}
       ${adminProviderPromotionHtml}
       ${adminBootstrapRotationHtml}
+      ${adminProviderCutoverApprovalHtml}
       ${businessTimelineHtml}
       ${operationalChainHtml}
       ${operationalPlaybookHtml}
@@ -8539,6 +8567,48 @@ function adminBootstrapRotationSection(pathname, snapshot) {
   };
 }
 
+function adminProviderCutoverApprovalSection(pathname, snapshot) {
+  if (pathname !== "/admin") {
+    return null;
+  }
+  const runtimeBridgeState =
+    snapshot.status?.runtime_bridge_state ||
+    snapshot.admin?.status?.runtime_bridge_state ||
+    snapshot.runtimeBridge?.state ||
+    "pending";
+  return {
+    title: "Provider cutover approval",
+    intro: "La coupe finale vers le provider fort ne s'ouvre qu'apres revue bootstrap, audit complet et confirmation que le break-glass reste disponible.",
+    rows: [
+      {
+        label: "Approval gate",
+        state: "explicit_operator_approval",
+        detail: "La bascule finale doit etre approuvee par l'operateur majeur apres verification des tableaux readiness et rotation.",
+      },
+      {
+        label: "Runtime lock",
+        state: runtimeBridgeState,
+        detail: "Le runtime bridge S25 doit rester direct et stable pendant la bascule d'identite admin.",
+      },
+      {
+        label: "Provider session",
+        state: "provider_asserted_admin_session",
+        detail: "Le provider fort devient la session admin de reference une fois la bascule acceptee.",
+      },
+      {
+        label: "Bootstrap mode",
+        state: "break_glass_only",
+        detail: "Le bootstrap secret sort de l'usage quotidien et reste uniquement disponible comme recovery offline.",
+      },
+      {
+        label: "Next",
+        state: "final_cutover_ready",
+        detail: "L'etape suivante est le cutover final admin puis l'extension progressive au staff, aux vendors et aux clients.",
+      },
+    ],
+  };
+}
+
 function organizationCommandMapSection(pathname, snapshot) {
   if (pathname !== "/admin") {
     return null;
@@ -9153,6 +9223,7 @@ function renderApp(env, pathname, hostname, snapshot) {
     adminProviderCapture: adminProviderCaptureSection(pathname, snapshot),
     adminProviderPromotion: adminProviderPromotionSection(pathname, snapshot),
     adminBootstrapRotation: adminBootstrapRotationSection(pathname, snapshot),
+    adminProviderCutoverApproval: adminProviderCutoverApprovalSection(pathname, snapshot),
     organizationCommandMap: organizationCommandMapSection(pathname, snapshot),
     organizationProfile: organizationProfileSection(pathname, snapshot),
     organizationLifecycle: organizationLifecycleSection(pathname, snapshot),
@@ -9752,6 +9823,49 @@ export default {
         });
       } catch (error) {
         return jsonResponse({ ok: false, error: "review_bootstrap_rotation_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/admin-provider-cutover-approval") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      try {
+        const snapshot = {
+          ...(await fetchAdminSnapshot(env)),
+          status: await fetchJson(`${env.PUBLIC_S25_URL}/api/status`),
+        };
+        return jsonResponse({
+          ok: true,
+          secure: true,
+          ...(adminProviderCutoverApprovalSection("/admin", snapshot) || { title: "Provider cutover approval", rows: [] }),
+        });
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "admin_provider_cutover_approval_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/approve-provider-cutover") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      if (request.method !== "POST") {
+        return jsonResponse({ ok: false, error: "method_not_allowed" }, 405);
+      }
+      try {
+        const body = await request.json().catch(() => ({}));
+        const status = await fetchJson(`${env.PUBLIC_S25_URL}/api/status`);
+        return jsonResponse({
+          ok: true,
+          secure: true,
+          mode: "staged_cutover_approval",
+          operator_id: body.operator_id || "ident-major-stef-001",
+          runtime_bridge: status.runtime_bridge_state || "pending",
+          bootstrap_mode: "break_glass_only",
+          provider_session: "provider_asserted_admin_session",
+          next: "final_cutover_ready",
+          note: "Approval staged only. La promotion provider est approuvee et la sortie du bootstrap quotidien peut maintenant etre orchestree.",
+        });
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "approve_provider_cutover_failed", detail: String(error?.message || error) }, 500);
       }
     }
 
@@ -10843,6 +10957,32 @@ export default {
           ok: false,
           domain: "smajor.org",
           error: "admin_bootstrap_rotation_model_failed",
+          detail: String(error?.message || error),
+        }, 500);
+      }
+    }
+
+    if (url.pathname === "/models/admin-provider-cutover-approval.json") {
+      try {
+        const snapshot = {
+          admin: await fetchAdminSnapshot(env).catch((error) => ({
+            organizationsLive: { records: [] },
+            liveRegistries: {},
+            errors: [error?.message || "admin_snapshot_failed"],
+          })),
+          status: await fetchJson(`${env.PUBLIC_S25_URL}/api/status`),
+        };
+        return jsonResponse({
+          ok: true,
+          domain: "smajor.org",
+          source_of_truth: "admin provider cutover approval",
+          ...(adminProviderCutoverApprovalSection("/admin", snapshot) || { title: "Provider cutover approval", rows: [] }),
+        });
+      } catch (error) {
+        return jsonResponse({
+          ok: false,
+          domain: "smajor.org",
+          error: "admin_provider_cutover_approval_model_failed",
           detail: String(error?.message || error),
         }, 500);
       }
