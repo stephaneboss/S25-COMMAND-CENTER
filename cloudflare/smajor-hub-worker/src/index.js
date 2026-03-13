@@ -5406,16 +5406,18 @@ async function requireStaffAccess(request, env) {
 async function executeOperationalPlaybook(request, env) {
   const body = await request.json().catch(() => ({}));
   const domain = body.domain || "clients";
-  const targetId = body.target_id || body.client_id || body.identity_id;
+  const targetId = body.target_id || body.client_id || body.identity_id || body.organization_id;
   if (!targetId) {
     return jsonResponse({ ok: false, error: "target_id_required" }, 400);
   }
   const business = await readRuntimeBusinessState(env);
+  const organizations = business.organizations || [];
   const clients = business.clients || [];
   const jobs = business.jobs || [];
   const billing = business.quotes_invoices || [];
   const identities = business.identities || [];
   const events = business.events || [];
+  const links = business.organization_links || [];
 
   if (domain === "trade") {
     const laneId = targetId;
@@ -5529,6 +5531,154 @@ async function executeOperationalPlaybook(request, env) {
       );
     }
     return jsonResponse({ ok: true, domain, identity_id: identity.identity_id, next_action: nextAction, message: "Vendor account already live. Monitoring only." });
+  }
+
+  if (domain === "organizations") {
+    const organization = organizations.find((record) => record.organization_id === targetId) || null;
+    if (!organization) {
+      return jsonResponse({ ok: false, error: "organization_not_found", organization_id: targetId }, 404);
+    }
+    const orgClients = clients.filter((client) => client.organization_id === organization.organization_id);
+    const orgJobs = jobs.filter((job) => job.organization_id === organization.organization_id);
+    const orgBilling = billing.filter((entry) => entry.organization_id === organization.organization_id);
+    const orgEvents = events.filter((event) => {
+      const metadata = event?.metadata || {};
+      return metadata.organization_id === organization.organization_id;
+    });
+    const orgLinks = links.filter((link) => link.organization_id === organization.organization_id);
+    const stage = orgClients.length === 0
+      ? "create"
+      : orgJobs.length === 0
+        ? "onboard"
+        : orgBilling.length === 0
+          ? "operate"
+          : !orgEvents.some((event) => String(event.event_type || "").includes("access_issued"))
+            ? "access"
+            : orgLinks.length === 0
+              ? "govern"
+              : "runtime_live";
+    const nextAction = stage === "create"
+      ? "create_client_pipeline"
+      : stage === "onboard"
+        ? "create_job"
+        : stage === "operate"
+          ? "issue_invoice"
+          : stage === "access"
+            ? "issue_portal_access"
+            : stage === "govern"
+              ? "assign_trade_lane"
+              : "monitor_account";
+
+    if (nextAction === "create_client_pipeline") {
+      return jsonResponse(
+        await handleHubClientPipelineCreate(
+          new Request("https://app.smajor.org/admin/api/create-client-pipeline", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              organization_id: organization.organization_id,
+              organization_name: organization.organization_name,
+              display_name: body.display_name || `${organization.organization_name || organization.organization_id} Primary Contact`,
+              scope_id: body.scope_id || "client_scope_default",
+              service_type: body.service_type || "multi_service_exterior",
+            }),
+          }),
+          env,
+        ),
+      );
+    }
+
+    if (nextAction === "create_job") {
+      const client = orgClients[0];
+      if (!client) {
+        return jsonResponse({ ok: false, error: "organization_client_required", organization_id: organization.organization_id }, 409);
+      }
+      return jsonResponse(
+        await handleHubBusinessCreate(
+          new Request("https://app.smajor.org/admin/api/create-job", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              organization_id: organization.organization_id,
+              client_id: client.client_id,
+              service_type: body.service_type || (Array.isArray(client.service_mix) && client.service_mix[0] ? client.service_mix[0] : "multi_service_exterior"),
+              assigned_team: body.assigned_team || "crew-auto-01",
+              scheduled_window: body.scheduled_window || "pending_schedule",
+              dispatch_scope: client.scope_id || "field_scope_default",
+              equipment_required: body.equipment_required || [],
+            }),
+          }),
+          env,
+          "job",
+        ),
+      );
+    }
+
+    if (nextAction === "issue_invoice") {
+      const client = orgClients[0];
+      const job = orgJobs[0];
+      if (!client || !job) {
+        return jsonResponse({ ok: false, error: "organization_job_required", organization_id: organization.organization_id }, 409);
+      }
+      return jsonResponse(
+        await handleHubBusinessCreate(
+          new Request("https://app.smajor.org/admin/api/issue-invoice", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              organization_id: organization.organization_id,
+              client_id: client.client_id,
+              job_id: job.job_id,
+              amount: body.amount || 2500,
+              currency: body.currency || "CAD",
+              billing_stage: body.billing_stage || "invoice_issued",
+              payment_status: body.payment_status || "pending_payment",
+            }),
+          }),
+          env,
+          "quote",
+        ),
+      );
+    }
+
+    if (nextAction === "issue_portal_access") {
+      const client = orgClients[0];
+      if (!client) {
+        return jsonResponse({ ok: false, error: "organization_client_required", organization_id: organization.organization_id }, 409);
+      }
+      return issueClientAccess(
+        new Request("https://app.smajor.org/admin/api/issue-client-access", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ client_id: client.client_id }),
+        }),
+        env,
+      );
+    }
+
+    if (nextAction === "assign_trade_lane") {
+      return assignOrganizationLane(
+        new Request("https://app.smajor.org/admin/api/assign-organization-lane", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            organization_id: organization.organization_id,
+            lane_id: body.lane_id || "signal_lane",
+            policy_state: body.policy_state || "audit_first",
+          }),
+        }),
+        env,
+      );
+    }
+
+    return jsonResponse({
+      ok: true,
+      domain,
+      organization_id: organization.organization_id,
+      stage,
+      next_action: nextAction,
+      message: "Organization is already live. Monitoring only.",
+    });
   }
 
   const client = clients.find((record) => record.client_id === targetId) || null;
@@ -7243,12 +7393,24 @@ function organizationLifecycleSection(pathname, snapshot) {
             : orgLinks.length === 0
               ? "govern"
               : "runtime_live";
+    const nextAction = stage === "create"
+      ? "create_client_pipeline"
+      : stage === "onboard"
+        ? "create_job"
+        : stage === "operate"
+          ? "issue_invoice"
+          : stage === "access"
+            ? "issue_portal_access"
+            : stage === "govern"
+              ? "assign_trade_lane"
+              : "monitor_account";
 
     return {
       title: organization.organization_name || organization.organization_id,
       items: [
         `organization=${organization.organization_id}`,
         `stage=${stage}`,
+        `next_action=${nextAction}`,
         `clients=${orgClients.length}`,
         `jobs=${orgJobs.length}`,
         `billing=${orgBilling.length}`,
