@@ -4419,7 +4419,13 @@ function appendBusinessEvent(business, event) {
 
 function normalizeOrganizationLabel(name, organizationId) {
   const normalized = String(name || "").trim();
+  if (normalized && normalized === String(organizationId || "") && String(organizationId || "").startsWith("org-")) {
+    return `Client ${organizationId}`;
+  }
   if (!normalized || normalized === "Unnamed Organization" || normalized === "Unnamed Operator") {
+    if (String(organizationId || "").startsWith("org-")) {
+      return `Client ${organizationId}`;
+    }
     return organizationId;
   }
   return normalized;
