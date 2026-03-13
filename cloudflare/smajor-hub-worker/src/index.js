@@ -7603,8 +7603,10 @@ function authHardeningSection(pathname, snapshot) {
   }
   const organizations = snapshot.admin?.organizationsLive?.records || [];
   const business = snapshot.admin?.liveRegistries || snapshot.business || {};
-  const clients = business.clients || business.clients?.records || [];
-  const identities = business.identities || business.identities?.records || [];
+  const clientsSource = business.clients?.records || business.clients || [];
+  const identitiesSource = business.identities?.records || business.identities || [];
+  const clients = Array.isArray(clientsSource) ? clientsSource : [];
+  const identities = Array.isArray(identitiesSource) ? identitiesSource : [];
   const clientPortals = clients.filter((client) => client.portal_state === "live").length;
   const issuedCredentials = identities.filter((identity) => identity.credential_state === "issued").length;
   const liveIdentityPortals = identities.filter((identity) => identity.portal_state === "live").length;
