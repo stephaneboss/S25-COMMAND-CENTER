@@ -66,19 +66,19 @@ AGENT_ROSTER_TEMPLATE = {
         "notes": "Policy and routing core",
     },
     "KIMI": {
-        "status": "standby",
+        "status": "lateral_ready",
         "last_seen": None,
         "last_scan": None,
         "notes": "Web3 sensor lane; tunnel still lateral",
     },
     "ORACLE": {
-        "status": "online",
+        "status": "observe",
         "last_seen": None,
         "last_report": None,
         "notes": "Prix multi-source et verification d'integrite",
     },
     "ONCHAIN_GUARDIAN": {
-        "status": "standby",
+        "status": "watch_ready",
         "last_seen": None,
         "last_report": None,
         "notes": "Defense on-chain, rugs, whales, LP risk",
@@ -102,7 +102,7 @@ AGENT_ROSTER_TEMPLATE = {
         "notes": "Remote MCP bridge for Gemini validation",
     },
     "DEFI_LIQUIDITY_MANAGER": {
-        "status": "standby",
+        "status": "armed",
         "last_seen": None,
         "last_task": None,
         "notes": "DeFi liquidity orchestration lane",
@@ -127,9 +127,36 @@ AGENT_ROSTER_TEMPLATE = {
     },
 }
 
+OPERATIONAL_AGENT_STATUSES = {
+    "online",
+    "lateral_ready",
+    "watch_ready",
+    "observe",
+    "armed",
+}
+
+LEGACY_AGENT_STATUS_MAP = {
+    "KIMI": {"standby": "lateral_ready"},
+    "ONCHAIN_GUARDIAN": {"standby": "watch_ready"},
+    "ORACLE": {"degraded": "observe"},
+    "DEFI_LIQUIDITY_MANAGER": {"standby": "armed"},
+}
+
 
 def _utcnow_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _is_operational_status(status: str | None) -> bool:
+    return str(status or "").lower() in OPERATIONAL_AGENT_STATUSES
+
+
+def _normalize_agent_runtime(agent_id: str, runtime: dict) -> dict:
+    status = str(runtime.get("status", "")).lower()
+    mapped = LEGACY_AGENT_STATUS_MAP.get(agent_id, {}).get(status)
+    if mapped:
+        runtime["status"] = mapped
+    return runtime
 
 
 def _default_agents_state() -> dict:
@@ -234,6 +261,7 @@ def _refresh_runtime_defaults(state: dict) -> dict:
         agent_state = agents.setdefault(agent_id, {})
         for key, value in template.items():
             agent_state.setdefault(key, value)
+        _normalize_agent_runtime(agent_id, agent_state)
 
     pipeline = state.setdefault("pipeline", {})
     runtime_bridge = state.setdefault("runtime_bridge", {})
@@ -243,7 +271,7 @@ def _refresh_runtime_defaults(state: dict) -> dict:
 
     online_agents = sum(
         1 for details in agents.values()
-        if str(details.get("status", "")).lower() == "online"
+        if _is_operational_status(details.get("status"))
     )
     direct_linked = runtime_bridge.get("bridge_state") == "direct_runtime_linked"
 
@@ -432,7 +460,8 @@ def _status_summary(status: dict) -> dict:
     pipeline_status = (status.get("pipeline_status") or "INIT").strip() or "INIT"
     action = (status.get("arkon5_action") or "HOLD").strip() or "HOLD"
     confidence = status.get("arkon5_conf") or 0
-    tunnel_state = "online" if status.get("tunnel_active") else "offline"
+    tunnel_mode = status.get("tunnel_mode") or ("online" if status.get("tunnel_active") else "offline")
+    tunnel_state = "online" if tunnel_mode == "active" else tunnel_mode
     missions_active = int(status.get("missions_active") or 0)
     mesh_agents_online = int(status.get("mesh_agents_online") or 0)
     runtime_bridge_state = status.get("runtime_bridge_state")
@@ -514,9 +543,12 @@ def _hydrate_status_from_memory(status: dict) -> dict:
     market = state.get("market", {})
     agents = state.get("agents", {})
     runtime_bridge = _runtime_bridge_snapshot(state)
+    for agent_id, runtime in agents.items():
+        _normalize_agent_runtime(agent_id, runtime)
+
     online_agents = sum(
         1 for details in agents.values()
-        if str(details.get("status", "")).lower() == "online"
+        if _is_operational_status(details.get("status"))
     )
 
     last_signal = pipeline.get("last_signal") or {}
@@ -547,7 +579,7 @@ def _hydrate_status_from_memory(status: dict) -> dict:
         status["comet_intel"] = "Runtime bridge direct linked."
 
     kimi_status = agents.get("KIMI", {}).get("status")
-    status["tunnel_active"] = bool(status.get("tunnel_active")) or kimi_status == "online"
+    status["tunnel_active"] = bool(status.get("tunnel_active")) or str(kimi_status).lower() == "online"
     status["missions_active"] = len(missions)
     status["mesh_agents_online"] = online_agents
     status["ha_connected"] = bool(HA_TOKEN)
@@ -621,7 +653,7 @@ def _hydrate_status_from_memory(status: dict) -> dict:
         for agent_id in members:
             runtime = agents.get(agent_id, {})
             agent_status = runtime.get("status", "offline")
-            if str(agent_status).lower() == "online":
+            if _is_operational_status(agent_status):
                 online += 1
             member_states.append(
                 {
