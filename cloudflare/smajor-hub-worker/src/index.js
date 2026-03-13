@@ -11911,6 +11911,22 @@ export default {
       );
     }
 
+    if (url.pathname === "/models/runtime-stabilization.json") {
+      const payload = await fetchJson(`${env.PUBLIC_API_URL}/api/business/runtime-stabilization`).catch(() => null);
+      return jsonResponse(
+        payload || {
+          ok: true,
+          domain: "smajor.org",
+          source_of_truth: "api.smajor.org runtime stabilization",
+          title: "Runtime stabilization",
+          summary: "Derniers agents a normaliser pour atteindre un runtime prod clean total.",
+          runtime_bridge_state: "unknown",
+          tunnel_mode: "unknown",
+          targets: [],
+        },
+      );
+    }
+
     if (url.pathname === "/models/trading-showroom.json") {
       const payload = await fetchJson(`${env.PUBLIC_API_URL}/api/business/trading-showroom`).catch(() => null);
       return jsonResponse(
