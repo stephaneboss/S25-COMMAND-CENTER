@@ -11,7 +11,7 @@ const HOP_BY_HOP_HEADERS = new Set([
 ]);
 
 const RETRYABLE_STATUS_CODES = new Set([502, 503, 504]);
-const ALLOWED_PATH_PREFIXES = ["/api/", "/health", "/favicon.ico"];
+const ALLOWED_PATH_PREFIXES = ["/api/", "/health", "/favicon.ico", "/"];
 const BUSINESS_PREFIX = "/api/business";
 const MASTER_WALLET_ADDRESS = "REDACTED_WALLET_ADDRESS";
 

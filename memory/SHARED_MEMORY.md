@@ -16,16 +16,17 @@
 ## INFRASTRUCTURE
 
 ### Akash (Cockpit principal)
-- Cockpit public stable: https://trinity-s25-proxy.trinitys25steph.workers.dev
+- Cockpit public stable: https://s25.smajor.org ✅ (+ fallback: https://trinity-s25-proxy.trinitys25steph.workers.dev)
 - Origin Akash public courant: http://fpog7pbvepbkrfae1529ics23k.ingress.cap-test-compute.com
 - DSEQ: 25883220 | Provider: provider.cap-test-compute.com
 - Role: cockpit public courant derriere le Worker, build 8978177 et status mesh corrige
 - Doctrine: endpoint public stable devant Akash, pas de dependance laptop pour TRINITY
-- Domaine en cours de mise en place:
-  - `s25.smajor.org`
-  - `api.smajor.org`
-  - routes/custom domains Cloudflare deployes le 2026-03-11
-  - DNS public visible via `1.1.1.1`, propagation locale Windows encore en retard
+- Domaines LIVE (2026-03-13):
+  - `smajor.org` ✅ LIVE — landing + facade publique
+  - `app.smajor.org` ✅ LIVE — Next.js 6 portails (Overview/Clients/Admin/Staff/Vendors/AI/Omega)
+  - `s25.smajor.org` ✅ FIX DEPLOYE — trinity-worker ORIGIN_BASE corrige vers DSEQ 25883220
+  - `api.smajor.org` ✅ LIVE — trinity-s25-proxy, routes /api/* + business registry
+  - `merlin.smajor.org` ✅ LIVE — merlin-s25-proxy vers MERLIN MCP DSEQ 25878071
 
 ### Akash (Cockpit principal historique)
 - Origin Akash principal historique: https://uoqlngdqqlc29fhg8l78qt80d8.ingress.akashprovid.com
@@ -49,12 +50,17 @@
 - DSEQ: 25878071
 - Provider: provider.akashprovid.com
 - MCP ingress live: https://da0m4r4tu5ctn0ja9r2t9c2vho.ingress.akashprovid.com/mcp
+- Domaine public: https://merlin.smajor.org ✅ LIVE (health ok:true confirme 2026-03-13)
 - Etat: handshake public OK, conteneur running
 - Limite actuelle: Gemini Interactions + mcp_server reste bloque cote Google
-- Domaine en cours de mise en place:
-  - `merlin.smajor.org`
-  - custom domain Cloudflare deploye le 2026-03-11
-  - DNS public visible via `1.1.1.1`, verification TLS finale a refaire apres propagation
+
+### Akash (KIMI Web3 Intel LIVE 2026-03-13)
+- Service: kimi-web3-activated
+- DSEQ: 25920459
+- Etat: LIVE — intel BTC/USDT + AKT/USDT, scan 60s autonome
+- Bail: ~2 jours restants au 2026-03-13 — recharger AKT
+- Proxy: smajor.org/api/agents/kimi/intel ✅ actif
+- Note: migre hors tunnel manuel, endpoint Akash direct
 
 ### Akash (GPU)
 - DSEQ: 25708774
@@ -129,18 +135,26 @@
 
 ## ROADMAP ACTIVE
 
+### PHASE OMEGA — INFRASTRUCTURE PUBLIQUE (2026-03-13 ✅ COMPLETE)
 1. [DONE] Subagents Claude Code integres
 2. [DONE] Trinity vocal controller teste
-3. [IN PROGRESS] Memoire persistante centralisee
-4. [TODO] Deployer oracle-agent + onchain-guardian sur Akash
-5. [DONE] Cleanup Akash termine, base conservee = 25878071 / 25838342 / 25822281 / 25708774
-6. [DONE] Nouveau cockpit public cree et hydrate: 25883220 -> provider.cap-test-compute.com
-7. [DONE] Nouveau cockpit secondaire cree: 25882621 -> provider.dal.leet.haus
-8. [TODO] HA_TOKEN dans env vars Akash
-9. [TODO] KIMI sur endpoint stable public
-10. [DONE] `api/status` public realigne avec l'etat mesh reel via 25883220
-11. [TODO] agent_loop.py -> DELL-LINUX uniquement en fallback
-12. [IN PROGRESS] Provider watch structure via COMET Work + snapshot local
+3. [DONE] Memoire persistante centralisee (SHARED_MEMORY.md + agents_state.json)
+4. [DONE] Cleanup Akash termine — base = 25878071 / 25883220 / 25882621 / 25838342 / 25708774
+5. [DONE] smajor.org LIVE — DNS + Cloudflare Worker smajor-hub
+6. [DONE] app.smajor.org LIVE — Next.js 6 portails (Clients/Admin/Staff/Vendors/AI/Omega)
+7. [DONE] merlin.smajor.org LIVE — proxy vers MERLIN MCP DSEQ 25878071
+8. [DONE] KIMI Web3 LIVE — DSEQ 25920459, intel BTC/AKT actif
+9. [DONE] trinity-worker ORIGIN_BASE corrige vers DSEQ 25883220 (fix 2026-03-13)
+10. [DONE] agents_state.json synce — KIMI status live, infrastructure map
+
+### PHASE SUIVANTE — PIPELINE + LIVE TRADING
+11. [TODO] Recharger AKT — bail KIMI expire ~2 jours (2026-03-13)
+12. [TODO] HA_TOKEN dans env vars Akash cockpit
+13. [TODO] agent_loop.py -> DELL-LINUX Ollama (10.0.0.202:11434)
+14. [TODO] Deployer oracle-agent + onchain-guardian sur Akash
+15. [TODO] Pipeline end-to-end dry_run — KIMI -> ARKON -> MERLIN -> RiskGuardian
+16. [TODO] MEXC Sunday series — live mode quand base saine
+17. [TODO] Open WebUI MERLIN deploy (SDL MERLIN prepare, bid 250 uAKT)
 
 ---
 
