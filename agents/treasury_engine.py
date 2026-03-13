@@ -229,8 +229,7 @@ def run_treasury_sentinel(deployments: list = None):
                 quote = get_osmosis_swap_quote(atom_bal)
                 log.info(f"Swap quote: {atom_bal:.2f} ATOM -> {quote['akt_out']:.2f} AKT")
                 notify_ha(
-                    f"Swap available: {atom_bal:.2f} ATOM -> {quote['akt_out']:.2f} AKT
-Go to app.osmosis.zone to execute",
+                    f"Swap available: {atom_bal:.2f} ATOM -> {quote['akt_out']:.2f} AKT\nGo to app.osmosis.zone to execute",
                     "S25 Treasury - Action Required"
                 )
         except Exception as e:
@@ -245,8 +244,7 @@ if __name__ == "__main__":
         print(json.dumps(status, indent=2))
         if status["wallet"]["atom_balance"] > 0:
             quote = get_osmosis_swap_quote(status["wallet"]["atom_balance"])
-            print(f"
-Swap quote: {quote['atom_in']:.2f} ATOM -> {quote['akt_out']:.2f} AKT")
+            print(f"Swap quote: {quote['atom_in']:.2f} ATOM -> {quote['akt_out']:.2f} AKT")
             print(f"   Price impact: {quote['price_impact']}")
     else:
         run_treasury_sentinel()
