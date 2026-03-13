@@ -9349,20 +9349,29 @@ export default {
     }
 
     if (url.pathname === "/models/auth-hardening.json") {
-      const snapshot = {
-        admin: await fetchAdminSnapshot(env).catch((error) => ({
-          organizationsLive: { records: [] },
-          liveRegistries: {},
-          errors: [error?.message || "admin_snapshot_failed"],
-        })),
-        status: await fetchJsonSafe(`${env.PUBLIC_S25_URL}/api/status`),
-      };
-      return jsonResponse({
-        ok: true,
-        domain: "smajor.org",
-        source_of_truth: "pre-prod identity hardening board",
-        ...(authHardeningSection("/admin", snapshot) || { title: "Identity hardening board", columns: [] }),
-      });
+      try {
+        const snapshot = {
+          admin: await fetchAdminSnapshot(env).catch((error) => ({
+            organizationsLive: { records: [] },
+            liveRegistries: {},
+            errors: [error?.message || "admin_snapshot_failed"],
+          })),
+          status: await fetchJsonSafe(`${env.PUBLIC_S25_URL}/api/status`),
+        };
+        return jsonResponse({
+          ok: true,
+          domain: "smajor.org",
+          source_of_truth: "pre-prod identity hardening board",
+          ...(authHardeningSection("/admin", snapshot) || { title: "Identity hardening board", columns: [] }),
+        });
+      } catch (error) {
+        return jsonResponse({
+          ok: false,
+          domain: "smajor.org",
+          error: "auth_hardening_model_failed",
+          detail: String(error?.message || error),
+        }, 500);
+      }
     }
 
     if (url.pathname === "/models/organization-action-kit.json") {
