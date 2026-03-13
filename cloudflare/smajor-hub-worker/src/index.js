@@ -3200,6 +3200,33 @@ function layout({
     `
     : "";
 
+  const identityRolloutCompletionHtml = moduleSection && moduleSection.identityRolloutCompletion
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Identity rollout completion</div>
+            <h2>${moduleSection.identityRolloutCompletion.title}</h2>
+          </div>
+          <p>${moduleSection.identityRolloutCompletion.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.identityRolloutCompletion.rows
+            .map(
+              (row) => `
+                <article class="module-card">
+                  <div class="label">${row.label}</div>
+                  <h3>${row.state}</h3>
+                  <p>${row.detail}</p>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
   const operationalChainHtml = moduleSection && moduleSection.operationalChain
     ? `
       <section class="module-panel">
@@ -4326,6 +4353,7 @@ function layout({
       ${clientCutoverReadinessHtml}
       ${clientCutoverExecutionHtml}
       ${identityRolloutLedgerHtml}
+      ${identityRolloutCompletionHtml}
       ${businessTimelineHtml}
       ${operationalChainHtml}
       ${operationalPlaybookHtml}
@@ -9330,6 +9358,45 @@ function identityRolloutLedgerSection(pathname, snapshot) {
   };
 }
 
+function identityRolloutCompletionSection(pathname, snapshot) {
+  if (pathname !== "/admin") {
+    return null;
+  }
+  const business = snapshot.admin?.liveRegistries || snapshot.liveRegistries || snapshot.business || {};
+  const ledger = business.identity_rollout && typeof business.identity_rollout === "object" ? business.identity_rollout : {};
+  const domains = ["admin", "staff", "vendors", "clients"];
+  const stagedCount = domains.filter((domain) => String(ledger[domain]?.state || "").startsWith("staged_")).length;
+  const bridge = snapshot.status?.runtime_bridge_state || snapshot.admin?.status?.runtime_bridge_state || "pending";
+  return {
+    title: "Identity rollout completion",
+    intro: "Lecture finale du rollout identitaire: on verifie que chaque domaine humain a bien une trace runtime, un fallback strict et une suite d'execution lisible avant la vraie prod.",
+    rows: [
+      {
+        label: "Rollout ledger",
+        state: `${stagedCount}/${domains.length} staged`,
+        detail: "Admin, staff, vendors et clients doivent tous laisser une trace canonique dans le runtime S25.",
+      },
+      {
+        label: "Runtime bridge",
+        state: bridge,
+        detail: "La ligne directe TRINITY -> S25 Lumiere doit rester native pendant la bascule identitaire.",
+      },
+      {
+        label: "Fallback posture",
+        state: "break_glass_only",
+        detail: "Le bootstrap secret reste reserve au secours, pas a l'usage quotidien une fois la prod enclenchee.",
+      },
+      {
+        label: "Result",
+        state: stagedCount === domains.length && bridge === "direct_runtime_linked" ? "ready_for_prod_transition" : "staging_in_progress",
+        detail: stagedCount === domains.length && bridge === "direct_runtime_linked"
+          ? "Toutes les vagues humaines sont tracees. La transition peut avancer vers la prod propre."
+          : "Le rollout reste en phase de staging tant que toutes les vagues et le bridge ne sont pas confirms.",
+      },
+    ],
+  };
+}
+
 function organizationCommandMapSection(pathname, snapshot) {
   if (pathname !== "/admin") {
     return null;
@@ -9955,6 +10022,7 @@ function renderApp(env, pathname, hostname, snapshot) {
     clientCutoverReadiness: clientCutoverReadinessSection(pathname, snapshot),
     clientCutoverExecution: clientCutoverExecutionSection(pathname, snapshot),
     identityRolloutLedger: identityRolloutLedgerSection(pathname, snapshot),
+    identityRolloutCompletion: identityRolloutCompletionSection(pathname, snapshot),
     organizationCommandMap: organizationCommandMapSection(pathname, snapshot),
     organizationProfile: organizationProfileSection(pathname, snapshot),
     organizationLifecycle: organizationLifecycleSection(pathname, snapshot),
@@ -10702,6 +10770,42 @@ export default {
         });
       } catch (error) {
         return jsonResponse({ ok: false, error: "identity_rollout_waves_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/identity-rollout-ledger") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      try {
+        const snapshot = {
+          ...(await fetchAdminSnapshot(env)),
+          status: await fetchJson(`${env.PUBLIC_S25_URL}/api/status`),
+        };
+        return jsonResponse({
+          ok: true,
+          secure: true,
+          ...(identityRolloutLedgerSection("/admin", snapshot) || { title: "Identity rollout ledger", rows: [] }),
+        });
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "identity_rollout_ledger_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/identity-rollout-completion") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      try {
+        const snapshot = {
+          ...(await fetchAdminSnapshot(env)),
+          status: await fetchJson(`${env.PUBLIC_S25_URL}/api/status`),
+        };
+        return jsonResponse({
+          ok: true,
+          secure: true,
+          ...(identityRolloutCompletionSection("/admin", snapshot) || { title: "Identity rollout completion", rows: [] }),
+        });
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "identity_rollout_completion_failed", detail: String(error?.message || error) }, 500);
       }
     }
 
@@ -12340,6 +12444,32 @@ export default {
           ok: false,
           domain: "smajor.org",
           error: "identity_rollout_ledger_model_failed",
+          detail: String(error?.message || error),
+        }, 500);
+      }
+    }
+
+    if (url.pathname === "/models/identity-rollout-completion.json") {
+      try {
+        const snapshot = {
+          admin: await fetchAdminSnapshot(env).catch((error) => ({
+            organizationsLive: { records: [] },
+            liveRegistries: {},
+            errors: [error?.message || "admin_snapshot_failed"],
+          })),
+          status: await fetchJson(`${env.PUBLIC_S25_URL}/api/status`),
+        };
+        return jsonResponse({
+          ok: true,
+          domain: "smajor.org",
+          source_of_truth: "identity rollout completion",
+          ...(identityRolloutCompletionSection("/admin", snapshot) || { title: "Identity rollout completion", rows: [] }),
+        });
+      } catch (error) {
+        return jsonResponse({
+          ok: false,
+          domain: "smajor.org",
+          error: "identity_rollout_completion_model_failed",
           detail: String(error?.message || error),
         }, 500);
       }
