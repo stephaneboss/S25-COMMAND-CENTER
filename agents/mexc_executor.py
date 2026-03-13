@@ -19,15 +19,14 @@ Keys:   .env → MEXC_API_KEY + MEXC_SECRET_KEY
 import asyncio
 import hashlib
 import hmac
-import json
 import logging
 import time
 import requests
 from datetime import datetime
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, List
 from urllib.parse import urlencode
 
-from .base import BaseAgent, AgentStatus
+from .base import BaseAgent
 
 logger = logging.getLogger("s25.mexc")
 

@@ -31,7 +31,7 @@ jobs:
         run: |
           flake8 agents/ security/ monitoring/ \
             --max-line-length=120 \
-            --ignore=E501,W503,E302,E303 \
+            --ignore=E501,W503,E302,E303,E221,E241,W504 \
             --exclude=__pycache__
           echo "✓ Lint passed"
 

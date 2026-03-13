@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import Dict
 
 from agents.google_secret_runtime import (
-    build_client,
     load_secret_bundle,
     materialize_adc_file,
 )

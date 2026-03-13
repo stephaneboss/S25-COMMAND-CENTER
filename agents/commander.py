@@ -21,11 +21,10 @@ Usage:
 """
 
 import asyncio
-import json
 import logging
 import requests
 from datetime import datetime
-from typing import Dict, Any, List, Optional, Union
+from typing import Dict, Any, Optional
 
 from .base import BaseAgent, AgentStatus
 

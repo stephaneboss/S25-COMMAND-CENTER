@@ -30,7 +30,7 @@ import requests
 from datetime import datetime
 from typing import Dict, Any, Optional
 
-from .base import BaseAgent, AgentStatus
+from .base import BaseAgent
 
 logger = logging.getLogger("s25.arkon")
 

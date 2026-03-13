@@ -700,6 +700,7 @@ def _hydrate_status_from_memory(status: dict) -> dict:
 
     return status
 
+
 HTML = '''<!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -1050,7 +1051,7 @@ def api_watchdog():
     try:
         with open('/tmp/s25_watchdog_status.json') as f:
             return jsonify(json.load(f))
-    except:
+    except Exception:
         return jsonify({"error": "Watchdog status unavailable"})
 
 @app.route('/api/version', methods=['GET'])
@@ -1118,14 +1119,14 @@ def _market_snapshot() -> dict:
             timeout=10)
         if r.status_code == 200:
             snapshot["prices"] = r.json()
-    except:
+    except Exception:
         pass
     try:
         r = requests.get("https://api.alternative.me/fng/?limit=1", timeout=5)
         if r.status_code == 200:
             d = r.json()["data"][0]
             snapshot["fear_greed"] = {"value": d["value"], "label": d["value_classification"]}
-    except:
+    except Exception:
         pass
     return snapshot
 
@@ -1225,7 +1226,7 @@ Reponds de facon concise et actionnable. Donne une recommandation claire (BUY/HO
                     json={"state": data.get("trade_action", "HOLD"),
                           "attributes": {"intent": intent, "source": "TRINITY", "ts": signal_data["ts"]}},
                     timeout=5)
-            except:
+            except Exception:
                 pass
         return jsonify({"ok": True, "action": "signal", "signal": signal_data})
 
@@ -1580,6 +1581,7 @@ def api_memory_ping():
         return jsonify({"ok": True, "agent": agent, "ts": datetime.now(timezone.utc).isoformat()})
 
     return jsonify({"ok": False, "error": f"Agent {agent} inconnu"}), 404
+
 
 if __name__ == '__main__':
     port = int(os.getenv("PORT", "7777"))
