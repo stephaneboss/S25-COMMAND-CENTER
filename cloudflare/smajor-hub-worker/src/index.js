@@ -9173,6 +9173,7 @@ function staffCutoverExecutionSection(pathname, snapshot) {
   if (pathname !== "/admin") {
     return null;
   }
+  const providerState = snapshot.admin?.liveRegistries?.provider_transition?.staff || snapshot.liveRegistries?.provider_transition?.staff || {};
   const runtimeBridgeState =
     snapshot.status?.runtime_bridge_state ||
     snapshot.admin?.status?.runtime_bridge_state ||
@@ -9184,12 +9185,12 @@ function staffCutoverExecutionSection(pathname, snapshot) {
     rows: [
       {
         label: "Wave",
-        state: "staff_cutover_staged",
+        state: providerState.state || "staff_cutover_staged",
         detail: "Les comptes terrain et dispatch passent apres la validation admin, sans rupture globale des operations.",
       },
       {
         label: "Provider",
-        state: "workforce_identity_provider",
+        state: providerState.provider || "workforce_identity_provider",
         detail: "Le provider workforce devient la source de confiance pour les sessions staff actives.",
       },
       {
@@ -9199,12 +9200,12 @@ function staffCutoverExecutionSection(pathname, snapshot) {
       },
       {
         label: "Fallback",
-        state: "signed_staff_bearer_until_cutover_complete",
+        state: providerState.fallback || "signed_staff_bearer_until_cutover_complete",
         detail: "Le bearer staff actuel reste en secours tant que la verification post-cutover n'est pas terminee.",
       },
       {
         label: "Next",
-        state: "vendor_cutover_queue",
+        state: providerState.next || "vendor_cutover_queue",
         detail: "Une fois la vague staff propre, la meme logique peut s'etendre aux vendors.",
       },
     ],
@@ -11098,6 +11099,16 @@ export default {
           next: "vendor_cutover_queue",
           note: "Staff cutover staged from control plane.",
         });
+        const promotion = recordProviderTransitionState(business, {
+          domain: "staff",
+          state: "provider_promoted",
+          provider: "workforce_identity_provider",
+          fallback: "signed_staff_bearer_until_cutover_complete",
+          operator_id: body.operator_id || "ident-major-stef-001",
+          runtime_bridge: status.runtime_bridge_state || "pending",
+          next: "vendor_cutover_queue",
+          note: "Staff provider promotion staged in runtime.",
+        });
         appendBusinessEvent(business, {
           event_type: "staff_cutover_staged",
           lane: "identity",
@@ -11112,16 +11123,30 @@ export default {
             fallback: rollout.fallback,
           },
         });
+        appendBusinessEvent(business, {
+          event_type: "staff_provider_promoted",
+          lane: "identity",
+          subject_type: "provider_transition",
+          subject_id: "staff",
+          collection: "provider_transition",
+          scope_id: "field_scope_dispatch",
+          summary: "Staff provider promoted",
+          metadata: {
+            domain: "staff",
+            provider: promotion.provider,
+            fallback: promotion.fallback,
+          },
+        });
         await writeRuntimeBusinessState(env, business);
         return jsonResponse({
           ok: true,
           secure: true,
-          mode: "staged_staff_cutover",
-          operator_id: rollout.operator_id,
-          runtime_bridge: rollout.runtime_bridge,
-          provider: rollout.provider,
-          fallback: rollout.fallback,
-          next: rollout.next,
+          mode: promotion.state,
+          operator_id: promotion.operator_id,
+          runtime_bridge: promotion.runtime_bridge,
+          provider: promotion.provider,
+          fallback: promotion.fallback,
+          next: promotion.next,
           note: "Staff cutover staged only. Les portails staff sont prets a migrer vers une assertion plus forte sans rupture immediate.",
         });
       } catch (error) {
