@@ -5061,6 +5061,33 @@ async function fetchAdminSnapshot(env) {
   };
   const memoryState = memoryResult.status === "fulfilled" ? memoryResult.value?.state || {} : {};
   const memoryAgents = memoryState.agents || {};
+  const memoryStatus = memoryState.intel?.merlin_feedback?.status || {};
+  const derivedRuntimeStabilization = {
+    title: "Runtime stabilization",
+    summary: "Derniers agents a normaliser pour atteindre un runtime prod clean total.",
+    runtime_bridge_state: memoryState.runtime_bridge?.bridge_state || memoryStatus.runtime_bridge_state || "unknown",
+    tunnel_mode: memoryStatus.tunnel_mode || memoryStatus.system?.tunnel || "unknown",
+    targets: [
+      {
+        agent_id: "KIMI",
+        current_status: memoryAgents.KIMI?.status || "unknown",
+        target_status: "lateral_ready",
+        reason: "Source Web3 laterale; ne doit pas salir le mesh principal.",
+      },
+      {
+        agent_id: "ORACLE",
+        current_status: memoryAgents.ORACLE?.status || "unknown",
+        target_status: "observe",
+        reason: "Validation prix/integrite, posture d'observation acceptable avant intensification.",
+      },
+      {
+        agent_id: "ONCHAIN_GUARDIAN",
+        current_status: memoryAgents.ONCHAIN_GUARDIAN?.status || "unknown",
+        target_status: "watch_ready",
+        reason: "Watch posture operationnelle, sans marquer le runtime degrade.",
+      },
+    ],
+  };
   const runtimeTradingState =
     memoryState.trading && Object.keys(memoryState.trading).length > 0
       ? memoryState.trading
@@ -5130,7 +5157,7 @@ async function fetchAdminSnapshot(env) {
     backendCore: backendCoreResult.status === "fulfilled" ? backendCoreResult.value : null,
     trinityLink: trinityLinkResult.status === "fulfilled" ? trinityLinkResult.value : null,
     runtimeBridge: runtimeBridgeResult.status === "fulfilled" ? runtimeBridgeResult.value : null,
-    runtimeStabilization: runtimeStabilizationResult.status === "fulfilled" ? runtimeStabilizationResult.value : null,
+    runtimeStabilization: derivedRuntimeStabilization,
     organizationsLive: derivedOrganizationsLive,
     backendLedger: derivedBackendLedger,
     walletClasses: walletClassesResult.status === "fulfilled" ? walletClassesResult.value : null,
