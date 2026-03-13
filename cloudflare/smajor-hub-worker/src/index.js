@@ -6644,7 +6644,7 @@ function adminActionSection(pathname) {
     columns: [
       {
         label: "Read",
-        items: ["/admin/api/live-registries", "/admin/api/operator-roster", "/admin/api/business-timeline", "/admin/api/operational-chain", "/admin/api/operational-playbook", "/admin/api/organization-control-panel"],
+        items: ["/admin/api/live-registries", "/admin/api/operator-roster", "/admin/api/business-timeline", "/admin/api/operational-chain", "/admin/api/operational-playbook", "/admin/api/organization-control-panel", "/models/organization-team-board.json", "/models/organization-treasury-board.json"],
       },
       {
         label: "Write",
@@ -7454,6 +7454,33 @@ function organizationTreasuryBoardSection(pathname, snapshot) {
   return {
     title: "Organization treasury board",
     intro: "Tableau de gouvernance treasury par organisation: scope, classe wallet et pile de policies restent attaches a la structure durable.",
+    rows,
+  };
+}
+
+function organizationTeamBoardSection(pathname, snapshot) {
+  if (pathname !== "/admin") {
+    return null;
+  }
+  const organizations = snapshot.admin?.organizationsLive?.records || [];
+  const business = snapshot.admin?.liveRegistries || snapshot.business || {};
+  const identities = business.identities || business.identities?.records || [];
+  const links = business.organization_links || [];
+  const rows = organizations.slice(0, 6).map((organization) => {
+    const orgIdentities = identities.filter((identity) => identity.organization_id === organization.organization_id);
+    const staff = orgIdentities.filter((identity) => ["dispatcher", "field_manager", "staff_member", "contractor"].includes(identity.role_id));
+    const vendors = orgIdentities.filter((identity) => String(identity.role_id || "").includes("vendor"));
+    const staffBindings = links.filter((link) => link.organization_id === organization.organization_id && link.link_type === "staff_assignment");
+    const vendorBindings = links.filter((link) => link.organization_id === organization.organization_id && link.link_type === "vendor_assignment");
+    return {
+      title: organization.organization_name || organization.organization_id,
+      detail: `staff=${staff.length} | vendor=${vendors.length} | staff_bindings=${staffBindings.length} | vendor_bindings=${vendorBindings.length} | teams=${Array.from(new Set(staffBindings.map((link) => link.assigned_team).filter(Boolean))).join(", ") || "--"}`,
+      timestamp: staffBindings[0]?.created_at || vendorBindings[0]?.created_at || organization.last_activity_at || "--",
+    };
+  });
+  return {
+    title: "Organization team board",
+    intro: "Vue equipe et fournisseurs par organisation: bindings humains visibles, scopes appliques, aucune dependance a une personne fixe.",
     rows,
   };
 }
@@ -9094,6 +9121,22 @@ export default {
         domain: "smajor.org",
         source_of_truth: "organization-first treasury governance board",
         ...(organizationTreasuryBoardSection("/admin", snapshot) || { title: "Organization treasury board", rows: [] }),
+      });
+    }
+
+    if (url.pathname === "/models/organization-team-board.json") {
+      const snapshot = {
+        admin: await fetchAdminSnapshot(env).catch((error) => ({
+          organizationsLive: { records: [] },
+          liveRegistries: {},
+          errors: [error?.message || "admin_snapshot_failed"],
+        })),
+      };
+      return jsonResponse({
+        ok: true,
+        domain: "smajor.org",
+        source_of_truth: "organization-first team and vendor governance board",
+        ...(organizationTeamBoardSection("/admin", snapshot) || { title: "Organization team board", rows: [] }),
       });
     }
 
