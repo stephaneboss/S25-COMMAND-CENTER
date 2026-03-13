@@ -7501,6 +7501,63 @@ function organizationControlPanelSection(pathname, snapshot) {
   };
 }
 
+function organizationMissionBoardSection(pathname, snapshot) {
+  if (pathname !== "/admin") {
+    return null;
+  }
+  const organizations = snapshot.admin?.organizationsLive?.records || [];
+  const business = snapshot.admin?.liveRegistries || snapshot.business || {};
+  const clients = business.clients || business.clients?.records || [];
+  const jobs = business.jobs || business.jobs?.records || [];
+  const billing = business.quotes_invoices || business.quotes_invoices?.records || [];
+  const events = snapshot.admin?.businessTimeline?.records || business.events || [];
+  const links = business.organization_links || [];
+  const lanes = snapshot.admin?.tradingLaneMetrics?.lanes || [];
+
+  const rows = organizations.slice(0, 6).map((organization) => {
+    const orgClients = clients.filter((client) => client.organization_id === organization.organization_id);
+    const orgJobs = jobs.filter((job) => job.organization_id === organization.organization_id);
+    const orgBilling = billing.filter((entry) => entry.organization_id === organization.organization_id);
+    const orgEvents = events.filter((event) => (event?.metadata || {}).organization_id === organization.organization_id);
+    const orgLinks = links.filter((link) => link.organization_id === organization.organization_id);
+    const laneLink = orgLinks.find((link) => link.link_type === "trade_lane_assignment") || null;
+    const lane = laneLink ? lanes.find((item) => item.lane_id === laneLink.lane_id) || null : null;
+    const stage = orgClients.length === 0
+      ? "create"
+      : orgJobs.length === 0
+        ? "onboard"
+        : orgBilling.length === 0
+          ? "operate"
+          : !orgEvents.some((event) => String(event.event_type || "").includes("access_issued"))
+            ? "access"
+            : orgLinks.length === 0
+              ? "govern"
+              : "runtime_live";
+    const nextAction = stage === "create"
+      ? "create_client_pipeline"
+      : stage === "onboard"
+        ? "create_job"
+        : stage === "operate"
+          ? "issue_invoice"
+          : stage === "access"
+            ? "issue_portal_access"
+            : stage === "govern"
+              ? "assign_trade_lane"
+              : "monitor_account";
+    return {
+      title: organization.organization_name || organization.organization_id,
+      detail: `mission=${nextAction} | stage=${stage} | lane=${lane?.lane_id || laneLink?.lane_id || "unassigned"} | jobs=${orgJobs.length} | billing=${orgBilling.length}`,
+      timestamp: orgEvents[0]?.created_at || organization.updated_at || "--",
+    };
+  });
+
+  return {
+    title: "Organization mission board",
+    intro: "Chaque organisation remonte comme une mission vivante avec son stage, sa prochaine action et sa lane runtime.",
+    rows,
+  };
+}
+
 function deriveOperationalAction(client, identity, jobs, billing, events) {
   const clientJobs = jobs.filter((item) => item.client_id === client.client_id);
   const clientBilling = billing.filter((item) => item.client_id === client.client_id);
@@ -7821,6 +7878,7 @@ function renderApp(env, pathname, hostname, snapshot) {
     organizationProfile: organizationProfileSection(pathname, snapshot),
     organizationLifecycle: organizationLifecycleSection(pathname, snapshot),
     organizationControlPanel: organizationControlPanelSection(pathname, snapshot),
+    organizationMissionBoard: organizationMissionBoardSection(pathname, snapshot),
     organizationActionKit: organizationActionKitSection(pathname),
     businessTimeline: businessTimelineSection(pathname, snapshot),
     operationalChain: operationalChainSection(pathname, snapshot),
@@ -8088,6 +8146,21 @@ export default {
         });
       } catch (error) {
         return jsonResponse({ ok: false, error: "admin_organization_control_panel_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/organization-mission-board") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      try {
+        const snapshot = await fetchAdminSnapshot(env);
+        return jsonResponse({
+          ok: true,
+          secure: true,
+          ...(organizationMissionBoardSection("/admin", snapshot) || { title: "Organization mission board", rows: [] }),
+        });
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "admin_organization_mission_board_failed", detail: String(error?.message || error) }, 500);
       }
     }
 
@@ -8849,6 +8922,24 @@ export default {
         domain: "smajor.org",
         source_of_truth: "organization-first durable command panel",
         ...(organizationControlPanelSection("/admin", snapshot) || { title: "Organization control panel", rows: [] }),
+      });
+    }
+
+    if (url.pathname === "/models/organization-mission-board.json") {
+      const snapshot = {
+        admin: await fetchAdminSnapshot(env).catch((error) => ({
+          organizationsLive: { records: [] },
+          liveRegistries: {},
+          businessTimeline: { records: [] },
+          tradingLaneMetrics: { lanes: [] },
+          errors: [error?.message || "admin_snapshot_failed"],
+        })),
+      };
+      return jsonResponse({
+        ok: true,
+        domain: "smajor.org",
+        source_of_truth: "organization-first mission board",
+        ...(organizationMissionBoardSection("/admin", snapshot) || { title: "Organization mission board", rows: [] }),
       });
     }
 
