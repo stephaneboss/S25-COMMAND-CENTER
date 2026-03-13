@@ -9349,7 +9349,14 @@ export default {
     }
 
     if (url.pathname === "/models/auth-hardening.json") {
-      const snapshot = await fetchHubSnapshot(env);
+      const snapshot = {
+        admin: await fetchAdminSnapshot(env).catch((error) => ({
+          organizationsLive: { records: [] },
+          liveRegistries: {},
+          errors: [error?.message || "admin_snapshot_failed"],
+        })),
+        status: await fetchJsonSafe(`${env.PUBLIC_S25_URL}/api/status`),
+      };
       return jsonResponse({
         ok: true,
         domain: "smajor.org",
