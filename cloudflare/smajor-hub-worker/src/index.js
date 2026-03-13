@@ -3011,6 +3011,60 @@ function layout({
     `
     : "";
 
+  const staffCutoverReadinessHtml = moduleSection && moduleSection.staffCutoverReadiness
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Staff cutover readiness</div>
+            <h2>${moduleSection.staffCutoverReadiness.title}</h2>
+          </div>
+          <p>${moduleSection.staffCutoverReadiness.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.staffCutoverReadiness.rows
+            .map(
+              (row) => `
+                <article class="module-card">
+                  <div class="label">${row.label}</div>
+                  <h3>${row.state}</h3>
+                  <p>${row.detail}</p>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
+  const staffCutoverExecutionHtml = moduleSection && moduleSection.staffCutoverExecution
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Staff cutover execution</div>
+            <h2>${moduleSection.staffCutoverExecution.title}</h2>
+          </div>
+          <p>${moduleSection.staffCutoverExecution.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.staffCutoverExecution.rows
+            .map(
+              (row) => `
+                <article class="module-card">
+                  <div class="label">${row.label}</div>
+                  <h3>${row.state}</h3>
+                  <p>${row.detail}</p>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
   const operationalChainHtml = moduleSection && moduleSection.operationalChain
     ? `
       <section class="module-panel">
@@ -4130,6 +4184,8 @@ function layout({
       ${adminFinalCutoverReadinessHtml}
       ${adminCutoverExecutionHtml}
       ${identityRolloutWavesHtml}
+      ${staffCutoverReadinessHtml}
+      ${staffCutoverExecutionHtml}
       ${businessTimelineHtml}
       ${operationalChainHtml}
       ${operationalPlaybookHtml}
@@ -8820,6 +8876,97 @@ function identityRolloutWavesSection(pathname, snapshot) {
   };
 }
 
+function staffCutoverReadinessSection(pathname, snapshot) {
+  if (pathname !== "/admin") {
+    return null;
+  }
+  const business = snapshot.admin?.liveRegistries || snapshot.liveRegistries || snapshot.business || {};
+  const identities = business.identities?.records || business.identities || [];
+  const staffIdentities = (Array.isArray(identities) ? identities : []).filter(
+    (identity) => identity.badge_id === "employee_badge" || identity.role_id === "staff_member" || identity.role_id === "dispatcher" || identity.role_id === "field_manager",
+  );
+  const issued = staffIdentities.filter((identity) => identity.credential_state === "issued").length;
+  const live = staffIdentities.filter((identity) => identity.portal_state === "live").length;
+  const runtimeBridgeState =
+    snapshot.status?.runtime_bridge_state ||
+    snapshot.admin?.status?.runtime_bridge_state ||
+    snapshot.runtimeBridge?.state ||
+    "pending";
+  return {
+    title: "Staff cutover readiness",
+    intro: "Avant la vraie bascule staff, le cockpit montre si les identites terrain et dispatch sont deja propres, vivantes et compatibles avec une assertion plus forte.",
+    rows: [
+      {
+        label: "Staff credentials",
+        state: `${issued}/${staffIdentities.length}`,
+        detail: "Toutes les identites staff doivent avoir une credential emise avant de quitter le bearer signe actuel.",
+      },
+      {
+        label: "Staff portals",
+        state: `${live}/${staffIdentities.length}`,
+        detail: "Les portails staff doivent deja etre en etat live avant la bascule d'identite plus forte.",
+      },
+      {
+        label: "Runtime bridge",
+        state: runtimeBridgeState,
+        detail: "Le runtime direct reste le verrou pour eviter toute rupture pendant la transition staff.",
+      },
+      {
+        label: "Target",
+        state: "workforce_identity_provider",
+        detail: "La vague staff cible une chaine workforce provider, sans casser la gouvernance organization-first.",
+      },
+      {
+        label: "Result",
+        state: issued === staffIdentities.length && live === staffIdentities.length ? "ready_for_cutover" : "cleanup_required",
+        detail: "Le cutover staff ne demarre que lorsque les credentials et les portails sont tous propres.",
+      },
+    ],
+  };
+}
+
+function staffCutoverExecutionSection(pathname, snapshot) {
+  if (pathname !== "/admin") {
+    return null;
+  }
+  const runtimeBridgeState =
+    snapshot.status?.runtime_bridge_state ||
+    snapshot.admin?.status?.runtime_bridge_state ||
+    snapshot.runtimeBridge?.state ||
+    "pending";
+  return {
+    title: "Staff cutover execution",
+    intro: "La vague staff suit la sortie admin: on remplace progressivement le bearer staff par une assertion workforce plus forte, tout en gardant l'audit et le fallback.",
+    rows: [
+      {
+        label: "Wave",
+        state: "staff_cutover_staged",
+        detail: "Les comptes terrain et dispatch passent apres la validation admin, sans rupture globale des operations.",
+      },
+      {
+        label: "Provider",
+        state: "workforce_identity_provider",
+        detail: "Le provider workforce devient la source de confiance pour les sessions staff actives.",
+      },
+      {
+        label: "Runtime bridge",
+        state: runtimeBridgeState,
+        detail: "Le runtime S25 et la ligne directe TRINITY restent verrouilles pendant cette vague.",
+      },
+      {
+        label: "Fallback",
+        state: "signed_staff_bearer_until_cutover_complete",
+        detail: "Le bearer staff actuel reste en secours tant que la verification post-cutover n'est pas terminee.",
+      },
+      {
+        label: "Next",
+        state: "vendor_cutover_queue",
+        detail: "Une fois la vague staff propre, la meme logique peut s'etendre aux vendors.",
+      },
+    ],
+  };
+}
+
 function organizationCommandMapSection(pathname, snapshot) {
   if (pathname !== "/admin") {
     return null;
@@ -9438,6 +9585,8 @@ function renderApp(env, pathname, hostname, snapshot) {
     adminFinalCutoverReadiness: adminFinalCutoverReadinessSection(pathname, snapshot),
     adminCutoverExecution: adminCutoverExecutionSection(pathname, snapshot),
     identityRolloutWaves: identityRolloutWavesSection(pathname, snapshot),
+    staffCutoverReadiness: staffCutoverReadinessSection(pathname, snapshot),
+    staffCutoverExecution: staffCutoverExecutionSection(pathname, snapshot),
     organizationCommandMap: organizationCommandMapSection(pathname, snapshot),
     organizationProfile: organizationProfileSection(pathname, snapshot),
     organizationLifecycle: organizationLifecycleSection(pathname, snapshot),
@@ -10159,6 +10308,67 @@ export default {
         });
       } catch (error) {
         return jsonResponse({ ok: false, error: "identity_rollout_waves_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/staff-cutover-readiness") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      try {
+        const snapshot = {
+          ...(await fetchAdminSnapshot(env)),
+          status: await fetchJson(`${env.PUBLIC_S25_URL}/api/status`),
+        };
+        return jsonResponse({
+          ok: true,
+          secure: true,
+          ...(staffCutoverReadinessSection("/admin", snapshot) || { title: "Staff cutover readiness", rows: [] }),
+        });
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "staff_cutover_readiness_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/staff-cutover-execution") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      try {
+        const snapshot = {
+          ...(await fetchAdminSnapshot(env)),
+          status: await fetchJson(`${env.PUBLIC_S25_URL}/api/status`),
+        };
+        return jsonResponse({
+          ok: true,
+          secure: true,
+          ...(staffCutoverExecutionSection("/admin", snapshot) || { title: "Staff cutover execution", rows: [] }),
+        });
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "staff_cutover_execution_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/execute-staff-cutover") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      if (request.method !== "POST") {
+        return jsonResponse({ ok: false, error: "method_not_allowed" }, 405);
+      }
+      try {
+        const body = await request.json().catch(() => ({}));
+        const status = await fetchJson(`${env.PUBLIC_S25_URL}/api/status`);
+        return jsonResponse({
+          ok: true,
+          secure: true,
+          mode: "staged_staff_cutover",
+          operator_id: body.operator_id || "ident-major-stef-001",
+          runtime_bridge: status.runtime_bridge_state || "pending",
+          provider: "workforce_identity_provider",
+          fallback: "signed_staff_bearer_until_cutover_complete",
+          next: "vendor_cutover_queue",
+          note: "Staff cutover staged only. Les portails staff sont prets a migrer vers une assertion plus forte sans rupture immediate.",
+        });
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "execute_staff_cutover_failed", detail: String(error?.message || error) }, 500);
       }
     }
 
@@ -11354,6 +11564,58 @@ export default {
           ok: false,
           domain: "smajor.org",
           error: "identity_rollout_waves_model_failed",
+          detail: String(error?.message || error),
+        }, 500);
+      }
+    }
+
+    if (url.pathname === "/models/staff-cutover-readiness.json") {
+      try {
+        const snapshot = {
+          admin: await fetchAdminSnapshot(env).catch((error) => ({
+            organizationsLive: { records: [] },
+            liveRegistries: {},
+            errors: [error?.message || "admin_snapshot_failed"],
+          })),
+          status: await fetchJson(`${env.PUBLIC_S25_URL}/api/status`),
+        };
+        return jsonResponse({
+          ok: true,
+          domain: "smajor.org",
+          source_of_truth: "staff cutover readiness",
+          ...(staffCutoverReadinessSection("/admin", snapshot) || { title: "Staff cutover readiness", rows: [] }),
+        });
+      } catch (error) {
+        return jsonResponse({
+          ok: false,
+          domain: "smajor.org",
+          error: "staff_cutover_readiness_model_failed",
+          detail: String(error?.message || error),
+        }, 500);
+      }
+    }
+
+    if (url.pathname === "/models/staff-cutover-execution.json") {
+      try {
+        const snapshot = {
+          admin: await fetchAdminSnapshot(env).catch((error) => ({
+            organizationsLive: { records: [] },
+            liveRegistries: {},
+            errors: [error?.message || "admin_snapshot_failed"],
+          })),
+          status: await fetchJson(`${env.PUBLIC_S25_URL}/api/status`),
+        };
+        return jsonResponse({
+          ok: true,
+          domain: "smajor.org",
+          source_of_truth: "staff cutover execution",
+          ...(staffCutoverExecutionSection("/admin", snapshot) || { title: "Staff cutover execution", rows: [] }),
+        });
+      } catch (error) {
+        return jsonResponse({
+          ok: false,
+          domain: "smajor.org",
+          error: "staff_cutover_execution_model_failed",
           detail: String(error?.message || error),
         }, 500);
       }
