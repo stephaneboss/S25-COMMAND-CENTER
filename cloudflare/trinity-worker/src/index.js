@@ -493,6 +493,7 @@ const BUSINESS_REGISTRY_MAP = {
     { key: "gemini_layer", path: `${BUSINESS_PREFIX}/gemini-layer`, purpose: "Unified Gemini intelligence layer distinct from Google Cloud infrastructure" },
     { key: "trinity_link", path: `${BUSINESS_PREFIX}/trinity-link`, purpose: "Direct Trinity line into S25 Lumiere runtime and mission control" },
     { key: "runtime_bridge", path: `${BUSINESS_PREFIX}/runtime-bridge`, purpose: "Visible runtime bridge marker proving Trinity reads the direct S25 line" },
+    { key: "runtime_stabilization", path: `${BUSINESS_PREFIX}/runtime-stabilization`, purpose: "Last runtime cleanup targets before prod clean" },
     { key: "trading_showroom", path: `${BUSINESS_PREFIX}/trading-showroom`, purpose: "Multi-agent trading room with signal, risk, treasury and execution lanes" },
     { key: "trading_lane_metrics", path: `${BUSINESS_PREFIX}/trading-lane-metrics`, purpose: "Live runtime metrics for signal, risk, treasury and execution lanes" },
     { key: "internal_ops", path: `${BUSINESS_PREFIX}/internal-ops`, purpose: "Public operating summary for Smajor internal account" },
@@ -1500,6 +1501,46 @@ async function deriveTradingLaneMetrics(requestId, env) {
   };
 }
 
+async function deriveRuntimeStabilization(requestId, env) {
+  const [memoryResult, statusResult] = await Promise.allSettled([
+    fetchOriginJson("/api/memory/state", env, requestId).catch(() => fetchPublicRuntimeJson("/api/memory/state", env, requestId)),
+    fetchOriginJson("/api/status", env, requestId).catch(() => fetchPublicRuntimeJson("/api/status", env, requestId)),
+  ]);
+  const statePayload = memoryResult.status === "fulfilled" ? memoryResult.value : { state: { agents: {} } };
+  const statusPayload = statusResult.status === "fulfilled" ? statusResult.value : {};
+  const agents = statePayload?.state?.agents || {};
+
+  return {
+    title: "Runtime stabilization",
+    summary: "Derniers agents a normaliser pour atteindre un runtime prod clean total.",
+    runtime_bridge_state: statusPayload.runtime_bridge_state || "unknown",
+    tunnel_mode: statusPayload.tunnel_mode || "unknown",
+    targets: [
+      {
+        agent_id: "KIMI",
+        current: agents.KIMI?.status || "unknown",
+        target: "lateral_ready",
+        lane: "signal_lane",
+        reason: "Source Web3 laterale; ne doit pas salir le mesh principal.",
+      },
+      {
+        agent_id: "ORACLE",
+        current: agents.ORACLE?.status || "unknown",
+        target: "observe",
+        lane: "signal_lane",
+        reason: "Validation prix/integrite, posture d'observation acceptable avant intensification.",
+      },
+      {
+        agent_id: "ONCHAIN_GUARDIAN",
+        current: agents.ONCHAIN_GUARDIAN?.status || "unknown",
+        target: "watch_ready",
+        lane: "risk_lane",
+        reason: "Watch posture operationnelle, sans marquer le runtime degrade.",
+      },
+    ],
+  };
+}
+
 function findInternalOpsClient(business) {
   return (business.clients || []).find(
     (record) =>
@@ -2106,6 +2147,9 @@ async function handleBusinessRequest(request, pathname, requestId, env) {
   }
   if (pathname === `${BUSINESS_PREFIX}/runtime-bridge`) {
     return businessResponse(requestId, pathname, await deriveRuntimeBridge(env, requestId));
+  }
+  if (pathname === `${BUSINESS_PREFIX}/runtime-stabilization`) {
+    return deriveRuntimeStabilization(requestId, env).then((payload) => businessResponse(requestId, pathname, payload));
   }
   if (pathname === `${BUSINESS_PREFIX}/trading-showroom`) {
     return businessResponse(requestId, pathname, deriveTradingShowroom());
