@@ -4993,7 +4993,7 @@ async function fetchOpsSnapshot(env) {
 }
 
 async function fetchAdminSnapshot(env) {
-  const runtimeBase = env.DIRECT_RUNTIME_URL || env.PUBLIC_S25_URL;
+  const runtimeBase = env.PUBLIC_S25_URL || env.DIRECT_RUNTIME_URL;
   const [memoryResult, walletsResult, treasuryResult, secretCustodyResult, secretFallbackResult, geminiLayerResult, tradingLaneMetricsResult, backendFoundationResult, backendCoreResult, trinityLinkResult, runtimeBridgeResult, runtimeStabilizationResult, organizationsLiveResult, backendLedgerResult, walletClassesResult, walletScopesResult, walletPolicyMatrixResult] = await Promise.allSettled([
     fetchSecureJson(`${runtimeBase}/api/memory/state`, env),
     fetchJson(`${env.PUBLIC_API_URL}/api/business/wallets-custody`),
@@ -5186,7 +5186,7 @@ function buildRuntimeBusinessState(seed = {}) {
 }
 
 async function readRuntimeBusinessState(env) {
-  const runtimeBase = env.DIRECT_RUNTIME_URL || env.PUBLIC_S25_URL;
+  const runtimeBase = env.PUBLIC_S25_URL || env.DIRECT_RUNTIME_URL;
   const memory = await fetchSecureJson(`${runtimeBase}/api/memory/state`, env);
   return buildRuntimeBusinessState(
     memory?.state?.intel?.business_registry || memory?.state?.business || {},
