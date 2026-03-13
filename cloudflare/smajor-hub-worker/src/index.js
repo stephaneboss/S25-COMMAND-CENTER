@@ -4254,6 +4254,7 @@ async function fetchAdminSnapshot(env) {
   const business = {
     title: "Live business registries",
     secure: true,
+    organization_links: Array.isArray(registry.organization_links) ? registry.organization_links : [],
     clients: Array.isArray(registry.clients) ? registry.clients : [],
     jobs: Array.isArray(registry.jobs) ? registry.jobs : [],
     quotes_invoices: Array.isArray(registry.quotes_invoices) ? registry.quotes_invoices : [],
