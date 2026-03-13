@@ -5026,6 +5026,7 @@ async function fetchAdminSnapshot(env) {
     identities: Array.isArray(registry.identities) ? registry.identities : [],
     events: Array.isArray(registry.events) ? registry.events : [],
     identity_rollout: registry.identity_rollout && typeof registry.identity_rollout === "object" ? registry.identity_rollout : {},
+    provider_transition: registry.provider_transition && typeof registry.provider_transition === "object" ? registry.provider_transition : {},
     last_write_at: registry.last_write_at || null,
   };
   const runtimeBusiness = buildRuntimeBusinessState(business);
@@ -5150,6 +5151,7 @@ function buildRuntimeBusinessState(seed = {}) {
     identities: Array.isArray(seed.identities) ? seed.identities : [],
     events: Array.isArray(seed.events) ? seed.events : [],
     identity_rollout: seed.identity_rollout && typeof seed.identity_rollout === "object" ? seed.identity_rollout : {},
+    provider_transition: seed.provider_transition && typeof seed.provider_transition === "object" ? seed.provider_transition : {},
     last_write_at: seed.last_write_at || null,
   };
 }
@@ -5204,6 +5206,25 @@ function recordIdentityRolloutState(business, config) {
   };
   business.last_write_at = now;
   return business.identity_rollout[config.domain];
+}
+
+function recordProviderTransitionState(business, config) {
+  const current = business.provider_transition && typeof business.provider_transition === "object" ? business.provider_transition : {};
+  business.provider_transition = {
+    ...current,
+    [config.domain]: {
+      domain: config.domain,
+      state: config.state,
+      provider: config.provider,
+      fallback: config.fallback,
+      operator_id: config.operator_id,
+      runtime_bridge: config.runtime_bridge,
+      next: config.next,
+      updated_at: config.updated_at || new Date().toISOString(),
+      note: config.note || null,
+    },
+  };
+  return business.provider_transition[config.domain];
 }
 
 function normalizeOrganizationLabel(name, organizationId) {
@@ -8846,6 +8867,7 @@ function adminProviderPromotionSection(pathname, snapshot) {
   if (pathname !== "/admin") {
     return null;
   }
+  const providerState = snapshot.admin?.liveRegistries?.provider_transition?.admin || snapshot.liveRegistries?.provider_transition?.admin || {};
   const runtimeBridgeState =
     snapshot.status?.runtime_bridge_state ||
     snapshot.admin?.status?.runtime_bridge_state ||
@@ -8857,7 +8879,7 @@ function adminProviderPromotionSection(pathname, snapshot) {
     rows: [
       {
         label: "Promotion target",
-        state: "provider_asserted_admin_session",
+        state: providerState.state || "provider_asserted_admin_session",
         detail: "Le but est de remplacer l'usage quotidien du bootstrap par une session admin attachee au provider fort.",
       },
       {
@@ -8877,7 +8899,7 @@ function adminProviderPromotionSection(pathname, snapshot) {
       },
       {
         label: "Next",
-        state: "bootstrap_rotation_review",
+        state: providerState.next || "bootstrap_rotation_review",
         detail: "La prochaine etape est la revue de rotation bootstrap apres validation provider.",
       },
     ],
@@ -8888,6 +8910,7 @@ function adminBootstrapRotationSection(pathname, snapshot) {
   if (pathname !== "/admin") {
     return null;
   }
+  const providerState = snapshot.admin?.liveRegistries?.provider_transition?.admin || snapshot.liveRegistries?.provider_transition?.admin || {};
   const runtimeBridgeState =
     snapshot.status?.runtime_bridge_state ||
     snapshot.admin?.status?.runtime_bridge_state ||
@@ -8899,7 +8922,7 @@ function adminBootstrapRotationSection(pathname, snapshot) {
     rows: [
       {
         label: "Rotation gate",
-        state: "provider_promotion_review",
+        state: providerState.state === "provider_promoted" ? "rotation_review_active" : "provider_promotion_review",
         detail: "Aucune rotation tant que la promotion provider n'est pas revue et acceptee.",
       },
       {
@@ -8919,7 +8942,7 @@ function adminBootstrapRotationSection(pathname, snapshot) {
       },
       {
         label: "Next",
-        state: "provider_cutover_approval",
+        state: providerState.next || "provider_cutover_approval",
         detail: "L'etape suivante est l'approbation explicite du cutover puis la rotation controlee.",
       },
     ],
@@ -8930,6 +8953,7 @@ function adminProviderCutoverApprovalSection(pathname, snapshot) {
   if (pathname !== "/admin") {
     return null;
   }
+  const providerState = snapshot.admin?.liveRegistries?.provider_transition?.admin || snapshot.liveRegistries?.provider_transition?.admin || {};
   const runtimeBridgeState =
     snapshot.status?.runtime_bridge_state ||
     snapshot.admin?.status?.runtime_bridge_state ||
@@ -8951,7 +8975,7 @@ function adminProviderCutoverApprovalSection(pathname, snapshot) {
       },
       {
         label: "Provider session",
-        state: "provider_asserted_admin_session",
+        state: providerState.provider || "provider_asserted_admin_session",
         detail: "Le provider fort devient la session admin de reference une fois la bascule acceptee.",
       },
       {
@@ -8961,7 +8985,7 @@ function adminProviderCutoverApprovalSection(pathname, snapshot) {
       },
       {
         label: "Next",
-        state: "final_cutover_ready",
+        state: providerState.next || "final_cutover_ready",
         detail: "L'etape suivante est le cutover final admin puis l'extension progressive au staff, aux vendors et aux clients.",
       },
     ],
@@ -8972,6 +8996,7 @@ function adminFinalCutoverReadinessSection(pathname, snapshot) {
   if (pathname !== "/admin") {
     return null;
   }
+  const providerState = snapshot.admin?.liveRegistries?.provider_transition?.admin || snapshot.liveRegistries?.provider_transition?.admin || {};
   const runtimeBridgeState =
     snapshot.status?.runtime_bridge_state ||
     snapshot.admin?.status?.runtime_bridge_state ||
@@ -8996,7 +9021,7 @@ function adminFinalCutoverReadinessSection(pathname, snapshot) {
       },
       {
         label: "Provider chain",
-        state: "capture_and_promotion_validated",
+        state: providerState.state || "capture_and_promotion_validated",
         detail: "La capture, la promotion et l'approbation explicite ont ete mises en place dans le control plane admin.",
       },
       {
@@ -10680,14 +10705,40 @@ export default {
       try {
         const body = await request.json().catch(() => ({}));
         const status = await fetchJson(`${env.PUBLIC_S25_URL}/api/status`);
+        const business = await readRuntimeBusinessState(env);
+        const promotion = recordProviderTransitionState(business, {
+          domain: "admin",
+          state: "provider_promoted",
+          provider: body.provider || "provider_asserted_admin_session",
+          fallback: "break_glass_only",
+          operator_id: body.operator_id || "ident-major-stef-001",
+          runtime_bridge: status.runtime_bridge_state || "pending",
+          next: "bootstrap_rotation_review",
+          note: "Admin provider promotion staged in runtime.",
+        });
+        appendBusinessEvent(business, {
+          event_type: "admin_provider_promoted",
+          lane: "identity",
+          subject_type: "provider_transition",
+          subject_id: "admin",
+          collection: "provider_transition",
+          scope_id: "founder_scope",
+          summary: "Admin provider promoted",
+          metadata: {
+            domain: "admin",
+            provider: promotion.provider,
+            fallback: promotion.fallback,
+          },
+        });
+        await writeRuntimeBusinessState(env, business);
         return jsonResponse({
           ok: true,
           secure: true,
-          mode: "staged_promotion",
-          operator_id: body.operator_id || "ident-major-stef-001",
-          provider: body.provider || "external_idp",
-          runtime_bridge: status.runtime_bridge_state || "pending",
-          next: "bootstrap_rotation_review",
+          mode: promotion.state,
+          operator_id: promotion.operator_id,
+          provider: promotion.provider,
+          runtime_bridge: promotion.runtime_bridge,
+          next: promotion.next,
           note: "Promotion staged only. La session provider est marquee comme candidate sans couper encore le bootstrap de secours.",
         });
       } catch (error) {
@@ -10722,14 +10773,40 @@ export default {
       try {
         const body = await request.json().catch(() => ({}));
         const status = await fetchJson(`${env.PUBLIC_S25_URL}/api/status`);
+        const business = await readRuntimeBusinessState(env);
+        const review = recordProviderTransitionState(business, {
+          domain: "admin",
+          state: "bootstrap_rotation_reviewed",
+          provider: "provider_asserted_admin_session",
+          fallback: "break_glass_preserved",
+          operator_id: body.operator_id || "ident-major-stef-001",
+          runtime_bridge: status.runtime_bridge_state || "pending",
+          next: "provider_cutover_approval",
+          note: "Bootstrap rotation review staged in runtime.",
+        });
+        appendBusinessEvent(business, {
+          event_type: "bootstrap_rotation_reviewed",
+          lane: "identity",
+          subject_type: "provider_transition",
+          subject_id: "admin",
+          collection: "provider_transition",
+          scope_id: "founder_scope",
+          summary: "Bootstrap rotation reviewed",
+          metadata: {
+            domain: "admin",
+            provider: review.provider,
+            fallback: review.fallback,
+          },
+        });
+        await writeRuntimeBusinessState(env, business);
         return jsonResponse({
           ok: true,
           secure: true,
-          mode: "staged_rotation_review",
-          operator_id: body.operator_id || "ident-major-stef-001",
-          runtime_bridge: status.runtime_bridge_state || "pending",
-          fallback: "break_glass_preserved",
-          next: "provider_cutover_approval",
+          mode: review.state,
+          operator_id: review.operator_id,
+          runtime_bridge: review.runtime_bridge,
+          fallback: review.fallback,
+          next: review.next,
           note: "Review staged only. La rotation bootstrap reste en attente tant que l'approbation finale n'est pas donnee.",
         });
       } catch (error) {
@@ -10764,15 +10841,41 @@ export default {
       try {
         const body = await request.json().catch(() => ({}));
         const status = await fetchJson(`${env.PUBLIC_S25_URL}/api/status`);
+        const business = await readRuntimeBusinessState(env);
+        const approval = recordProviderTransitionState(business, {
+          domain: "admin",
+          state: "provider_cutover_approved",
+          provider: "provider_asserted_admin_session",
+          fallback: "break_glass_only",
+          operator_id: body.operator_id || "ident-major-stef-001",
+          runtime_bridge: status.runtime_bridge_state || "pending",
+          next: "final_cutover_ready",
+          note: "Provider cutover approved in runtime.",
+        });
+        appendBusinessEvent(business, {
+          event_type: "provider_cutover_approved",
+          lane: "identity",
+          subject_type: "provider_transition",
+          subject_id: "admin",
+          collection: "provider_transition",
+          scope_id: "founder_scope",
+          summary: "Provider cutover approved",
+          metadata: {
+            domain: "admin",
+            provider: approval.provider,
+            fallback: approval.fallback,
+          },
+        });
+        await writeRuntimeBusinessState(env, business);
         return jsonResponse({
           ok: true,
           secure: true,
-          mode: "staged_cutover_approval",
-          operator_id: body.operator_id || "ident-major-stef-001",
-          runtime_bridge: status.runtime_bridge_state || "pending",
-          bootstrap_mode: "break_glass_only",
-          provider_session: "provider_asserted_admin_session",
-          next: "final_cutover_ready",
+          mode: approval.state,
+          operator_id: approval.operator_id,
+          runtime_bridge: approval.runtime_bridge,
+          bootstrap_mode: approval.fallback,
+          provider_session: approval.provider,
+          next: approval.next,
           note: "Approval staged only. La promotion provider est approuvee et la sortie du bootstrap quotidien peut maintenant etre orchestree.",
         });
       } catch (error) {
