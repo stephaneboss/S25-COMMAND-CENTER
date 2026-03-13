@@ -4993,9 +4993,11 @@ async function fetchOpsSnapshot(env) {
 }
 
 async function fetchAdminSnapshot(env) {
-  const runtimeBase = env.PUBLIC_S25_URL || env.DIRECT_RUNTIME_URL;
-  const [memoryResult, walletsResult, treasuryResult, secretCustodyResult, secretFallbackResult, geminiLayerResult, tradingLaneMetricsResult, backendFoundationResult, backendCoreResult, trinityLinkResult, runtimeBridgeResult, runtimeStabilizationResult, organizationsLiveResult, backendLedgerResult, walletClassesResult, walletScopesResult, walletPolicyMatrixResult] = await Promise.allSettled([
-    fetchSecureJson(`${runtimeBase}/api/memory/state`, env),
+  const businessRuntimeBase = env.DIRECT_RUNTIME_URL || env.PUBLIC_S25_URL;
+  const publicRuntimeBase = env.PUBLIC_S25_URL || env.DIRECT_RUNTIME_URL;
+  const [memoryResult, publicMemoryResult, walletsResult, treasuryResult, secretCustodyResult, secretFallbackResult, geminiLayerResult, tradingLaneMetricsResult, backendFoundationResult, backendCoreResult, trinityLinkResult, runtimeBridgeResult, runtimeStabilizationResult, organizationsLiveResult, backendLedgerResult, walletClassesResult, walletScopesResult, walletPolicyMatrixResult] = await Promise.allSettled([
+    fetchSecureJson(`${businessRuntimeBase}/api/memory/state`, env),
+    fetchSecureJson(`${publicRuntimeBase}/api/memory/state`, env),
     fetchJson(`${env.PUBLIC_API_URL}/api/business/wallets-custody`),
     fetchJson(`${env.PUBLIC_API_URL}/api/business/vaults-treasury`),
     fetchJson(`${env.PUBLIC_API_URL}/api/business/secret-custody`),
@@ -5061,28 +5063,30 @@ async function fetchAdminSnapshot(env) {
   };
   const memoryState = memoryResult.status === "fulfilled" ? memoryResult.value?.state || {} : {};
   const memoryAgents = memoryState.agents || {};
-  const memoryStatus = memoryState.intel?.merlin_feedback?.status || {};
+  const publicMemoryState = publicMemoryResult.status === "fulfilled" ? publicMemoryResult.value?.state || {} : {};
+  const publicMemoryAgents = publicMemoryState.agents || {};
+  const publicMemoryStatus = publicMemoryState.intel?.merlin_feedback?.status || {};
   const derivedRuntimeStabilization = {
     title: "Runtime stabilization",
     summary: "Derniers agents a normaliser pour atteindre un runtime prod clean total.",
-    runtime_bridge_state: memoryState.runtime_bridge?.bridge_state || memoryStatus.runtime_bridge_state || "unknown",
-    tunnel_mode: memoryStatus.tunnel_mode || memoryStatus.system?.tunnel || "unknown",
+    runtime_bridge_state: publicMemoryState.runtime_bridge?.bridge_state || publicMemoryStatus.runtime_bridge_state || "unknown",
+    tunnel_mode: publicMemoryStatus.tunnel_mode || publicMemoryStatus.system?.tunnel || "unknown",
     targets: [
       {
         agent_id: "KIMI",
-        current_status: memoryAgents.KIMI?.status || "unknown",
+        current_status: publicMemoryAgents.KIMI?.status || "unknown",
         target_status: "lateral_ready",
         reason: "Source Web3 laterale; ne doit pas salir le mesh principal.",
       },
       {
         agent_id: "ORACLE",
-        current_status: memoryAgents.ORACLE?.status || "unknown",
+        current_status: publicMemoryAgents.ORACLE?.status || "unknown",
         target_status: "observe",
         reason: "Validation prix/integrite, posture d'observation acceptable avant intensification.",
       },
       {
         agent_id: "ONCHAIN_GUARDIAN",
-        current_status: memoryAgents.ONCHAIN_GUARDIAN?.status || "unknown",
+        current_status: publicMemoryAgents.ONCHAIN_GUARDIAN?.status || "unknown",
         target_status: "watch_ready",
         reason: "Watch posture operationnelle, sans marquer le runtime degrade.",
       },
@@ -5164,7 +5168,7 @@ async function fetchAdminSnapshot(env) {
     walletScopes: walletScopesResult.status === "fulfilled" ? walletScopesResult.value : null,
     walletPolicyMatrix: walletPolicyMatrixResult.status === "fulfilled" ? walletPolicyMatrixResult.value : null,
     tradingLaneMetrics: derivedTradingLaneMetrics,
-    errors: [memoryResult, walletsResult, treasuryResult, secretCustodyResult, secretFallbackResult, geminiLayerResult, tradingLaneMetricsResult, backendFoundationResult, backendCoreResult, trinityLinkResult, runtimeBridgeResult, runtimeStabilizationResult, organizationsLiveResult, backendLedgerResult, walletClassesResult, walletScopesResult, walletPolicyMatrixResult]
+    errors: [memoryResult, publicMemoryResult, walletsResult, treasuryResult, secretCustodyResult, secretFallbackResult, geminiLayerResult, tradingLaneMetricsResult, backendFoundationResult, backendCoreResult, trinityLinkResult, runtimeBridgeResult, runtimeStabilizationResult, organizationsLiveResult, backendLedgerResult, walletClassesResult, walletScopesResult, walletPolicyMatrixResult]
       .filter((result) => result.status === "rejected")
       .map((result) => result.reason?.message || "secure_memory_upstream_error"),
   };
@@ -5186,7 +5190,7 @@ function buildRuntimeBusinessState(seed = {}) {
 }
 
 async function readRuntimeBusinessState(env) {
-  const runtimeBase = env.PUBLIC_S25_URL || env.DIRECT_RUNTIME_URL;
+  const runtimeBase = env.DIRECT_RUNTIME_URL || env.PUBLIC_S25_URL;
   const memory = await fetchSecureJson(`${runtimeBase}/api/memory/state`, env);
   return buildRuntimeBusinessState(
     memory?.state?.intel?.business_registry || memory?.state?.business || {},
