@@ -435,6 +435,9 @@ def _status_summary(status: dict) -> dict:
     tunnel_state = "online" if status.get("tunnel_active") else "offline"
     missions_active = int(status.get("missions_active") or 0)
     mesh_agents_online = int(status.get("mesh_agents_online") or 0)
+    runtime_bridge_state = status.get("runtime_bridge_state")
+    runtime_direct = runtime_bridge_state == "direct_runtime_linked"
+    ha_warning = status.get("ha_warning")
 
     summary_parts = [f"S25 en ligne. Pipeline {pipeline_status}."]
     if action in {"READY", "OBSERVE"} and missions_active:
@@ -443,7 +446,12 @@ def _status_summary(status: dict) -> dict:
         )
     else:
         summary_parts.append(f"Signal {action} ({confidence}).")
-    summary_parts.append(f"Tunnel {tunnel_state}.")
+    if runtime_direct:
+        summary_parts.append("Ligne directe runtime active.")
+    else:
+        summary_parts.append(f"Tunnel {tunnel_state}.")
+    if ha_warning:
+        summary_parts.append("Nabu Casa lateral indisponible.")
 
     return {
         "ok": True,
@@ -543,6 +551,10 @@ def _hydrate_status_from_memory(status: dict) -> dict:
     status["missions_active"] = len(missions)
     status["mesh_agents_online"] = online_agents
     status["ha_connected"] = bool(HA_TOKEN)
+    if status.get("runtime_bridge_state") == "direct_runtime_linked" and not status.get("tunnel_active"):
+        status["tunnel_mode"] = "lateral_optional"
+    else:
+        status["tunnel_mode"] = "active" if status.get("tunnel_active") else "offline"
     wallet_state = state.get("wallet", {})
     creator_snapshot = _fetch_creator_wallet_snapshot(
         wallet_state.get("creator_address", MASTER_WALLET_ADDRESS)
@@ -951,9 +963,11 @@ def api_status():
         status["tunnel_active"] = _process_running("cloudflared")
 
     except Exception as e:
-        status["error"] = str(e)
+        status["ha_warning"] = str(e)
 
     _hydrate_status_from_memory(status)
+    if status.get("runtime_bridge_state") == "direct_runtime_linked":
+        status.pop("error", None)
     status.update(_status_summary(status))
     return jsonify(status)
 
