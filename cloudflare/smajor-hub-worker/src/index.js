@@ -2599,6 +2599,34 @@ function layout({
     `
     : "";
 
+  const identityCutoverHtml = moduleSection && moduleSection.identityCutover
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Identity cutover</div>
+            <h2>${moduleSection.identityCutover.title}</h2>
+          </div>
+          <p>${moduleSection.identityCutover.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.identityCutover.columns
+            .map(
+              (column) => `
+                <article class="module-card">
+                  <div class="label">${column.label}</div>
+                  <ul>
+                    ${column.items.map((item) => `<li>${item}</li>`).join("")}
+                  </ul>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
   const operationalChainHtml = moduleSection && moduleSection.operationalChain
     ? `
       <section class="module-panel">
@@ -3703,6 +3731,7 @@ function layout({
       ${organizationTeamBoardHtml}
       ${organizationAuthReadinessHtml}
       ${authHardeningHtml}
+      ${identityCutoverHtml}
       ${businessTimelineHtml}
       ${operationalChainHtml}
       ${operationalPlaybookHtml}
@@ -7670,6 +7699,59 @@ function authHardeningSection(pathname, snapshot) {
   };
 }
 
+function identityCutoverSection(pathname, snapshot) {
+  if (pathname !== "/admin") {
+    return null;
+  }
+  const runtimeBridgeState =
+    snapshot.status?.runtime_bridge_state ||
+    snapshot.admin?.status?.runtime_bridge_state ||
+    snapshot.runtimeBridge?.state ||
+    "pending";
+  return {
+    title: "Identity provider cutover",
+    intro: "Plan de bascule prod: garder le bootstrap actuel comme break-glass, mais faire passer chaque surface sur une auth plus forte et segmentee.",
+    columns: [
+      {
+        label: "Admin",
+        items: [
+          "current=hs256_signed_operator_session",
+          "target=external_idp + stronger assertion",
+          "next=bind operator session to managed identity",
+          `runtime_bridge=${runtimeBridgeState}`,
+        ],
+      },
+      {
+        label: "Staff and vendors",
+        items: [
+          "current=signed portal bearer",
+          "target=staff and vendor identity provider chains",
+          "next=separate workforce and supplier trust paths",
+          "keep organization-first scopes",
+        ],
+      },
+      {
+        label: "Clients",
+        items: [
+          "current=signed portal bearer",
+          "target=client login with durable identity assertions",
+          "next=client self-service without backend secret knowledge",
+          "billing and portal remain organization-bound",
+        ],
+      },
+      {
+        label: "Safety",
+        items: [
+          "bootstrap secret becomes break-glass only",
+          "rotation remains mandatory",
+          "recovery chain stays multi-custody",
+          "audit trail survives every cutover step",
+        ],
+      },
+    ],
+  };
+}
+
 function organizationCommandMapSection(pathname, snapshot) {
   if (pathname !== "/admin") {
     return null;
@@ -8273,6 +8355,7 @@ function renderApp(env, pathname, hostname, snapshot) {
     organizationTeamBoard: organizationTeamBoardSection(pathname, snapshot),
     organizationAuthReadiness: organizationAuthReadinessSection(pathname, snapshot),
     authHardening: authHardeningSection(pathname, snapshot),
+    identityCutover: identityCutoverSection(pathname, snapshot),
     organizationCommandMap: organizationCommandMapSection(pathname, snapshot),
     organizationProfile: organizationProfileSection(pathname, snapshot),
     organizationLifecycle: organizationLifecycleSection(pathname, snapshot),
@@ -8578,6 +8661,24 @@ export default {
         });
       } catch (error) {
         return jsonResponse({ ok: false, error: "admin_auth_hardening_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/identity-cutover") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      try {
+        const snapshot = {
+          ...(await fetchAdminSnapshot(env)),
+          status: await fetchJson(`${env.PUBLIC_S25_URL}/api/status`),
+        };
+        return jsonResponse({
+          ok: true,
+          secure: true,
+          ...(identityCutoverSection("/admin", snapshot) || { title: "Identity provider cutover", columns: [] }),
+        });
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "admin_identity_cutover_failed", detail: String(error?.message || error) }, 500);
       }
     }
 
@@ -9383,6 +9484,32 @@ export default {
           ok: false,
           domain: "smajor.org",
           error: "auth_hardening_model_failed",
+          detail: String(error?.message || error),
+        }, 500);
+      }
+    }
+
+    if (url.pathname === "/models/identity-cutover.json") {
+      try {
+        const snapshot = {
+          admin: await fetchAdminSnapshot(env).catch((error) => ({
+            organizationsLive: { records: [] },
+            liveRegistries: {},
+            errors: [error?.message || "admin_snapshot_failed"],
+          })),
+          status: await fetchJson(`${env.PUBLIC_S25_URL}/api/status`),
+        };
+        return jsonResponse({
+          ok: true,
+          domain: "smajor.org",
+          source_of_truth: "identity provider cutover plan",
+          ...(identityCutoverSection("/admin", snapshot) || { title: "Identity provider cutover", columns: [] }),
+        });
+      } catch (error) {
+        return jsonResponse({
+          ok: false,
+          domain: "smajor.org",
+          error: "identity_cutover_model_failed",
           detail: String(error?.message || error),
         }, 500);
       }
