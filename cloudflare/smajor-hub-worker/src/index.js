@@ -3119,6 +3119,60 @@ function layout({
     `
     : "";
 
+  const clientCutoverReadinessHtml = moduleSection && moduleSection.clientCutoverReadiness
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Client cutover readiness</div>
+            <h2>${moduleSection.clientCutoverReadiness.title}</h2>
+          </div>
+          <p>${moduleSection.clientCutoverReadiness.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.clientCutoverReadiness.rows
+            .map(
+              (row) => `
+                <article class="module-card">
+                  <div class="label">${row.label}</div>
+                  <h3>${row.state}</h3>
+                  <p>${row.detail}</p>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
+  const clientCutoverExecutionHtml = moduleSection && moduleSection.clientCutoverExecution
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Client cutover execution</div>
+            <h2>${moduleSection.clientCutoverExecution.title}</h2>
+          </div>
+          <p>${moduleSection.clientCutoverExecution.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.clientCutoverExecution.rows
+            .map(
+              (row) => `
+                <article class="module-card">
+                  <div class="label">${row.label}</div>
+                  <h3>${row.state}</h3>
+                  <p>${row.detail}</p>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
   const operationalChainHtml = moduleSection && moduleSection.operationalChain
     ? `
       <section class="module-panel">
@@ -4242,6 +4296,8 @@ function layout({
       ${staffCutoverExecutionHtml}
       ${vendorCutoverReadinessHtml}
       ${vendorCutoverExecutionHtml}
+      ${clientCutoverReadinessHtml}
+      ${clientCutoverExecutionHtml}
       ${businessTimelineHtml}
       ${operationalChainHtml}
       ${operationalPlaybookHtml}
@@ -9114,6 +9170,94 @@ function vendorCutoverExecutionSection(pathname, snapshot) {
   };
 }
 
+function clientCutoverReadinessSection(pathname, snapshot) {
+  if (pathname !== "/admin") {
+    return null;
+  }
+  const business = snapshot.admin?.liveRegistries || snapshot.liveRegistries || snapshot.business || {};
+  const clients = business.clients?.records || business.clients || [];
+  const clientRecords = Array.isArray(clients) ? clients : [];
+  const livePortals = clientRecords.filter((client) => client.portal_state === "live").length;
+  const runtimeBridgeState =
+    snapshot.status?.runtime_bridge_state ||
+    snapshot.admin?.status?.runtime_bridge_state ||
+    snapshot.runtimeBridge?.state ||
+    "pending";
+  return {
+    title: "Client cutover readiness",
+    intro: "Avant la vraie bascule client, le cockpit verifie que les comptes clients sont deja propres, vivants et compatibles avec une assertion plus forte sans casser l'experience portail.",
+    rows: [
+      {
+        label: "Client portals",
+        state: `${livePortals}/${clientRecords.length}`,
+        detail: "Tous les portails clients doivent etre deja vivants avant de remplacer le bearer client actuel.",
+      },
+      {
+        label: "Billing state",
+        state: "invoice_ready_pipeline",
+        detail: "La couche client doit rester liee au cycle quotes/invoices pendant la transition identitaire.",
+      },
+      {
+        label: "Runtime bridge",
+        state: runtimeBridgeState,
+        detail: "Le runtime direct reste le verrou pour eviter toute rupture pendant la transition client.",
+      },
+      {
+        label: "Target",
+        state: "customer_identity_provider",
+        detail: "La vague client cible une assertion client durable, tout en gardant le portail et l'experience existante.",
+      },
+      {
+        label: "Result",
+        state: livePortals === clientRecords.length ? "ready_for_cutover" : "cleanup_required",
+        detail: "Le cutover client ne demarre que lorsque tous les comptes clients actifs ont un portail vivant.",
+      },
+    ],
+  };
+}
+
+function clientCutoverExecutionSection(pathname, snapshot) {
+  if (pathname !== "/admin") {
+    return null;
+  }
+  const runtimeBridgeState =
+    snapshot.status?.runtime_bridge_state ||
+    snapshot.admin?.status?.runtime_bridge_state ||
+    snapshot.runtimeBridge?.state ||
+    "pending";
+  return {
+    title: "Client cutover execution",
+    intro: "La vague client suit les vagues admin, staff et vendor. Elle remplace progressivement le bearer client par une assertion client durable sans casser le portail ni la facturation.",
+    rows: [
+      {
+        label: "Wave",
+        state: "client_cutover_staged",
+        detail: "Les comptes clients passent apres les vagues internes et fournisseurs, sans rupture globale des operations.",
+      },
+      {
+        label: "Provider",
+        state: "customer_identity_provider",
+        detail: "Le provider client devient la source de confiance pour les sessions client actives.",
+      },
+      {
+        label: "Runtime bridge",
+        state: runtimeBridgeState,
+        detail: "Le runtime S25 et la ligne directe TRINITY restent verrouilles pendant cette vague.",
+      },
+      {
+        label: "Fallback",
+        state: "signed_client_bearer_until_cutover_complete",
+        detail: "Le bearer client actuel reste en secours tant que la verification post-cutover n'est pas terminee.",
+      },
+      {
+        label: "Next",
+        state: "full_identity_rollout_complete",
+        detail: "Une fois la vague client propre, la chaine humaine visible du cutover pre-prod est complete.",
+      },
+    ],
+  };
+}
+
 function organizationCommandMapSection(pathname, snapshot) {
   if (pathname !== "/admin") {
     return null;
@@ -9736,6 +9880,8 @@ function renderApp(env, pathname, hostname, snapshot) {
     staffCutoverExecution: staffCutoverExecutionSection(pathname, snapshot),
     vendorCutoverReadiness: vendorCutoverReadinessSection(pathname, snapshot),
     vendorCutoverExecution: vendorCutoverExecutionSection(pathname, snapshot),
+    clientCutoverReadiness: clientCutoverReadinessSection(pathname, snapshot),
+    clientCutoverExecution: clientCutoverExecutionSection(pathname, snapshot),
     organizationCommandMap: organizationCommandMapSection(pathname, snapshot),
     organizationProfile: organizationProfileSection(pathname, snapshot),
     organizationLifecycle: organizationLifecycleSection(pathname, snapshot),
@@ -10579,6 +10725,67 @@ export default {
         });
       } catch (error) {
         return jsonResponse({ ok: false, error: "execute_vendor_cutover_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/client-cutover-readiness") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      try {
+        const snapshot = {
+          ...(await fetchAdminSnapshot(env)),
+          status: await fetchJson(`${env.PUBLIC_S25_URL}/api/status`),
+        };
+        return jsonResponse({
+          ok: true,
+          secure: true,
+          ...(clientCutoverReadinessSection("/admin", snapshot) || { title: "Client cutover readiness", rows: [] }),
+        });
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "client_cutover_readiness_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/client-cutover-execution") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      try {
+        const snapshot = {
+          ...(await fetchAdminSnapshot(env)),
+          status: await fetchJson(`${env.PUBLIC_S25_URL}/api/status`),
+        };
+        return jsonResponse({
+          ok: true,
+          secure: true,
+          ...(clientCutoverExecutionSection("/admin", snapshot) || { title: "Client cutover execution", rows: [] }),
+        });
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "client_cutover_execution_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/execute-client-cutover") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      if (request.method !== "POST") {
+        return jsonResponse({ ok: false, error: "method_not_allowed" }, 405);
+      }
+      try {
+        const body = await request.json().catch(() => ({}));
+        const status = await fetchJson(`${env.PUBLIC_S25_URL}/api/status`);
+        return jsonResponse({
+          ok: true,
+          secure: true,
+          mode: "staged_client_cutover",
+          operator_id: body.operator_id || "ident-major-stef-001",
+          runtime_bridge: status.runtime_bridge_state || "pending",
+          provider: "customer_identity_provider",
+          fallback: "signed_client_bearer_until_cutover_complete",
+          next: "full_identity_rollout_complete",
+          note: "Client cutover staged only. Les portails client sont prets a migrer vers une assertion plus forte sans rupture immediate.",
+        });
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "execute_client_cutover_failed", detail: String(error?.message || error) }, 500);
       }
     }
 
@@ -11878,6 +12085,58 @@ export default {
           ok: false,
           domain: "smajor.org",
           error: "vendor_cutover_execution_model_failed",
+          detail: String(error?.message || error),
+        }, 500);
+      }
+    }
+
+    if (url.pathname === "/models/client-cutover-readiness.json") {
+      try {
+        const snapshot = {
+          admin: await fetchAdminSnapshot(env).catch((error) => ({
+            organizationsLive: { records: [] },
+            liveRegistries: {},
+            errors: [error?.message || "admin_snapshot_failed"],
+          })),
+          status: await fetchJson(`${env.PUBLIC_S25_URL}/api/status`),
+        };
+        return jsonResponse({
+          ok: true,
+          domain: "smajor.org",
+          source_of_truth: "client cutover readiness",
+          ...(clientCutoverReadinessSection("/admin", snapshot) || { title: "Client cutover readiness", rows: [] }),
+        });
+      } catch (error) {
+        return jsonResponse({
+          ok: false,
+          domain: "smajor.org",
+          error: "client_cutover_readiness_model_failed",
+          detail: String(error?.message || error),
+        }, 500);
+      }
+    }
+
+    if (url.pathname === "/models/client-cutover-execution.json") {
+      try {
+        const snapshot = {
+          admin: await fetchAdminSnapshot(env).catch((error) => ({
+            organizationsLive: { records: [] },
+            liveRegistries: {},
+            errors: [error?.message || "admin_snapshot_failed"],
+          })),
+          status: await fetchJson(`${env.PUBLIC_S25_URL}/api/status`),
+        };
+        return jsonResponse({
+          ok: true,
+          domain: "smajor.org",
+          source_of_truth: "client cutover execution",
+          ...(clientCutoverExecutionSection("/admin", snapshot) || { title: "Client cutover execution", rows: [] }),
+        });
+      } catch (error) {
+        return jsonResponse({
+          ok: false,
+          domain: "smajor.org",
+          error: "client_cutover_execution_model_failed",
           detail: String(error?.message || error),
         }, 500);
       }
