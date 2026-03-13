@@ -2849,6 +2849,33 @@ function layout({
     `
     : "";
 
+  const adminProviderPromotionHtml = moduleSection && moduleSection.adminProviderPromotion
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Provider promotion</div>
+            <h2>${moduleSection.adminProviderPromotion.title}</h2>
+          </div>
+          <p>${moduleSection.adminProviderPromotion.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.adminProviderPromotion.rows
+            .map(
+              (row) => `
+                <article class="module-card">
+                  <div class="label">${row.label}</div>
+                  <h3>${row.state}</h3>
+                  <p>${row.detail}</p>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
   const operationalChainHtml = moduleSection && moduleSection.operationalChain
     ? `
       <section class="module-panel">
@@ -3962,6 +3989,7 @@ function layout({
       ${adminIdpBindingHtml}
       ${adminProviderAssertionHtml}
       ${adminProviderCaptureHtml}
+      ${adminProviderPromotionHtml}
       ${businessTimelineHtml}
       ${operationalChainHtml}
       ${operationalPlaybookHtml}
@@ -8399,6 +8427,48 @@ function adminProviderCaptureSection(pathname, snapshot) {
   };
 }
 
+function adminProviderPromotionSection(pathname, snapshot) {
+  if (pathname !== "/admin") {
+    return null;
+  }
+  const runtimeBridgeState =
+    snapshot.status?.runtime_bridge_state ||
+    snapshot.admin?.status?.runtime_bridge_state ||
+    snapshot.runtimeBridge?.state ||
+    "pending";
+  return {
+    title: "Provider promotion gate",
+    intro: "Une fois l'assertion capturee, la promotion doit rester auditée, reversible et strictement separee du bootstrap de secours.",
+    rows: [
+      {
+        label: "Promotion target",
+        state: "provider_asserted_admin_session",
+        detail: "Le but est de remplacer l'usage quotidien du bootstrap par une session admin attachee au provider fort.",
+      },
+      {
+        label: "Review gate",
+        state: "audit_review_required",
+        detail: "Toute promotion doit laisser une trace reviewable avant rotation finale du bootstrap.",
+      },
+      {
+        label: "Runtime lock",
+        state: runtimeBridgeState,
+        detail: "Le runtime bridge reste le verrou principal tant que la promotion n'est pas approuvee.",
+      },
+      {
+        label: "Fallback mode",
+        state: "break_glass_only",
+        detail: "Le bootstrap secret survit uniquement comme recovery si la promotion provider doit etre annulee.",
+      },
+      {
+        label: "Next",
+        state: "bootstrap_rotation_review",
+        detail: "La prochaine etape est la revue de rotation bootstrap apres validation provider.",
+      },
+    ],
+  };
+}
+
 function organizationCommandMapSection(pathname, snapshot) {
   if (pathname !== "/admin") {
     return null;
@@ -9011,6 +9081,7 @@ function renderApp(env, pathname, hostname, snapshot) {
     adminIdpBinding: adminIdpBindingSection(pathname, snapshot),
     adminProviderAssertion: adminProviderAssertionSection(pathname, snapshot),
     adminProviderCapture: adminProviderCaptureSection(pathname, snapshot),
+    adminProviderPromotion: adminProviderPromotionSection(pathname, snapshot),
     organizationCommandMap: organizationCommandMapSection(pathname, snapshot),
     organizationProfile: organizationProfileSection(pathname, snapshot),
     organizationLifecycle: organizationLifecycleSection(pathname, snapshot),
@@ -9526,6 +9597,48 @@ export default {
         });
       } catch (error) {
         return jsonResponse({ ok: false, error: "capture_provider_assertion_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/admin-provider-promotion") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      try {
+        const snapshot = {
+          ...(await fetchAdminSnapshot(env)),
+          status: await fetchJson(`${env.PUBLIC_S25_URL}/api/status`),
+        };
+        return jsonResponse({
+          ok: true,
+          secure: true,
+          ...(adminProviderPromotionSection("/admin", snapshot) || { title: "Provider promotion gate", rows: [] }),
+        });
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "admin_provider_promotion_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/promote-admin-provider") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      if (request.method !== "POST") {
+        return jsonResponse({ ok: false, error: "method_not_allowed" }, 405);
+      }
+      try {
+        const body = await request.json().catch(() => ({}));
+        const status = await fetchJson(`${env.PUBLIC_S25_URL}/api/status`);
+        return jsonResponse({
+          ok: true,
+          secure: true,
+          mode: "staged_promotion",
+          operator_id: body.operator_id || "ident-major-stef-001",
+          provider: body.provider || "external_idp",
+          runtime_bridge: status.runtime_bridge_state || "pending",
+          next: "bootstrap_rotation_review",
+          note: "Promotion staged only. La session provider est marquee comme candidate sans couper encore le bootstrap de secours.",
+        });
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "promote_admin_provider_failed", detail: String(error?.message || error) }, 500);
       }
     }
 
@@ -10565,6 +10678,32 @@ export default {
           ok: false,
           domain: "smajor.org",
           error: "admin_provider_capture_model_failed",
+          detail: String(error?.message || error),
+        }, 500);
+      }
+    }
+
+    if (url.pathname === "/models/admin-provider-promotion.json") {
+      try {
+        const snapshot = {
+          admin: await fetchAdminSnapshot(env).catch((error) => ({
+            organizationsLive: { records: [] },
+            liveRegistries: {},
+            errors: [error?.message || "admin_snapshot_failed"],
+          })),
+          status: await fetchJson(`${env.PUBLIC_S25_URL}/api/status`),
+        };
+        return jsonResponse({
+          ok: true,
+          domain: "smajor.org",
+          source_of_truth: "admin provider promotion gate",
+          ...(adminProviderPromotionSection("/admin", snapshot) || { title: "Provider promotion gate", rows: [] }),
+        });
+      } catch (error) {
+        return jsonResponse({
+          ok: false,
+          domain: "smajor.org",
+          error: "admin_provider_promotion_model_failed",
           detail: String(error?.message || error),
         }, 500);
       }
