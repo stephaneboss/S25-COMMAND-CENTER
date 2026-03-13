@@ -2957,6 +2957,60 @@ function layout({
     `
     : "";
 
+  const adminCutoverExecutionHtml = moduleSection && moduleSection.adminCutoverExecution
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Cutover execution</div>
+            <h2>${moduleSection.adminCutoverExecution.title}</h2>
+          </div>
+          <p>${moduleSection.adminCutoverExecution.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.adminCutoverExecution.rows
+            .map(
+              (row) => `
+                <article class="module-card">
+                  <div class="label">${row.label}</div>
+                  <h3>${row.state}</h3>
+                  <p>${row.detail}</p>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
+  const identityRolloutWavesHtml = moduleSection && moduleSection.identityRolloutWaves
+    ? `
+      <section class="module-panel">
+        <div class="section-head">
+          <div>
+            <div class="label">Identity rollout waves</div>
+            <h2>${moduleSection.identityRolloutWaves.title}</h2>
+          </div>
+          <p>${moduleSection.identityRolloutWaves.intro}</p>
+        </div>
+        <div class="module-grid">
+          ${moduleSection.identityRolloutWaves.rows
+            .map(
+              (row) => `
+                <article class="module-card">
+                  <div class="label">${row.label}</div>
+                  <h3>${row.state}</h3>
+                  <p>${row.detail}</p>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
   const operationalChainHtml = moduleSection && moduleSection.operationalChain
     ? `
       <section class="module-panel">
@@ -4074,6 +4128,8 @@ function layout({
       ${adminBootstrapRotationHtml}
       ${adminProviderCutoverApprovalHtml}
       ${adminFinalCutoverReadinessHtml}
+      ${adminCutoverExecutionHtml}
+      ${identityRolloutWavesHtml}
       ${businessTimelineHtml}
       ${operationalChainHtml}
       ${operationalPlaybookHtml}
@@ -8682,6 +8738,88 @@ function adminFinalCutoverReadinessSection(pathname, snapshot) {
   };
 }
 
+function adminCutoverExecutionSection(pathname, snapshot) {
+  if (pathname !== "/admin") {
+    return null;
+  }
+  const runtimeBridgeState =
+    snapshot.status?.runtime_bridge_state ||
+    snapshot.admin?.status?.runtime_bridge_state ||
+    snapshot.runtimeBridge?.state ||
+    "pending";
+  return {
+    title: "Cutover execution board",
+    intro: "Le cutover reste orchestre par vagues. L'admin sort d'abord du bootstrap quotidien, puis les autres domaines suivent sans casser le runtime ni le fallback.",
+    rows: [
+      {
+        label: "Wave 1",
+        state: "admin_cutover_staged",
+        detail: "L'admin bascule d'abord vers une session provider forte, le bootstrap passant en break-glass only.",
+      },
+      {
+        label: "Runtime bridge",
+        state: runtimeBridgeState,
+        detail: "La ligne directe TRINITY et le runtime S25 restent verrouilles pendant toute l'execution.",
+      },
+      {
+        label: "Audit mode",
+        state: "canonical_events_required",
+        detail: "Chaque vague doit laisser un evenement de coupure lisible dans le backend durable.",
+      },
+      {
+        label: "Fallback",
+        state: "break_glass_preserved",
+        detail: "Le recovery offline survit a chaque vague tant que la verification post-cutover n'est pas terminee.",
+      },
+      {
+        label: "Next",
+        state: "staff_vendor_client_rollout",
+        detail: "Une fois l'admin verrouille, les portails staff, vendors puis clients peuvent passer sur la meme logique d'identite forte.",
+      },
+    ],
+  };
+}
+
+function identityRolloutWavesSection(pathname, snapshot) {
+  if (pathname !== "/admin") {
+    return null;
+  }
+  const authBase = authHardeningSection("/admin", snapshot);
+  const issued = authBase?.totals?.issued ?? authBase?.issued ?? "8/8";
+  const portals = authBase?.totals?.portals ?? authBase?.portals ?? "8/8";
+  return {
+    title: "Identity rollout waves",
+    intro: "Le control plane affiche la sequance de bascule par domaine humain avant la vraie prod: admin, staff, vendors, puis clients.",
+    rows: [
+      {
+        label: "Admin",
+        state: "ready_for_cutover",
+        detail: "Admin est pret: runtime bridge direct, provider capture/promotion valides, bootstrap en break-glass only.",
+      },
+      {
+        label: "Staff",
+        state: "next_wave",
+        detail: `Le parc staff est pret a suivre la meme logique d'identite forte. Base actuelle ${issued} | ${portals}.`,
+      },
+      {
+        label: "Vendors",
+        state: "queued_after_staff",
+        detail: "Les vendors suivent la meme gouvernance organization-first avec portails deja signes.",
+      },
+      {
+        label: "Clients",
+        state: "queued_after_vendors",
+        detail: "Les clients gardent l'experience portail pendant que la couche identitaire forte monte derriere.",
+      },
+      {
+        label: "Result",
+        state: "wave_plan_locked",
+        detail: "La bascule pre-prod est cadree par vagues et non par rupture globale.",
+      },
+    ],
+  };
+}
+
 function organizationCommandMapSection(pathname, snapshot) {
   if (pathname !== "/admin") {
     return null;
@@ -9298,6 +9436,8 @@ function renderApp(env, pathname, hostname, snapshot) {
     adminBootstrapRotation: adminBootstrapRotationSection(pathname, snapshot),
     adminProviderCutoverApproval: adminProviderCutoverApprovalSection(pathname, snapshot),
     adminFinalCutoverReadiness: adminFinalCutoverReadinessSection(pathname, snapshot),
+    adminCutoverExecution: adminCutoverExecutionSection(pathname, snapshot),
+    identityRolloutWaves: identityRolloutWavesSection(pathname, snapshot),
     organizationCommandMap: organizationCommandMapSection(pathname, snapshot),
     organizationProfile: organizationProfileSection(pathname, snapshot),
     organizationLifecycle: organizationLifecycleSection(pathname, snapshot),
@@ -9958,6 +10098,67 @@ export default {
         });
       } catch (error) {
         return jsonResponse({ ok: false, error: "admin_final_cutover_readiness_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/admin-cutover-execution") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      try {
+        const snapshot = {
+          ...(await fetchAdminSnapshot(env)),
+          status: await fetchJson(`${env.PUBLIC_S25_URL}/api/status`),
+        };
+        return jsonResponse({
+          ok: true,
+          secure: true,
+          ...(adminCutoverExecutionSection("/admin", snapshot) || { title: "Cutover execution board", rows: [] }),
+        });
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "admin_cutover_execution_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/execute-admin-cutover") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      if (request.method !== "POST") {
+        return jsonResponse({ ok: false, error: "method_not_allowed" }, 405);
+      }
+      try {
+        const body = await request.json().catch(() => ({}));
+        const status = await fetchJson(`${env.PUBLIC_S25_URL}/api/status`);
+        return jsonResponse({
+          ok: true,
+          secure: true,
+          mode: "staged_admin_cutover",
+          operator_id: body.operator_id || "ident-major-stef-001",
+          runtime_bridge: status.runtime_bridge_state || "pending",
+          bootstrap_mode: "break_glass_only",
+          provider_session: "provider_asserted_admin_session",
+          next: "staff_vendor_client_rollout",
+          note: "Cutover staged only. L'admin est considere pret a sortir du bootstrap quotidien sans bascule destructive immediate.",
+        });
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "execute_admin_cutover_failed", detail: String(error?.message || error) }, 500);
+      }
+    }
+
+    if (hostname === "app.smajor.org" && url.pathname === "/admin/api/identity-rollout-waves") {
+      const denied = await requireOperatorAccess(request, env);
+      if (denied) return denied;
+      try {
+        const snapshot = {
+          ...(await fetchAdminSnapshot(env)),
+          status: await fetchJson(`${env.PUBLIC_S25_URL}/api/status`),
+        };
+        return jsonResponse({
+          ok: true,
+          secure: true,
+          ...(identityRolloutWavesSection("/admin", snapshot) || { title: "Identity rollout waves", rows: [] }),
+        });
+      } catch (error) {
+        return jsonResponse({ ok: false, error: "identity_rollout_waves_failed", detail: String(error?.message || error) }, 500);
       }
     }
 
@@ -11101,6 +11302,58 @@ export default {
           ok: false,
           domain: "smajor.org",
           error: "admin_final_cutover_readiness_model_failed",
+          detail: String(error?.message || error),
+        }, 500);
+      }
+    }
+
+    if (url.pathname === "/models/admin-cutover-execution.json") {
+      try {
+        const snapshot = {
+          admin: await fetchAdminSnapshot(env).catch((error) => ({
+            organizationsLive: { records: [] },
+            liveRegistries: {},
+            errors: [error?.message || "admin_snapshot_failed"],
+          })),
+          status: await fetchJson(`${env.PUBLIC_S25_URL}/api/status`),
+        };
+        return jsonResponse({
+          ok: true,
+          domain: "smajor.org",
+          source_of_truth: "admin cutover execution board",
+          ...(adminCutoverExecutionSection("/admin", snapshot) || { title: "Cutover execution board", rows: [] }),
+        });
+      } catch (error) {
+        return jsonResponse({
+          ok: false,
+          domain: "smajor.org",
+          error: "admin_cutover_execution_model_failed",
+          detail: String(error?.message || error),
+        }, 500);
+      }
+    }
+
+    if (url.pathname === "/models/identity-rollout-waves.json") {
+      try {
+        const snapshot = {
+          admin: await fetchAdminSnapshot(env).catch((error) => ({
+            organizationsLive: { records: [] },
+            liveRegistries: {},
+            errors: [error?.message || "admin_snapshot_failed"],
+          })),
+          status: await fetchJson(`${env.PUBLIC_S25_URL}/api/status`),
+        };
+        return jsonResponse({
+          ok: true,
+          domain: "smajor.org",
+          source_of_truth: "identity rollout waves",
+          ...(identityRolloutWavesSection("/admin", snapshot) || { title: "Identity rollout waves", rows: [] }),
+        });
+      } catch (error) {
+        return jsonResponse({
+          ok: false,
+          domain: "smajor.org",
+          error: "identity_rollout_waves_model_failed",
           detail: String(error?.message || error),
         }, 500);
       }
