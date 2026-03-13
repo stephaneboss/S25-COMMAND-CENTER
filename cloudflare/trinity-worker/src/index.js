@@ -1503,8 +1503,8 @@ async function deriveTradingLaneMetrics(requestId, env) {
 
 async function deriveRuntimeStabilization(requestId, env) {
   const [memoryResult, statusResult] = await Promise.allSettled([
-    fetchOriginJson("/api/memory/state", env, requestId).catch(() => fetchPublicRuntimeJson("/api/memory/state", env, requestId)),
-    fetchOriginJson("/api/status", env, requestId).catch(() => fetchPublicRuntimeJson("/api/status", env, requestId)),
+    fetchPublicRuntimeJson("/api/memory/state", env, requestId).catch(() => fetchOriginJson("/api/memory/state", env, requestId)),
+    fetchPublicRuntimeJson("/api/status", env, requestId).catch(() => fetchOriginJson("/api/status", env, requestId)),
   ]);
   const statePayload = memoryResult.status === "fulfilled" ? memoryResult.value : { state: { agents: {} } };
   const statusPayload = statusResult.status === "fulfilled" ? statusResult.value : {};
@@ -1518,22 +1518,22 @@ async function deriveRuntimeStabilization(requestId, env) {
     targets: [
       {
         agent_id: "KIMI",
-        current: agents.KIMI?.status || "unknown",
-        target: "lateral_ready",
+        current_status: agents.KIMI?.status || "unknown",
+        target_status: "lateral_ready",
         lane: "signal_lane",
         reason: "Source Web3 laterale; ne doit pas salir le mesh principal.",
       },
       {
         agent_id: "ORACLE",
-        current: agents.ORACLE?.status || "unknown",
-        target: "observe",
+        current_status: agents.ORACLE?.status || "unknown",
+        target_status: "observe",
         lane: "signal_lane",
         reason: "Validation prix/integrite, posture d'observation acceptable avant intensification.",
       },
       {
         agent_id: "ONCHAIN_GUARDIAN",
-        current: agents.ONCHAIN_GUARDIAN?.status || "unknown",
-        target: "watch_ready",
+        current_status: agents.ONCHAIN_GUARDIAN?.status || "unknown",
+        target_status: "watch_ready",
         lane: "risk_lane",
         reason: "Watch posture operationnelle, sans marquer le runtime degrade.",
       },
