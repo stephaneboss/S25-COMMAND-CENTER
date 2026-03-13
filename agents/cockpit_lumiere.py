@@ -467,6 +467,8 @@ def _status_summary(status: dict) -> dict:
     runtime_bridge_state = status.get("runtime_bridge_state")
     runtime_direct = runtime_bridge_state == "direct_runtime_linked"
     ha_warning = status.get("ha_warning")
+    ha_connected = bool(status.get("ha_connected"))
+    ha_configured = bool(status.get("ha_configured", ha_connected))
 
     summary_parts = [f"S25 en ligne. Pipeline {pipeline_status}."]
     if action in {"READY", "OBSERVE"} and missions_active:
@@ -479,8 +481,10 @@ def _status_summary(status: dict) -> dict:
         summary_parts.append("Ligne directe runtime active.")
     else:
         summary_parts.append(f"Tunnel {tunnel_state}.")
-    if ha_warning:
+    if ha_warning or (ha_configured and not ha_connected):
         summary_parts.append("Nabu Casa lateral indisponible.")
+    elif ha_connected:
+        summary_parts.append("HA lateral disponible.")
 
     return {
         "ok": True,
@@ -499,6 +503,11 @@ def _status_summary(status: dict) -> dict:
             "hashrate": status.get("hashrate", "--"),
             "temperature": status.get("temp", "--"),
             "intel": status.get("comet_intel", "En attente..."),
+            "ha": {
+                "configured": ha_configured,
+                "connected": ha_connected,
+                "warning": ha_warning,
+            },
             "runtime_bridge": {
                 "state": status.get("runtime_bridge_state"),
                 "endpoint": status.get("runtime_bridge_endpoint"),
@@ -582,7 +591,8 @@ def _hydrate_status_from_memory(status: dict) -> dict:
     status["tunnel_active"] = bool(status.get("tunnel_active")) or str(kimi_status).lower() == "online"
     status["missions_active"] = len(missions)
     status["mesh_agents_online"] = online_agents
-    status["ha_connected"] = bool(HA_TOKEN)
+    status["ha_configured"] = bool(HA_TOKEN)
+    status["ha_connected"] = bool(status.get("ha_connected"))
     if status.get("runtime_bridge_state") == "direct_runtime_linked" and not status.get("tunnel_active"):
         status["tunnel_mode"] = "lateral_optional"
     else:
@@ -955,7 +965,8 @@ def api_status():
         "comet_intel": "En attente...",
         "tunnel_active": False,
         "missions_active": 0,
-        "ha_connected": bool(HA_TOKEN),
+        "ha_configured": bool(HA_TOKEN),
+        "ha_connected": False,
         "wallet_creator_address": MASTER_WALLET_ADDRESS,
         "wallet_creator_connected": bool(MASTER_WALLET_ADDRESS),
         "wallet_custody": "google_secret_manager",
@@ -980,9 +991,11 @@ def api_status():
                     "input_text.ai_model_actif", "sensor.antminer_hashrate",
                     "sensor.antminer_temp", "input_text.s25_comet_intel"]
 
+        ha_requests_ok = False
         for entity in entities:
             r = requests.get(f"{HA_URL}/api/states/{entity}", headers=headers, timeout=5)
             if r.status_code == 200:
+                ha_requests_ok = True
                 state = r.json().get("state", "--")
                 if "arkon5_action" in entity: status["arkon5_action"] = state
                 elif "arkon5_conf" in entity: status["arkon5_conf"] = state
@@ -990,6 +1003,7 @@ def api_status():
                 elif "antminer_hashrate" in entity: status["hashrate"] = state
                 elif "antminer_temp" in entity: status["temp"] = state
                 elif "comet_intel" in entity: status["comet_intel"] = state
+        status["ha_connected"] = ha_requests_ok
 
         # Check tunnel without depending on pgrep, which is absent on slim images.
         status["tunnel_active"] = _process_running("cloudflared")
