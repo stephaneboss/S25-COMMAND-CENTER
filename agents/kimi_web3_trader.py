@@ -395,7 +395,42 @@ def execute_swap_live(signal: dict):
         any_msg = ProtoAny(type_url="/osmosis.gamm.v1beta1.MsgSwapExactAmountIn", value=msg_bytes)
         tx_body = TxBody(messages=[any_msg], memo="S25-KIMI-BUILD16")
 
-        # ── Step 6: AuthInfo ───────────────────────────────────────────────
+        # ── Step 5b: Check available balance before trading ────────────────
+        bal_r = requests.get(
+            f"{OSMOSIS_LCD}/cosmos/bank/v1beta1/balances/{osmo_addr}",
+            timeout=8, headers={"Accept": "application/json"}
+        )
+        wallet_bals = {}
+        if bal_r.status_code == 200:
+            for b in bal_r.json().get("balances", []):
+                wallet_bals[b["denom"]] = int(b["amount"])
+        logger.info(f"Wallet balances: {wallet_bals}")
+
+        # Reserve gas budget in ATOM (fee abstraction)
+        GAS_FEE_UATOM = 3000  # ~0.003 ATOM for gas via fee abstraction
+        avail_atom = wallet_bals.get(DENOM_ATOM, 0)
+        avail_usdc = wallet_bals.get(DENOM_USDC, 0)
+
+        if not is_buy:
+            # SELL — paying in-token + gas (both in ATOM if sym=ATOM)
+            max_tradeable = max(0, avail_atom - GAS_FEE_UATOM) if in_denom == DENOM_ATOM else avail_atom
+            if in_amount > max_tradeable:
+                logger.warning(f"Scaling trade: need {in_amount} but have {max_tradeable} {sym}")
+                in_amount = max_tradeable
+            if in_amount < 1000:
+                logger.warning(f"Trade too small ({in_amount}) — skipping")
+                return
+        else:
+            # BUY — paying in USDC
+            if in_amount > avail_usdc:
+                logger.warning(f"Insufficient USDC: need {in_amount} have {avail_usdc} — skipping")
+                return
+
+        logger.info(f"Trade confirmed: {in_amount} {in_denom} → {out_denom}")
+
+        # ── Step 6: AuthInfo — gas paid in ATOM via Osmosis fee abstraction ──
+        # Osmosis supports IBC fee tokens (fee abstraction module since v16)
+        # Wallet has ATOM but 0 OSMO → pay gas in ATOM
         pub_any = ProtoAny(
             type_url="/cosmos.crypto.secp256k1.PubKey",
             value=Secp256k1PubKey(key=pub_key_bytes).SerializeToString(),
@@ -409,7 +444,7 @@ def execute_swap_live(signal: dict):
         auth_info = AuthInfo(
             signer_infos=[signer_info],
             fee=Fee(
-                amount=[Coin(denom="uosmo", amount=str(int(gas_limit * 0.025 * 1.5)))],
+                amount=[Coin(denom=DENOM_ATOM, amount=str(GAS_FEE_UATOM))],
                 gas_limit=gas_limit,
             ),
         )

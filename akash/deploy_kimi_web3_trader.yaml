@@ -7,7 +7,7 @@
 # Deploy: akash tx deployment create deploy_kimi_web3_trader.yaml
 # Update: akash tx deployment update deploy_kimi_web3_trader.yaml --dseq <DSEQ>
 #
-# BUILD 17: Uses keypair._signing_key (ecdsa.SigningKey) directly — bypasses PublicKey wrapper
+# BUILD 18: Fee abstraction — pays gas in ATOM (wallet has 0.096 ATOM, 0 OSMO)
 # ============================================================
 
 version: "2.0"
@@ -21,7 +21,7 @@ services:
         to:
           - global: true
     env:
-      - KIMI_BUILD=17
+      - KIMI_BUILD=18
       - DRY_RUN=false
       - TRADE_SIZE_USD=5
       - SCAN_INTERVAL=30
