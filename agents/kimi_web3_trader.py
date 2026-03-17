@@ -369,22 +369,31 @@ def execute_swap_live(signal: dict):
             type_url = "/osmosis.gamm.v1beta1.MsgSwapExactAmountIn",
             value    = msg_bytes,
         )
-        tx = Transaction()
-        tx.add_message(any_msg)   # FIX BUILD9: cosmpy uses add_message(), not tx.body.messages
+        # BUILD10: correct cosmpy sign+broadcast flow
+        # LedgerClient has no estimate_and_broadcast_tx — use seal/sign/complete/broadcast_tx
+        from cosmpy.aerial.tx import Transaction, SigningCfg
 
-        try:
-            # Try with auto gas estimation first
-            resp    = client.estimate_and_broadcast_tx(tx, wallet)
-            tx_hash = resp.tx_hash
-            logger.info(f"✅ SWAP TX SENT: {tx_hash}")
-            status  = "sent"
-        except Exception as sim_err:
-            # Fallback: fixed gas 300k uosmo (swap costs ~120-200k)
-            logger.warning(f"Gas estimate failed ({sim_err}) — retrying fixed gas 300k")
-            resp    = client.estimate_and_broadcast_tx(tx, wallet, gas_limit=300000)
-            tx_hash = resp.tx_hash
-            logger.info(f"✅ SWAP TX (fixed gas): {tx_hash}")
-            status  = "sent_fixed_gas"
+        tx = Transaction()
+        tx.add_message(any_msg)
+
+        # Query account sequence + number for signing
+        account  = client.query_account(str(wallet.address()))
+        gas_limit = 300000
+        fee_uosmo = int(gas_limit * 0.025 * 1.5)   # ~11250 uosmo headroom
+        fee_str   = f"{fee_uosmo}uosmo"
+
+        tx.seal(
+            SigningCfg.direct(wallet, account.sequence),
+            fee      = fee_str,
+            gas_limit= gas_limit,
+        )
+        tx.sign(wallet.signer(), chain_id="osmosis-1", account_number=account.number)
+        tx.complete()
+
+        resp    = client.broadcast_tx(tx)
+        tx_hash = resp.tx_hash
+        logger.info(f"✅ SWAP TX SENT: {tx_hash}")
+        status  = "sent"
 
         state["trades_executed"] += 1
         state["pnl_usd"] += signal["profit_est"]
