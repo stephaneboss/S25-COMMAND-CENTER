@@ -92,48 +92,39 @@ app = Flask(__name__)
 
 def fetch_osmosis_prices() -> dict:
     """
-    Fetch DEX spot prices from Osmosis LCD pool queries.
-    Uses gamm v2 spot price — most reliable from Akash containers.
-    Pool IDs: AKT/OSMO=1093, ATOM/OSMO=1, OSMO/USDC=678
+    Fetch on-chain Osmosis DEX prices via DeFiLlama coins.llama.fi API.
+    Gives real pool-derived USD prices — works from any network including Akash.
     """
     prices = {}
 
-    # Pool configs: (pool_id, base_denom, quote_denom, quote_is_osmo)
-    # We query AKT in OSMO, then convert to USD using OSMO/USDC pool
-    pool_queries = [
-        # AKT/USDC pool 1093
-        ("AKT", 1093,
-         "ibc/1480B8FD20AD5FCAE81EA87584D269547DD4D436843C1D20F15E3674D0F2ABC",
-         "ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA84"),
-        # ATOM/USDC pool 678
-        ("ATOM", 678,
-         "ibc/27394FB092D2ECCD56123C74F36E4C1F926001CEADA9CA97EA622B25F41E5EB2",
-         "ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA84"),
-        # OSMO/USDC pool 678
-        ("OSMO", 678,
-         "uosmo",
-         "ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA84"),
-    ]
+    # DeFiLlama coin IDs for Osmosis on-chain tokens
+    llama_ids = {
+        "AKT":  "osmosis:ibc/1480B8FD20AD5FCAE81EA87584D269547DD4D436843C1D20F15E3674D0F2ABC",
+        "ATOM": "osmosis:ibc/27394FB092D2ECCD56123C74F36E4C1F926001CEADA9CA97EA622B25F41E5EB2",
+        "OSMO": "osmosis:uosmo",
+    }
 
-    for sym, pool_id, base_denom, quote_denom in pool_queries:
-        try:
-            url = (
-                f"{OSMOSIS_LCD}/osmosis/gamm/v2/pools/{pool_id}/prices"
-                f"?base_asset_denom={base_denom}&quote_asset_denom={quote_denom}"
-            )
-            r = requests.get(url, timeout=8, headers={"Accept": "application/json"})
-            if r.status_code == 200:
-                data = r.json()
-                spot = float(data.get("spot_price", 0))
-                if spot > 0:
-                    prices[sym] = spot
-                    logger.info(f"Osmosis LCD price {sym}: ${spot:.6f}")
+    try:
+        joined = ",".join(llama_ids.values())
+        r = requests.get(
+            f"https://coins.llama.fi/prices/current/{joined}",
+            timeout=8,
+            headers={"Accept": "application/json"}
+        )
+        if r.status_code == 200:
+            data = r.json().get("coins", {})
+            for sym, coin_id in llama_ids.items():
+                entry = data.get(coin_id, {})
+                price = float(entry.get("price", 0))
+                if price > 0:
+                    prices[sym] = price
+                    logger.info(f"DeFiLlama Osmosis {sym}: ${price:.6f}")
                 else:
-                    logger.warning(f"Osmosis LCD zero price for {sym}: {data}")
-            else:
-                logger.warning(f"Osmosis LCD {sym} HTTP {r.status_code}: {r.text[:100]}")
-        except Exception as e:
-            logger.warning(f"Osmosis LCD price error {sym}: {e}")
+                    logger.warning(f"DeFiLlama no price for {sym}: {entry}")
+        else:
+            logger.warning(f"DeFiLlama HTTP {r.status_code}: {r.text[:100]}")
+    except Exception as e:
+        logger.warning(f"DeFiLlama fetch error: {e}")
 
     return prices
 
