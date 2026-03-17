@@ -91,30 +91,50 @@ app = Flask(__name__)
 # ─── Price Sources ────────────────────────────────────────────────────────────
 
 def fetch_osmosis_prices() -> dict:
-    """Fetch live prices from Osmosis API (imperator.co primary, zone fallback)."""
+    """
+    Fetch DEX spot prices from Osmosis LCD pool queries.
+    Uses gamm v2 spot price — most reliable from Akash containers.
+    Pool IDs: AKT/OSMO=1093, ATOM/OSMO=1, OSMO/USDC=678
+    """
     prices = {}
-    symbols = ["AKT", "ATOM", "OSMO"]
-    # Try primary (imperator.co), then fallback (osmosis.zone)
-    endpoints = [OSMOSIS_API, OSMOSIS_API_ALT]
-    for sym in symbols:
-        for base in endpoints:
-            try:
-                r = requests.get(
-                    f"{base}/tokens/v2/price/{sym}",
-                    timeout=6,
-                    headers={"Accept": "application/json"}
-                )
-                if r.status_code == 200:
-                    data = r.json()
-                    # imperator returns {"price": X} or [{"price": X}]
-                    if isinstance(data, list):
-                        data = data[0] if data else {}
-                    val = float(data.get("price", 0))
-                    if val > 0:
-                        prices[sym] = val
-                        break  # got it — no need for fallback
-            except Exception as e:
-                logger.warning(f"Osmosis price error {sym} [{base}]: {e}")
+
+    # Pool configs: (pool_id, base_denom, quote_denom, quote_is_osmo)
+    # We query AKT in OSMO, then convert to USD using OSMO/USDC pool
+    pool_queries = [
+        # AKT/USDC pool 1093
+        ("AKT", 1093,
+         "ibc/1480B8FD20AD5FCAE81EA87584D269547DD4D436843C1D20F15E3674D0F2ABC",
+         "ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA84"),
+        # ATOM/USDC pool 678
+        ("ATOM", 678,
+         "ibc/27394FB092D2ECCD56123C74F36E4C1F926001CEADA9CA97EA622B25F41E5EB2",
+         "ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA84"),
+        # OSMO/USDC pool 678
+        ("OSMO", 678,
+         "uosmo",
+         "ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA84"),
+    ]
+
+    for sym, pool_id, base_denom, quote_denom in pool_queries:
+        try:
+            url = (
+                f"{OSMOSIS_LCD}/osmosis/gamm/v2/pools/{pool_id}/prices"
+                f"?base_asset_denom={base_denom}&quote_asset_denom={quote_denom}"
+            )
+            r = requests.get(url, timeout=8, headers={"Accept": "application/json"})
+            if r.status_code == 200:
+                data = r.json()
+                spot = float(data.get("spot_price", 0))
+                if spot > 0:
+                    prices[sym] = spot
+                    logger.info(f"Osmosis LCD price {sym}: ${spot:.6f}")
+                else:
+                    logger.warning(f"Osmosis LCD zero price for {sym}: {data}")
+            else:
+                logger.warning(f"Osmosis LCD {sym} HTTP {r.status_code}: {r.text[:100]}")
+        except Exception as e:
+            logger.warning(f"Osmosis LCD price error {sym}: {e}")
+
     return prices
 
 
