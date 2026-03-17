@@ -356,7 +356,6 @@ def execute_swap_live(signal: dict):
 
         # Build MsgSwapExactAmountIn via manual wire encoding (no Osmosis proto dep)
         from google.protobuf.any_pb2 import Any as ProtoAny
-        from cosmpy.aerial.tx import Transaction
 
         msg_bytes = encode_swap_msg(
             sender    = osmo_addr,
@@ -371,21 +370,19 @@ def execute_swap_live(signal: dict):
             value    = msg_bytes,
         )
         tx = Transaction()
-        tx.body.messages.append(any_msg)
+        tx.add_message(any_msg)   # FIX BUILD9: cosmpy uses add_message(), not tx.body.messages
 
         try:
+            # Try with auto gas estimation first
             resp    = client.estimate_and_broadcast_tx(tx, wallet)
             tx_hash = resp.tx_hash
             logger.info(f"✅ SWAP TX SENT: {tx_hash}")
             status  = "sent"
         except Exception as sim_err:
-            # Simulation may fail — retry with fixed gas 250k uosmo
-            logger.warning(f"Gas sim failed ({sim_err}) — retrying fixed gas")
-            from cosmpy.aerial.tx_helpers import SubmittedTx
-            signed = tx.sign(wallet, chain_id="osmosis-1",
-                             account_number=0, sequence=0)
-            resp    = client.broadcast_tx(signed)
-            tx_hash = getattr(resp, "tx_hash", "submitted")
+            # Fallback: fixed gas 300k uosmo (swap costs ~120-200k)
+            logger.warning(f"Gas estimate failed ({sim_err}) — retrying fixed gas 300k")
+            resp    = client.estimate_and_broadcast_tx(tx, wallet, gas_limit=300000)
+            tx_hash = resp.tx_hash
             logger.info(f"✅ SWAP TX (fixed gas): {tx_hash}")
             status  = "sent_fixed_gas"
 
