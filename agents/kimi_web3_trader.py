@@ -330,61 +330,98 @@ def execute_swap_live(signal: dict):
         out_denom = DENOM_USDC
         in_amount = int(TRADE_SIZE_USD / signal["osm_price"] * 1_000_000)
 
-    # BUILD11: no gRPC — pure REST for account query + broadcast
+    # BUILD14: full manual tx build — bypass cosmpy Transaction/SigningCfg entirely
+    # Uses raw cosmos protobufs + coincurve secp256k1, pure REST broadcast
 
     try:
-        import base64
+        import base64, hashlib
         from cosmpy.aerial.wallet import LocalWallet
-        from cosmpy.aerial.tx    import Transaction, SigningCfg
         from google.protobuf.any_pb2 import Any as ProtoAny
 
-        # ── Step 1: Derive wallet locally (zero network) ──────────────────
+        # ── Step 1: Wallet (local) ─────────────────────────────────────────
         wallet    = LocalWallet.from_mnemonic(WALLET_MNEMONIC, prefix="osmo")
         osmo_addr = str(wallet.address())
-        logger.info(
-            f"🚀 SWAP: {action} {in_amount} {in_denom[:16]}... "
-            f"pool={pool_id} wallet={osmo_addr[:24]}..."
-        )
+        logger.info(f"🚀 SWAP: {action} pool={pool_id} wallet={osmo_addr[:24]}...")
 
-        # ── Step 2: Query account via LCD REST (IPv4, already working) ────
+        # ── Step 2: Account info via LCD REST ─────────────────────────────
         acc_r = requests.get(
             f"{OSMOSIS_LCD}/cosmos/auth/v1beta1/accounts/{osmo_addr}",
             timeout=8, headers={"Accept": "application/json"}
         )
         if acc_r.status_code == 200:
-            acc_data = acc_r.json().get("account", {})
-            seq_num  = int(acc_data.get("sequence",       "0"))
-            acc_num  = int(acc_data.get("account_number", "0"))
+            d       = acc_r.json().get("account", {})
+            seq_num = int(d.get("sequence",       "0"))
+            acc_num = int(d.get("account_number", "0"))
             logger.info(f"Account: acc_num={acc_num} seq={seq_num}")
         else:
-            logger.warning(f"Account query HTTP {acc_r.status_code} — using seq=0/acc=0")
+            logger.warning(f"Account HTTP {acc_r.status_code} → seq=0/acc=0")
             seq_num, acc_num = 0, 0
 
-        # ── Step 3: Build + sign tx locally (no network needed) ───────────
+        # ── Step 3: Cosmos protobuf types ──────────────────────────────────
+        try:  # cosmpy v1.x
+            from cosmpy.protos.cosmos.tx.v1beta1.tx_pb2 import (
+                Tx, TxBody, AuthInfo, SignerInfo, ModeInfo, Fee, SignDoc)
+            from cosmpy.protos.cosmos.tx.signing.v1beta1.signing_pb2 import SignMode
+            from cosmpy.protos.cosmos.crypto.secp256k1.keys_pb2 import PubKey as Secp256k1PubKey
+            from cosmpy.protos.cosmos.base.v1beta1.coin_pb2 import Coin
+        except ImportError:  # cosmpy v0.x
+            from cosmos.tx.v1beta1.tx_pb2 import (
+                Tx, TxBody, AuthInfo, SignerInfo, ModeInfo, Fee, SignDoc)
+            from cosmos.tx.signing.v1beta1.signing_pb2 import SignMode
+            from cosmos.crypto.secp256k1.keys_pb2 import PubKey as Secp256k1PubKey
+            from cosmos.base.v1beta1.coin_pb2 import Coin
+
+        # ── Step 4: Public key bytes via coincurve ─────────────────────────
+        priv_key      = wallet.signer()                               # coincurve.PrivateKey
+        pub_key_bytes = priv_key.public_key.format(compressed=True)   # 33 bytes
+
+        # ── Step 5: TxBody ─────────────────────────────────────────────────
         msg_bytes = encode_swap_msg(
             sender=osmo_addr, pool_id=pool_id,
             in_denom=in_denom, in_amount=in_amount,
             out_denom=out_denom, min_out=1,
         )
-        any_msg = ProtoAny(
-            type_url="/osmosis.gamm.v1beta1.MsgSwapExactAmountIn",
-            value=msg_bytes,
-        )
-        tx        = Transaction()
-        tx.add_message(any_msg)
-        gas_limit = 300000
-        fee_str   = f"{int(gas_limit * 0.025 * 1.5)}uosmo"   # ~11 250 uosmo
-        tx.seal(SigningCfg.direct(wallet.signer(), seq_num), fee_str, gas_limit)
-        tx.sign(wallet.signer(), chain_id="osmosis-1", account_number=acc_num)
-        tx.complete()
+        any_msg = ProtoAny(type_url="/osmosis.gamm.v1beta1.MsgSwapExactAmountIn", value=msg_bytes)
+        tx_body = TxBody(messages=[any_msg], memo="")
 
-        # ── Step 4: Broadcast via LCD REST (no gRPC, no IPv6 issue) ───────
-        tx_b64  = base64.b64encode(tx.tx.SerializeToString()).decode()
+        # ── Step 6: AuthInfo ───────────────────────────────────────────────
+        pub_any = ProtoAny(
+            type_url="/cosmos.crypto.secp256k1.PubKey",
+            value=Secp256k1PubKey(key=pub_key_bytes).SerializeToString(),
+        )
+        signer_info = SignerInfo(
+            public_key=pub_any,
+            mode_info=ModeInfo(single=ModeInfo.Single(mode=SignMode.SIGN_MODE_DIRECT)),
+            sequence=seq_num,
+        )
+        gas_limit = 300000
+        auth_info = AuthInfo(
+            signer_infos=[signer_info],
+            fee=Fee(
+                amount=[Coin(denom="uosmo", amount=str(int(gas_limit * 0.025 * 1.5)))],
+                gas_limit=gas_limit,
+            ),
+        )
+
+        # ── Step 7: Sign ───────────────────────────────────────────────────
+        sign_doc  = SignDoc(
+            body_bytes      = tx_body.SerializeToString(),
+            auth_info_bytes = auth_info.SerializeToString(),
+            chain_id        = "osmosis-1",
+            account_number  = acc_num,
+        )
+        msg_hash  = hashlib.sha256(sign_doc.SerializeToString()).digest()
+        raw_sig   = priv_key.sign(msg_hash, hasher=None)  # 65 bytes (r+s+recovery)
+        signature = raw_sig[:64]                           # Cosmos uses 64 bytes (r+s)
+
+        # ── Step 8: Broadcast via LCD REST ────────────────────────────────
+        final_tx = Tx(body=tx_body, auth_info=auth_info, signatures=[signature])
+        tx_b64   = base64.b64encode(final_tx.SerializeToString()).decode()
+
         bcast_r = requests.post(
             f"{OSMOSIS_LCD}/cosmos/tx/v1beta1/txs",
             json={"tx_bytes": tx_b64, "mode": "BROADCAST_MODE_SYNC"},
-            timeout=15,
-            headers={"Content-Type": "application/json", "Accept": "application/json"},
+            timeout=15, headers={"Content-Type": "application/json"},
         )
         result  = bcast_r.json()
         tx_resp = result.get("tx_response", {})
@@ -396,22 +433,20 @@ def execute_swap_live(signal: dict):
             logger.info(f"✅ SWAP TX SENT: {tx_hash}")
             status = "sent"
         else:
-            logger.error(f"❌ TX failed code={code}: {raw_log[:200]}")
+            logger.error(f"❌ TX code={code}: {raw_log[:200]}")
             raise Exception(f"TX code={code}: {raw_log[:150]}")
 
         state["trades_executed"] += 1
         state["pnl_usd"] += signal["profit_est"]
         state["trade_log"].append({
-            **signal,
-            "mode": "live", "status": status,
+            **signal, "mode": "live", "status": status,
             "wallet": osmo_addr, "pool_id": pool_id,
-            "in_amount": in_amount, "in_denom": in_denom,
-            "tx_hash": tx_hash,
+            "in_amount": in_amount, "in_denom": in_denom, "tx_hash": tx_hash,
         })
         state["trade_log"] = state["trade_log"][-50:]
 
-    except ImportError:
-        logger.error("❌ cosmpy not installed")
+    except ImportError as e:
+        logger.error(f"❌ Import error: {e}")
     except Exception as e:
         err = f"Live swap error: {e}"
         logger.error(err)
