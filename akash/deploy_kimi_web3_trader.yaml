@@ -7,11 +7,7 @@
 # Deploy: akash tx deployment create deploy_kimi_web3_trader.yaml
 # Update: akash tx deployment update deploy_kimi_web3_trader.yaml --dseq <DSEQ>
 #
-# Env vars to set before deploy:
-#   WALLET_MNEMONIC  — your Cosmos wallet mnemonic (sensitive!)
-#   WALLET_ADDRESS   — your akash1... address
-#
-# DRY_RUN=true by default — SAFE. Set false only after dry tests pass.
+# BUILD 16: Uses wallet._private_key.sign() — no bip_utils API issues
 # ============================================================
 
 version: "2.0"
@@ -25,14 +21,15 @@ services:
         to:
           - global: true
     env:
-      - DRY_RUN=true
+      - KIMI_BUILD=16
+      - DRY_RUN=false
       - TRADE_SIZE_USD=5
-      - SCAN_INTERVAL=60
+      - SCAN_INTERVAL=30
+      - ARBI_THRESHOLD=0.003
       - CHAINS=cosmos
       - FLASK_PORT=9191
       - WALLET_ADDRESS=REDACTED_WALLET_ADDRESS
-      # IMPORTANT: Add WALLET_MNEMONIC here only when ready for live trading
-      # - WALLET_MNEMONIC=word1 word2 word3 ... word24
+      - WALLET_MNEMONIC=REDACTED_MNEMONIC
     command:
       - bash
       - "-c"
@@ -41,7 +38,7 @@ services:
         pip install --quiet flask requests cosmpy && \
         git clone https://github.com/stephaneboss/S25-COMMAND-CENTER.git /s25 && \
         cd /s25 && \
-        echo "=== Kimi Web3 Trader Starting ===" && \
+        echo "=== Kimi Web3 Trader BUILD 16 Starting ===" && \
         python3 agents/kimi_web3_trader.py
     resources:
       cpu:

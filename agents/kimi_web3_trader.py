@@ -305,6 +305,7 @@ def encode_swap_msg(sender: str, pool_id: int,
 def execute_swap_live(signal: dict):
     """
     Execute real swap on Osmosis via cosmpy + MsgSwapExactAmountIn.
+    BUILD 16: Uses wallet._private_key.sign() — no bip_utils/ecdsa imports needed.
     Requires WALLET_MNEMONIC env var.
     """
     if not WALLET_MNEMONIC:
@@ -330,8 +331,10 @@ def execute_swap_live(signal: dict):
         out_denom = DENOM_USDC
         in_amount = int(TRADE_SIZE_USD / signal["osm_price"] * 1_000_000)
 
-    # BUILD14: full manual tx build — bypass cosmpy Transaction/SigningCfg entirely
-    # Uses raw cosmos protobufs + coincurve secp256k1, pure REST broadcast
+    # BUILD 16: full manual tx build using cosmpy's own keypair — no bip_utils needed
+    # wallet._private_key is cosmpy.crypto.keypairs.Secp256k1
+    # Its .sign(msg) does SHA256 + secp256k1 sign internally (same as ecdsa deterministic)
+    # Its .public_key returns 33-byte compressed pubkey bytes
 
     try:
         import base64, hashlib
@@ -348,42 +351,37 @@ def execute_swap_live(signal: dict):
             f"{OSMOSIS_LCD}/cosmos/auth/v1beta1/accounts/{osmo_addr}",
             timeout=8, headers={"Accept": "application/json"}
         )
+        seq_num, acc_num = 0, 0
         if acc_r.status_code == 200:
-            d       = acc_r.json().get("account", {})
+            raw = acc_r.json()
+            # Handle both flat BaseAccount and wrapped vesting/other account types
+            d = raw.get("account", {})
+            # Recurse into nested base_account if needed
+            for _ in range(3):
+                if "sequence" in d:
+                    break
+                for v in d.values():
+                    if isinstance(v, dict):
+                        d = v
+                        break
             seq_num = int(d.get("sequence",       "0"))
             acc_num = int(d.get("account_number", "0"))
             logger.info(f"Account: acc_num={acc_num} seq={seq_num}")
         else:
             logger.warning(f"Account HTTP {acc_r.status_code} → seq=0/acc=0")
-            seq_num, acc_num = 0, 0
 
         # ── Step 3: Cosmos protobuf types ──────────────────────────────────
-        try:  # cosmpy v1.x
-            from cosmpy.protos.cosmos.tx.v1beta1.tx_pb2 import (
-                Tx, TxBody, AuthInfo, SignerInfo, ModeInfo, Fee, SignDoc)
-            from cosmpy.protos.cosmos.tx.signing.v1beta1.signing_pb2 import SignMode
-            from cosmpy.protos.cosmos.crypto.secp256k1.keys_pb2 import PubKey as Secp256k1PubKey
-            from cosmpy.protos.cosmos.base.v1beta1.coin_pb2 import Coin
-        except ImportError:  # cosmpy v0.x
-            from cosmos.tx.v1beta1.tx_pb2 import (
-                Tx, TxBody, AuthInfo, SignerInfo, ModeInfo, Fee, SignDoc)
-            from cosmos.tx.signing.v1beta1.signing_pb2 import SignMode
-            from cosmos.crypto.secp256k1.keys_pb2 import PubKey as Secp256k1PubKey
-            from cosmos.base.v1beta1.coin_pb2 import Coin
+        from cosmpy.protos.cosmos.tx.v1beta1.tx_pb2 import (
+            Tx, TxBody, AuthInfo, SignerInfo, ModeInfo, Fee, SignDoc)
+        from cosmpy.protos.cosmos.tx.signing.v1beta1.signing_pb2 import SignMode
+        from cosmpy.protos.cosmos.crypto.secp256k1.keys_pb2 import PubKey as Secp256k1PubKey
+        from cosmpy.protos.cosmos.base.v1beta1.coin_pb2 import Coin
 
-        # ── Step 4: Derive keys directly via bip_utils+ecdsa (cosmpy deps) ──
-        # Bypasses wallet.signer() which has unstable API across cosmpy versions
-        from bip_utils import Bip39SeedGenerator, Bip44, Bip44Coins, Bip44Changes
-        import ecdsa, ecdsa.util
-
-        seed_bytes = Bip39SeedGenerator.Generate(WALLET_MNEMONIC)
-        bip44_addr = (Bip44.FromSeed(seed_bytes, Bip44Coins.COSMOS)
-                      .Purpose().Coin().Account(0)
-                      .Change(Bip44Changes.CHAIN_EXT).AddressIndex(0))
-
-        priv_key_bytes = bip44_addr.PrivateKey().Raw().ToBytes()      # 32 bytes
-        pub_key_bytes  = bip44_addr.PublicKey().RawCompressed().ToBytes()  # 33 bytes
-        signing_key    = ecdsa.SigningKey.from_string(priv_key_bytes, curve=ecdsa.SECP256k1)
+        # ── Step 4: Keys from wallet._private_key (cosmpy.crypto.keypairs.Secp256k1) ──
+        # Eliminates bip_utils/ecdsa version issues entirely — cosmpy handles derivation
+        keypair       = wallet._private_key          # Secp256k1 keypair
+        pub_key_bytes = bytes(keypair.public_key)    # 33-byte compressed pubkey
+        logger.info(f"Keypair loaded: pubkey={pub_key_bytes.hex()[:16]}...")
 
         # ── Step 5: TxBody ─────────────────────────────────────────────────
         msg_bytes = encode_swap_msg(
@@ -392,7 +390,7 @@ def execute_swap_live(signal: dict):
             out_denom=out_denom, min_out=1,
         )
         any_msg = ProtoAny(type_url="/osmosis.gamm.v1beta1.MsgSwapExactAmountIn", value=msg_bytes)
-        tx_body = TxBody(messages=[any_msg], memo="")
+        tx_body = TxBody(messages=[any_msg], memo="S25-KIMI-BUILD16")
 
         # ── Step 6: AuthInfo ───────────────────────────────────────────────
         pub_any = ProtoAny(
@@ -414,18 +412,16 @@ def execute_swap_live(signal: dict):
         )
 
         # ── Step 7: Sign ───────────────────────────────────────────────────
+        # cosmpy Secp256k1.sign() does SHA256 + deterministic secp256k1 internally
+        # Returns 64-byte compact signature (r‖s) — exactly what Cosmos expects
         sign_doc  = SignDoc(
             body_bytes      = tx_body.SerializeToString(),
             auth_info_bytes = auth_info.SerializeToString(),
             chain_id        = "osmosis-1",
             account_number  = acc_num,
         )
-        # ecdsa.sign_deterministic internally sha256-hashes the input → 64 bytes (r+s)
-        signature = signing_key.sign_deterministic(
-            sign_doc.SerializeToString(),
-            hashfunc=hashlib.sha256,
-            sigencode=ecdsa.util.sigencode_string,
-        )
+        signature = keypair.sign(sign_doc.SerializeToString())
+        logger.info(f"Signature ({len(signature)} bytes) ready")
 
         # ── Step 8: Broadcast via LCD REST ────────────────────────────────
         final_tx = Tx(body=tx_body, auth_info=auth_info, signatures=[signature])
@@ -446,8 +442,8 @@ def execute_swap_live(signal: dict):
             logger.info(f"✅ SWAP TX SENT: {tx_hash}")
             status = "sent"
         else:
-            logger.error(f"❌ TX code={code}: {raw_log[:200]}")
-            raise Exception(f"TX code={code}: {raw_log[:150]}")
+            logger.error(f"❌ TX code={code}: {raw_log[:300]}")
+            raise Exception(f"TX code={code}: {raw_log[:200]}")
 
         state["trades_executed"] += 1
         state["pnl_usd"] += signal["profit_est"]
@@ -459,7 +455,15 @@ def execute_swap_live(signal: dict):
         state["trade_log"] = state["trade_log"][-50:]
 
     except ImportError as e:
-        logger.error(f"❌ Import error: {e}")
+        err = f"Import error (BUILD16): {e}"
+        logger.error(f"❌ {err}")
+        state["errors"].append({"ts": datetime.now(timezone.utc).isoformat(), "msg": err})
+        state["errors"] = state["errors"][-20:]
+    except AttributeError as e:
+        err = f"Keypair attr error: {e}"
+        logger.error(f"❌ {err}")
+        state["errors"].append({"ts": datetime.now(timezone.utc).isoformat(), "msg": err})
+        state["errors"] = state["errors"][-20:]
     except Exception as e:
         err = f"Live swap error: {e}"
         logger.error(err)
