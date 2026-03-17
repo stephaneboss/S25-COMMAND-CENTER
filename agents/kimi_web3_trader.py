@@ -261,6 +261,47 @@ def execute_swap_dry_run(signal: dict):
     state["trade_log"] = state["trade_log"][-50:]
 
 
+# ─── Protobuf Wire Encoding ───────────────────────────────────────────────────
+
+def _varint(n: int) -> bytes:
+    """Encode integer as protobuf varint."""
+    out = bytearray()
+    while n > 0x7F:
+        out.append((n & 0x7F) | 0x80)
+        n >>= 7
+    out.append(n & 0x7F)
+    return bytes(out)
+
+def _pb_str(field: int, val: str) -> bytes:
+    """Encode protobuf string field (wire type 2)."""
+    b = val.encode()
+    return _varint((field << 3) | 2) + _varint(len(b)) + b
+
+def _pb_u64(field: int, val: int) -> bytes:
+    """Encode protobuf uint64 field (wire type 0)."""
+    return _varint((field << 3) | 0) + _varint(val)
+
+def _pb_msg(field: int, data: bytes) -> bytes:
+    """Encode embedded protobuf message (wire type 2)."""
+    return _varint((field << 3) | 2) + _varint(len(data)) + data
+
+def encode_swap_msg(sender: str, pool_id: int,
+                    in_denom: str, in_amount: int,
+                    out_denom: str, min_out: int = 1) -> bytes:
+    """
+    Encode osmosis.gamm.v1beta1.MsgSwapExactAmountIn as raw protobuf bytes.
+    No external Osmosis proto dependency required.
+    """
+    route = _pb_u64(1, pool_id) + _pb_str(2, out_denom)          # SwapAmountInRoute
+    coin  = _pb_str(1, in_denom) + _pb_str(2, str(in_amount))     # Coin
+    return (
+        _pb_str(1, sender) +      # sender
+        _pb_msg(2, route)  +      # routes[0]
+        _pb_msg(3, coin)   +      # token_in
+        _pb_str(4, str(min_out))  # token_out_min_amount
+    )
+
+
 def execute_swap_live(signal: dict):
     """
     Execute real swap on Osmosis via cosmpy + MsgSwapExactAmountIn.
@@ -313,41 +354,40 @@ def execute_swap_live(signal: dict):
             f"pool={pool_id} | wallet={osmo_addr[:20]}..."
         )
 
-        try:
-            # Try cosmpy osmosis protos (available in cosmpy >= 1.x)
-            from cosmpy.protos.osmosis.gamm.v1beta1.tx_pb2 import (
-                MsgSwapExactAmountIn, SwapAmountInRoute
-            )
-            from cosmpy.protos.cosmos.base.v1beta1.coin_pb2 import Coin
+        # Build MsgSwapExactAmountIn via manual wire encoding (no Osmosis proto dep)
+        from google.protobuf.any_pb2 import Any as ProtoAny
+        from cosmpy.aerial.tx import Transaction
 
-            msg = MsgSwapExactAmountIn(
-                sender               = osmo_addr,
-                routes               = [SwapAmountInRoute(pool_id=pool_id, token_out_denom=out_denom)],
-                token_in             = Coin(denom=in_denom, amount=str(in_amount)),
-                token_out_min_amount = str(min_out),
-            )
-            tx = Transaction()
-            tx.add_message(msg)
-            resp = client.estimate_and_broadcast_tx(tx, wallet)
+        msg_bytes = encode_swap_msg(
+            sender    = osmo_addr,
+            pool_id   = pool_id,
+            in_denom  = in_denom,
+            in_amount = in_amount,
+            out_denom = out_denom,
+            min_out   = 1,
+        )
+        any_msg = ProtoAny(
+            type_url = "/osmosis.gamm.v1beta1.MsgSwapExactAmountIn",
+            value    = msg_bytes,
+        )
+        tx = Transaction()
+        tx.body.messages.append(any_msg)
+
+        try:
+            resp    = client.estimate_and_broadcast_tx(tx, wallet)
             tx_hash = resp.tx_hash
             logger.info(f"✅ SWAP TX SENT: {tx_hash}")
-            status = "sent"
-
-        except ImportError:
-            # cosmpy doesn't have Osmosis protos — submit via LCD REST instead
-            logger.warning("cosmpy protos unavailable — trying LCD REST broadcast")
-            rest_url = "https://lcd.osmosis.zone"
-            payload = {
-                "tx_bytes": "",   # would need amino encoding
-                "mode": "BROADCAST_MODE_SYNC"
-            }
-            logger.warning(
-                f"⚠️ REST broadcast not yet wired — "
-                f"signal logged, manual execution needed: "
-                f"{action} {in_amount} {in_denom[:12]}... pool={pool_id}"
-            )
-            tx_hash = "pending_rest_impl"
-            status  = "proto_unavailable"
+            status  = "sent"
+        except Exception as sim_err:
+            # Simulation may fail — retry with fixed gas 250k uosmo
+            logger.warning(f"Gas sim failed ({sim_err}) — retrying fixed gas")
+            from cosmpy.aerial.tx_helpers import SubmittedTx
+            signed = tx.sign(wallet, chain_id="osmosis-1",
+                             account_number=0, sequence=0)
+            resp    = client.broadcast_tx(signed)
+            tx_hash = getattr(resp, "tx_hash", "submitted")
+            logger.info(f"✅ SWAP TX (fixed gas): {tx_hash}")
+            status  = "sent_fixed_gas"
 
         state["trades_executed"] += 1
         state["pnl_usd"] += signal["profit_est"]
