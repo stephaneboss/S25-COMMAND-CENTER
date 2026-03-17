@@ -374,7 +374,7 @@ def execute_swap_live(signal: dict):
         tx.add_message(any_msg)
         gas_limit = 300000
         fee_str   = f"{int(gas_limit * 0.025 * 1.5)}uosmo"   # ~11 250 uosmo
-        tx.seal(SigningCfg.direct(wallet, seq_num), fee=fee_str, gas_limit=gas_limit)
+        tx.seal(SigningCfg.direct(wallet, seq_num), fee_str, gas_limit)
         tx.sign(wallet.signer(), chain_id="osmosis-1", account_number=acc_num)
         tx.complete()
 
