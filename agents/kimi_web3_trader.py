@@ -44,9 +44,16 @@ CHAINS           = os.environ.get("CHAINS", "cosmos").split(",")
 FLASK_PORT       = int(os.environ.get("FLASK_PORT", "9191"))
 
 # ─── Osmosis Config ───────────────────────────────────────────────────────────
-OSMOSIS_API      = "https://api-osmosis.imperator.co"   # imperator.co = reliable mirror
-OSMOSIS_API_ALT  = "https://api.osmosis.zone"            # fallback
 OSMOSIS_LCD      = "https://lcd.osmosis.zone"
+# Confirmed pool IDs (Osmosis mainnet 2026)
+POOL_ATOM_OSMO   = 1      # ATOM/OSMO
+POOL_AKT_OSMO    = 3      # AKT/OSMO
+POOL_OSMO_USDC   = 678    # OSMO/axlUSDC
+# Correct IBC denoms
+DENOM_ATOM = "ibc/27394FB092D2ECCD56123C74F36E4C1F926001CEADA9CA97EA622B25F41E5EB2"
+DENOM_AKT  = "ibc/1480B8FD20AD5FCAE81EA87584D269547DD4D436843C1D20F15E3674D0F2ABC"
+DENOM_OSMO = "uosmo"
+DENOM_USDC = "ibc/D189335C6E4A68B513C10AB227BF1C1D38C746766278BA3EEB4FB14124F1D858"
 
 # Token denoms on Osmosis
 DENOMS = {
@@ -92,39 +99,54 @@ app = Flask(__name__)
 
 def fetch_osmosis_prices() -> dict:
     """
-    Fetch on-chain Osmosis DEX prices via DeFiLlama coins.llama.fi API.
-    Gives real pool-derived USD prices — works from any network including Akash.
+    Fetch real Osmosis DEX spot prices via LCD gamm v2 pool queries.
+    Confirmed working pools (2026):
+      Pool 678  → OSMO/USDC direct USD price
+      Pool 1    → ATOM/OSMO × OSMO_USD = ATOM_USD
+      Pool 3    → AKT/OSMO  × OSMO_USD = AKT_USD
     """
     prices = {}
 
-    # DeFiLlama coin IDs for Osmosis on-chain tokens
-    llama_ids = {
-        "AKT":  "osmosis:ibc/1480B8FD20AD5FCAE81EA87584D269547DD4D436843C1D20F15E3674D0F2ABC",
-        "ATOM": "osmosis:ibc/27394FB092D2ECCD56123C74F36E4C1F926001CEADA9CA97EA622B25F41E5EB2",
-        "OSMO": "osmosis:uosmo",
-    }
+    def lcd_spot(pool_id, base, quote) -> float:
+        try:
+            r = requests.get(
+                f"{OSMOSIS_LCD}/osmosis/gamm/v2/pools/{pool_id}/prices"
+                f"?base_asset_denom={base}&quote_asset_denom={quote}",
+                timeout=8, headers={"Accept": "application/json"}
+            )
+            if r.status_code == 200:
+                val = r.json().get("spot_price", "0")
+                return float(val) if val else 0.0
+            logger.warning(f"LCD pool {pool_id} HTTP {r.status_code}")
+        except Exception as e:
+            logger.warning(f"LCD pool {pool_id} error: {e}")
+        return 0.0
 
-    try:
-        joined = ",".join(llama_ids.values())
-        r = requests.get(
-            f"https://coins.llama.fi/prices/current/{joined}",
-            timeout=8,
-            headers={"Accept": "application/json"}
-        )
-        if r.status_code == 200:
-            data = r.json().get("coins", {})
-            for sym, coin_id in llama_ids.items():
-                entry = data.get(coin_id, {})
-                price = float(entry.get("price", 0))
-                if price > 0:
-                    prices[sym] = price
-                    logger.info(f"DeFiLlama Osmosis {sym}: ${price:.6f}")
-                else:
-                    logger.warning(f"DeFiLlama no price for {sym}: {entry}")
+    # Step 1: OSMO/USD from pool 678 (axlUSDC)
+    osmo_usd = lcd_spot(POOL_OSMO_USDC, DENOM_OSMO, DENOM_USDC)
+    if osmo_usd > 0:
+        prices["OSMO"] = osmo_usd
+        logger.info(f"Osmosis LCD OSMO/USD: ${osmo_usd:.6f}")
+
+        # Step 2: ATOM/OSMO from pool 1 → convert to USD
+        atom_osmo = lcd_spot(POOL_ATOM_OSMO, DENOM_ATOM, DENOM_OSMO)
+        if atom_osmo > 0:
+            prices["ATOM"] = atom_osmo * osmo_usd
+            logger.info(f"Osmosis LCD ATOM/USD: ${prices['ATOM']:.4f} ({atom_osmo:.4f} OSMO)")
+
+        # Step 3: AKT/OSMO from pool 3 → convert to USD
+        akt_osmo = lcd_spot(POOL_AKT_OSMO, DENOM_AKT, DENOM_OSMO)
+        if akt_osmo > 0:
+            prices["AKT"] = akt_osmo * osmo_usd
+            logger.info(f"Osmosis LCD AKT/USD: ${prices['AKT']:.4f} ({akt_osmo:.4f} OSMO)")
         else:
-            logger.warning(f"DeFiLlama HTTP {r.status_code}: {r.text[:100]}")
-    except Exception as e:
-        logger.warning(f"DeFiLlama fetch error: {e}")
+            # Pool 3 may need reversed query
+            osmo_akt = lcd_spot(POOL_AKT_OSMO, DENOM_OSMO, DENOM_AKT)
+            if osmo_akt > 0:
+                prices["AKT"] = (1.0 / osmo_akt) * osmo_usd
+                logger.info(f"Osmosis LCD AKT/USD (inv): ${prices['AKT']:.4f}")
+    else:
+        logger.warning("Osmosis LCD: OSMO/USD failed — skipping all LCD prices")
 
     return prices
 
