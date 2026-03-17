@@ -377,11 +377,14 @@ def execute_swap_live(signal: dict):
         from cosmpy.protos.cosmos.crypto.secp256k1.keys_pb2 import PubKey as Secp256k1PubKey
         from cosmpy.protos.cosmos.base.v1beta1.coin_pb2 import Coin
 
-        # ── Step 4: Keys from wallet._private_key (cosmpy.crypto.keypairs.Secp256k1) ──
-        # Eliminates bip_utils/ecdsa version issues entirely — cosmpy handles derivation
-        keypair       = wallet._private_key          # Secp256k1 keypair
-        pub_key_bytes = bytes(keypair.public_key)    # 33-byte compressed pubkey
-        logger.info(f"Keypair loaded: pubkey={pub_key_bytes.hex()[:16]}...")
+        # ── Step 4: Keys via ecdsa internal (bulletproof across all cosmpy versions) ──
+        # wallet._private_key is Secp256k1, which stores ecdsa.SigningKey as _signing_key
+        # Bypasses public_key property which returns a PublicKey wrapper (not bytes) in some versions
+        import ecdsa, ecdsa.util
+        keypair    = wallet._private_key           # cosmpy Secp256k1
+        ecdsa_key  = keypair._signing_key          # ecdsa.SigningKey — always present
+        pub_key_bytes = ecdsa_key.get_verifying_key().to_string("compressed")  # 33 bytes guaranteed
+        logger.info(f"Keypair loaded via ecdsa: pubkey={pub_key_bytes.hex()[:16]}...")
 
         # ── Step 5: TxBody ─────────────────────────────────────────────────
         msg_bytes = encode_swap_msg(
@@ -412,15 +415,19 @@ def execute_swap_live(signal: dict):
         )
 
         # ── Step 7: Sign ───────────────────────────────────────────────────
-        # cosmpy Secp256k1.sign() does SHA256 + deterministic secp256k1 internally
-        # Returns 64-byte compact signature (r‖s) — exactly what Cosmos expects
+        # Use ecdsa_key.sign_deterministic directly — bypasses keypair.sign() wrapper
+        # SHA256 hash + deterministic secp256k1, 64-byte compact r‖s output
         sign_doc  = SignDoc(
             body_bytes      = tx_body.SerializeToString(),
             auth_info_bytes = auth_info.SerializeToString(),
             chain_id        = "osmosis-1",
             account_number  = acc_num,
         )
-        signature = keypair.sign(sign_doc.SerializeToString())
+        signature = ecdsa_key.sign_deterministic(
+            sign_doc.SerializeToString(),
+            hashfunc=hashlib.sha256,
+            sigencode=ecdsa.util.sigencode_string,
+        )
         logger.info(f"Signature ({len(signature)} bytes) ready")
 
         # ── Step 8: Broadcast via LCD REST ────────────────────────────────
