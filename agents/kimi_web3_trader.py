@@ -330,82 +330,83 @@ def execute_swap_live(signal: dict):
         out_denom = DENOM_USDC
         in_amount = int(TRADE_SIZE_USD / signal["osm_price"] * 1_000_000)
 
-    min_out = 1  # Accept any output — slippage handled by spread threshold
+    # BUILD11: no gRPC — pure REST for account query + broadcast
 
     try:
-        from cosmpy.aerial.client import LedgerClient, NetworkConfig
+        import base64
         from cosmpy.aerial.wallet import LocalWallet
-        from cosmpy.aerial.tx import Transaction
-
-        cfg = NetworkConfig(
-            chain_id              = "osmosis-1",
-            url                   = "grpc+https://osmosis-grpc.lavenderfive.com:443",
-            fee_minimum_gas_price = 0.025,
-            fee_denomination      = "uosmo",
-            staking_denomination  = "uosmo",
-        )
-        client = LedgerClient(cfg)
-        # FIX: prefix="osmo" — generates osmo1... address from mnemonic
-        wallet = LocalWallet.from_mnemonic(WALLET_MNEMONIC, prefix="osmo")
-        osmo_addr = str(wallet.address())
-
-        logger.info(
-            f"🚀 SWAP: {action} {in_amount} {in_denom[:12]}... → {out_denom[:12]}... "
-            f"pool={pool_id} | wallet={osmo_addr[:20]}..."
-        )
-
-        # Build MsgSwapExactAmountIn via manual wire encoding (no Osmosis proto dep)
+        from cosmpy.aerial.tx    import Transaction, SigningCfg
         from google.protobuf.any_pb2 import Any as ProtoAny
 
+        # ── Step 1: Derive wallet locally (zero network) ──────────────────
+        wallet    = LocalWallet.from_mnemonic(WALLET_MNEMONIC, prefix="osmo")
+        osmo_addr = str(wallet.address())
+        logger.info(
+            f"🚀 SWAP: {action} {in_amount} {in_denom[:16]}... "
+            f"pool={pool_id} wallet={osmo_addr[:24]}..."
+        )
+
+        # ── Step 2: Query account via LCD REST (IPv4, already working) ────
+        acc_r = requests.get(
+            f"{OSMOSIS_LCD}/cosmos/auth/v1beta1/accounts/{osmo_addr}",
+            timeout=8, headers={"Accept": "application/json"}
+        )
+        if acc_r.status_code == 200:
+            acc_data = acc_r.json().get("account", {})
+            seq_num  = int(acc_data.get("sequence",       "0"))
+            acc_num  = int(acc_data.get("account_number", "0"))
+            logger.info(f"Account: acc_num={acc_num} seq={seq_num}")
+        else:
+            logger.warning(f"Account query HTTP {acc_r.status_code} — using seq=0/acc=0")
+            seq_num, acc_num = 0, 0
+
+        # ── Step 3: Build + sign tx locally (no network needed) ───────────
         msg_bytes = encode_swap_msg(
-            sender    = osmo_addr,
-            pool_id   = pool_id,
-            in_denom  = in_denom,
-            in_amount = in_amount,
-            out_denom = out_denom,
-            min_out   = 1,
+            sender=osmo_addr, pool_id=pool_id,
+            in_denom=in_denom, in_amount=in_amount,
+            out_denom=out_denom, min_out=1,
         )
         any_msg = ProtoAny(
-            type_url = "/osmosis.gamm.v1beta1.MsgSwapExactAmountIn",
-            value    = msg_bytes,
+            type_url="/osmosis.gamm.v1beta1.MsgSwapExactAmountIn",
+            value=msg_bytes,
         )
-        # BUILD10: correct cosmpy sign+broadcast flow
-        # LedgerClient has no estimate_and_broadcast_tx — use seal/sign/complete/broadcast_tx
-        from cosmpy.aerial.tx import Transaction, SigningCfg
-
-        tx = Transaction()
+        tx        = Transaction()
         tx.add_message(any_msg)
-
-        # Query account sequence + number for signing
-        account  = client.query_account(str(wallet.address()))
         gas_limit = 300000
-        fee_uosmo = int(gas_limit * 0.025 * 1.5)   # ~11250 uosmo headroom
-        fee_str   = f"{fee_uosmo}uosmo"
-
-        tx.seal(
-            SigningCfg.direct(wallet, account.sequence),
-            fee      = fee_str,
-            gas_limit= gas_limit,
-        )
-        tx.sign(wallet.signer(), chain_id="osmosis-1", account_number=account.number)
+        fee_str   = f"{int(gas_limit * 0.025 * 1.5)}uosmo"   # ~11 250 uosmo
+        tx.seal(SigningCfg.direct(wallet, seq_num), fee=fee_str, gas_limit=gas_limit)
+        tx.sign(wallet.signer(), chain_id="osmosis-1", account_number=acc_num)
         tx.complete()
 
-        resp    = client.broadcast_tx(tx)
-        tx_hash = resp.tx_hash
-        logger.info(f"✅ SWAP TX SENT: {tx_hash}")
-        status  = "sent"
+        # ── Step 4: Broadcast via LCD REST (no gRPC, no IPv6 issue) ───────
+        tx_b64  = base64.b64encode(tx.tx.SerializeToString()).decode()
+        bcast_r = requests.post(
+            f"{OSMOSIS_LCD}/cosmos/tx/v1beta1/txs",
+            json={"tx_bytes": tx_b64, "mode": "BROADCAST_MODE_SYNC"},
+            timeout=15,
+            headers={"Content-Type": "application/json", "Accept": "application/json"},
+        )
+        result  = bcast_r.json()
+        tx_resp = result.get("tx_response", {})
+        tx_hash = tx_resp.get("txhash", "unknown")
+        code    = int(tx_resp.get("code", -1))
+        raw_log = tx_resp.get("raw_log", "")
+
+        if code == 0:
+            logger.info(f"✅ SWAP TX SENT: {tx_hash}")
+            status = "sent"
+        else:
+            logger.error(f"❌ TX failed code={code}: {raw_log[:200]}")
+            raise Exception(f"TX code={code}: {raw_log[:150]}")
 
         state["trades_executed"] += 1
         state["pnl_usd"] += signal["profit_est"]
         state["trade_log"].append({
             **signal,
-            "mode":      "live",
-            "status":    status,
-            "wallet":    osmo_addr,
-            "pool_id":   pool_id,
-            "in_amount": in_amount,
-            "in_denom":  in_denom,
-            "tx_hash":   tx_hash,
+            "mode": "live", "status": status,
+            "wallet": osmo_addr, "pool_id": pool_id,
+            "in_amount": in_amount, "in_denom": in_denom,
+            "tx_hash": tx_hash,
         })
         state["trade_log"] = state["trade_log"][-50:]
 
