@@ -44,7 +44,8 @@ CHAINS           = os.environ.get("CHAINS", "cosmos").split(",")
 FLASK_PORT       = int(os.environ.get("FLASK_PORT", "9191"))
 
 # ─── Osmosis Config ───────────────────────────────────────────────────────────
-OSMOSIS_API      = "https://api.osmosis.zone"
+OSMOSIS_API      = "https://api-osmosis.imperator.co"   # imperator.co = reliable mirror
+OSMOSIS_API_ALT  = "https://api.osmosis.zone"            # fallback
 OSMOSIS_LCD      = "https://lcd.osmosis.zone"
 
 # Token denoms on Osmosis
@@ -90,19 +91,30 @@ app = Flask(__name__)
 # ─── Price Sources ────────────────────────────────────────────────────────────
 
 def fetch_osmosis_prices() -> dict:
-    """Fetch live prices from Osmosis API."""
+    """Fetch live prices from Osmosis API (imperator.co primary, zone fallback)."""
     prices = {}
     symbols = ["AKT", "ATOM", "OSMO"]
+    # Try primary (imperator.co), then fallback (osmosis.zone)
+    endpoints = [OSMOSIS_API, OSMOSIS_API_ALT]
     for sym in symbols:
-        try:
-            r = requests.get(
-                f"{OSMOSIS_API}/tokens/v2/price/{sym}",
-                timeout=6
-            )
-            if r.status_code == 200:
-                prices[sym] = float(r.json().get("price", 0))
-        except Exception as e:
-            logger.warning(f"Osmosis price error {sym}: {e}")
+        for base in endpoints:
+            try:
+                r = requests.get(
+                    f"{base}/tokens/v2/price/{sym}",
+                    timeout=6,
+                    headers={"Accept": "application/json"}
+                )
+                if r.status_code == 200:
+                    data = r.json()
+                    # imperator returns {"price": X} or [{"price": X}]
+                    if isinstance(data, list):
+                        data = data[0] if data else {}
+                    val = float(data.get("price", 0))
+                    if val > 0:
+                        prices[sym] = val
+                        break  # got it — no need for fallback
+            except Exception as e:
+                logger.warning(f"Osmosis price error {sym} [{base}]: {e}")
     return prices
 
 
