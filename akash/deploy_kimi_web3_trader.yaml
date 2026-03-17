@@ -1,0 +1,75 @@
+---
+# ============================================================
+# S25 Lumière — Kimi Web3 Trader — Akash SDL
+# Agent: KIMI (Moonshot) — Multi-chain arbitrage sniper
+# Port: 9191 (Flask REST API)
+#
+# Deploy: akash tx deployment create deploy_kimi_web3_trader.yaml
+# Update: akash tx deployment update deploy_kimi_web3_trader.yaml --dseq <DSEQ>
+#
+# Env vars to set before deploy:
+#   WALLET_MNEMONIC  — your Cosmos wallet mnemonic (sensitive!)
+#   WALLET_ADDRESS   — your akash1... address
+#
+# DRY_RUN=true by default — SAFE. Set false only after dry tests pass.
+# ============================================================
+
+version: "2.0"
+
+services:
+  kimi-web3-trader:
+    image: python:3.11-slim
+    expose:
+      - port: 9191
+        as: 80
+        to:
+          - global: true
+    env:
+      - DRY_RUN=true
+      - TRADE_SIZE_USD=5
+      - SCAN_INTERVAL=60
+      - CHAINS=cosmos
+      - FLASK_PORT=9191
+      - WALLET_ADDRESS=REDACTED_WALLET_ADDRESS
+      # IMPORTANT: Add WALLET_MNEMONIC here only when ready for live trading
+      # - WALLET_MNEMONIC=word1 word2 word3 ... word24
+    command:
+      - bash
+      - "-c"
+      - |
+        apt-get update -qq && apt-get install -y -qq git curl && \
+        pip install --quiet flask requests cosmpy && \
+        git clone https://github.com/stephaneboss/S25-COMMAND-CENTER.git /s25 && \
+        cd /s25 && \
+        echo "=== Kimi Web3 Trader Starting ===" && \
+        python3 agents/kimi_web3_trader.py
+    resources:
+      cpu:
+        units: 1
+      memory:
+        size: 512Mi
+      storage:
+        size: 1Gi
+
+profiles:
+  compute:
+    kimi-web3-trader:
+      resources:
+        cpu:
+          units: 1
+        memory:
+          size: 512Mi
+        storage:
+          size: 1Gi
+  placement:
+    akash:
+      pricing:
+        kimi-web3-trader:
+          denom: uakt
+          amount: 100
+
+deployment:
+  kimi-web3-trader:
+    akash:
+      profile: kimi-web3-trader
+      count: 1
