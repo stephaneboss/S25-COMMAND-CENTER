@@ -371,9 +371,19 @@ def execute_swap_live(signal: dict):
             from cosmos.crypto.secp256k1.keys_pb2 import PubKey as Secp256k1PubKey
             from cosmos.base.v1beta1.coin_pb2 import Coin
 
-        # ── Step 4: Public key bytes via coincurve ─────────────────────────
-        priv_key      = wallet.signer()                               # coincurve.PrivateKey
-        pub_key_bytes = priv_key.public_key.format(compressed=True)   # 33 bytes
+        # ── Step 4: Derive keys directly via bip_utils+ecdsa (cosmpy deps) ──
+        # Bypasses wallet.signer() which has unstable API across cosmpy versions
+        from bip_utils import Bip39SeedGenerator, Bip44, Bip44Coins, Bip44Changes
+        import ecdsa, ecdsa.util
+
+        seed_bytes = Bip39SeedGenerator.Generate(WALLET_MNEMONIC)
+        bip44_addr = (Bip44.FromSeed(seed_bytes, Bip44Coins.COSMOS)
+                      .Purpose().Coin().Account(0)
+                      .Change(Bip44Changes.CHAIN_EXT).AddressIndex(0))
+
+        priv_key_bytes = bip44_addr.PrivateKey().Raw().ToBytes()      # 32 bytes
+        pub_key_bytes  = bip44_addr.PublicKey().RawCompressed().ToBytes()  # 33 bytes
+        signing_key    = ecdsa.SigningKey.from_string(priv_key_bytes, curve=ecdsa.SECP256k1)
 
         # ── Step 5: TxBody ─────────────────────────────────────────────────
         msg_bytes = encode_swap_msg(
@@ -410,9 +420,12 @@ def execute_swap_live(signal: dict):
             chain_id        = "osmosis-1",
             account_number  = acc_num,
         )
-        msg_hash  = hashlib.sha256(sign_doc.SerializeToString()).digest()
-        raw_sig   = priv_key.sign(msg_hash, hasher=None)  # 65 bytes (r+s+recovery)
-        signature = raw_sig[:64]                           # Cosmos uses 64 bytes (r+s)
+        # ecdsa.sign_deterministic internally sha256-hashes the input → 64 bytes (r+s)
+        signature = signing_key.sign_deterministic(
+            sign_doc.SerializeToString(),
+            hashfunc=hashlib.sha256,
+            sigencode=ecdsa.util.sigencode_string,
+        )
 
         # ── Step 8: Broadcast via LCD REST ────────────────────────────────
         final_tx = Tx(body=tx_body, auth_info=auth_info, signatures=[signature])
