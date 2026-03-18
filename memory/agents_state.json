@@ -1,9 +1,9 @@
 {
   "_meta": {
     "description": "Runtime state de chaque agent S25",
-    "version": "1.2.0",
-    "updated_at": "2026-03-13T21:00:00Z",
-    "changelog": "v1.2.0: Ollama fallback actif, deploy_cockpit :main tag, dry_run endpoint live"
+    "version": "1.3.0",
+    "updated_at": "2026-03-13T22:00:00Z",
+    "changelog": "v1.3.0: Pipeline AUTHORIZED, multi-source confidence weighting, consensus bonus, /api/intel + /api/signal live"
   },
   "agents": {
     "TRINITY": {
@@ -33,18 +33,32 @@
     },
     "KIMI": {
       "status": "live",
-      "last_seen": "2026-03-13T19:00:00Z",
-      "last_scan": "2026-03-13T19:00:00Z",
+      "last_seen": "2026-03-13T22:00:00Z",
+      "last_scan": "2026-03-13T22:00:00Z",
       "dseq": "25920459",
-      "notes": "Live sur Akash DSEQ 25920459 — intel BTC/USDT + AKT/USDT actif, scan 60s"
+      "notes": "Live Akash DSEQ 25920459 — intel BTC/USDT + AKT/USDT scan 60s autonome. Pas de tunnel manuel."
     }
   },
   "pipeline": {
-    "mode": "dry_run",
-    "active_model": "INIT",
+    "mode": "authorized",
+    "active_model": "MULTI_SOURCE",
     "threat_level": "T0",
     "kill_switch": false,
     "last_signal": null,
+    "signals_buffer": [],
+    "source_weights": {
+      "TRINITY": 0.80,
+      "MERLIN": 0.70,
+      "KIMI": 0.65,
+      "ORACLE": 0.60,
+      "AGENT_LOOP": 0.55,
+      "ONCHAIN": 0.55,
+      "COMET": 0.50
+    },
+    "consensus_bonus": 0.15,
+    "arkon_threshold": 0.60,
+    "signal_endpoint": "POST /api/signal",
+    "intel_endpoint": "POST /api/intel",
     "dryrun_endpoint": "POST /api/pipeline/dryrun",
     "ollama_fallback": "http://10.0.0.202:11434",
     "ha_url": "http://10.0.0.136:8123"

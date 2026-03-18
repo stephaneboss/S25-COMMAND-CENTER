@@ -106,7 +106,7 @@
 | ARKON  | Claude Code | Analyste / Builder  | Actif                       |
 | MERLIN | Gemini      | Validateur web      | Online                      |
 | COMET  | Perplexity  | Watchman temps reel | Bridge v2.1                 |
-| KIMI   | Kimi Web3   | Scanner 1M tokens   | A migrer hors tunnel manuel |
+| KIMI   | Kimi Web3   | Scanner 1M tokens   | LIVE Akash DSEQ 25920459 — no tunnel |
 
 ---
 
@@ -149,18 +149,23 @@
 
 ### PHASE SUIVANTE — PIPELINE + LIVE TRADING
 11. [DONE] Recharger AKT — user a clique wallet 2026-03-13
-12. [TODO] HA_TOKEN dans env vars Akash cockpit (setter dans Console Akash)
+12. [TODO] HA_TOKEN dans env vars Akash cockpit (setter dans Console Akash manuellement)
 13. [DONE] agent_loop.py -> Ollama fallback DELL-LINUX (10.0.0.202:11434) — auto si Gemini offline
-14. [TODO] Deployer oracle-agent + onchain-guardian sur Akash
+14. [DONE] oracle-agent + onchain-guardian: RUN_ORACLE_AGENT + RUN_ONCHAIN_GUARDIAN dans SDL + start_cockpit_stack.sh
 15. [DONE] Pipeline dry_run endpoint — POST /api/pipeline/dryrun (KIMI->ARKON->MERLIN->RiskGuardian, no trades)
-16. [TODO] MEXC Sunday series — live mode quand base saine
-17. [TODO] Open WebUI MERLIN deploy (SDL MERLIN prepare, bid 250 uAKT)
+16. [DONE] Pipeline AUTHORIZED — mode=authorized, multi-source confidence weighting, consensus +0.15
+    - SOURCE_WEIGHTS: TRINITY=0.80, MERLIN=0.70, KIMI=0.65, ORACLE=0.60, AGENT_LOOP/ONCHAIN=0.55
+    - EXECUTE si mode=authorized + risk_pass | SIMULATE_EXECUTE si dry_run + risk_pass
+    - POST /api/signal + POST /api/intel — endpoints live, RUN_AGENT_LOOP=true dans SDL
+17. [TODO] MEXC Sunday series — live mode quand base saine
+18. [TODO] Open WebUI MERLIN deploy (SDL MERLIN prepare, bid 250 uAKT)
 
 ### NOTES DEPLOY COCKPIT (post 2026-03-13)
 - Image: :main tag (plus SHA256 pince) — auto-update sur push GitHub
 - HA_URL: http://10.0.0.136:8123 (LAN) — nabu.casa non resolvable depuis Akash
 - OLLAMA_URL: http://10.0.0.202:11434 (DELL-LINUX) — fallback si Gemini offline
 - HA_TOKEN/GEMINI_API_KEY/S25_SHARED_SECRET: a setter manuellement dans Akash Console
+- PIPELINE MODE: authorized (EXECUTE verdicts actifs) — kill_switch=false, threat_level=T0
 
 ---
 

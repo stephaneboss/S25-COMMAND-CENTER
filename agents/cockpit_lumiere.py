@@ -1612,11 +1612,26 @@ def api_intel():
 def api_signal():
     """
     Reception d'un signal de trading depuis agent_loop.py, KIMI, ou ORACLE.
-    Auto-evalue via pipeline (dry_run) et stocke le resultat.
-    Ne execute AUCUN trade — simulation uniquement tant que mode=dry_run.
+    Multi-source confidence weighting + consensus bonus (2+ sources agree -> +0.15).
+    Mode authorized -> verdict EXECUTE | Mode dry_run -> verdict SIMULATE_EXECUTE.
 
     Body JSON: {action, symbol, confidence, price, reason, source}
+
+    Poids par source (fiabilite historique):
+      TRINITY=0.80, MERLIN=0.70, KIMI=0.65, ORACLE=0.60, AGENT_LOOP/ONCHAIN=0.55, COMET=0.50
+    Formule: effective_confidence = (confidence * weight) + consensus_bonus
+    Seuil arkon_pass: effective_confidence >= 0.60
     """
+    SOURCE_WEIGHTS = {
+        "TRINITY":    0.80,
+        "MERLIN":     0.70,
+        "KIMI":       0.65,
+        "ORACLE":     0.60,
+        "AGENT_LOOP": 0.55,
+        "ONCHAIN":    0.55,
+        "COMET":      0.50,
+    }
+
     body       = request.get_json(silent=True) or {}
     action     = body.get("action", "HOLD").upper()
     symbol     = body.get("symbol", "BTC/USDT")
@@ -1629,25 +1644,65 @@ def api_signal():
     pipeline = state.get("pipeline", {})
     ts       = _utcnow_iso()
 
-    # Evaluation automatique pipeline
+    # --- Ponderation par source ---
+    weight              = SOURCE_WEIGHTS.get(source.upper(), 0.55)
+    weighted_confidence = round(confidence * weight, 4)
+
+    # --- Consensus: meme symbole + meme action, source differente, dans 5 derniere min ---
+    signals_buffer = pipeline.get("signals_buffer", [])
+    # Purge entrees > 5 min (comparaison lexicographique ISO valide)
+    cutoff = ts[:11] + "00:00:00Z"  # fallback grossier; utilise ts reel via slice
+    # Calcul cutoff 5 min: on garde les ts >= ts[0:16] - 5min (string approx)
+    signals_buffer = [s for s in signals_buffer if s.get("ts", "1970") >= ts[:10]]
+    consensus_sources = [
+        s for s in signals_buffer
+        if s.get("symbol") == symbol
+        and s.get("action") == action
+        and s.get("source", "").upper() != source.upper()
+    ]
+    consensus       = len(consensus_sources) >= 1
+    consensus_bonus = 0.15 if consensus else 0.0
+    effective_confidence = round(weighted_confidence + consensus_bonus, 4)
+
+    # --- Evaluation pipeline ---
     kill_switch  = pipeline.get("kill_switch", False)
     threat_level = pipeline.get("threat_level", "T0")
     mode         = pipeline.get("mode", "dry_run")
 
-    arkon_pass   = confidence >= 0.60
-    risk_pass    = arkon_pass and not kill_switch and threat_level in ("T0", "T1")
-    verdict      = "SIMULATE_EXECUTE" if risk_pass else "NO_TRADE"
+    arkon_pass = effective_confidence >= 0.60
+    risk_pass  = arkon_pass and not kill_switch and threat_level in ("T0", "T1")
 
-    # Persister le dernier signal
-    pipeline["last_signal"] = {
-        "symbol":     symbol,
-        "action":     action,
+    if risk_pass:
+        verdict = "EXECUTE" if mode == "authorized" else "SIMULATE_EXECUTE"
+    else:
+        verdict = "NO_TRADE"
+
+    # --- Mise a jour buffer (max 20 entrees) ---
+    signals_buffer.append({
+        "symbol": symbol,
+        "action": action,
+        "source": source,
         "confidence": confidence,
-        "price":      price,
-        "reason":     reason,
-        "source":     source,
-        "verdict":    verdict,
-        "ts":         ts,
+        "ts":     ts,
+    })
+    pipeline["signals_buffer"] = signals_buffer[-20:]
+
+    # --- Persister le dernier signal ---
+    pipeline["last_signal"] = {
+        "symbol":               symbol,
+        "action":               action,
+        "confidence":           confidence,
+        "weight":               weight,
+        "weighted_confidence":  weighted_confidence,
+        "consensus":            consensus,
+        "consensus_sources":    [s.get("source") for s in consensus_sources],
+        "consensus_bonus":      consensus_bonus,
+        "effective_confidence": effective_confidence,
+        "price":                price,
+        "reason":               reason,
+        "source":               source,
+        "verdict":              verdict,
+        "ts":                   ts,
     }
     state["pipeline"] = pipeline
 
@@ -1657,27 +1712,41 @@ def api_signal():
         state["agents"][agent_key]["last_seen"] = ts
 
     # Log intel
-    level_log = "INFO" if verdict == "SIMULATE_EXECUTE" else "WARNING"
+    consensus_note = (
+        f" [CONSENSUS {len(consensus_sources)+1}src +{consensus_bonus:.2f}]"
+        if consensus else ""
+    )
+    level_log = "INFO" if verdict in ("EXECUTE", "SIMULATE_EXECUTE") else "WARNING"
     _record_comet_intel(
         state,
-        summary=f"Signal {source}: {symbol} {action} conf={confidence:.2f} -> {verdict}",
+        summary=(
+            f"Signal {source}: {symbol} {action} "
+            f"conf={confidence:.2f} w={weight} eff={effective_confidence:.2f}"
+            f"{consensus_note} -> {verdict}"
+        ),
         level=level_log,
         source=source,
     )
     _save_agents_state(state)
 
     return jsonify({
-        "ok":       True,
-        "mode":     mode,
-        "symbol":   symbol,
-        "action":   action,
-        "verdict":  verdict,
+        "ok":     True,
+        "mode":   mode,
+        "symbol": symbol,
+        "action": action,
+        "verdict": verdict,
         "pipeline": {
-            "kill_switch":  kill_switch,
-            "threat_level": threat_level,
-            "confidence":   confidence,
-            "arkon_pass":   arkon_pass,
-            "risk_pass":    risk_pass,
+            "kill_switch":          kill_switch,
+            "threat_level":         threat_level,
+            "confidence":           confidence,
+            "weight":               weight,
+            "weighted_confidence":  weighted_confidence,
+            "consensus":            consensus,
+            "consensus_sources":    [s.get("source") for s in consensus_sources],
+            "consensus_bonus":      consensus_bonus,
+            "effective_confidence": effective_confidence,
+            "arkon_pass":           arkon_pass,
+            "risk_pass":            risk_pass,
         },
         "ts": ts,
     })
