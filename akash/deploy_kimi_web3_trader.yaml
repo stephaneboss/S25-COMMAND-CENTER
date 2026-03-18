@@ -1,13 +1,21 @@
 ---
 # ============================================================
-# S25 Lumière — Kimi Web3 Trader — Akash SDL
-# Agent: KIMI (Moonshot) — Multi-chain arbitrage sniper
-# Port: 9191 (Flask REST API)
+# S25 Lumière — Kimi Web3 Trader
+# ============================================================
+# Agent   : KIMI — Osmosis DEX arbitrage sniper
+# Version : BUILD 18 — fee abstraction (gas in ATOM)
+# Port    : 9191 (Flask REST API)
+# Network : Osmosis mainnet (osmosis-1)
 #
-# Deploy: akash tx deployment create deploy_kimi_web3_trader.yaml
-# Update: akash tx deployment update deploy_kimi_web3_trader.yaml --dseq <DSEQ>
+# Endpoints:
+#   GET  /health     — liveness probe
+#   GET  /status     — full agent state
+#   GET  /intel      — live prices + signals
+#   POST /command    — manual trigger {action: snipe|prices|trade_log|pnl}
 #
-# BUILD 18: Fee abstraction — pays gas in ATOM (wallet has 0.096 ATOM, 0 OSMO)
+# Deploy : akash tx deployment create deploy_kimi_web3_trader.yaml --from <wallet> --fees 500uatom --gas auto --chain-id akashnet-2
+# Update : akash tx deployment update deploy_kimi_web3_trader.yaml --from <wallet> --dseq <DSEQ> --fees 500uatom --gas auto --chain-id akashnet-2
+# Close  : akash tx deployment close --from <wallet> --dseq <DSEQ> --fees 500uatom --chain-id akashnet-2
 # ============================================================
 
 version: "2.0"
@@ -21,25 +29,38 @@ services:
         to:
           - global: true
     env:
+      # ── Build ──────────────────────────────────────────────
       - KIMI_BUILD=18
+      - PYTHONUNBUFFERED=1
+
+      # ── Trading config ─────────────────────────────────────
       - DRY_RUN=false
       - TRADE_SIZE_USD=5
-      - SCAN_INTERVAL=30
+      - SCAN_INTERVAL=5
       - ARBI_THRESHOLD=0.003
       - CHAINS=cosmos
       - FLASK_PORT=9191
+
+      # ── Wallet ─────────────────────────────────────────────
       - WALLET_ADDRESS=akash1mw0trq8xgmdyqqjn482r9pfr05hfw06rzq2u9v
       - WALLET_MNEMONIC=oak maximum father arrive drip powder gate climb announce fortune rally october
+
     command:
       - bash
       - "-c"
       - |
-        apt-get update -qq && apt-get install -y -qq git curl && \
-        pip install --quiet flask requests cosmpy && \
-        git clone https://github.com/stephaneboss/S25-COMMAND-CENTER.git /s25 && \
-        cd /s25 && \
-        echo "=== Kimi Web3 Trader BUILD 16 Starting ===" && \
+        set -e
+        echo "============================================"
+        echo " S25 Lumière — Kimi Web3 Trader BUILD 18"
+        echo " Mode: LIVE | Threshold: 0.3% | Interval: 5s"
+        echo "============================================"
+        apt-get update -qq && apt-get install -y -qq git curl
+        pip install --quiet --upgrade pip
+        pip install --quiet flask requests cosmpy ecdsa protobuf
+        git clone --depth 1 https://github.com/stephaneboss/S25-COMMAND-CENTER.git /s25
+        cd /s25
         python3 agents/kimi_web3_trader.py
+
     resources:
       cpu:
         units: 1
