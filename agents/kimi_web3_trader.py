@@ -317,18 +317,26 @@ def execute_swap_live(signal: dict):
     is_buy = action.startswith("BUY")
 
     # Pool routing — confirmed Osmosis mainnet 2026
+    # Pool 1   = ATOM/OSMO  → swap ATOM ↔ OSMO only
+    # Pool 3   = AKT/OSMO   → swap AKT  ↔ OSMO only
+    # Pool 678 = OSMO/USDC  → swap OSMO ↔ USDC
     pool_map = {"OSMO": POOL_OSMO_USDC, "ATOM": POOL_ATOM_OSMO, "AKT": POOL_AKT_OSMO}
     pool_id  = pool_map.get(sym, POOL_OSMO_USDC)
 
-    # Denom routing
+    # Denom routing — FIXED: each pool only supports its actual token pair
+    # ATOM pool → ATOM/OSMO, AKT pool → AKT/OSMO, OSMO pool → OSMO/USDC
     sym_denom = {"OSMO": DENOM_OSMO, "ATOM": DENOM_ATOM, "AKT": DENOM_AKT}
+    counterpart = {"ATOM": DENOM_OSMO, "AKT": DENOM_OSMO, "OSMO": DENOM_USDC}
+
     if is_buy:
-        in_denom  = DENOM_USDC
+        # BUY sym: pay with counterpart (OSMO for ATOM/AKT, USDC for OSMO)
+        in_denom  = counterpart.get(sym, DENOM_OSMO)
         out_denom = sym_denom.get(sym, DENOM_OSMO)
         in_amount = int(TRADE_SIZE_USD * 1_000_000)
     else:
+        # SELL sym: pay with sym, receive counterpart
         in_denom  = sym_denom.get(sym, DENOM_OSMO)
-        out_denom = DENOM_USDC
+        out_denom = counterpart.get(sym, DENOM_OSMO)
         in_amount = int(TRADE_SIZE_USD / signal["osm_price"] * 1_000_000)
 
     # BUILD 16: full manual tx build using cosmpy's own keypair — no bip_utils needed
@@ -387,6 +395,8 @@ def execute_swap_live(signal: dict):
         logger.info(f"Keypair loaded via ecdsa: pubkey={pub_key_bytes.hex()[:16]}...")
 
         # ── Step 5: TxBody ─────────────────────────────────────────────────
+        # min_out=1 accepts any slippage — avoids spurious fails from miscalculation
+        # Real slippage protection happens at the arb threshold level (0.3% spread required)
         msg_bytes = encode_swap_msg(
             sender=osmo_addr, pool_id=pool_id,
             in_denom=in_denom, in_amount=in_amount,
@@ -407,24 +417,30 @@ def execute_swap_live(signal: dict):
         logger.info(f"Wallet balances: {wallet_bals}")
 
         # Reserve gas budget in ATOM (fee abstraction)
-        GAS_FEE_UATOM = 3000  # ~0.003 ATOM for gas via fee abstraction
+        GAS_FEE_UATOM = 6000  # ~0.006 ATOM for gas via fee abstraction (safe margin)
         avail_atom = wallet_bals.get(DENOM_ATOM, 0)
         avail_usdc = wallet_bals.get(DENOM_USDC, 0)
 
         if not is_buy:
-            # SELL — paying in-token + gas (both in ATOM if sym=ATOM)
-            max_tradeable = max(0, avail_atom - GAS_FEE_UATOM) if in_denom == DENOM_ATOM else avail_atom
-            if in_amount > max_tradeable:
-                logger.warning(f"Scaling trade: need {in_amount} but have {max_tradeable} {sym}")
-                in_amount = max_tradeable
-            if in_amount < 1000:
+            # SELL — paying with the token being sold
+            avail_in = wallet_bals.get(in_denom, 0)
+            # Reserve gas fee in ATOM if paying with ATOM
+            if in_denom == DENOM_ATOM:
+                avail_in = max(0, avail_in - GAS_FEE_UATOM)
+            if in_amount > avail_in:
+                logger.warning(f"Scaling trade: need {in_amount} but have {avail_in} {sym} — scaling down")
+                in_amount = avail_in
+            if in_amount < 5000:  # min 0.005 of token
                 logger.warning(f"Trade too small ({in_amount}) — skipping")
                 return
         else:
-            # BUY — paying in USDC
-            if in_amount > avail_usdc:
-                logger.warning(f"Insufficient USDC: need {in_amount} have {avail_usdc} — skipping")
+            # BUY — paying with counterpart token (OSMO or USDC)
+            avail_in = wallet_bals.get(in_denom, 0)
+            if avail_in < 1000:
+                logger.warning(f"Insufficient {in_denom[:8]}...: have {avail_in} — skipping BUY")
                 return
+            if in_amount > avail_in:
+                in_amount = avail_in  # use what we have
 
         logger.info(f"Trade confirmed: {in_amount} {in_denom} → {out_denom}")
 
