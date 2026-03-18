@@ -31,9 +31,9 @@ const APP_SECTIONS = {
   "/clients": {
     label: "Clients",
     eyebrow: "Portail client",
-    heroTitle: "Donner aux clients une interface propre, pas le chaos du backend.",
+    heroTitle: "Vos clients, jobs et devis au meme endroit.",
     heroText:
-      "Le portail client doit couvrir demandes de service, devis, facturation, suivi et communication sans exposer la complexite du mesh.",
+      "Creez un client depuis le backoffice admin, puis gerez ses jobs et sa facturation depuis ce portail.",
     cards: [
       {
         label: "MVP",
@@ -6955,6 +6955,30 @@ function buildLiveBlocks(env, snapshot) {
       ],
     },
     {
+      label: "Business",
+      title: (() => {
+        const clients = snapshot.business?.clients?.records || [];
+        const jobs = snapshot.business?.jobs?.records || [];
+        const activeJobs = jobs.filter((j) => j.status === "active" || j.status === "en_cours");
+        return `${clients.length} client${clients.length !== 1 ? "s" : ""} · ${activeJobs.length} job${activeJobs.length !== 1 ? "s" : ""} actif${activeJobs.length !== 1 ? "s" : ""}`;
+      })(),
+      text: "Registre live clients, jobs et facturation — gerer depuis le backoffice admin.",
+      metrics: (() => {
+        const clients = snapshot.business?.clients?.records || [];
+        const jobs = snapshot.business?.jobs?.records || [];
+        const billing = snapshot.business?.quotes_invoices?.records || [];
+        return [
+          { label: "Clients", value: String(clients.length) },
+          { label: "Jobs", value: String(jobs.length) },
+          { label: "Finance", value: String(billing.length) },
+          { label: "Admin", value: "/admin" },
+        ];
+      })(),
+      links: [
+        { label: "Admin console", href: "/admin#admin-console" },
+      ],
+    },
+    {
       label: "Resilience",
       title: snapshot.errors.length ? "Degradation partielle detectee" : "Facade et mesh alignes",
       text: snapshot.errors.length
@@ -8109,6 +8133,19 @@ function clientConsoleSection(pathname, snapshot) {
       "Charger le compte live, les jobs et la facturation.",
       "Garder l'acces borne a un seul client et a son scope.",
     ],
+    rows: clients.length > 0
+      ? clients.slice(0, 10).map((client) => ({
+          title: client.organization_name || client.client_id,
+          detail: `service=${client.service_mix?.[0] || client.service_type || "n/a"} | scope=${client.scope_id || "n/a"} | portal=${client.portal_state || "pending"}`,
+          timestamp: client.created_at || "--",
+        }))
+      : [
+          {
+            title: "Aucun client enregistre",
+            detail: "Ouvrir le backoffice admin → Admin operator console → Create client",
+            timestamp: "",
+          },
+        ],
     initialLog: JSON.stringify(
       {
         mode: "client_portal_ready",
