@@ -37,6 +37,8 @@ logger = logging.getLogger("kimi.web3")
 WALLET_MNEMONIC  = os.environ.get("WALLET_MNEMONIC", "")
 WALLET_ADDRESS   = os.environ.get("WALLET_ADDRESS", "REDACTED_WALLET_ADDRESS")
 TRADE_SIZE_USD   = float(os.environ.get("TRADE_SIZE_USD", "5"))
+MAX_TRADE_USD    = float(os.environ.get("MAX_TRADE_USD", "10"))   # hard cap per trade
+MIN_RESERVE_USD  = float(os.environ.get("MIN_RESERVE_USD", "2"))  # keep 2$ untouched for gas
 DRY_RUN          = os.environ.get("DRY_RUN", "true").lower() != "false"
 SCAN_INTERVAL    = int(os.environ.get("SCAN_INTERVAL", "30"))
 ARBI_THRESHOLD   = float(os.environ.get("ARBI_THRESHOLD", "0.003"))  # 0.3%
@@ -421,26 +423,42 @@ def execute_swap_live(signal: dict):
         avail_atom = wallet_bals.get(DENOM_ATOM, 0)
         avail_usdc = wallet_bals.get(DENOM_USDC, 0)
 
+        # ── Safety caps ──────────────────────────────────────────────────────────
+        # Never trade more than MAX_TRADE_USD per single trade
+        max_units = int(MAX_TRADE_USD / max(signal.get("osm_price", 1), 0.0001) * 1_000_000)
+        if in_amount > max_units:
+            logger.warning(f"Trade capped at MAX_TRADE_USD=${MAX_TRADE_USD}: {in_amount} → {max_units}")
+            in_amount = max_units
+
         if not is_buy:
             # SELL — paying with the token being sold
             avail_in = wallet_bals.get(in_denom, 0)
             # Reserve gas fee in ATOM if paying with ATOM
             if in_denom == DENOM_ATOM:
                 avail_in = max(0, avail_in - GAS_FEE_UATOM)
-            if in_amount > avail_in:
-                logger.warning(f"Scaling trade: need {in_amount} but have {avail_in} {sym} — scaling down")
-                in_amount = avail_in
+            # Reserve MIN_RESERVE_USD worth so wallet never goes to zero
+            reserve_units = int(MIN_RESERVE_USD / max(signal.get("osm_price", 1), 0.0001) * 1_000_000)
+            safe_avail = max(0, avail_in - reserve_units)
+            if in_amount > safe_avail:
+                if safe_avail < 5000:
+                    logger.warning(f"Below reserve floor — skipping SELL to protect balance")
+                    return
+                logger.warning(f"Scaling trade to safe_avail={safe_avail} (reserve protected)")
+                in_amount = safe_avail
             if in_amount < 5000:  # min 0.005 of token
                 logger.warning(f"Trade too small ({in_amount}) — skipping")
                 return
         else:
             # BUY — paying with counterpart token (OSMO or USDC)
             avail_in = wallet_bals.get(in_denom, 0)
-            if avail_in < 1000:
-                logger.warning(f"Insufficient {in_denom[:8]}...: have {avail_in} — skipping BUY")
+            # Keep MIN_RESERVE_USD in OSMO for gas fees
+            reserve_osmo = int(MIN_RESERVE_USD / 0.035 * 1_000_000)  # ~$2 in uOSMO
+            safe_avail = max(0, avail_in - reserve_osmo)
+            if safe_avail < 1000:
+                logger.warning(f"Insufficient {in_denom[:8]}... after reserve: {safe_avail} — skipping BUY")
                 return
-            if in_amount > avail_in:
-                in_amount = avail_in  # use what we have
+            if in_amount > safe_avail:
+                in_amount = safe_avail  # use safe amount, not all
 
         logger.info(f"Trade confirmed: {in_amount} {in_denom} → {out_denom}")
 
