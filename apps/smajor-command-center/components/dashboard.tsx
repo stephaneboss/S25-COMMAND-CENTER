@@ -3,6 +3,9 @@
 import { useEffect, useState, useCallback } from "react";
 import type { CommandCenterSnapshot } from "@/lib/s25-api";
 import type { Job, Client, Quote } from "@/lib/db";
+import { StatsCard } from "@/components/stats-card";
+import { NewClientModal } from "@/components/new-client-modal";
+import { NewJobModal } from "@/components/new-job-modal";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -17,57 +20,33 @@ interface DashboardProps {
   snapshot: CommandCenterSnapshot;
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+// ─── Constants ────────────────────────────────────────────────────────────────
 
-function StatCard({
-  label,
-  value,
-  sub,
-  accent,
-}: {
-  label: string;
-  value: string | number;
-  sub?: string;
-  accent?: "neon" | "ember" | "danger" | "default";
-}) {
-  const accentClass = {
-    neon: "text-neon",
-    ember: "text-ember",
-    danger: "text-danger",
-    default: "text-slate-100",
-  }[accent ?? "default"];
+const JOB_STATUS_STYLES: Record<string, string> = {
+  pending: "bg-amber-100 text-amber-700 border border-amber-200",
+  active: "bg-emerald-100 text-emerald-700 border border-emerald-200",
+  completed: "bg-blue-100 text-blue-700 border border-blue-200",
+};
 
-  return (
-    <div className="rounded-xl border border-slate-700 bg-panel p-5 shadow-neon">
-      <p className="text-xs uppercase tracking-widest text-slate-400">{label}</p>
-      <p className={`mt-2 text-3xl font-bold ${accentClass}`}>{value}</p>
-      {sub && <p className="mt-1 text-xs text-slate-500">{sub}</p>}
-    </div>
-  );
-}
-
-function AgentDot({ status }: { status: string }) {
-  const color =
-    status === "online"
-      ? "bg-neon shadow-[0_0_6px_#67ffd8]"
-      : status === "degraded"
-      ? "bg-ember shadow-[0_0_6px_#ff9958]"
-      : status === "offline"
-      ? "bg-danger shadow-[0_0_6px_#ff5f7a]"
-      : "bg-slate-600";
-  return <span className={`inline-block h-2.5 w-2.5 rounded-full ${color}`} />;
-}
-
-const JOB_STATUS_BADGE: Record<string, string> = {
-  pending: "bg-slate-700 text-slate-300",
-  active: "bg-neon/20 text-neon border border-neon/40",
-  completed: "bg-emerald-900/40 text-emerald-400 border border-emerald-700/40",
+const JOB_STATUS_LABEL: Record<string, string> = {
+  pending: "En attente",
+  active: "Actif",
+  completed: "Complété",
 };
 
 const JOB_TYPE_LABEL: Record<string, string> = {
   excavation: "Excavation",
   deneigement: "Déneigement",
-  consulting: "Consulting AI",
+  consulting: "Consulting IA",
+};
+
+const AGENT_STATUS_STYLES: Record<string, string> = {
+  online: "bg-emerald-400",
+  degraded: "bg-amber-400",
+  offline: "bg-red-400",
+  unknown: "bg-gray-300",
+  sleep: "bg-amber-300",
+  rate_limited: "bg-amber-300",
 };
 
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
@@ -76,70 +55,90 @@ export function Dashboard({ snapshot: initialSnapshot }: DashboardProps) {
   const [snapshot, setSnapshot] = useState<CommandCenterSnapshot>(initialSnapshot);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentJobs, setRecentJobs] = useState<(Job & { client_name?: string })[]>([]);
+  const [pendingQuotes, setPendingQuotes] = useState<(Quote & { client_name?: string })[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNewClient, setShowNewClient] = useState(false);
   const [showNewJob, setShowNewJob] = useState(false);
-  const [showNewQuote, setShowNewQuote] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
-      const [jobsRes, clientsRes, quotesRes, statusRes] = await Promise.allSettled([
+      const [jobsRes, clientsRes, quotesRes, statusRes, allJobsRes] = await Promise.allSettled([
         fetch("/api/jobs?status=active", { cache: "no-store" }),
         fetch("/api/clients", { cache: "no-store" }),
         fetch("/api/quotes?status=draft", { cache: "no-store" }),
         fetch("/api/s25/status", { cache: "no-store" }),
+        fetch("/api/jobs", { cache: "no-store" }),
       ]);
 
       let clients: Client[] = [];
-      let jobs: Job[] = [];
+      let activeJobCount = 0;
       let pendingQuoteCount = 0;
-      let monthlyRevenue = 0;
 
       if (clientsRes.status === "fulfilled" && clientsRes.value.ok) {
-        const d = await clientsRes.value.json() as { clients: Client[] };
+        const d = (await clientsRes.value.json()) as { clients: Client[] };
         clients = d.clients ?? [];
       }
 
       if (jobsRes.status === "fulfilled" && jobsRes.value.ok) {
-        const d = await jobsRes.value.json() as { jobs: Job[] };
-        jobs = d.jobs ?? [];
+        const d = (await jobsRes.value.json()) as { jobs: Job[] };
+        activeJobCount = (d.jobs ?? []).length;
       }
 
       if (quotesRes.status === "fulfilled" && quotesRes.value.ok) {
-        const d = await quotesRes.value.json() as { quotes: Quote[] };
+        const d = (await quotesRes.value.json()) as { quotes: Quote[] };
         pendingQuoteCount = d.quotes?.length ?? 0;
       }
 
-      // Completed jobs this month for revenue
-      const completedRes = await fetch("/api/jobs?status=completed", { cache: "no-store" });
-      if (completedRes.ok) {
-        const d = await completedRes.value?.json?.() ?? await completedRes.json() as { jobs: Job[] };
-        const thisMonth = new Date();
-        thisMonth.setDate(1);
-        thisMonth.setHours(0, 0, 0, 0);
-        monthlyRevenue = (d.jobs as Job[] ?? [])
-          .filter((j) => j.created_at && new Date(j.created_at) >= thisMonth)
-          .reduce((sum, j) => sum + (j.amount_usd ?? 0), 0);
+      // Monthly revenue from completed jobs
+      let monthlyRevenue = 0;
+      try {
+        const completedRes = await fetch("/api/jobs?status=completed", { cache: "no-store" });
+        if (completedRes.ok) {
+          const d = (await completedRes.json()) as { jobs: Job[] };
+          const firstOfMonth = new Date();
+          firstOfMonth.setDate(1);
+          firstOfMonth.setHours(0, 0, 0, 0);
+          monthlyRevenue = (d.jobs ?? [])
+            .filter((j) => j.created_at && new Date(j.created_at) >= firstOfMonth)
+            .reduce((sum, j) => sum + (j.amount_usd ?? 0), 0);
+        }
+      } catch {
+        // silently fail
       }
 
       setStats({
         total_clients: clients.length,
-        active_jobs: jobs.length,
+        active_jobs: activeJobCount,
         pending_quotes: pendingQuoteCount,
         monthly_revenue_usd: monthlyRevenue,
       });
 
-      // Last 5 jobs across all statuses
-      const allJobsRes = await fetch("/api/jobs", { cache: "no-store" });
-      if (allJobsRes.ok) {
-        const d = await allJobsRes.json() as { jobs: Job[] };
-        const allJobs = (d.jobs ?? []).slice(0, 5);
-        const clientMap = Object.fromEntries(clients.map((c) => [c.id, c.name]));
-        setRecentJobs(allJobs.map((j) => ({ ...j, client_name: clientMap[j.client_id] })));
+      const clientMap = Object.fromEntries(clients.map((c) => [c.id, c.name]));
+
+      // Recent jobs
+      if (allJobsRes.status === "fulfilled" && allJobsRes.value.ok) {
+        const d = (await allJobsRes.value.json()) as { jobs: Job[] };
+        const recent = (d.jobs ?? []).slice(0, 6);
+        setRecentJobs(recent.map((j) => ({ ...j, client_name: clientMap[j.client_id] })));
       }
 
+      // Pending quotes
+      try {
+        const quotesAllRes = await fetch("/api/quotes", { cache: "no-store" });
+        if (quotesAllRes.ok) {
+          const d = (await quotesAllRes.json()) as { quotes: Quote[] };
+          const pending = (d.quotes ?? [])
+            .filter((q) => q.status === "draft" || q.status === "sent")
+            .slice(0, 4);
+          setPendingQuotes(pending.map((q) => ({ ...q, client_name: clientMap[q.client_id] })));
+        }
+      } catch {
+        // silently fail
+      }
+
+      // Update S25 snapshot
       if (statusRes.status === "fulfilled" && statusRes.value.ok) {
-        const snap = await statusRes.value.json() as CommandCenterSnapshot;
+        const snap = (await statusRes.value.json()) as CommandCenterSnapshot;
         setSnapshot(snap);
       }
     } catch (err) {
@@ -151,394 +150,288 @@ export function Dashboard({ snapshot: initialSnapshot }: DashboardProps) {
 
   useEffect(() => {
     void fetchData();
-    // Refresh S25 status every 30 seconds
     const interval = setInterval(() => void fetchData(), 30_000);
     return () => clearInterval(interval);
   }, [fetchData]);
 
+  const today = new Date().toLocaleDateString("fr-CA", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
   return (
-    <div className="min-h-screen p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 space-y-8">
+      {/* Page header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-neon tracking-tight">Smajor Command Center</h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            {new Date().toLocaleDateString("fr-CA", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
-          </p>
+          <h1 className="text-2xl font-bold text-gray-900">Tableau de bord</h1>
+          <p className="mt-0.5 text-sm text-gray-500 capitalize">{today}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
           <button
             onClick={() => setShowNewClient(true)}
-            className="rounded-lg bg-neon/10 border border-neon/30 px-3 py-1.5 text-xs text-neon hover:bg-neon/20 transition-colors"
+            className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
           >
-            + Nouveau Client
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+            </svg>
+            Nouveau client
           </button>
           <button
             onClick={() => setShowNewJob(true)}
-            className="rounded-lg bg-ember/10 border border-ember/30 px-3 py-1.5 text-xs text-ember hover:bg-ember/20 transition-colors"
+            className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-emerald-700"
           >
-            + Nouveau Job
-          </button>
-          <button
-            onClick={() => setShowNewQuote(true)}
-            className="rounded-lg bg-slate-700 border border-slate-600 px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-600 transition-colors"
-          >
-            + Nouvelle Soumission
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Nouveau job
           </button>
         </div>
       </div>
 
-      {/* Stat cards */}
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <StatCard
-          label="Clients"
+      {/* Stats row */}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <StatsCard
+          label="Clients actifs"
           value={stats?.total_clients ?? "—"}
-          sub="total actifs"
-          accent="neon"
+          sub="dans la base"
+          accentColor="emerald"
+          icon={
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          }
         />
-        <StatCard
-          label="Jobs Actifs"
+        <StatsCard
+          label="Jobs en cours"
           value={stats?.active_jobs ?? "—"}
-          sub="en cours"
-          accent="ember"
+          sub="statut actif"
+          accentColor="blue"
+          icon={
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+          }
         />
-        <StatCard
-          label="Soumissions"
+        <StatsCard
+          label="Devis en attente"
           value={stats?.pending_quotes ?? "—"}
-          sub="draft + envoyées"
+          sub="brouillons + envoyés"
+          accentColor="amber"
+          icon={
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+          }
         />
-        <StatCard
-          label="Revenu Mensuel"
-          value={stats ? `$${stats.monthly_revenue_usd.toLocaleString("fr-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"}
-          sub="jobs complétés ce mois"
-          accent="neon"
+        <StatsCard
+          label="Revenus ce mois"
+          value={
+            stats
+              ? `$${stats.monthly_revenue_usd.toLocaleString("fr-CA", {
+                  minimumFractionDigits: 0,
+                  maximumFractionDigits: 0,
+                })}`
+              : "—"
+          }
+          sub="jobs complétés"
+          accentColor="purple"
+          icon={
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          }
         />
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        {/* Recent Jobs */}
-        <div className="md:col-span-2 rounded-xl border border-slate-700 bg-panel p-5">
-          <h2 className="mb-4 text-sm font-semibold uppercase tracking-widest text-slate-400">
-            Jobs Récents
-          </h2>
+      {/* Main content grid */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* Recent Jobs — spans 2 cols */}
+        <div className="lg:col-span-2 rounded-xl bg-white border border-gray-200 shadow-sm overflow-hidden">
+          <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+            <h2 className="text-sm font-semibold text-gray-900">Jobs récents</h2>
+            <a
+              href="/jobs"
+              className="text-xs font-medium text-emerald-600 hover:text-emerald-700"
+            >
+              Voir tous →
+            </a>
+          </div>
+
           {loading ? (
-            <div className="space-y-2">
-              {[...Array(3)].map((_, i) => (
-                <div key={i} className="h-10 animate-pulse rounded bg-slate-800" />
+            <div className="p-6 space-y-3">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="h-12 animate-pulse rounded-lg bg-gray-100" />
               ))}
             </div>
           ) : recentJobs.length === 0 ? (
-            <p className="text-sm text-slate-500">Aucun job pour l&apos;instant.</p>
+            <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
+              <svg className="h-10 w-10 text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+              <p className="text-sm text-gray-500">Aucun job pour l&apos;instant.</p>
+              <button
+                onClick={() => setShowNewJob(true)}
+                className="mt-3 text-sm font-medium text-emerald-600 hover:text-emerald-700"
+              >
+                Créer le premier job →
+              </button>
+            </div>
           ) : (
-            <ul className="divide-y divide-slate-800">
+            <div className="divide-y divide-gray-100">
               {recentJobs.map((job) => (
-                <li key={job.id} className="flex items-center justify-between py-2.5">
-                  <div>
-                    <p className="text-sm font-medium text-slate-100">{job.title}</p>
-                    <p className="text-xs text-slate-500">
-                      {job.client_name ?? job.client_id} · {JOB_TYPE_LABEL[job.type] ?? job.type}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm font-mono text-neon">
-                      ${job.amount_usd.toLocaleString("fr-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </span>
+                <div
+                  key={job.id}
+                  className="flex items-center justify-between px-6 py-3.5 hover:bg-gray-50 transition-colors"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
                     <span
-                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${JOB_STATUS_BADGE[job.status] ?? "bg-slate-700 text-slate-300"}`}
+                      className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                        JOB_STATUS_STYLES[job.status] ?? "bg-gray-100 text-gray-600"
+                      }`}
                     >
-                      {job.status}
+                      {JOB_STATUS_LABEL[job.status] ?? job.status}
                     </span>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">{job.title}</p>
+                      <p className="text-xs text-gray-400 truncate">
+                        {job.client_name ?? "—"} &middot; {JOB_TYPE_LABEL[job.type] ?? job.type}
+                        {job.date && ` · ${new Date(job.date).toLocaleDateString("fr-CA")}`}
+                      </p>
+                    </div>
+                  </div>
+                  <span className="shrink-0 text-sm font-semibold text-gray-900 ml-4">
+                    ${job.amount_usd.toLocaleString("fr-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Right column */}
+        <div className="space-y-6">
+          {/* Devis à envoyer */}
+          <div className="rounded-xl bg-white border border-gray-200 shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+              <h2 className="text-sm font-semibold text-gray-900">Devis à envoyer</h2>
+              <a href="/devis" className="text-xs font-medium text-emerald-600 hover:text-emerald-700">
+                Voir tous →
+              </a>
+            </div>
+            {loading ? (
+              <div className="p-4 space-y-2">
+                {[...Array(2)].map((_, i) => (
+                  <div key={i} className="h-10 animate-pulse rounded bg-gray-100" />
+                ))}
+              </div>
+            ) : pendingQuotes.length === 0 ? (
+              <div className="flex items-center justify-center py-8 px-5 text-center">
+                <p className="text-sm text-gray-400">Aucun devis en attente.</p>
+              </div>
+            ) : (
+              <ul className="divide-y divide-gray-100">
+                {pendingQuotes.map((q) => (
+                  <li key={q.id} className="flex items-center justify-between px-5 py-3 hover:bg-gray-50">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-800 truncate">
+                        {q.client_name ?? "Client inconnu"}
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        {q.status === "draft" ? "Brouillon" : "Envoyé"}
+                        {q.valid_until && ` · exp. ${new Date(q.valid_until).toLocaleDateString("fr-CA")}`}
+                      </p>
+                    </div>
+                    <span className="shrink-0 text-sm font-semibold text-gray-900 ml-3">
+                      ${q.amount_usd.toLocaleString("fr-CA", { minimumFractionDigits: 0 })}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {/* Agents S25 */}
+          <div className="rounded-xl bg-white border border-gray-200 shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+              <h2 className="text-sm font-semibold text-gray-900">Agents S25</h2>
+              <span
+                className={`text-xs font-medium ${
+                  snapshot.pipeline_active ? "text-emerald-600" : "text-gray-400"
+                }`}
+              >
+                {snapshot.pipeline_active ? "● Pipeline actif" : "○ Inactif"}
+              </span>
+            </div>
+            <ul className="divide-y divide-gray-100">
+              {snapshot.agents.map((agent) => (
+                <li key={agent.name} className="flex items-center justify-between px-5 py-2.5">
+                  <div className="flex items-center gap-2.5">
+                    <span
+                      className={`inline-block h-2 w-2 rounded-full flex-shrink-0 ${
+                        AGENT_STATUS_STYLES[agent.status] ?? "bg-gray-300"
+                      }`}
+                    />
+                    <span className="text-sm font-medium text-gray-800">{agent.name}</span>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-gray-400">{agent.model}</p>
+                    <p
+                      className={`text-xs font-medium ${
+                        agent.status === "online"
+                          ? "text-emerald-600"
+                          : agent.status === "degraded" || agent.status === "sleep"
+                          ? "text-amber-600"
+                          : agent.status === "offline"
+                          ? "text-red-500"
+                          : "text-gray-400"
+                      }`}
+                    >
+                      {agent.status === "online"
+                        ? "En ligne"
+                        : agent.status === "degraded"
+                        ? "Dégradé"
+                        : agent.status === "sleep"
+                        ? "Veille"
+                        : agent.status === "offline"
+                        ? "Hors ligne"
+                        : "Inconnu"}
+                    </p>
                   </div>
                 </li>
               ))}
             </ul>
-          )}
-        </div>
-
-        {/* S25 Agent Status */}
-        <div className="rounded-xl border border-slate-700 bg-panel p-5">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-sm font-semibold uppercase tracking-widest text-slate-400">
-              Agents S25
-            </h2>
-            <span
-              className={`text-xs font-medium ${
-                snapshot.pipeline_active ? "text-neon" : "text-slate-500"
-              }`}
-            >
-              {snapshot.pipeline_active ? "● Pipeline actif" : "○ Inactif"}
-            </span>
-          </div>
-
-          <ul className="space-y-3">
-            {snapshot.agents.map((agent) => (
-              <li key={agent.name} className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <AgentDot status={agent.status} />
-                  <span className="text-sm font-medium text-slate-200">{agent.name}</span>
-                </div>
-                <div className="text-right">
-                  <span
-                    className={`text-xs ${
-                      agent.status === "online"
-                        ? "text-neon"
-                        : agent.status === "degraded"
-                        ? "text-ember"
-                        : agent.status === "offline"
-                        ? "text-danger"
-                        : "text-slate-500"
-                    }`}
-                  >
-                    {agent.status}
-                  </span>
-                  <p className="text-xs text-slate-600">{agent.model}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
-
-          <div className="mt-4 border-t border-slate-800 pt-3 space-y-1">
-            <p className="text-xs text-slate-500">
-              HA:{" "}
-              <span className={snapshot.ha_connected ? "text-neon" : "text-danger"}>
-                {snapshot.ha_connected ? "Connected" : "Disconnected"}
-              </span>
-            </p>
-            <p className="text-xs text-slate-500">
-              Signaux aujourd&apos;hui:{" "}
-              <span className="text-slate-300">{snapshot.total_signals_today}</span>
-            </p>
-            <p className="text-xs text-slate-500">
-              Cockpit: <span className="text-slate-300">v{snapshot.cockpit_version}</span>
-            </p>
+            <div className="border-t border-gray-100 px-5 py-3 bg-gray-50">
+              <div className="flex items-center justify-between text-xs text-gray-500">
+                <span>HA: <span className={snapshot.ha_connected ? "text-emerald-600 font-medium" : "text-red-500 font-medium"}>{snapshot.ha_connected ? "Connecté" : "Déconnecté"}</span></span>
+                <span>Signaux: <span className="font-medium text-gray-700">{snapshot.total_signals_today}</span></span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Quick action modals — minimal inline forms */}
+      {/* Modals */}
       {showNewClient && (
         <NewClientModal
           onClose={() => setShowNewClient(false)}
-          onSuccess={() => { setShowNewClient(false); void fetchData(); }}
+          onSuccess={() => {
+            setShowNewClient(false);
+            void fetchData();
+          }}
         />
       )}
       {showNewJob && (
         <NewJobModal
           onClose={() => setShowNewJob(false)}
-          onSuccess={() => { setShowNewJob(false); void fetchData(); }}
-        />
-      )}
-      {showNewQuote && (
-        <NewQuoteModal
-          onClose={() => setShowNewQuote(false)}
-          onSuccess={() => { setShowNewQuote(false); void fetchData(); }}
+          onSuccess={() => {
+            setShowNewJob(false);
+            void fetchData();
+          }}
         />
       )}
     </div>
-  );
-}
-
-// ─── Inline Modals ────────────────────────────────────────────────────────────
-
-function ModalShell({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-2xl border border-slate-700 bg-panel p-6 shadow-neon">
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-base font-semibold text-slate-100">{title}</h3>
-          <button onClick={onClose} className="text-slate-500 hover:text-slate-200 text-lg leading-none">×</button>
-        </div>
-        {children}
-      </div>
-    </div>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="space-y-1">
-      <label className="text-xs text-slate-400 uppercase tracking-wider">{label}</label>
-      {children}
-    </div>
-  );
-}
-
-const inputCls = "w-full rounded-lg bg-slate-800 border border-slate-600 px-3 py-2 text-sm text-slate-100 focus:border-neon/50 focus:outline-none focus:ring-1 focus:ring-neon/30";
-
-function NewClientModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
-  const [address, setAddress] = useState("");
-  const [type, setType] = useState<"residential" | "commercial">("residential");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!name.trim()) { setError("Le nom est requis."); return; }
-    setSaving(true);
-    try {
-      const res = await fetch("/api/clients", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, phone, email, address, type }),
-      });
-      if (!res.ok) throw new Error("Erreur serveur");
-      onSuccess();
-    } catch {
-      setError("Impossible de créer le client.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <ModalShell title="Nouveau Client" onClose={onClose}>
-      <form onSubmit={(e) => void submit(e)} className="space-y-3">
-        <Field label="Nom *"><input className={inputCls} value={name} onChange={e => setName(e.target.value)} placeholder="Jean Tremblay" /></Field>
-        <Field label="Téléphone"><input className={inputCls} value={phone} onChange={e => setPhone(e.target.value)} placeholder="514-555-0001" /></Field>
-        <Field label="Email"><input className={inputCls} type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="jean@exemple.com" /></Field>
-        <Field label="Adresse"><input className={inputCls} value={address} onChange={e => setAddress(e.target.value)} placeholder="123 rue Principale, Montréal" /></Field>
-        <Field label="Type">
-          <select className={inputCls} value={type} onChange={e => setType(e.target.value as "residential" | "commercial")}>
-            <option value="residential">Résidentiel</option>
-            <option value="commercial">Commercial</option>
-          </select>
-        </Field>
-        {error && <p className="text-xs text-danger">{error}</p>}
-        <div className="flex gap-2 pt-1">
-          <button type="button" onClick={onClose} className="flex-1 rounded-lg border border-slate-600 px-4 py-2 text-sm text-slate-300 hover:bg-slate-700">Annuler</button>
-          <button type="submit" disabled={saving} className="flex-1 rounded-lg bg-neon/20 border border-neon/40 px-4 py-2 text-sm text-neon hover:bg-neon/30 disabled:opacity-50">
-            {saving ? "Création..." : "Créer"}
-          </button>
-        </div>
-      </form>
-    </ModalShell>
-  );
-}
-
-function NewJobModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
-  const [clientId, setClientId] = useState("");
-  const [title, setTitle] = useState("");
-  const [type, setType] = useState<"excavation" | "deneigement" | "consulting">("excavation");
-  const [amount, setAmount] = useState("");
-  const [date, setDate] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [clients, setClients] = useState<Client[]>([]);
-
-  useEffect(() => {
-    fetch("/api/clients")
-      .then(r => r.json() as Promise<{ clients: Client[] }>)
-      .then(d => setClients(d.clients ?? []))
-      .catch(() => null);
-  }, []);
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!clientId) { setError("Choisir un client."); return; }
-    if (!title.trim()) { setError("Le titre est requis."); return; }
-    setSaving(true);
-    try {
-      const res = await fetch("/api/jobs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ client_id: clientId, title, type, amount_usd: Number(amount || 0), date: date || null }),
-      });
-      if (!res.ok) throw new Error("Erreur serveur");
-      onSuccess();
-    } catch {
-      setError("Impossible de créer le job.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <ModalShell title="Nouveau Job" onClose={onClose}>
-      <form onSubmit={(e) => void submit(e)} className="space-y-3">
-        <Field label="Client *">
-          <select className={inputCls} value={clientId} onChange={e => setClientId(e.target.value)}>
-            <option value="">— Sélectionner —</option>
-            {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-        </Field>
-        <Field label="Titre *"><input className={inputCls} value={title} onChange={e => setTitle(e.target.value)} placeholder="Excavation fondation" /></Field>
-        <Field label="Type">
-          <select className={inputCls} value={type} onChange={e => setType(e.target.value as typeof type)}>
-            <option value="excavation">Excavation</option>
-            <option value="deneigement">Déneigement</option>
-            <option value="consulting">Consulting AI</option>
-          </select>
-        </Field>
-        <Field label="Montant ($)"><input className={inputCls} type="number" min="0" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" /></Field>
-        <Field label="Date"><input className={inputCls} type="date" value={date} onChange={e => setDate(e.target.value)} /></Field>
-        {error && <p className="text-xs text-danger">{error}</p>}
-        <div className="flex gap-2 pt-1">
-          <button type="button" onClick={onClose} className="flex-1 rounded-lg border border-slate-600 px-4 py-2 text-sm text-slate-300 hover:bg-slate-700">Annuler</button>
-          <button type="submit" disabled={saving} className="flex-1 rounded-lg bg-ember/20 border border-ember/40 px-4 py-2 text-sm text-ember hover:bg-ember/30 disabled:opacity-50">
-            {saving ? "Création..." : "Créer"}
-          </button>
-        </div>
-      </form>
-    </ModalShell>
-  );
-}
-
-function NewQuoteModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
-  const [clientId, setClientId] = useState("");
-  const [amount, setAmount] = useState("");
-  const [validUntil, setValidUntil] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [clients, setClients] = useState<Client[]>([]);
-
-  useEffect(() => {
-    fetch("/api/clients")
-      .then(r => r.json() as Promise<{ clients: Client[] }>)
-      .then(d => setClients(d.clients ?? []))
-      .catch(() => null);
-  }, []);
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!clientId) { setError("Choisir un client."); return; }
-    setSaving(true);
-    try {
-      const res = await fetch("/api/quotes", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ client_id: clientId, amount_usd: Number(amount || 0), valid_until: validUntil || null }),
-      });
-      if (!res.ok) throw new Error("Erreur serveur");
-      onSuccess();
-    } catch {
-      setError("Impossible de créer la soumission.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <ModalShell title="Nouvelle Soumission" onClose={onClose}>
-      <form onSubmit={(e) => void submit(e)} className="space-y-3">
-        <Field label="Client *">
-          <select className={inputCls} value={clientId} onChange={e => setClientId(e.target.value)}>
-            <option value="">— Sélectionner —</option>
-            {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-        </Field>
-        <Field label="Montant ($)"><input className={inputCls} type="number" min="0" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" /></Field>
-        <Field label="Valide jusqu'au"><input className={inputCls} type="date" value={validUntil} onChange={e => setValidUntil(e.target.value)} /></Field>
-        {error && <p className="text-xs text-danger">{error}</p>}
-        <div className="flex gap-2 pt-1">
-          <button type="button" onClick={onClose} className="flex-1 rounded-lg border border-slate-600 px-4 py-2 text-sm text-slate-300 hover:bg-slate-700">Annuler</button>
-          <button type="submit" disabled={saving} className="flex-1 rounded-lg bg-slate-700 border border-slate-500 px-4 py-2 text-sm text-slate-200 hover:bg-slate-600 disabled:opacity-50">
-            {saving ? "Création..." : "Créer"}
-          </button>
-        </div>
-      </form>
-    </ModalShell>
   );
 }
