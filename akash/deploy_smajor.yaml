@@ -1,0 +1,48 @@
+---
+version: "2.0"
+
+services:
+  smajor-web:
+    image: ghcr.io/stephaneboss/s25-command-center:smajor-latest
+    expose:
+      - port: 3000
+        as: 80
+        to:
+          - global: true
+    env:
+      - NODE_ENV=production
+      - S25_COCKPIT_URL=http://uoqlngdqqlc29fhg8l78qt80d8.ingress.akashprovid.com
+    params:
+      storage:
+        data:
+          mount: /app/data
+          readOnly: false
+
+profiles:
+  compute:
+    smajor-web:
+      resources:
+        cpu:
+          units: 1.0
+        memory:
+          size: 512Mi
+        storage:
+          - size: 2Gi
+          - name: data
+            size: 2Gi
+            attributes:
+              persistent: true
+              class: beta3
+
+  placement:
+    worldwide:
+      pricing:
+        smajor-web:
+          denom: uakt
+          amount: 1000
+
+deployment:
+  smajor-web:
+    worldwide:
+      profile: smajor-web
+      count: 1
