@@ -37,6 +37,11 @@ logging.basicConfig(
 log = logging.getLogger(__name__)
 
 COCKPIT_URL    = os.getenv("COCKPIT_URL", "http://localhost:7777")
+if not os.getenv("COCKPIT_URL"):
+    log.warning(
+        "COCKPIT_URL not set -- using default http://localhost:7777. "
+        "Set COCKPIT_URL env var if running on DELL-LINUX or Akash."
+    )
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL   = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
 GEMINI_URL     = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"

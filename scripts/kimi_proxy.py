@@ -17,7 +17,7 @@ Variables d'environnement:
   KIMI_PROXY_PORT     Port d'ecoute (defaut: 9191)
   HA_WEBHOOK_URL      URL webhook HA interne (defaut: http://homeassistant:8123/...)
   HA_WEBHOOK_ID       ID du webhook HA
-  QUEUE_DB_PATH       Chemin SQLite (defaut: /tmp/kimi_signal_queue.db)
+  QUEUE_DB_PATH       Chemin SQLite (defaut: /data/kimi_signal_queue.db)
 """
 
 import os
@@ -45,7 +45,7 @@ PROXY_PORT    = int(os.getenv("KIMI_PROXY_PORT", "9191"))
 HA_BASE       = os.getenv("HA_BASE_URL", "http://homeassistant:8123")
 WEBHOOK_ID    = os.getenv("HA_WEBHOOK_ID", "s25_kimi_scan_secret_xyz")
 HA_WEBHOOK    = f"{HA_BASE}/api/webhook/{WEBHOOK_ID}"
-QUEUE_DB      = os.getenv("QUEUE_DB_PATH", "/tmp/kimi_signal_queue.db")
+QUEUE_DB      = os.getenv("QUEUE_DB_PATH", "/data/kimi_signal_queue.db")
 RETRY_INTERVAL = 30   # secondes entre chaque retry des signaux en attente
 MAX_RETRIES    = 10   # apres 10 echecs, marquer comme dead-letter (pas supprime)
 
@@ -92,6 +92,28 @@ def mark_delivered(sig_id: int):
     con.close()
 
 
+
+def _notify_ha_dead_letter(sig_id: int, attempts: int, error: str):
+    """Envoie une notification HA quand un signal atteint dead-letter."""
+    ha_token = os.getenv("HA_TOKEN", "")
+    if not ha_token:
+        log.debug("HA_TOKEN non set -- notification dead-letter ignoree")
+        return
+    try:
+        requests.post(
+            f"{HA_BASE}/api/services/persistent_notification/create",
+            headers={"Authorization": f"Bearer {ha_token}", "Content-Type": "application/json"},
+            json={
+                "title": "[S25] Kimi Signal Dead-Letter",
+                "message": f"Signal #{sig_id} abandonne apres {attempts} tentatives. Erreur: {error[:200]}",
+                "notification_id": f"s25_dead_letter_{sig_id}",
+            },
+            timeout=5,
+        )
+        log.info(f"Notification HA dead-letter envoyee pour signal #{sig_id}")
+    except Exception as e:
+        log.warning(f"Notification HA dead-letter failed: {e}")
+
 def mark_failed(sig_id: int, attempts: int, error: str):
     status = "dead_letter" if attempts >= MAX_RETRIES else "pending"
     con = sqlite3.connect(QUEUE_DB)
@@ -103,6 +125,7 @@ def mark_failed(sig_id: int, attempts: int, error: str):
     con.close()
     if status == "dead_letter":
         log.error(f"Signal #{sig_id} dead-letter apres {attempts} tentatives: {error[:100]}")
+        _notify_ha_dead_letter(sig_id, attempts, error)
 
 
 def get_pending_signals():
