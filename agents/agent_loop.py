@@ -1,17 +1,22 @@
 '''
-S25 Lumiere -- Agent Loop Backend v2.0
+S25 Lumiere -- Agent Loop Backend v2.1
 ======================================
 Boucle calme de collecte automatique -- ZERO API PAYANTE.
-Sources gratuites: CoinGecko, Fear&Greed, Reddit RSS.
+Sources gratuites: CoinGecko (+ MEXC fallback), Fear&Greed, Reddit RSS.
 Analyse IA: Merlin (Gemini) -- validateur/synthetiseur du command center, pas cerveau principal.
 
 Collecte en boucle -> filtre -> log -> push Cockpit -> agents notifies.
 
 Schedule:
-  Toutes les 5 min  -> Prix crypto (CoinGecko)
+  Toutes les 5 min  -> Prix crypto (CoinGecko, fallback MEXC)
   Toutes les 15 min -> Fear & Greed Index
   Toutes les 30 min -> Reddit sentiment (top posts)
   Toutes les 60 min -> Rapport complet Merlin/Gemini (cerveau S25)
+
+Changelog v2.1:
+  - Fix #1: CoinGecko key + MEXC fallback + alerte prix stale
+  - Fix #2: Startup health check cockpit (fail fast si COCKPIT_URL invalide)
+  - Fix #3: Stale prices tracker (alerte si CoinGecko mort > 10 min)
 '''
 
 import os
@@ -31,12 +36,17 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
-COCKPIT_URL   = os.getenv("COCKPIT_URL", "http://localhost:7777")
+COCKPIT_URL    = os.getenv("COCKPIT_URL", "http://localhost:7777")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-GEMINI_MODEL  = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
-GEMINI_URL    = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
-OLLAMA_URL    = os.getenv("OLLAMA_URL", "http://10.0.0.202:11434")
-OLLAMA_MODEL  = os.getenv("OLLAMA_MODEL", "llama3:latest")
+GEMINI_MODEL   = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+GEMINI_URL     = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
+OLLAMA_URL     = os.getenv("OLLAMA_URL", "http://10.0.0.202:11434")
+OLLAMA_MODEL   = os.getenv("OLLAMA_MODEL", "llama3:latest")
+# Fix #1 -- CoinGecko optional API key (demo key gratuit sur coingecko.com)
+COINGECKO_KEY  = os.getenv("COINGECKO_KEY", "")
+# Fix #3 -- Stale prices: timestamp de la derniere collecte reussie
+_last_price_fetch_ok: float = 0.0
+PRICE_STALE_WARN_SEC = 600  # alerte si CoinGecko mort > 10 min
 
 PRICE_CHANGE_WARN     = 3.0
 PRICE_CHANGE_ALERT    = 7.0
@@ -58,6 +68,24 @@ _loop_stats = {
     "alerts_raised": 0,
     "started":       datetime.now(timezone.utc).isoformat(),
 }
+
+def check_cockpit_health() -> bool:
+    """Fix #2 -- Verifie que le cockpit est accessible au demarrage.
+    Log une erreur claire si COCKPIT_URL pointe sur localhost alors qu'on est sur DELL-LINUX."""
+    try:
+        r = requests.get(f"{COCKPIT_URL}/api/health", timeout=5)
+        if r.status_code == 200:
+            log.info(f"Cockpit OK: {COCKPIT_URL}")
+            return True
+        log.error(f"Cockpit repond {r.status_code} sur {COCKPIT_URL}")
+    except Exception as e:
+        log.error(
+            f"Cockpit INACCESSIBLE: {COCKPIT_URL} -- {e}\n"
+            f"  Si tu tournes sur DELL-LINUX, set: COCKPIT_URL=<URL_AKASH_COCKPIT>\n"
+            f"  Exemple: COCKPIT_URL=http://uoqlngdqqlc29fhg8l78qt80d8.ingress.akashprovid.com"
+        )
+    return False
+
 
 def push_intel(source: str, summary: str, level: str = "INFO", details: str = "") -> bool:
     payload = {
@@ -95,18 +123,80 @@ def push_signal(action: str, symbol: str, confidence: float, price: float, reaso
     return False
 
 
+def _fetch_prices_mexc_fallback() -> dict:
+    """Fallback MEXC public ticker -- aucune auth requise.
+    Retourne un dict au meme format que CoinGecko pour BTC/ETH/AKT/ATOM."""
+    MEXC_PAIRS = {
+        "bitcoin":       "BTCUSDT",
+        "ethereum":      "ETHUSDT",
+        "akash-network": "AKTUSDT",
+        "cosmos":        "ATOMUSDT",
+    }
+    result = {}
+    try:
+        symbols = list(MEXC_PAIRS.values())
+        r = requests.get(
+            "https://api.mexc.com/api/v3/ticker/24hr",
+            params={"symbols": str(symbols).replace("'", '"').replace(" ", "")},
+            timeout=10,
+            headers={"Accept": "application/json"},
+        )
+        if r.status_code == 200:
+            data = r.json() if isinstance(r.json(), list) else []
+            by_symbol = {d["symbol"]: d for d in data}
+            for coin_id, sym in MEXC_PAIRS.items():
+                ticker = by_symbol.get(sym, {})
+                if ticker:
+                    price = float(ticker.get("lastPrice", 0) or 0)
+                    change = float(ticker.get("priceChangePercent", 0) or 0)
+                    if price > 0:
+                        result[coin_id] = {"usd": price, "usd_24h_change": change}
+    except Exception as e:
+        log.warning(f"MEXC fallback error: {e}")
+    return result
+
+
 def fetch_prices() -> dict:
+    """Prix via CoinGecko (primaire) avec fallback automatique sur MEXC.
+    Fix #1: support COINGECKO_KEY + alerte stale + fallback."""
+    global _last_price_fetch_ok
     ids = ",".join(PAIRS)
+    headers = {"Accept": "application/json"}
+    if COINGECKO_KEY:
+        headers["x-cg-demo-api-key"] = COINGECKO_KEY
     url = (
         f"https://api.coingecko.com/api/v3/simple/price"
         f"?ids={ids}&vs_currencies=usd&include_24hr_change=true"
     )
     try:
-        r = requests.get(url, timeout=10, headers={"Accept": "application/json"})
+        r = requests.get(url, timeout=10, headers=headers)
         if r.status_code == 200:
+            _last_price_fetch_ok = time.time()
             return r.json()
+        elif r.status_code == 429:
+            log.warning("CoinGecko rate-limited (429) -- bascule MEXC fallback")
+        else:
+            log.warning(f"CoinGecko HTTP {r.status_code} -- bascule MEXC fallback")
     except Exception as e:
-        log.warning(f"CoinGecko error: {e}")
+        log.warning(f"CoinGecko error: {e} -- bascule MEXC fallback")
+
+    # Fallback MEXC
+    data = _fetch_prices_mexc_fallback()
+    if data:
+        _last_price_fetch_ok = time.time()
+        log.info("Prices via MEXC fallback OK")
+        return data
+
+    # Verifier si les prix sont stale (Fix #3)
+    if _last_price_fetch_ok > 0:
+        stale_sec = time.time() - _last_price_fetch_ok
+        if stale_sec > PRICE_STALE_WARN_SEC:
+            push_intel(
+                "PRICE_WATCH",
+                f"Prix stale depuis {int(stale_sec/60)} min -- CoinGecko ET MEXC hors ligne",
+                "ALERT",
+                "Verifier connectivite reseau du serveur",
+            )
     return {}
 
 
@@ -298,6 +388,9 @@ class AgentLoop:
 
     def run(self):
         log.info("Agent Loop demarre -- boucle calme toutes les 60s")
+        # Fix #2 -- Verifier cockpit au demarrage (fail-fast avec message clair)
+        if not check_cockpit_health():
+            log.warning("Cockpit non accessible -- les intel seront perdus jusqu'a reconnexion")
         push_intel("AGENT_LOOP", "Agent Loop demarre -- surveillance active", "INFO")
         while not self._stop.is_set():
             now = time.time()
