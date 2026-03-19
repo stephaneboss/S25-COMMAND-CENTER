@@ -32,6 +32,8 @@ services:
       - CHECK_INTERVAL=60
       - S25_SHARED_SECRET=
       - BUILD=20260313h
+      - COCKPIT_URL=http://uoqlngdqqlc29fhg8l78qt80d8.ingress.akashprovid.com
+      - QUEUE_DB_PATH=/data/kimi_signal_queue.db
       - OLLAMA_URL=http://10.0.0.202:11434
       - OLLAMA_MODEL=llama3:latest
       - RUN_AGENT_LOOP=true

@@ -24,6 +24,8 @@ services:
       - MEMORY_DIR=/app/memory
       - PORT=7777
       - S25_SHARED_SECRET=s25sandbox2026
+      - COCKPIT_URL=http://uoqlngdqqlc29fhg8l78qt80d8.ingress.akashprovid.com
+      - QUEUE_DB_PATH=/data/kimi_signal_queue.db
 
 profiles:
   compute:
