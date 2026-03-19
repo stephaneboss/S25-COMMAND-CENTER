@@ -88,6 +88,8 @@
 ### Tunnel Kimi -> HA
 - Script: bash /config/scripts/start_s25_tunnel.sh
 - Webhook ID: s25_kimi_scan_secret_xyz
+- Tunnel URL courant: https://finally-his-true-charlie.trycloudflare.com
+- Webhook complet: https://finally-his-true-charlie.trycloudflare.com/api/webhook/s25_kimi_scan_secret_xyz
 
 ### Wallet creator S25
 - Adresse publique maitre: `akash1mw0trq8xgmdyqqjn482r9pfr05hfw06rzq2u9v`
@@ -209,3 +211,14 @@
 - [ ] HA: add `input_text.kimi_tunnel_url` entity to `configuration.yaml`
 - [ ] End-to-end live test: real Kimi signal through tunnel -> HA webhook -> cockpit
 - [ ] MEXC Sunday series: enable live mode when pipeline validated end-to-end
+
+---
+
+## PATCH LOG 2026-03-20 (ARKON — tunnel restart + pipeline reset)
+- Tunnel restarted: https://finally-his-true-charlie.trycloudflare.com
+- Webhook: https://finally-his-true-charlie.trycloudflare.com/api/webhook/s25_kimi_scan_secret_xyz
+- COMET intel reset: T3→T0 NORMAL
+- ARKON + KIMI heartbeats posted to cockpit
+- Pipeline status: ollama ACTIVE, signal HOLD (confidence 0)
+- Wallet status: $50.18 total (spot $35.54 + futures $14.63)
+- Merlin Akash (DSEQ 25878071): DOWN — needs redeploy
