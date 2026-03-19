@@ -222,3 +222,13 @@
 - Pipeline status: ollama ACTIVE, signal HOLD (confidence 0)
 - Wallet status: $50.18 total (spot $35.54 + futures $14.63)
 - Merlin Akash (DSEQ 25878071): DOWN — needs redeploy
+- E2E DRY_RUN TEST RÉUSSI 2026-03-20 00:43 UTC:
+  - Signal: curl → finally-his-true-charlie.trycloudflare.com → kimi_proxy:9191 → HA webhook
+  - HA automation triggered: ai_prompt = DRY_RUN signal reçu
+  - Gemini (MERLIN) réponse: "BUY BTC/USD (75%) | dynamique haussière en formation"
+  - Pipeline complet: KIMI→proxy→HA→GEMINI_DONE ✅
+- Tunnel actif: https://finally-his-true-charlie.trycloudflare.com (Kimi Proxy PID=215, Cloudflared PID=385)
+- HA entities confirmées: input_text.ai_prompt, input_text.ai_model_actif, input_text.ai_response
+- Gemini API key: ACTIVE en HA ✅
+- kimi_proxy.py: port 9191 opérationnel, SQLite queue à /tmp/kimi_signal_queue.db
+- Note: /data/ volume non persistant sur SSH add-on — queue perdue si container redémarre

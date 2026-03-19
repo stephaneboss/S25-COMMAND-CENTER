@@ -15,14 +15,14 @@
     },
     "ARKON": {
       "status": "online",
-      "last_seen": null,
-      "last_task": null,
+      "last_seen": "2026-03-20T00:45:00+00:00",
+      "last_task": "E2E pipeline validation — SUCCÈS",
       "notes": "Claude Code — builder principal"
     },
     "MERLIN": {
       "status": "online",
-      "last_seen": null,
-      "last_query": null,
+      "last_seen": "2026-03-20T00:43:00+00:00",
+      "last_query": "E2E DRY_RUN — BUY BTC/USD 75%",
       "notes": "Gemini validateur"
     },
     "COMET": {
@@ -32,9 +32,9 @@
       "notes": "Perplexity watchman — comet_bridge.py v2.1"
     },
     "KIMI": {
-      "status": "live",
-      "last_seen": "2026-03-13T22:00:00Z",
-      "last_scan": "2026-03-13T22:00:00Z",
+      "status": "online",
+      "last_seen": "2026-03-20T00:43:00+00:00",
+      "last_scan": "DRY_RUN via tunnel finally-his-true-charlie.trycloudflare.com",
       "dseq": "25920459",
       "notes": "Live Akash DSEQ 25920459 — intel BTC/USDT + AKT/USDT scan 60s autonome. Pas de tunnel manuel."
     }
