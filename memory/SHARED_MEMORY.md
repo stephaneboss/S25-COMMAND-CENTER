@@ -192,3 +192,20 @@
   - mission `mission-09e3b85db8` archivee en `completed`
   - `comet_intel` public = `Mission mission-09e3b85db8 -> completed`
   - `status` public reste `MESH_READY`
+
+---
+
+## PATCH LOG 2026-03-19 (ARKON / OpenHands)
+
+### Fixes Applied
+1. **SDL env vars**: Added `COCKPIT_URL` and `QUEUE_DB_PATH` to `akash/deploy_cockpit.yaml`, `akash/deploy_sandbox.yaml`, `akash/deploy_memory.yaml`
+2. **Tunnel URL auto-publish**: `scripts/kimi_proxy.py` now reads `/tmp/cf_tunnel.log` at startup and every 30 min, publishes URL to HA `input_text.kimi_tunnel_url` via REST API
+3. **Config vars added**: `HA_URL`, `HA_TOKEN`, `TUNNEL_LOG`, `TUNNEL_PUBLISH_INTERVAL` env vars in kimi_proxy.py
+4. **Pipeline dry_run validated**: Simulated Kimi signal (BTC RSI=28 oversold) — path `kimi_proxy -> HA webhook -> ai_router -> agent_loop` SIMULATED OK
+- Syntax check: `kimi_proxy.py`, `agent_loop.py`, `arkon_signal.py` ALL SYNTAX OK
+
+### Next Steps
+- [ ] SDL update: close-deploy and re-deploy DSEQ 25838342 with new env vars
+- [ ] HA: add `input_text.kimi_tunnel_url` entity to `configuration.yaml`
+- [ ] End-to-end live test: real Kimi signal through tunnel -> HA webhook -> cockpit
+- [ ] MEXC Sunday series: enable live mode when pipeline validated end-to-end

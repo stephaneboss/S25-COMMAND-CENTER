@@ -49,6 +49,70 @@ QUEUE_DB      = os.getenv("QUEUE_DB_PATH", "/data/kimi_signal_queue.db")
 RETRY_INTERVAL = 30   # secondes entre chaque retry des signaux en attente
 MAX_RETRIES    = 10   # apres 10 echecs, marquer comme dead-letter (pas supprime)
 
+# --- HA Tunnel URL Publisher config ---
+HA_URL         = os.getenv("HA_URL", "http://homeassistant:8123")
+HA_TOKEN       = os.getenv("HA_TOKEN", "")
+TUNNEL_LOG     = os.getenv("TUNNEL_LOG_PATH", "/tmp/cf_tunnel.log")
+TUNNEL_PUBLISH_INTERVAL = 1800  # publier URL tunnel toutes les 30 min
+
+
+
+# --- Tunnel URL Publisher ---
+
+def read_tunnel_url() -> str:
+    # Read the current Cloudflare tunnel URL from the log file
+    import re as _re
+    try:
+        with open(TUNNEL_LOG, "r") as f:
+            for line in f:
+                line = line.strip()
+                m = _re.search(r"https://[\w\-]+\.(?:trycloudflare|cfargotunnel)\.com", line)
+                if m:
+                    return m.group(0)
+    except FileNotFoundError:
+        log.debug("Tunnel log not found: %s", TUNNEL_LOG)
+    except Exception as e:
+        log.warning("read_tunnel_url error: %s", e)
+    return ""
+
+
+def publish_tunnel_url_to_ha(url: str) -> bool:
+    # Publish the tunnel URL to HA input_text.kimi_tunnel_url entity
+    if not HA_TOKEN:
+        log.debug("HA_TOKEN not set -- tunnel URL publish skipped")
+        return False
+    if not url:
+        log.debug("No tunnel URL found -- skipping publish")
+        return False
+    try:
+        r = requests.post(
+            HA_URL + "/api/states/input_text.kimi_tunnel_url",
+            headers={
+                "Authorization": "Bearer " + HA_TOKEN,
+                "Content-Type": "application/json",
+            },
+            json={"state": url},
+            timeout=5,
+        )
+        if r.status_code in (200, 201):
+            log.info("Tunnel URL published to HA: %s", url)
+            return True
+        log.warning("HA tunnel URL publish failed: HTTP %s", r.status_code)
+        return False
+    except Exception as e:
+        log.warning("publish_tunnel_url_to_ha error: %s", e)
+        return False
+
+
+def tunnel_url_publisher_loop():
+    # Background thread: read tunnel URL at startup and every 30 min, publish to HA
+    log.info("TunnelPublisher: demarrage")
+    url = read_tunnel_url()
+    publish_tunnel_url_to_ha(url)
+    while True:
+        time.sleep(TUNNEL_PUBLISH_INTERVAL)
+        url = read_tunnel_url()
+        publish_tunnel_url_to_ha(url)
 # --- SQLite Queue ---
 
 def init_db():
@@ -268,6 +332,12 @@ if __name__ == "__main__":
     pending = get_pending_signals()
     if pending:
         log.warning(f"Reprise: {len(pending)} signaux en attente dans la queue")
+
+    # Start tunnel URL publisher thread
+    tunnel_publisher = threading.Thread(
+        target=tunnel_url_publisher_loop, daemon=True, name="tunnel-publisher"
+    )
+    tunnel_publisher.start()
 
     retry_worker = RetryWorker()
     retry_worker.start()
