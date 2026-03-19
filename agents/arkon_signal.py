@@ -96,7 +96,13 @@ class ArkonSignal(BaseAgent):
 
             # Dispatch as ARKON_SIGNAL
             if self.commander:
-                await self.commander.dispatch(arkon_signal)
+                try:
+                    await asyncio.wait_for(
+                        self.commander.dispatch(arkon_signal),
+                        timeout=15.0
+                    )
+                except asyncio.TimeoutError:
+                    self.logger.error("Timeout (15s) dispatching ARKON_SIGNAL from kimi -- signal dropped")
 
         except Exception as e:
             self.logger.error(f"Kimi parse error: {e}")
@@ -147,7 +153,15 @@ class ArkonSignal(BaseAgent):
                 "source": "arkon_signal",
                 "data":   enriched
             }
-            await self.commander.dispatch(exec_signal)
+            try:
+                await asyncio.wait_for(
+                    self.commander.dispatch(exec_signal),
+                    timeout=15.0
+                )
+            except asyncio.TimeoutError:
+                self.logger.error(
+                    f"Timeout (15s) dispatching EXECUTE_ORDER for {symbol} {action} -- signal dropped"
+                )
 
     def _validate(self, data: Dict) -> Dict:
         """Validate signal data. Returns {valid, reason}."""
