@@ -101,6 +101,9 @@ views:
           - entity: input_text.ai_prompt
             name: "Dernier Prompt Kimi"
             icon: mdi:message-text
+          - entity: input_text.kimi_tunnel_url
+            name: "Kimi Tunnel URL"
+            icon: mdi:cloud-outline
 
       # ─────────────────────────────────────────────────────
       # ROW 5 — TUNNEL S25 + COMMANDES
@@ -266,14 +269,19 @@ views:
       - type: custom:mushroom-template-card
         primary: "Tunnel Cloudflare"
         secondary: >
-          {% if states('input_text.ai_model_actif') contains 'KIMI' %}
+          {% set url = states('input_text.kimi_tunnel_url') %}
+          {% if url and url != 'not_yet_published' and url != 'unknown' %}
+          🟢 ACTIF — {{ url[:40] }}
+          {% elif states('input_text.ai_model_actif') contains 'KIMI' %}
           🟢 ACTIF — Signal reçu
           {% else %}
           🔴 En attente signal Kimi
           {% endif %}
         icon: mdi:cloud-check
         icon_color: >
-          {% if states('input_text.ai_model_actif') contains 'KIMI' %}green{% else %}grey{% endif %}
+          {% set url = states('input_text.kimi_tunnel_url') %}
+          {% if url and url != 'not_yet_published' and url != 'unknown' %}green
+          {% elif states('input_text.ai_model_actif') contains 'KIMI' %}green{% else %}grey{% endif %}
 
   # ═══════════════════════════════════════════════════════════
   # VUE 4 — MINING (Antminer S19j)

@@ -1,0 +1,20 @@
+# ============================================================
+# S25 LUMIÈRE — input_text helpers
+# À inclure dans configuration.yaml:
+#   input_text: !include ha/input_text.yaml
+# ============================================================
+
+ai_prompt:
+  name: "Dernier Prompt Kimi"
+  max: 255
+  icon: mdi:message-text
+
+ai_model_actif:
+  name: "Status Pipeline"
+  max: 255
+  icon: mdi:state-machine
+
+kimi_tunnel_url:
+  name: "Kimi Tunnel URL"
+  max: 255
+  icon: mdi:cloud-outline
