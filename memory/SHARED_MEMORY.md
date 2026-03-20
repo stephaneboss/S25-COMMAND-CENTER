@@ -45,14 +45,12 @@
 - Role: nouveau cockpit secondaire cree apres recharge AKT et cycle wallet stable
 - Note: garder `25822281` tant que la bascule et les checks runtime ne sont pas valides
 
-### Akash (MERLIN MCP LIVE 2026-03-10)
+### Akash (MERLIN MCP — REMPLACE 2026-03-19)
 - Service: s25-merlin-mesh
-- DSEQ: 25878071
-- Provider: provider.akashprovid.com
-- MCP ingress live: https://da0m4r4tu5ctn0ja9r2t9c2vho.ingress.akashprovid.com/mcp
-- Domaine public: https://merlin.smajor.org ✅ LIVE (health ok:true confirme 2026-03-13)
-- Etat: handshake public OK, conteneur running
-- Limite actuelle: Gemini Interactions + mcp_server reste bloque cote Google
+- DSEQ: 25878071 — RETIRE (DOWN depuis 2026-03-20, non redeploy)
+- MERLIN: Migré vers AlienStef local (10.0.0.97:3000 Open WebUI + Ollama:11434 qwen2.5-coder:14b) — Akash DSEQ 25878071 remplacé — plus économique
+- Domaine public: https://merlin.smajor.org (proxy a rediriger vers AlienStef si besoin)
+- Etat: Akash off, local AlienStef ONLINE
 
 ### Akash (KIMI Web3 Intel LIVE 2026-03-13)
 - Service: kimi-web3-activated
@@ -80,6 +78,12 @@
 ### Home Assistant (Hub Central)
 - URL: http://10.0.0.136:8123
 - MQTT: 10.0.0.136:1883
+
+### AlienStef (Node Local GPU)
+- IP: 10.0.0.97
+- GPU: RTX 3060
+- Services: Open WebUI:3000, OpenHands (CodeActAgent):3001, Ollama:11434 (qwen2.5-coder:14b)
+- MERLIN local endpoint: http://10.0.0.97:3000 (Open WebUI + Ollama) — remplace Akash DSEQ 25878071
 
 ### DELL-LINUX (Serveur IA)
 - IP: 10.0.0.202

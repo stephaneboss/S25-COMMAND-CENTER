@@ -21,9 +21,10 @@
     },
     "MERLIN": {
       "status": "online",
+      "endpoint": "http://10.0.0.97:3000",
       "last_seen": "2026-03-20T00:43:00+00:00",
       "last_query": "E2E DRY_RUN — BUY BTC/USD 75%",
-      "notes": "Gemini validateur"
+      "notes": "AlienStef local — Open WebUI 10.0.0.97:3000 + Ollama qwen2.5-coder:14b — ex-Akash DSEQ 25878071"
     },
     "COMET": {
       "status": "online",
