@@ -329,8 +329,14 @@ def api_status():
                 elif "antminer_temp" in entity: status["temp"] = state
                 elif "comet_intel" in entity: status["comet_intel"] = state
 
-        # Check tunnel without depending on pgrep, which is absent on slim images.
-        status["tunnel_active"] = _process_running("cloudflared")
+        # Check tunnel: try local process first (HA container), then fallback
+        # to comet_intel state (Akash container — cloudflared runs on HA side).
+        tunnel_active = _process_running("cloudflared")
+        if not tunnel_active:
+            ci = status.get("comet_intel", "")
+            if "ACTIF" in ci or "trycloudflare.com" in ci:
+                tunnel_active = True
+        status["tunnel_active"] = tunnel_active
 
     except Exception as e:
         status["error"] = str(e)
