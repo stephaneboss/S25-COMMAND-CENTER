@@ -2399,6 +2399,23 @@ async function handleMeshGateway(requestId, env) {
   });
   const onlineCount = roster.filter((agent) => !["offline", "unknown"].includes(agent.status)).length;
   const readiness = onlineCount >= 12 ? "mesh_total" : onlineCount >= 8 ? "mesh_partial" : "mesh_fragile";
+
+  // Derive tunnel status from KIMI agent (cloudflared runs on HA, not Akash container)
+  const kimiRuntime = liveAgents["KIMI"] || {};
+  const kimiOnline = kimiRuntime.status === "online";
+  const kimiScan = kimiRuntime.last_scan || "";
+  const kimiNotes = kimiRuntime.notes || "";
+  const tunnelActiveFromCockpit = statusPayload.tunnel_active === true || statusPayload.tunnel_mode === "active";
+  const tunnelActiveFromKimi = kimiOnline && (kimiScan.includes("trycloudflare.com") || kimiNotes.includes("ACTIF"));
+  const tunnelActive = tunnelActiveFromCockpit || tunnelActiveFromKimi;
+  const tunnelUrl = kimiScan || null;
+
+  // Fix summary_fr if cockpit reports tunnel offline but KIMI confirms it's active
+  let statusSummary = statusPayload.summary_fr || null;
+  if (statusSummary && tunnelActiveFromKimi && !tunnelActiveFromCockpit) {
+    statusSummary = statusSummary.replace("Tunnel offline.", "Tunnel ACTIF (via KIMI).");
+  }
+
   return jsonResponse({
     ok: true,
     request_id: requestId,
@@ -2408,6 +2425,11 @@ async function handleMeshGateway(requestId, env) {
       intel_entries: memoryPayload?.state?.intel?.comet_feed?.length || 0,
       missions_active: missionsPayload?.active?.length || 0,
       pipeline: memoryPayload?.state?.pipeline || null,
+    },
+    tunnel: {
+      active: tunnelActive,
+      url: tunnelUrl,
+      source: tunnelActiveFromCockpit ? "cockpit" : tunnelActiveFromKimi ? "kimi_agent" : "none",
     },
     omega: {
       protocol: "S25_OMEGA_PROTOCOL",
@@ -2422,7 +2444,7 @@ async function handleMeshGateway(requestId, env) {
         "GOUV4 -> policy",
         "ARKON -> runtime",
       ],
-      status_summary: statusPayload.summary_fr || null,
+      status_summary: statusSummary,
     },
     roster,
   });
