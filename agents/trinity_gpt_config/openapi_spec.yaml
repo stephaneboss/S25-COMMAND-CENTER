@@ -1,12 +1,14 @@
 openapi: 3.1.0
 info:
   title: S25 Lumiere - Trinity Bridge API
-  description: OpenAPI minimale et verifiee pour TRINITY vers le cockpit S25 en production.
+  description: "OpenAPI minimale et verifiee pour TRINITY vers le cockpit S25 en production. Cockpit actif: http://uoqlngdqqlc29fhg8l78qt80d8.ingress.akashprovid.com | Tunnel Kimi actif: https://finally-his-true-charlie.trycloudflare.com"
   version: 2.5.0
 
 servers:
+  - url: http://uoqlngdqqlc29fhg8l78qt80d8.ingress.akashprovid.com
+    description: S25 Cockpit LIVE (Akash DSEQ 25838342)
   - url: https://s25.smajor.org
-    description: S25 Lumiere runtime sovereign endpoint
+    description: S25 Cockpit production domain (DSEQ 25883220 - peut être offline)
 
 components:
   schemas:
