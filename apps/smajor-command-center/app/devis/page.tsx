@@ -2,15 +2,10 @@
 
 import { useState, useEffect, useCallback } from "react";
 import type { Quote, Client, QuoteStatus } from "@/lib/db";
+import { NewQuoteModal } from "@/components/new-quote-modal";
+import { QuoteStatusBadge } from "@/components/quote-status-badge";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-
-const STATUS_STYLES: Record<QuoteStatus, string> = {
-  draft: "bg-gray-100 text-gray-600 border border-gray-200",
-  sent: "bg-blue-100 text-blue-700 border border-blue-200",
-  accepted: "bg-emerald-100 text-emerald-700 border border-emerald-200",
-  rejected: "bg-red-100 text-red-600 border border-red-200",
-};
 
 const STATUS_LABEL: Record<QuoteStatus, string> = {
   draft: "Brouillon",
@@ -23,144 +18,6 @@ const ALL_STATUSES: QuoteStatus[] = ["draft", "sent", "accepted", "rejected"];
 
 interface QuoteWithClient extends Quote {
   client_name?: string;
-}
-
-// ─── New Quote Modal ──────────────────────────────────────────────────────────
-
-const inputCls =
-  "w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-colors";
-const labelCls = "block text-xs font-medium text-gray-600 mb-1";
-
-function NewQuoteModal({
-  onClose,
-  onSuccess,
-}: {
-  onClose: () => void;
-  onSuccess: () => void;
-}) {
-  const [clientId, setClientId] = useState("");
-  const [amount, setAmount] = useState("");
-  const [validUntil, setValidUntil] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [clients, setClients] = useState<Client[]>([]);
-  const [loadingClients, setLoadingClients] = useState(true);
-
-  useEffect(() => {
-    fetch("/api/clients")
-      .then((r) => r.json() as Promise<{ clients: Client[] }>)
-      .then((d) => setClients(d.clients ?? []))
-      .catch(() => null)
-      .finally(() => setLoadingClients(false));
-  }, []);
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!clientId) {
-      setError("Veuillez sélectionner un client.");
-      return;
-    }
-    setSaving(true);
-    setError("");
-    try {
-      const res = await fetch("/api/quotes", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          client_id: clientId,
-          amount_usd: parseFloat(amount) || 0,
-          valid_until: validUntil || null,
-        }),
-      });
-      if (!res.ok) throw new Error("Erreur serveur");
-      onSuccess();
-    } catch {
-      setError("Impossible de créer le devis. Veuillez réessayer.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-2xl bg-white shadow-xl border border-gray-200">
-        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-          <h3 className="text-base font-semibold text-gray-900">Nouveau devis</h3>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-          >
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-        <form onSubmit={(e) => void submit(e)} className="p-6 space-y-4">
-          <div>
-            <label className={labelCls}>Client *</label>
-            <select
-              className={inputCls}
-              value={clientId}
-              onChange={(e) => setClientId(e.target.value)}
-              disabled={loadingClients}
-            >
-              <option value="">— Sélectionner un client —</option>
-              {clients.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelCls}>Montant ($)</label>
-              <input
-                className={inputCls}
-                type="number"
-                min="0"
-                step="0.01"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="0.00"
-              />
-            </div>
-            <div>
-              <label className={labelCls}>Valide jusqu'au</label>
-              <input
-                className={inputCls}
-                type="date"
-                value={validUntil}
-                onChange={(e) => setValidUntil(e.target.value)}
-              />
-            </div>
-          </div>
-          {error && (
-            <p className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-600">
-              {error}
-            </p>
-          )}
-          <div className="flex gap-3 pt-1">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-            >
-              Annuler
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="flex-1 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
-            >
-              {saving ? "Création..." : "Créer le devis"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
 }
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
@@ -361,11 +218,7 @@ export default function DevisPage() {
                       <p className="text-sm font-semibold text-gray-900">
                         {q.client_name ?? "Client inconnu"}
                       </p>
-                      <span
-                        className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_STYLES[q.status]}`}
-                      >
-                        {STATUS_LABEL[q.status]}
-                      </span>
+                      <QuoteStatusBadge status={q.status} />
                     </div>
                     <p className="text-xs text-gray-400 mt-0.5">
                       Créé le {new Date(q.created_at).toLocaleDateString("fr-CA")}
@@ -434,7 +287,7 @@ export default function DevisPage() {
       {showModal && (
         <NewQuoteModal
           onClose={() => setShowModal(false)}
-          onSuccess={() => {
+          onCreated={() => {
             setShowModal(false);
             void fetchQuotes();
           }}
