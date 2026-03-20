@@ -16,28 +16,28 @@
     "ARKON": {
       "status": "online",
       "last_seen": "2026-03-20T00:45:00+00:00",
-      "last_task": "E2E pipeline validation — SUCCÈS",
-      "notes": "Claude Code — builder principal"
+      "last_task": "E2E pipeline validation \u00e2\u20ac\u201d SUCC\u00c3\u02c6S",
+      "notes": "Claude Code \u00e2\u20ac\u201d builder principal"
     },
     "MERLIN": {
       "status": "online",
       "endpoint": "http://10.0.0.97:3000",
       "last_seen": "2026-03-20T00:43:00+00:00",
-      "last_query": "E2E DRY_RUN — BUY BTC/USD 75%",
-      "notes": "AlienStef local — Open WebUI 10.0.0.97:3000 + Ollama qwen2.5-coder:14b — ex-Akash DSEQ 25878071"
+      "last_query": "E2E DRY_RUN \u00e2\u20ac\u201d BUY BTC/USD 75%",
+      "notes": "AlienStef local \u00e2\u20ac\u201d Open WebUI 10.0.0.97:3000 + Ollama qwen2.5-coder:14b \u00e2\u20ac\u201d ex-Akash DSEQ 25878071"
     },
     "COMET": {
       "status": "online",
       "last_seen": null,
       "last_report": null,
-      "notes": "Perplexity watchman — comet_bridge.py v2.1"
+      "notes": "Perplexity watchman \u00e2\u20ac\u201d comet_bridge.py v2.1"
     },
     "KIMI": {
       "status": "online",
       "last_seen": "2026-03-20T00:43:00+00:00",
-      "last_scan": "DRY_RUN via tunnel finally-his-true-charlie.trycloudflare.com",
+      "last_scan": "https://housing-acc-antibodies-thomson.trycloudflare.com",
       "dseq": "25920459",
-      "notes": "Live Akash DSEQ 25920459 — intel BTC/USDT + AKT/USDT scan 60s autonome. Pas de tunnel manuel."
+      "notes": "Live Akash DSEQ 25920459 \u00e2\u20ac\u201d intel BTC/USDT + AKT/USDT scan 60s autonome. Pas de tunnel manuel."
     }
   },
   "pipeline": {
@@ -48,16 +48,16 @@
     "last_signal": null,
     "signals_buffer": [],
     "source_weights": {
-      "TRINITY": 0.80,
-      "MERLIN": 0.70,
+      "TRINITY": 0.8,
+      "MERLIN": 0.7,
       "KIMI": 0.65,
-      "ORACLE": 0.60,
+      "ORACLE": 0.6,
       "AGENT_LOOP": 0.55,
       "ONCHAIN": 0.55,
-      "COMET": 0.50
+      "COMET": 0.5
     },
     "consensus_bonus": 0.15,
-    "arkon_threshold": 0.60,
+    "arkon_threshold": 0.6,
     "signal_endpoint": "POST /api/signal",
     "intel_endpoint": "POST /api/intel",
     "dryrun_endpoint": "POST /api/pipeline/dryrun",
@@ -65,11 +65,11 @@
     "ha_url": "http://10.0.0.136:8123"
   },
   "infrastructure": {
-    "smajor_org": "live — DNS pointe sur smajor-hub Worker",
-    "app_smajor_org": "live — Next.js 6 portails (Overview/Clients/Admin/Staff/Vendors/AI/Omega)",
-    "s25_smajor_org": "fix deploye — trinity-worker ORIGIN_BASE corrige vers DSEQ 25883220",
-    "api_smajor_org": "live — trinity-s25-proxy",
-    "merlin_smajor_org": "live — merlin-s25-proxy vers DSEQ 25878071",
+    "smajor_org": "live \u00e2\u20ac\u201d DNS pointe sur smajor-hub Worker",
+    "app_smajor_org": "live \u00e2\u20ac\u201d Next.js 6 portails (Overview/Clients/Admin/Staff/Vendors/AI/Omega)",
+    "s25_smajor_org": "fix deploye \u00e2\u20ac\u201d trinity-worker ORIGIN_BASE corrige vers DSEQ 25883220",
+    "api_smajor_org": "live \u00e2\u20ac\u201d trinity-s25-proxy",
+    "merlin_smajor_org": "live \u00e2\u20ac\u201d merlin-s25-proxy vers DSEQ 25878071",
     "cockpit_dseq": "25883220",
     "cockpit_origin": "http://fpog7pbvepbkrfae1529ics23k.ingress.cap-test-compute.com",
     "cockpit_image": "ghcr.io/stephaneboss/s25-command-center:main",
@@ -86,5 +86,9 @@
     "akt_usd": 2.84,
     "fear_greed": null,
     "last_fetch": "2026-03-13T19:00:00Z"
+  },
+  "system": {
+    "tunnel_active": true,
+    "tunnel_url": "https://housing-acc-antibodies-thomson.trycloudflare.com"
   }
 }
