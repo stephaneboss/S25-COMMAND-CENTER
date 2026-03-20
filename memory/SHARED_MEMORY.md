@@ -92,8 +92,8 @@
 ### Tunnel Kimi -> HA
 - Script: bash /config/scripts/start_s25_tunnel.sh
 - Webhook ID: s25_kimi_scan_secret_xyz
-- Tunnel URL courant: https://finally-his-true-charlie.trycloudflare.com
-- Webhook complet: https://finally-his-true-charlie.trycloudflare.com/api/webhook/s25_kimi_scan_secret_xyz
+- Tunnel URL courant: https://housing-acc-antibodies-thomson.trycloudflare.com
+- Webhook complet: https://housing-acc-antibodies-thomson.trycloudflare.com/api/webhook/s25_kimi_scan_secret_xyz
 
 ### Wallet creator S25
 - Adresse publique maitre: `REDACTED_WALLET_ADDRESS`
@@ -219,8 +219,8 @@
 ---
 
 ## PATCH LOG 2026-03-20 (ARKON — tunnel restart + pipeline reset)
-- Tunnel restarted: https://finally-his-true-charlie.trycloudflare.com
-- Webhook: https://finally-his-true-charlie.trycloudflare.com/api/webhook/s25_kimi_scan_secret_xyz
+- Tunnel restarted: https://housing-acc-antibodies-thomson.trycloudflare.com
+- Webhook: https://housing-acc-antibodies-thomson.trycloudflare.com/api/webhook/s25_kimi_scan_secret_xyz
 - COMET intel reset: T3→T0 NORMAL
 - ARKON + KIMI heartbeats posted to cockpit
 - Pipeline status: ollama ACTIVE, signal HOLD (confidence 0)
@@ -231,7 +231,7 @@
   - HA automation triggered: ai_prompt = DRY_RUN signal reçu
   - Gemini (MERLIN) réponse: "BUY BTC/USD (75%) | dynamique haussière en formation"
   - Pipeline complet: KIMI→proxy→HA→GEMINI_DONE ✅
-- Tunnel actif: https://finally-his-true-charlie.trycloudflare.com (Kimi Proxy PID=215, Cloudflared PID=385)
+- Tunnel actif: https://housing-acc-antibodies-thomson.trycloudflare.com (Kimi Proxy PID=215, Cloudflared PID=385)
 - HA entities confirmées: input_text.ai_prompt, input_text.ai_model_actif, input_text.ai_response
 - Gemini API key: ACTIVE en HA ✅
 - kimi_proxy.py: port 9191 opérationnel, SQLite queue à /tmp/kimi_signal_queue.db
