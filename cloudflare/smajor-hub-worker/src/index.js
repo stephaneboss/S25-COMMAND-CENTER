@@ -10381,6 +10381,36 @@ export default {
     const url = new URL(request.url);
     const hostname = url.hostname.toLowerCase();
 
+    // S25 Cockpit proxy — forward s25.smajor.org/api/* to Akash cockpit
+    const S25_COCKPIT = 'http://uoqlngdqqlc29fhg8l78qt80d8.ingress.akashprovid.com';
+
+    if (hostname === 's25.smajor.org' && url.pathname.startsWith('/api/')) {
+      // CORS preflight
+      if (request.method === 'OPTIONS') {
+        return new Response(null, {
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-S25-Secret',
+            'Access-Control-Max-Age': '86400',
+          }
+        });
+      }
+
+      const targetUrl = S25_COCKPIT + url.pathname + url.search;
+      const proxiedReq = new Request(targetUrl, {
+        method: request.method,
+        headers: request.headers,
+        body: request.method !== 'GET' && request.method !== 'HEAD' ? request.body : undefined,
+      });
+
+      const resp = await fetch(proxiedReq);
+      const newResp = new Response(resp.body, resp);
+      newResp.headers.set('Access-Control-Allow-Origin', '*');
+      newResp.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+      return newResp;
+    }
+
     if (url.pathname === "/health") {
       return jsonResponse({
         ok: true,

@@ -5,7 +5,8 @@ workers_dev = true
 routes = [
   { pattern = "smajor.org", custom_domain = true },
   { pattern = "www.smajor.org", custom_domain = true },
-  { pattern = "app.smajor.org", custom_domain = true }
+  { pattern = "app.smajor.org", custom_domain = true },
+  { pattern = "s25.smajor.org", custom_domain = true }
 ]
 
 [vars]
