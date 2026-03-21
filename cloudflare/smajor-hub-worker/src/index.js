@@ -10237,13 +10237,13 @@ function agentServiceBindingsSection(pathname) {
 }
 
 function renderPublic(env) {
-  return responseHtml(`<!doctype html>
+  return `<!doctype html>
 <html lang="fr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>S. Major — Excavation &amp; Déneigement | Montréal</title>
-<meta name="description" content="Mini excavation, drain français, nivellement, réparation de fissure béton. Déneigement résidentiel et commercial. Service 24/7. Devis gratuit. (514) 802-1771">
+<title>S. Major — Excavation · Déneigement · Multi-Service | Montréal</title>
+<meta name="description" content="Mini excavation, drain français, nivellement, réparation béton, déneigement résidentiel et commercial. Service 24/7. Devis gratuit. (514) 802-1771">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
 <style>
@@ -10333,7 +10333,7 @@ footer a:hover{color:var(--txt)}
 
 <header>
   <div class="hdr">
-    <a class="logo" href="/">S.<em>MAJOR</em></a>
+    <a class="logo" href="/">S.<em>MAJOR</em> <span style="font-weight:400;font-size:12px;color:var(--mut);letter-spacing:.04em">Excavation · Déneigement · Multi-Service</span></a>
     <div class="hdr-r">
       <div class="hdr-tel">📞 <strong>(514) 802-1771</strong></div>
       <a href="mailto:excavaneige@gmail.com" class="btn-b">Courriel</a>
@@ -10346,8 +10346,8 @@ footer a:hover{color:var(--txt)}
   <div class="hero">
     <div>
       <div class="hero-badge"><span class="dot"></span>Service 24/7 — Devis gratuit</div>
-      <h1>Excavation &amp;<br><em>Déneigement</em><br>Professionnel</h1>
-      <p class="hero-sub">De père en fils, on travaille chaque chantier comme si c'était le nôtre. Mini excavation, drain français, nivellement, déneigement résidentiel et commercial — rigueur et rapidité garanties.</p>
+      <h1>Excavation · <em>Déneigement</em><br>· Multi-Service</h1>
+      <p class="hero-sub">De père en fils, on travaille chaque chantier comme si c'était le nôtre. Mini excavation, drain français, déneigement résidentiel et commercial, portail client et dispatch rapide — rigueur et réactivité garanties.</p>
       <div class="cta-row">
         <a href="tel:5148021771" class="cta-tel">📞 (514) 802-1771</a>
         <a href="mailto:excavaneige@gmail.com" class="cta-mail">✉ Demander un devis</a>
@@ -10468,11 +10468,39 @@ footer a:hover{color:var(--txt)}
 </div>
 
 <footer>
-  <span>© 2026 S. Major Excavation &amp; Déneigement</span>
-  <span><a href="https://app.smajor.org">Portail client</a> · <a href="https://s25.smajor.org">S25 System</a></span>
+  <span>© 2026 S. Major — Excavation · Déneigement · Multi-Service</span>
+  <span><a href="https://app.smajor.org">Portail client</a> · <a href="mailto:excavaneige@gmail.com">excavaneige@gmail.com</a></span>
 </footer>
 
-</body></html>`);
+
+<hr class="div">
+
+<section class="sec">
+  <div class="sec-tag">Multi-Service</div>
+  <h2 class="sec-title">Gestion intelligente de vos projets</h2>
+  <p class="sec-sub">Un système de coordination moderne — portail client, dispatch rapide, suivi en temps réel. On gère plusieurs chantiers simultanément sans rien échapper.</p>
+  <div class="grid-3">
+    <div class="card ms">
+      <div class="card-ico">📋</div>
+      <div class="card-t">Portail Client</div>
+      <p class="card-d">Suivez vos jobs, recevez vos devis et consultez vos factures en ligne. Accès simple et rapide.</p>
+    </div>
+    <div class="card ms">
+      <div class="card-ico">⚡</div>
+      <div class="card-t">Dispatch Rapide</div>
+      <p class="card-d">Coordination automatisée de nos équipes terrain. Chaque demande est acheminée et traitée sans délai.</p>
+    </div>
+    <div class="card ms">
+      <div class="card-ico">📊</div>
+      <div class="card-t">Suivi Multi-Client</div>
+      <p class="card-d">Résidentiel, commercial, municipaux — on gère plusieurs clients simultanément avec la même rigueur.</p>
+    </div>
+  </div>
+</section>
+
+<style>.card.ms .card-ico{background:rgba(74,222,128,0.08);border-color:rgba(74,222,128,0.18)}.card.ms:hover{border-color:rgba(74,222,128,0.3)}</style>
+
+</body></html>`;
 }
 
 function renderApp(env, pathname, hostname, snapshot) {
