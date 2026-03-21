@@ -10479,11 +10479,16 @@ export default {
     </div>
   </div>
   <script>
+    const el=document.getElementById('status');
+    const p=document.querySelector('p');
     fetch('/api/status').then(r=>r.json()).then(d=>{
-      if(d.ok) document.getElementById('status').textContent='COCKPIT ONLINE';
-      document.getElementById('status').className='badge '+(d.ok?'':'red');
-    }).catch(()=>{});
+      const online=!!(d.timestamp||d.pipeline_status||d.ok);
+      el.textContent=online?'COCKPIT ONLINE \u2705':'COCKPIT OFFLINE';
+      el.className='badge '+(online?'green':'red');
+      if(online&&p){p.textContent=d.pipeline_status+' \u2014 '+new Date(d.timestamp).toLocaleTimeString();}
+    }).catch(()=>{el.textContent='COCKPIT OFFLINE \u274C';});
   </script>
+  <style>.green{background:rgba(70,255,160,.12);color:#4ade80;border:1px solid rgba(70,255,160,.3)}</style>
 </body></html>`);
     }
 
