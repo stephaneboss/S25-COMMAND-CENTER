@@ -10553,6 +10553,12 @@ footer a:hover{color:var(--txt)}
   <span><a href="https://app.smajor.org">Portail client</a> · <a href="mailto:excavaneige@gmail.com">excavaneige@gmail.com</a></span>
 </footer>
 
+<!-- Bouton WhatsApp flottant -->
+<a href="https://wa.me/15148021771?text=Bonjour%20S.%20Major%2C%20j%27aimerais%20un%20devis%20pour%20un%20travail%20d%27excavation%20ou%20de%20d%C3%A9neigement." target="_blank" style="position:fixed;bottom:24px;right:24px;z-index:999;background:#25d366;color:#fff;border-radius:50px;padding:14px 20px;font-size:15px;font-weight:700;text-decoration:none;box-shadow:0 4px 20px rgba(37,211,102,.4);display:flex;align-items:center;gap:8px;font-family:Inter,sans-serif;transition:transform .2s" onmouseover="this.style.transform='scale(1.07)'" onmouseout="this.style.transform='scale(1)'">
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+  WhatsApp
+</a>
+
 
 <hr class="div">
 
@@ -14374,6 +14380,115 @@ body{background:#fff;color:#111;font-family:"Inter",sans-serif;padding:0;margin:
     if (url.pathname === '/robots.txt') {
       return new Response(`User-agent: *\nAllow: /\nDisallow: /api/\nSitemap: https://smajor.org/sitemap.xml`, { headers: { 'Content-Type': 'text/plain' } });
     }
+
+    // ── DASHBOARD KPI app.smajor.org ───────────────────────────────────────────
+    if (hostname === 'app.smajor.org' && (url.pathname === '/' || url.pathname === '')) {
+      let devis = [], jobs = [], factures = [];
+      try {
+        const stateResp = await fetch(`${S25_COCKPIT}/api/memory/state`, { headers: { 'X-S25-Secret': S25_SECRET } });
+        const st = (await stateResp.json())?.state?.agents?.ARKON || {};
+        devis = st.smajor_devis || [];
+        jobs = st.smajor_jobs || [];
+        factures = st.smajor_factures || [];
+      } catch (_) {}
+      const mois = new Date().toLocaleString('fr-CA', { month: 'long', year: 'numeric', timeZone: 'America/Toronto' });
+      const debutMois = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+      const revenusTotal = factures.filter(f=>f.status==='payée').reduce((s,f)=>s+Number(f.montant||0),0);
+      const revenusMois = factures.filter(f=>f.status==='payée'&&f.paid_at>=debutMois).reduce((s,f)=>s+Number(f.montant||0),0);
+      const enAttente = factures.filter(f=>f.status!=='payée').reduce((s,f)=>s+Number(f.montant||0),0);
+      const devisNouveaux = devis.filter(d=>d.status==='nouveau').length;
+      const jobsActifs = jobs.filter(j=>j.status==='en_cours').length;
+      const jobsAPlanifier = jobs.filter(j=>j.status==='accepté').length;
+      const recentDevis = devis.slice(0,5);
+      const recentJobs = jobs.filter(j=>j.status!=='annulé').slice(0,5);
+      const fmt = iso => iso ? new Date(iso).toLocaleString('fr-CA',{timeZone:'America/Toronto',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
+      const sCol = {accepté:'#60a5fa',en_cours:'#f59e0b',terminé:'#4ade80',facturé:'#a78bfa',annulé:'#f87171'};
+      return responseHtml(`<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dashboard — S. Major</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0a0f1a;color:#f1f5ff;font-family:"Inter",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+header{background:rgba(10,15,26,.96);backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,255,255,.09);padding:0 24px;position:sticky;top:0;z-index:10}
+.hdr{max-width:1200px;margin:0 auto;height:60px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.logo{font-weight:800;font-size:16px;letter-spacing:.08em;color:#f1f5ff;text-decoration:none}.logo em{font-style:normal;color:#f59e0b}
+nav{display:flex;gap:6px;flex-wrap:wrap}
+nav a{color:#8494b0;font-size:13px;text-decoration:none;padding:6px 12px;border-radius:7px;border:1px solid rgba(255,255,255,.09);transition:all .15s}
+nav a:hover,nav a.active{color:#f1f5ff;border-color:rgba(255,255,255,.25);background:rgba(255,255,255,.06)}
+main{max-width:1200px;margin:0 auto;padding:32px 24px}
+.greeting{margin-bottom:28px}
+.greeting h1{font-size:28px;font-weight:800;letter-spacing:-.02em;margin-bottom:4px}
+.greeting p{color:#8494b0;font-size:14px}
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:28px}
+.kpi{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);border-radius:14px;padding:20px 18px;position:relative;overflow:hidden}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:14px 14px 0 0}
+.kpi.green::before{background:#4ade80}.kpi.blue::before{background:#60a5fa}.kpi.amber::before{background:#f59e0b}.kpi.purple::before{background:#a78bfa}.kpi.red::before{background:#f87171}
+.kpi-n{font-size:32px;font-weight:800;margin-bottom:4px;letter-spacing:-.02em}
+.kpi-l{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#8494b0}
+.kpi-sub{font-size:11px;color:#8494b0;margin-top:6px}
+.panels{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.panel{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);border-radius:14px;padding:20px}
+.panel-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.panel-title{font-size:14px;font-weight:700}
+.panel-link{font-size:12px;color:#60a5fa;text-decoration:none;font-weight:600}
+.panel-link:hover{text-decoration:underline}
+.row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.05)}
+.row:last-child{border:none}
+.row-l{font-size:13px;font-weight:600}
+.row-s{font-size:12px;color:#8494b0;margin-top:2px}
+.row-r{font-size:12px;color:#8494b0;text-align:right}
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;background:rgba(255,255,255,.07)}
+.empty{color:#8494b0;font-size:13px;text-align:center;padding:24px 0}
+.alert-bar{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:10px;padding:12px 16px;margin-bottom:20px;display:flex;align-items:center;gap:10px;font-size:13px;font-weight:600;color:#f59e0b}
+</style></head>
+<body>
+<header><div class="hdr">
+  <a class="logo" href="/">S.<em>MAJOR</em></a>
+  <nav>
+    <a href="https://app.smajor.org/" class="active">Dashboard</a>
+    <a href="https://app.smajor.org/devis">Devis ${devisNouveaux>0?`<span style="background:#f59e0b;color:#0a0f1a;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px">${devisNouveaux}</span>`:''}  </a>
+    <a href="https://app.smajor.org/jobs">Jobs ${jobsActifs>0?`<span style="background:#60a5fa;color:#0a0f1a;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px">${jobsActifs}</span>`:''}  </a>
+    <a href="https://app.smajor.org/factures">Factures ${enAttente>0?`<span style="background:#a78bfa;color:#0a0f1a;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px">$${Math.round(enAttente/1000)}k</span>`:''}  </a>
+    <a href="https://smajor.org" target="_blank">↗ Site public</a>
+  </nav>
+</div></header>
+<main>
+  <div class="greeting">
+    <h1>Bonjour Stef 👋</h1>
+    <p>Dashboard S. Major — ${mois} · Mis à jour en temps réel</p>
+  </div>
+  ${devisNouveaux>0?`<div class="alert-bar">🔔 ${devisNouveaux} nouveau${devisNouveaux>1?'x':''} devis en attente — <a href="/devis" style="color:#f59e0b;margin-left:6px">Voir maintenant →</a></div>`:''}
+  <div class="kpis">
+    <div class="kpi green"><div class="kpi-n" style="color:#4ade80">$${revenusMois.toLocaleString('fr-CA')}</div><div class="kpi-l">Revenu ce mois</div><div class="kpi-sub">Total: $${revenusTotal.toLocaleString('fr-CA')}</div></div>
+    <div class="kpi amber"><div class="kpi-n" style="color:#f59e0b">$${enAttente.toLocaleString('fr-CA')}</div><div class="kpi-l">En attente paiement</div><div class="kpi-sub">${factures.filter(f=>f.status!=='payée').length} facture${factures.filter(f=>f.status!=='payée').length!==1?'s':''}</div></div>
+    <div class="kpi blue"><div class="kpi-n" style="color:#60a5fa">${devisNouveaux}</div><div class="kpi-l">Devis à traiter</div><div class="kpi-sub">${devis.length} total reçus</div></div>
+    <div class="kpi amber"><div class="kpi-n" style="color:#f59e0b">${jobsActifs}</div><div class="kpi-l">Jobs en cours</div><div class="kpi-sub">${jobsAPlanifier} à planifier</div></div>
+    <div class="kpi purple"><div class="kpi-n" style="color:#a78bfa">${factures.length}</div><div class="kpi-l">Factures émises</div><div class="kpi-sub">${factures.filter(f=>f.status==='payée').length} payées</div></div>
+  </div>
+  <div class="panels">
+    <div class="panel">
+      <div class="panel-head"><span class="panel-title">📋 Derniers devis</span><a href="/devis" class="panel-link">Voir tous →</a></div>
+      ${recentDevis.length===0?'<div class="empty">Aucun devis reçu</div>':recentDevis.map(d=>`
+      <div class="row">
+        <div><div class="row-l">${d.nom||''} <span class="badge" style="color:${d.status==='nouveau'?'#f59e0b':'#4ade80'}">${(d.status||'nouveau').toUpperCase()}</span></div><div class="row-s">${d.service||''} · ${d.telephone||''}</div></div>
+        <div class="row-r">${fmt(d.created_at)}</div>
+      </div>`).join('')}
+    </div>
+    <div class="panel">
+      <div class="panel-head"><span class="panel-title">🔨 Jobs actifs</span><a href="/jobs" class="panel-link">Voir tous →</a></div>
+      ${recentJobs.length===0?'<div class="empty">Aucun job — acceptez un devis</div>':recentJobs.map(j=>`
+      <div class="row">
+        <div><div class="row-l">${j.nom||''} <span class="badge" style="color:${sCol[j.status]||'#8494b0'}">${(j.status||'').toUpperCase()}</span></div><div class="row-s">${j.service||''}</div></div>
+        <div class="row-r" style="color:${j.montant?'#4ade80':'#8494b0'}">${j.montant?'$'+Number(j.montant).toLocaleString('fr-CA'):'—'}</div>
+      </div>`).join('')}
+    </div>
+  </div>
+</main>
+<script>setTimeout(()=>location.reload(),60000)</script>
+</body></html>`);
+    }
+    // ── FIN DASHBOARD KPI ──────────────────────────────────────────────────────
 
     if (hostname === "app.smajor.org") {
       const [ops, admin] = await Promise.all([
