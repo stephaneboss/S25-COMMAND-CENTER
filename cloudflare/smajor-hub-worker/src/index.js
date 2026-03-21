@@ -10438,17 +10438,31 @@ footer a:hover{color:var(--txt)}
 <hr class="div">
 
 <section class="sec">
-  <div class="zone">
-    <div style="font-size:36px;margin-bottom:14px">📍</div>
-    <h3>Zone de service — Région de Montréal</h3>
-    <p>On dessert Montréal et les environs pour tous nos services d'excavation et de déneigement.</p>
-    <div class="ztags">
-      <span class="ztag">Montréal</span>
-      <span class="ztag">Rive-Sud</span>
-      <span class="ztag">Laval</span>
-      <span class="ztag">Longueuil</span>
-      <span class="ztag">Brossard</span>
-      <span class="ztag">Saint-Lambert</span>
+  <div class="sec-tag">Zone de service</div>
+  <h2 class="sec-title">On vient chez vous</h2>
+  <p class="sec-sub">Deux zones selon le service — contactez-nous pour confirmer votre secteur.</p>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+    <div class="zone">
+      <div style="font-size:30px;margin-bottom:12px">⛏️</div>
+      <h3 style="font-size:18px;margin-bottom:8px">Excavation</h3>
+      <p style="font-size:14px;margin-bottom:16px">Montréal et environs — Rive-Sud, Laval et couronnes.</p>
+      <div class="ztags">
+        <span class="ztag">Montréal</span>
+        <span class="ztag">Laval</span>
+        <span class="ztag">Rive-Sud</span>
+        <span class="ztag">Longueuil</span>
+        <span class="ztag">Brossard</span>
+        <span class="ztag">Couronne</span>
+      </div>
+    </div>
+    <div class="zone" style="border-color:rgba(96,165,250,0.2)">
+      <div style="font-size:30px;margin-bottom:12px">❄️</div>
+      <h3 style="font-size:18px;margin-bottom:8px">Déneigement</h3>
+      <p style="font-size:14px;margin-bottom:16px">Montréal seulement — contactez-nous pour votre arrondissement.</p>
+      <div class="ztags">
+        <span class="ztag" style="border-color:rgba(96,165,250,0.2);color:#93c5fd">Montréal</span>
+        <span class="ztag" style="border-color:rgba(96,165,250,0.2);color:#93c5fd">Tous arrondissements</span>
+      </div>
     </div>
   </div>
 </section>
