@@ -11570,6 +11570,52 @@ body{background:#fff;color:#111;font-family:"Inter",sans-serif;padding:0;margin:
 
     // ── S25 TRADE ENGINE — TradingView → S25 → MEXC ───────────────────────────
 
+    // ── MEXC EXECUTION MODULE ──────────────────────────────────────────────────
+    const MEXC_API_KEY = env.MEXC_API_KEY || null;
+    const MEXC_API_SECRET = env.MEXC_API_SECRET || null;
+    const MEXC_BASE = 'https://api.mexc.com';
+    const TRADE_DRY_RUN = env.TRADE_DRY_RUN !== 'false'; // true par défaut — sécurité
+
+    async function mexcSign(params, secret) {
+      const msg = new TextEncoder().encode(params);
+      const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+      const sig = await crypto.subtle.sign('HMAC', key, msg);
+      return Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2,'0')).join('');
+    }
+
+    async function mexcOrder(ticker, side, quantity) {
+      if (!MEXC_API_KEY || !MEXC_API_SECRET) return { ok: false, error: 'Clés MEXC non configurées' };
+      if (TRADE_DRY_RUN) return { ok: true, dry_run: true, message: `DRY RUN — ${side.toUpperCase()} ${quantity} ${ticker}` };
+      const ts = Date.now();
+      const symbol = ticker.replace('/', '').toUpperCase();
+      const params = `symbol=${symbol}&side=${side.toUpperCase()}&type=MARKET&quantity=${quantity}&timestamp=${ts}`;
+      const sig = await mexcSign(params, MEXC_API_SECRET);
+      const resp = await fetch(`${MEXC_BASE}/api/v3/order?${params}&signature=${sig}`, {
+        method: 'POST',
+        headers: { 'X-MEXC-APIKEY': MEXC_API_KEY, 'Content-Type': 'application/json' }
+      });
+      const data = await resp.json();
+      return { ok: resp.ok, data, orderId: data.orderId };
+    }
+
+    async function mexcBalance() {
+      if (!MEXC_API_KEY || !MEXC_API_SECRET) return null;
+      const ts = Date.now();
+      const params = `timestamp=${ts}`;
+      const sig = await mexcSign(params, MEXC_API_SECRET);
+      const resp = await fetch(`${MEXC_BASE}/api/v3/account?${params}&signature=${sig}`, {
+        headers: { 'X-MEXC-APIKEY': MEXC_API_KEY }
+      });
+      const data = await resp.json();
+      return data?.balances?.filter(b => parseFloat(b.free) > 0) || [];
+    }
+
+    // GET /api/trade/balance — balance MEXC
+    if (url.pathname === '/api/trade/balance' && request.method === 'GET') {
+      const bal = await mexcBalance();
+      return jsonResponse({ ok: true, dry_run: TRADE_DRY_RUN, balances: bal });
+    }
+
     // POST /api/trade/signal — reçoit webhook TradingView (public, secret dans le body)
     if (url.pathname === '/api/trade/signal' && request.method === 'POST') {
       try {
@@ -11600,7 +11646,16 @@ body{background:#fff;color:#111;font-family:"Inter",sans-serif;padding:0;margin:
           headers: { 'Content-Type': 'application/json', 'X-S25-Secret': S25_SECRET },
           body: JSON.stringify({ agent: 'ARKON', updates: { s25_signals: updatedSignals } })
         });
-        return jsonResponse({ ok: true, signal_id: signal.id, received: signal.received_at, ticker: signal.ticker, action: signal.action });
+        // Tentative exécution MEXC si action claire
+        let execution = null;
+        if (['buy','sell'].includes(signal.action) && MEXC_API_KEY) {
+          const qty = 0.001; // quantité test — ajuster selon capital
+          execution = await mexcOrder(signal.ticker, signal.action, qty);
+          signal.status = execution.dry_run ? 'dry_run' : (execution.ok ? 'exécuté' : 'rejeté');
+          signal.execution = execution;
+        }
+
+        return jsonResponse({ ok: true, signal_id: signal.id, received: signal.received_at, ticker: signal.ticker, action: signal.action, dry_run: TRADE_DRY_RUN, execution });
       } catch (err) {
         return jsonResponse({ ok: false, error: 'Erreur serveur' }, 500);
       }
