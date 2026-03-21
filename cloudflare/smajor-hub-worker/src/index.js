@@ -10242,8 +10242,16 @@ function renderPublic(env) {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>S. Major — Excavation · Déneigement · Multi-Service | Montréal</title>
-<meta name="description" content="Mini excavation, drain français, nivellement, réparation béton, déneigement résidentiel et commercial. Service 24/7. Devis gratuit. (514) 802-1771">
+<title>S. Major — Mini Excavation · Drain Français · Déneigement Montréal</title>
+<meta name="description" content="Mini excavation Montréal, drain français, imperméabilisation fondation garantie à vie, déneigement résidentiel et commercial. Devis gratuit en 24h. (514) 802-1771">
+<meta name="keywords" content="mini excavation montréal, drain français montréal, déneigement résidentiel montréal, imperméabilisation fondation, réparation fissure béton, excavation laval rive-sud">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://smajor.org">
+<meta property="og:title" content="S. Major — Mini Excavation & Déneigement Montréal">
+<meta property="og:description" content="Artisan spécialisé fondation, drain français, imperméabilisation garantie à vie. Devis gratuit 24h. (514) 802-1771">
+<meta property="og:url" content="https://smajor.org">
+<meta property="og:type" content="website">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"LocalBusiness","name":"Mini Excavation S. Major","description":"Mini excavation, drain français, imperméabilisation fondation garantie à vie, déneigement résidentiel et commercial Montréal","telephone":"+15148021771","email":"excavaneige@gmail.com","url":"https://smajor.org","address":{"@type":"PostalAddress","addressLocality":"Montréal","addressRegion":"QC","addressCountry":"CA"},"geo":{"@type":"GeoCoordinates","latitude":45.5787607,"longitude":-73.6361042},"openingHoursSpecification":{"@type":"OpeningHoursSpecification","dayOfWeek":["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"],"opens":"07:00","closes":"20:00"},"priceRange":"$$","areaServed":[{"@type":"City","name":"Montréal"},{"@type":"City","name":"Laval"},{"@type":"City","name":"Longueuil"},{"@type":"City","name":"Brossard"}],"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.3","reviewCount":"6"}}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
 <style>
@@ -10433,6 +10441,31 @@ footer a:hover{color:var(--txt)}
     <div class="why"><span class="why-n">👨‍👦</span><div class="why-l">Père &amp; fils</div><div class="why-s">Expertise transmise, fierté du travail bien fait</div></div>
     <div class="why"><span class="why-n">⚡</span><div class="why-l">Réactivité</div><div class="why-s">Mobilisation rapide, chantier propre et respectueux</div></div>
     <div class="why"><span class="why-n">∞</span><div class="why-l">Garantie à vie</div><div class="why-s">Imperméabilisation fondation garantie à vie — artisan fier de son ouvrage</div></div>
+  </div>
+</section>
+
+<hr class="div">
+
+<section class="sec">
+  <div class="sec-tag">Nos réalisations</div>
+  <h2 class="sec-title">Le travail parle par lui-même</h2>
+  <p class="sec-sub">Chantiers réels — drain français, imperméabilisation, fissures béton, excavation. Avant/après disponibles sur demande.</p>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:8px">
+    <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);border-radius:12px;overflow:hidden">
+      <div style="height:140px;background:linear-gradient(135deg,rgba(245,158,11,.15),rgba(245,158,11,.05));display:flex;align-items:center;justify-content:center;font-size:48px">⛏️</div>
+      <div style="padding:16px"><div style="font-weight:700;margin-bottom:4px">Drain Français</div><div style="font-size:13px;color:#8494b0">Installation complète + membrane étanchéité. Garantie à vie.</div></div>
+    </div>
+    <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);border-radius:12px;overflow:hidden">
+      <div style="height:140px;background:linear-gradient(135deg,rgba(96,165,250,.15),rgba(96,165,250,.05));display:flex;align-items:center;justify-content:center;font-size:48px">🏗️</div>
+      <div style="padding:16px"><div style="font-weight:700;margin-bottom:4px">Mini Excavation</div><div style="font-size:13px;color:#8494b0">Accès difficiles, cours arrière, terrains restreints. Propre et précis.</div></div>
+    </div>
+    <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);border-radius:12px;overflow:hidden">
+      <div style="height:140px;background:linear-gradient(135deg,rgba(74,222,128,.15),rgba(74,222,128,.05));display:flex;align-items:center;justify-content:center;font-size:48px">🔧</div>
+      <div style="padding:16px"><div style="font-weight:700;margin-bottom:4px">Fissures & Béton</div><div style="font-size:13px;color:#8494b0">Réparation fissure fondation, dalle, entrée. Injection époxy.</div></div>
+    </div>
+  </div>
+  <div style="text-align:center;margin-top:16px">
+    <a href="https://maps.google.com/?q=mini+excavation+s.major" target="_blank" style="color:#f59e0b;font-size:13px;font-weight:600;text-decoration:none;border:1px solid rgba(245,158,11,.25);border-radius:8px;padding:8px 16px;background:rgba(245,158,11,.06);display:inline-block">📸 Voir les photos sur Google Maps →</a>
   </div>
 </section>
 
@@ -10815,6 +10848,19 @@ document.getElementById('devisForm').addEventListener('submit',async(e)=>{
           headers: { 'Content-Type': 'application/json', 'X-S25-Secret': S25_SECRET },
           body: JSON.stringify({ agent: 'ARKON', updates: { smajor_devis: updatedList } })
         });
+        // Notification email via MailChannels (gratuit sur Cloudflare Workers)
+        try {
+          await fetch('https://api.mailchannels.net/tx/v1/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              personalizations: [{ to: [{ email: 'excavaneige@gmail.com', name: 'Stef S. Major' }] }],
+              from: { email: 'noreply@smajor.org', name: 'S. Major — Nouveau Devis' },
+              subject: `🔔 Nouveau devis: ${newDevis.nom} — ${newDevis.service}`,
+              content: [{ type: 'text/plain', value: `Nouveau devis reçu!\n\nClient: ${newDevis.nom}\nTéléphone: ${newDevis.telephone}\nAdresse: ${newDevis.adresse}\nService: ${newDevis.service}\nDescription: ${newDevis.description}\n\nVoir le dashboard: https://app.smajor.org/devis\n\n— S. Major Système` }]
+            })
+          });
+        } catch (_) { /* notification non critique */ }
         return jsonResponse({ ok: true, id: newDevis.id, message: 'Devis reçu — on vous rappelle sous 24h' });
       } catch (err) {
         return jsonResponse({ ok: false, error: 'Erreur serveur' }, 500);
@@ -11091,6 +11137,244 @@ async function facturer(id) {
   else alert('Erreur: '+(d.error||'inconnue'));
 }
 </script>
+</body></html>`);
+    }
+
+    // ── FACTURES ───────────────────────────────────────────────────────────────
+
+    // POST /api/factures — créer une facture depuis un job
+    if (url.pathname === '/api/factures' && request.method === 'POST') {
+      try {
+        const body = await request.json();
+        const stateResp = await fetch(`${S25_COCKPIT}/api/memory/state`, { headers: { 'X-S25-Secret': S25_SECRET } });
+        const stateData = await stateResp.json();
+        const arkon = stateData?.state?.agents?.ARKON || {};
+        const jobsList = arkon.smajor_jobs || [];
+        const facturesList = arkon.smajor_factures || [];
+        const job = jobsList.find(j => j.id === body.job_id);
+        if (!job) return jsonResponse({ ok: false, error: 'Job introuvable' }, 404);
+        const num = String(facturesList.length + 1).padStart(3, '0');
+        const year = new Date().getFullYear();
+        const montantHT = Number(body.montant) || 0;
+        const newFacture = {
+          id: `FAC-${Date.now()}`,
+          numero: `${year}-${num}`,
+          job_id: job.id,
+          nom: job.nom,
+          telephone: job.telephone,
+          adresse: job.adresse,
+          service: job.service,
+          description: job.description,
+          montant: montantHT,
+          status: 'envoyée',
+          created_at: new Date().toISOString(),
+          paid_at: null,
+        };
+        const updatedFactures = [newFacture, ...facturesList].slice(0, 500);
+        const updatedJobs = jobsList.map(j => j.id === body.job_id ? { ...j, status: 'facturé', montant: montantHT } : j);
+        await fetch(`${S25_COCKPIT}/api/memory/state`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-S25-Secret': S25_SECRET },
+          body: JSON.stringify({ agent: 'ARKON', updates: { smajor_factures: updatedFactures, smajor_jobs: updatedJobs } })
+        });
+        return jsonResponse({ ok: true, facture_id: newFacture.id, numero: newFacture.numero });
+      } catch (err) {
+        return jsonResponse({ ok: false, error: 'Erreur serveur' }, 500);
+      }
+    }
+
+    // PATCH /api/factures — marquer payée
+    if (url.pathname === '/api/factures' && request.method === 'PATCH') {
+      try {
+        const body = await request.json();
+        const stateResp = await fetch(`${S25_COCKPIT}/api/memory/state`, { headers: { 'X-S25-Secret': S25_SECRET } });
+        const stateData = await stateResp.json();
+        const facturesList = stateData?.state?.agents?.ARKON?.smajor_factures || [];
+        const updatedFactures = facturesList.map(f => f.id === body.id ? { ...f, status: 'payée', paid_at: new Date().toISOString() } : f);
+        await fetch(`${S25_COCKPIT}/api/memory/state`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-S25-Secret': S25_SECRET },
+          body: JSON.stringify({ agent: 'ARKON', updates: { smajor_factures: updatedFactures } })
+        });
+        return jsonResponse({ ok: true });
+      } catch (err) {
+        return jsonResponse({ ok: false, error: 'Erreur serveur' }, 500);
+      }
+    }
+
+    // app.smajor.org/factures — dashboard factures
+    if (hostname === 'app.smajor.org' && url.pathname === '/factures') {
+      let facturesList = [];
+      try {
+        const stateResp = await fetch(`${S25_COCKPIT}/api/memory/state`, { headers: { 'X-S25-Secret': S25_SECRET } });
+        const stateData = await stateResp.json();
+        facturesList = stateData?.state?.agents?.ARKON?.smajor_factures || [];
+      } catch (_) {}
+      const totalPayé = facturesList.filter(f=>f.status==='payée').reduce((s,f)=>s+Number(f.montant||0),0);
+      const totalEnAttente = facturesList.filter(f=>f.status!=='payée').reduce((s,f)=>s+Number(f.montant||0),0);
+      const fColors = { envoyée:'#f59e0b', payée:'#4ade80' };
+      const rowsHtml = facturesList.length === 0
+        ? '<tr><td colspan="7" style="text-align:center;color:#8494b0;padding:32px">Aucune facture — terminez un job et cliquez "Facturer"</td></tr>'
+        : facturesList.map(f => `<tr>
+            <td style="font-weight:700;color:#a78bfa">${f.numero||f.id}</td>
+            <td style="font-weight:600">${f.nom||''}</td>
+            <td style="color:#8494b0;font-size:13px">${f.service||''}</td>
+            <td style="font-weight:700;color:#4ade80">$${Number(f.montant||0).toLocaleString('fr-CA')}</td>
+            <td><span style="background:rgba(255,255,255,.06);color:${fColors[f.status]||'#8494b0'};padding:3px 10px;border-radius:5px;font-size:12px;font-weight:600">${(f.status||'').toUpperCase()}</span></td>
+            <td style="color:#8494b0;font-size:12px">${f.created_at?new Date(f.created_at).toLocaleString('fr-CA',{timeZone:'America/Toronto',month:'short',day:'numeric'}):''}</td>
+            <td style="display:flex;gap:6px">
+              <a href="/factures/${f.id}" target="_blank" style="background:rgba(167,139,250,.15);color:#a78bfa;border:1px solid rgba(167,139,250,.3);padding:5px 10px;border-radius:6px;font-size:11px;font-weight:700;text-decoration:none">🖨 Imprimer</a>
+              ${f.status!=='payée'?`<button onclick="marquerPayee('${f.id}')" style="background:#4ade80;color:#0a0f1a;border:none;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">✓ Payée</button>`:'<span style="color:#4ade80;font-size:12px">✓ Encaissée</span>'}
+            </td>
+          </tr>`).join('');
+      return responseHtml(`<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Factures — S. Major</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0a0f1a;color:#f1f5ff;font-family:"Inter",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+header{background:rgba(10,15,26,.94);backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,255,255,.09);padding:0 24px}
+.hdr{max-width:1200px;margin:0 auto;height:60px;display:flex;align-items:center;justify-content:space-between}
+.logo{font-weight:800;font-size:16px;letter-spacing:.08em;color:#f1f5ff;text-decoration:none}.logo em{font-style:normal;color:#f59e0b}
+nav{display:flex;gap:8px}
+nav a{color:#8494b0;font-size:13px;text-decoration:none;padding:6px 12px;border-radius:7px;border:1px solid rgba(255,255,255,.09)}
+nav a:hover,nav a.active{color:#f1f5ff;border-color:rgba(255,255,255,.2)}
+main{max-width:1200px;margin:0 auto;padding:36px 24px}
+.page-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px}
+h1{font-size:26px;font-weight:700;letter-spacing:-.02em}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:28px}
+.stat{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);border-radius:12px;padding:16px 20px}
+.stat-n{font-size:28px;font-weight:800;margin-bottom:4px}
+.stat-l{font-size:12px;color:#8494b0;font-weight:600;letter-spacing:.05em;text-transform:uppercase}
+.table-wrap{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);border-radius:14px;overflow:auto}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;padding:14px 16px;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#8494b0;border-bottom:1px solid rgba(255,255,255,.07)}
+td{padding:12px 16px;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:middle}
+tr:last-child td{border:none}
+tr:hover td{background:rgba(255,255,255,.02)}
+.btn-r{background:rgba(255,255,255,.06);color:#f1f5ff;border:1px solid rgba(255,255,255,.1);padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
+</style></head>
+<body>
+<header><div class="hdr">
+  <a class="logo" href="/">S.<em>MAJOR</em></a>
+  <nav>
+    <a href="https://app.smajor.org">Dashboard</a>
+    <a href="https://app.smajor.org/devis">Devis</a>
+    <a href="https://app.smajor.org/jobs">Jobs</a>
+    <a href="https://app.smajor.org/factures" class="active">Factures</a>
+    <a href="https://smajor.org">Site public</a>
+  </nav>
+</div></header>
+<main>
+  <div class="page-head"><h1>Factures</h1><button class="btn-r" onclick="location.reload()">↻ Actualiser</button></div>
+  <div class="stats">
+    <div class="stat"><div class="stat-n" style="color:#4ade80">$${totalPayé.toLocaleString('fr-CA')}</div><div class="stat-l">Encaissé</div></div>
+    <div class="stat"><div class="stat-n" style="color:#f59e0b">$${totalEnAttente.toLocaleString('fr-CA')}</div><div class="stat-l">En attente</div></div>
+    <div class="stat"><div class="stat-n" style="color:#a78bfa">${facturesList.length}</div><div class="stat-l">Total factures</div></div>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>#</th><th>Client</th><th>Service</th><th>Montant</th><th>Statut</th><th>Date</th><th>Actions</th></tr></thead>
+      <tbody>${rowsHtml}</tbody>
+    </table>
+  </div>
+</main>
+<script>
+async function marquerPayee(id) {
+  if (!confirm('Marquer cette facture comme payée?')) return;
+  const r = await fetch('/api/factures', {method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});
+  if((await r.json()).ok) location.reload();
+}
+</script>
+</body></html>`);
+    }
+
+    // app.smajor.org/factures/:id — facture imprimable PDF
+    if (hostname === 'app.smajor.org' && url.pathname.startsWith('/factures/')) {
+      const factureId = url.pathname.split('/factures/')[1];
+      let facture = null;
+      try {
+        const stateResp = await fetch(`${S25_COCKPIT}/api/memory/state`, { headers: { 'X-S25-Secret': S25_SECRET } });
+        const stateData = await stateResp.json();
+        const list = stateData?.state?.agents?.ARKON?.smajor_factures || [];
+        facture = list.find(f => f.id === factureId);
+      } catch (_) {}
+      if (!facture) return new Response('Facture introuvable', { status: 404 });
+      const dateStr = new Date(facture.created_at).toLocaleDateString('fr-CA', { year:'numeric', month:'long', day:'numeric' });
+      return responseHtml(`<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><title>Facture ${facture.numero} — S. Major</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#fff;color:#111;font-family:"Inter",sans-serif;padding:0;margin:0}
+.page{max-width:680px;margin:0 auto;padding:48px 40px;min-height:100vh}
+.header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:48px;padding-bottom:24px;border-bottom:2px solid #111}
+.brand{font-size:22px;font-weight:800;letter-spacing:.05em}.brand em{font-style:normal;color:#f59e0b}
+.brand-sub{font-size:12px;color:#666;margin-top:4px}
+.facture-num{text-align:right}.facture-num h2{font-size:28px;font-weight:800;color:#111}
+.facture-num .date{font-size:13px;color:#666;margin-top:4px}
+.parties{display:grid;grid-template-columns:1fr 1fr;gap:32px;margin-bottom:40px}
+.party-label{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#999;margin-bottom:8px}
+.party-name{font-size:16px;font-weight:700;margin-bottom:4px}
+.party-info{font-size:13px;color:#555;line-height:1.6}
+.items{width:100%;border-collapse:collapse;margin-bottom:32px}
+.items thead th{text-align:left;padding:10px 12px;background:#f5f5f5;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#666}
+.items tbody td{padding:14px 12px;border-bottom:1px solid #eee;font-size:14px}
+.items tfoot td{padding:12px;font-weight:700}
+.total-row{background:#f9f9f9}
+.total-final{background:#111;color:#fff;border-radius:4px}
+.total-final td{padding:14px 12px!important;font-size:18px;font-weight:800}
+.note{background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:16px;margin-bottom:32px;font-size:13px;color:#92400e}
+.footer-info{border-top:1px solid #eee;padding-top:20px;font-size:12px;color:#999;line-height:1.8;text-align:center}
+.status-badge{display:inline-block;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;background:${facture.status==='payée'?'#d1fae5':'#fef3c7'};color:${facture.status==='payée'?'#065f46':'#92400e'};margin-top:6px}
+@media print{
+  .no-print{display:none!important}
+  body{padding:0}
+  .page{padding:32px}
+}
+</style></head>
+<body>
+<div class="page">
+  <div class="header">
+    <div>
+      <div class="brand">S.<em>MAJOR</em></div>
+      <div class="brand-sub">Excavation · Déneigement · Multi-Service<br>(514) 802-1771 · excavaneige@gmail.com<br>smajor.org · Montréal, QC</div>
+    </div>
+    <div class="facture-num">
+      <h2>FACTURE #${facture.numero}</h2>
+      <div class="date">${dateStr}</div>
+      <div class="status-badge">${(facture.status||'envoyée').toUpperCase()}</div>
+    </div>
+  </div>
+  <div class="parties">
+    <div>
+      <div class="party-label">Facturé par</div>
+      <div class="party-name">S. Major</div>
+      <div class="party-info">Mini Excavation S. Major<br>Montréal, QC<br>(514) 802-1771<br>excavaneige@gmail.com</div>
+    </div>
+    <div>
+      <div class="party-label">Facturé à</div>
+      <div class="party-name">${facture.nom||''}</div>
+      <div class="party-info">${facture.adresse||''}<br>${facture.telephone||''}</div>
+    </div>
+  </div>
+  <table class="items">
+    <thead><tr><th>Description du service</th><th style="text-align:right">Montant</th></tr></thead>
+    <tbody>
+      <tr><td><strong>${facture.service||''}</strong>${facture.description?`<br><span style="color:#666;font-size:12px">${facture.description}</span>`:''}</td><td style="text-align:right;font-weight:600">$${Number(facture.montant||0).toLocaleString('fr-CA',{minimumFractionDigits:2})}</td></tr>
+    </tbody>
+    <tfoot>
+      <tr class="total-final"><td>TOTAL</td><td style="text-align:right">$${Number(facture.montant||0).toLocaleString('fr-CA',{minimumFractionDigits:2})}</td></tr>
+    </tfoot>
+  </table>
+  <div class="note">💡 <strong>Paiement:</strong> Virement Interac à excavaneige@gmail.com ou chèque à l'ordre de S. Major. Merci pour votre confiance!</div>
+  <div class="footer-info">S. Major — Mini Excavation · Imperméabilisation garantie à vie · Déneigement<br>smajor.org · (514) 802-1771 · excavaneige@gmail.com · Montréal, QC</div>
+  <div class="no-print" style="text-align:center;margin-top:32px">
+    <button onclick="window.print()" style="background:#111;color:#fff;border:none;padding:12px 28px;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit">🖨 Imprimer / Enregistrer PDF</button>
+    <a href="/factures" style="margin-left:12px;color:#666;font-size:13px;text-decoration:none">← Retour</a>
+  </div>
+</div>
 </body></html>`);
     }
 
@@ -14075,6 +14359,20 @@ async function facturer(id) {
         source_of_truth: "strict administration chain + service enablement",
         ...PORTAL_MATRIX,
       });
+    }
+
+    // sitemap.xml
+    if (url.pathname === '/sitemap.xml') {
+      return new Response(`<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://smajor.org/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>
+  <url><loc>https://smajor.org/devis</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
+</urlset>`, { headers: { 'Content-Type': 'application/xml' } });
+    }
+
+    // robots.txt
+    if (url.pathname === '/robots.txt') {
+      return new Response(`User-agent: *\nAllow: /\nDisallow: /api/\nSitemap: https://smajor.org/sitemap.xml`, { headers: { 'Content-Type': 'text/plain' } });
     }
 
     if (hostname === "app.smajor.org") {
