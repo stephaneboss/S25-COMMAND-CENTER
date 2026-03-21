@@ -11568,6 +11568,157 @@ body{background:#fff;color:#111;font-family:"Inter",sans-serif;padding:0;margin:
 </body></html>`);
     }
 
+    // ── S25 TRADE ENGINE — TradingView → S25 → MEXC ───────────────────────────
+
+    // POST /api/trade/signal — reçoit webhook TradingView (public, secret dans le body)
+    if (url.pathname === '/api/trade/signal' && request.method === 'POST') {
+      try {
+        const body = await request.json();
+        // Valider le secret TradingView (à mettre dans le message TradingView)
+        if (body.secret && body.secret !== S25_SECRET) {
+          return jsonResponse({ ok: false, error: 'unauthorized' }, 401);
+        }
+        const signal = {
+          id: `SIG-${Date.now()}`,
+          received_at: new Date().toISOString(),
+          ticker: body.ticker || body.symbol || 'UNKNOWN',
+          action: (body.action || body.side || '').toLowerCase(), // buy / sell / close
+          price: body.price || body.close || null,
+          strategy: body.strategy || body.comment || 'TradingView',
+          timeframe: body.timeframe || body.interval || null,
+          volume: body.volume || null,
+          status: 'reçu', // reçu → analysé → exécuté / rejeté
+          source: 'tradingview',
+        };
+        // Sauvegarder dans le cockpit
+        const stateResp = await fetch(`${S25_COCKPIT}/api/memory/state`, { headers: { 'X-S25-Secret': S25_SECRET } });
+        const stateData = await stateResp.json();
+        const signals = stateData?.state?.agents?.ARKON?.s25_signals || [];
+        const updatedSignals = [signal, ...signals].slice(0, 500); // garder 500 derniers
+        await fetch(`${S25_COCKPIT}/api/memory/state`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-S25-Secret': S25_SECRET },
+          body: JSON.stringify({ agent: 'ARKON', updates: { s25_signals: updatedSignals } })
+        });
+        return jsonResponse({ ok: true, signal_id: signal.id, received: signal.received_at, ticker: signal.ticker, action: signal.action });
+      } catch (err) {
+        return jsonResponse({ ok: false, error: 'Erreur serveur' }, 500);
+      }
+    }
+
+    // GET /api/trade/signals — liste des signaux
+    if (url.pathname === '/api/trade/signals' && request.method === 'GET') {
+      try {
+        const stateResp = await fetch(`${S25_COCKPIT}/api/memory/state`, { headers: { 'X-S25-Secret': S25_SECRET } });
+        const stateData = await stateResp.json();
+        const signals = stateData?.state?.agents?.ARKON?.s25_signals || [];
+        return jsonResponse({ ok: true, count: signals.length, signals: signals.slice(0, 50) });
+      } catch (_) {
+        return jsonResponse({ ok: false, signals: [] });
+      }
+    }
+
+    // app.smajor.org/trade — dashboard signaux TradingView
+    if (hostname === 'app.smajor.org' && url.pathname === '/trade') {
+      let signals = [];
+      try {
+        const stateResp = await fetch(`${S25_COCKPIT}/api/memory/state`, { headers: { 'X-S25-Secret': S25_SECRET } });
+        const stateData = await stateResp.json();
+        signals = stateData?.state?.agents?.ARKON?.s25_signals || [];
+      } catch (_) {}
+      const actionColor = { buy:'#4ade80', sell:'#f87171', close:'#f59e0b' };
+      const rowsHtml = signals.length === 0
+        ? '<tr><td colspan="7" style="text-align:center;color:#8494b0;padding:40px">Aucun signal — branchez votre alerte TradingView sur<br><code style="color:#60a5fa">https://api.smajor.org/api/trade/signal</code></td></tr>'
+        : signals.slice(0,100).map(s => `<tr>
+            <td><span style="background:rgba(${s.action==='buy'?'74,222,128':'248,113,113'},.1);color:${actionColor[s.action]||'#8494b0'};padding:3px 10px;border-radius:5px;font-size:12px;font-weight:800;letter-spacing:.04em">${(s.action||'?').toUpperCase()}</span></td>
+            <td style="font-weight:700;color:#60a5fa;font-family:monospace">${s.ticker}</td>
+            <td style="color:#4ade80;font-weight:600">${s.price?'$'+Number(s.price).toLocaleString('fr-CA',{minimumFractionDigits:2,maximumFractionDigits:2}):'-'}</td>
+            <td style="color:#8494b0;font-size:13px">${s.strategy||'-'}</td>
+            <td style="color:#8494b0;font-size:12px">${s.timeframe||'-'}</td>
+            <td><span style="background:rgba(255,255,255,.05);color:#8494b0;padding:2px 8px;border-radius:4px;font-size:11px">${s.status||'reçu'}</span></td>
+            <td style="color:#8494b0;font-size:12px">${s.received_at?new Date(s.received_at).toLocaleString('fr-CA',{timeZone:'America/Toronto',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):''}</td>
+          </tr>`).join('');
+      const webhookUrl = 'https://api.smajor.org/api/trade/signal';
+      return responseHtml(`<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Trade Engine — S25</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0a0f1a;color:#f1f5ff;font-family:"Inter",system-ui,sans-serif}
+header{background:rgba(10,15,26,.94);backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,255,255,.09);padding:0 24px}
+.hdr{max-width:1200px;margin:0 auto;height:60px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.logo{font-weight:800;font-size:16px;letter-spacing:.08em;color:#f1f5ff;text-decoration:none}
+.logo em{font-style:normal;color:#f59e0b}
+nav{display:flex;gap:8px;flex-wrap:wrap}
+nav a{color:#8494b0;font-size:13px;text-decoration:none;padding:6px 12px;border-radius:7px;border:1px solid rgba(255,255,255,.09)}
+nav a:hover,nav a.active{color:#f1f5ff;border-color:rgba(255,255,255,.2)}
+main{max-width:1200px;margin:0 auto;padding:36px 24px}
+.page-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px}
+h1{font-size:22px;font-weight:800}
+.badge-live{background:rgba(74,222,128,.1);color:#4ade80;border:1px solid rgba(74,222,128,.2);padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.06em;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
+.webhook-box{background:rgba(96,165,250,.06);border:1px solid rgba(96,165,250,.15);border-radius:14px;padding:20px 24px;margin-bottom:28px}
+.webhook-box h3{font-size:13px;font-weight:700;color:#60a5fa;letter-spacing:.06em;text-transform:uppercase;margin-bottom:12px}
+.webhook-url{background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:10px 14px;font-family:monospace;font-size:13px;color:#4ade80;word-break:break-all;cursor:pointer;margin-bottom:10px}
+.payload-example{font-size:11px;color:#8494b0;font-family:monospace;white-space:pre;overflow-x:auto}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:16px;margin-bottom:28px}
+.stat{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:20px;text-align:center}
+.stat-n{font-size:28px;font-weight:800;margin-bottom:4px}
+.stat-l{font-size:12px;color:#8494b0;font-weight:500;text-transform:uppercase;letter-spacing:.06em}
+.table-wrap{background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.07);border-radius:16px;overflow:hidden}
+table{width:100%;border-collapse:collapse}
+th{background:rgba(255,255,255,.04);padding:12px 16px;text-align:left;font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#8494b0;white-space:nowrap}
+td{padding:12px 16px;border-top:1px solid rgba(255,255,255,.05);vertical-align:middle}
+tr:hover td{background:rgba(255,255,255,.02)}
+.btn-r{background:transparent;border:1px solid rgba(255,255,255,.15);color:#f1f5ff;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
+.btn-r:hover{background:rgba(255,255,255,.08)}
+</style></head><body>
+<header><div class="hdr">
+  <a class="logo" href="/">S.<em>MAJOR</em> <span style="color:#4ade80;font-size:12px;margin-left:8px">⚡ S25</span></a>
+  <nav>
+    <a href="/">Dashboard</a>
+    <a href="/devis">Devis</a>
+    <a href="/jobs">Jobs</a>
+    <a href="/factures">Factures</a>
+    <a href="/trade" class="active" style="color:#4ade80;border-color:rgba(74,222,128,.3)">Trade Engine</a>
+    <a href="/logout" style="color:#f87171;border-color:rgba(248,113,113,.2)">Déconnexion</a>
+  </nav>
+</div></header>
+<main>
+  <div class="page-head">
+    <h1>⚡ Trade Engine S25</h1>
+    <div style="display:flex;gap:10px;align-items:center">
+      <span class="badge-live">● LIVE</span>
+      <button class="btn-r" onclick="location.reload()">↻ Actualiser</button>
+    </div>
+  </div>
+
+  <div class="webhook-box">
+    <h3>🔗 URL Webhook TradingView</h3>
+    <div class="webhook-url" onclick="navigator.clipboard.writeText('${webhookUrl}');this.style.color='#f59e0b';setTimeout(()=>this.style.color='#4ade80',1200)" title="Cliquer pour copier">${webhookUrl}</div>
+    <div style="font-size:12px;color:#8494b0;margin-bottom:10px">↑ Cliquer pour copier — coller dans <strong style="color:#f1f5ff">TradingView → Alert → Webhook URL</strong></div>
+    <div style="font-size:11px;color:#8494b0;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px">Message JSON (copier dans TradingView Alert → Message)</div>
+    <div class="payload-example">{"ticker":"{{ticker}}","action":"{{strategy.order.action}}","price":"{{close}}","strategy":"{{strategy.order.comment}}","timeframe":"{{interval}}","volume":"{{volume}}","secret":"s25sandbox2026"}</div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="stat-n" style="color:#4ade80">${signals.filter(s=>s.action==='buy').length}</div><div class="stat-l">BUY signals</div></div>
+    <div class="stat"><div class="stat-n" style="color:#f87171">${signals.filter(s=>s.action==='sell').length}</div><div class="stat-l">SELL signals</div></div>
+    <div class="stat"><div class="stat-n" style="color:#f59e0b">${signals.filter(s=>s.action==='close').length}</div><div class="stat-l">CLOSE signals</div></div>
+    <div class="stat"><div class="stat-n" style="color:#a78bfa">${signals.length}</div><div class="stat-l">Total signaux</div></div>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Action</th><th>Ticker</th><th>Prix</th><th>Stratégie</th><th>TF</th><th>Statut</th><th>Reçu le</th></tr></thead>
+      <tbody>${rowsHtml}</tbody>
+    </table>
+  </div>
+</main>
+</body></html>`);
+    }
+
     // ── FIN DEVIS ──────────────────────────────────────────────────────────────
 
     const isCockpitProxy = (
