@@ -10654,6 +10654,229 @@ export default {
       'Access-Control-Max-Age': '86400',
     };
 
+    // ── DEVIS API ──────────────────────────────────────────────────────────────
+    const S25_SECRET = 'REDACTED_SECRET';
+
+    // GET /devis — formulaire public (smajor.org/devis)
+    if (hostname === 'smajor.org' && url.pathname === '/devis' && request.method === 'GET') {
+      return responseHtml(`<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Demande de devis — S. Major</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0a0f1a;color:#f1f5ff;font-family:"Inter",system-ui,sans-serif;-webkit-font-smoothing:antialiased;min-height:100vh;display:flex;flex-direction:column}
+header{background:rgba(10,15,26,.94);backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,255,255,.09);padding:0 24px}
+.hdr{max-width:720px;margin:0 auto;height:60px;display:flex;align-items:center;justify-content:space-between}
+.logo{font-weight:800;font-size:16px;letter-spacing:.08em;color:#f1f5ff;text-decoration:none}
+.logo em{font-style:normal;color:#f59e0b}
+.back{color:#8494b0;font-size:13px;text-decoration:none}
+.back:hover{color:#f1f5ff}
+main{flex:1;max-width:720px;margin:0 auto;padding:40px 24px;width:100%}
+.hero-tag{display:inline-flex;align-items:center;gap:8px;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.25);border-radius:6px;padding:4px 12px;color:#f59e0b;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;margin-bottom:20px}
+h1{font-size:32px;font-weight:800;letter-spacing:-.02em;margin-bottom:10px}
+.sub{color:#8494b0;font-size:15px;margin-bottom:36px;line-height:1.6}
+.form{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);border-radius:16px;padding:32px;display:grid;gap:20px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+label{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:#8494b0;letter-spacing:.04em;text-transform:uppercase}
+input,select,textarea{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:12px 14px;color:#f1f5ff;font-size:15px;font-family:inherit;outline:none;transition:border-color .15s}
+input:focus,select:focus,textarea:focus{border-color:#f59e0b}
+select option{background:#1a2332;color:#f1f5ff}
+textarea{resize:vertical;min-height:100px}
+.btn{background:#f59e0b;color:#0a0a0a;font-weight:700;font-size:15px;padding:14px 28px;border-radius:8px;border:none;cursor:pointer;width:100%;transition:opacity .15s}
+.btn:hover{opacity:.88}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.success{display:none;background:rgba(74,222,128,.1);border:1px solid rgba(74,222,128,.25);border-radius:12px;padding:24px;text-align:center}
+.success h2{color:#4ade80;font-size:22px;margin-bottom:8px}
+.success p{color:#8494b0;font-size:14px;line-height:1.6}
+.note{color:#8494b0;font-size:12px;text-align:center}
+@media(max-width:600px){.row2{grid-template-columns:1fr}}
+</style></head>
+<body>
+<header><div class="hdr"><a class="logo" href="/">S.<em>MAJOR</em></a><a class="back" href="/">← Retour</a></div></header>
+<main>
+  <div class="hero-tag">✦ Devis gratuit</div>
+  <h1>Demande de devis</h1>
+  <p class="sub">Remplissez le formulaire — on vous rappelle sous 24h. Service gratuit, sans obligation.</p>
+  <form class="form" id="devisForm">
+    <div class="row2">
+      <label>Nom complet<input type="text" name="nom" placeholder="Jean Tremblay" required></label>
+      <label>Téléphone<input type="tel" name="telephone" placeholder="(514) 000-0000" required></label>
+    </div>
+    <label>Adresse des travaux<input type="text" name="adresse" placeholder="123 rue Principale, Montréal" required></label>
+    <label>Type de service
+      <select name="service" required>
+        <option value="">— Choisir un service —</option>
+        <optgroup label="Excavation">
+          <option>Mini Excavation Générale</option>
+          <option>Drain Français</option>
+          <option>Nivellement de Terrain</option>
+          <option>Réparation Fissure Béton</option>
+        </optgroup>
+        <optgroup label="Déneigement">
+          <option>Déneigement Résidentiel</option>
+          <option>Déneigement Commercial</option>
+          <option>Entrées Piéton</option>
+        </optgroup>
+      </select>
+    </label>
+    <label>Description du projet<textarea name="description" placeholder="Décrivez brièvement vos besoins, la superficie, l'urgence..."></textarea></label>
+    <button class="btn" type="submit" id="submitBtn">Envoyer ma demande →</button>
+    <p class="note">📞 Ou appelez directement: <strong>(514) 802-1771</strong></p>
+  </form>
+  <div class="success" id="successBox">
+    <h2>✅ Demande reçue!</h2>
+    <p>Merci <strong id="nomConfirm"></strong>!<br>On vous rappelle sous 24h au numéro fourni.<br>Pour toute urgence: <strong>(514) 802-1771</strong></p>
+  </div>
+</main>
+<script>
+document.getElementById('devisForm').addEventListener('submit',async(e)=>{
+  e.preventDefault();
+  const btn=document.getElementById('submitBtn');
+  btn.disabled=true;btn.textContent='Envoi en cours...';
+  const fd=new FormData(e.target);
+  const data=Object.fromEntries(fd.entries());
+  try{
+    const r=await fetch('/api/devis',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+    const j=await r.json();
+    if(j.ok){
+      e.target.style.display='none';
+      document.getElementById('nomConfirm').textContent=data.nom;
+      document.getElementById('successBox').style.display='block';
+    }else{btn.disabled=false;btn.textContent='Envoyer ma demande →';alert('Erreur — réessayez ou appelez le (514) 802-1771');}
+  }catch(err){btn.disabled=false;btn.textContent='Envoyer ma demande →';alert('Erreur réseau — appelez le (514) 802-1771');}
+});
+</script>
+</body></html>`);
+    }
+
+    // POST /api/devis — sauvegarder un devis dans le cockpit
+    if (url.pathname === '/api/devis' && request.method === 'POST') {
+      if (request.method === 'OPTIONS') return new Response(null, { headers: cockpitCorsHeaders });
+      try {
+        const body = await request.json();
+        if (!body.nom || !body.telephone || !body.service) {
+          return jsonResponse({ ok: false, error: 'Champs requis manquants' }, 400);
+        }
+        // Read current quotes_invoices
+        const stateResp = await fetch(`${S25_COCKPIT}/api/memory/state`, {
+          headers: { 'X-S25-Secret': S25_SECRET }
+        });
+        const stateData = await stateResp.json();
+        const currentList = stateData?.state?.business?.quotes_invoices || [];
+        const newDevis = {
+          id: `DEV-${Date.now()}`,
+          created_at: new Date().toISOString(),
+          nom: body.nom.trim(),
+          telephone: body.telephone.trim(),
+          adresse: body.adresse?.trim() || '',
+          service: body.service.trim(),
+          description: body.description?.trim() || '',
+          status: 'nouveau'
+        };
+        const updatedList = [newDevis, ...currentList].slice(0, 100);
+        // Save back
+        await fetch(`${S25_COCKPIT}/api/memory/state`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-S25-Secret': S25_SECRET },
+          body: JSON.stringify({ agent: 'ARKON', business: { quotes_invoices: updatedList, last_write_at: new Date().toISOString() } })
+        });
+        return jsonResponse({ ok: true, id: newDevis.id, message: 'Devis reçu — on vous rappelle sous 24h' });
+      } catch (err) {
+        return jsonResponse({ ok: false, error: 'Erreur serveur' }, 500);
+      }
+    }
+
+    // GET /api/devis — liste des devis (protégé)
+    if (url.pathname === '/api/devis' && request.method === 'GET') {
+      try {
+        const stateResp = await fetch(`${S25_COCKPIT}/api/memory/state`, {
+          headers: { 'X-S25-Secret': S25_SECRET }
+        });
+        const stateData = await stateResp.json();
+        const list = stateData?.state?.business?.quotes_invoices || [];
+        return jsonResponse({ ok: true, count: list.length, devis: list });
+      } catch (_) {
+        return jsonResponse({ ok: false, devis: [] });
+      }
+    }
+
+    // app.smajor.org/devis — tableau de bord devis pour Stef
+    if (hostname === 'app.smajor.org' && url.pathname === '/devis') {
+      let devisList = [];
+      try {
+        const stateResp = await fetch(`${S25_COCKPIT}/api/memory/state`, { headers: { 'X-S25-Secret': S25_SECRET } });
+        const stateData = await stateResp.json();
+        devisList = stateData?.state?.business?.quotes_invoices || [];
+      } catch (_) {}
+      const statusColors = { nouveau: '#f59e0b', contacté: '#60a5fa', accepté: '#4ade80', refusé: '#f87171' };
+      const rowsHtml = devisList.length === 0
+        ? '<tr><td colspan="6" style="text-align:center;color:#8494b0;padding:32px">Aucun devis pour l\'instant</td></tr>'
+        : devisList.map(d => `<tr>
+            <td><span style="background:rgba(245,158,11,.1);color:${statusColors[d.status]||'#f59e0b'};padding:3px 10px;border-radius:5px;font-size:12px;font-weight:600">${(d.status||'nouveau').toUpperCase()}</span></td>
+            <td style="font-weight:600">${d.nom||''}</td>
+            <td><a href="tel:${(d.telephone||'').replace(/\D/g,'')}" style="color:#60a5fa">${d.telephone||''}</a></td>
+            <td style="color:#8494b0;font-size:13px">${d.service||''}</td>
+            <td style="color:#8494b0;font-size:12px">${d.adresse||''}</td>
+            <td style="color:#8494b0;font-size:12px">${d.created_at?new Date(d.created_at).toLocaleString('fr-CA',{timeZone:'America/Toronto',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):''}</td>
+          </tr>`).join('');
+      return responseHtml(`<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Devis — S. Major</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0a0f1a;color:#f1f5ff;font-family:"Inter",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+header{background:rgba(10,15,26,.94);backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,255,255,.09);padding:0 24px}
+.hdr{max-width:1100px;margin:0 auto;height:60px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.logo{font-weight:800;font-size:16px;letter-spacing:.08em;color:#f1f5ff;text-decoration:none}
+.logo em{font-style:normal;color:#f59e0b}
+nav{display:flex;gap:8px}
+nav a{color:#8494b0;font-size:13px;text-decoration:none;padding:6px 12px;border-radius:7px;border:1px solid rgba(255,255,255,.09)}
+nav a:hover,nav a.active{color:#f1f5ff;border-color:rgba(255,255,255,.2)}
+main{max-width:1100px;margin:0 auto;padding:36px 24px}
+.page-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;flex-wrap:wrap;gap:12px}
+h1{font-size:26px;font-weight:700;letter-spacing:-.02em}
+.badge-count{background:rgba(245,158,11,.12);color:#f59e0b;border:1px solid rgba(245,158,11,.25);border-radius:6px;padding:4px 12px;font-size:13px;font-weight:600}
+.table-wrap{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);border-radius:14px;overflow:auto}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;padding:14px 16px;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#8494b0;border-bottom:1px solid rgba(255,255,255,.07)}
+td{padding:14px 16px;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:top}
+tr:last-child td{border:none}
+tr:hover td{background:rgba(255,255,255,.02)}
+.btn-refresh{background:rgba(255,255,255,.06);color:#f1f5ff;border:1px solid rgba(255,255,255,.1);padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
+.btn-refresh:hover{background:rgba(255,255,255,.1)}
+</style></head>
+<body>
+<header><div class="hdr">
+  <a class="logo" href="/">S.<em>MAJOR</em></a>
+  <nav>
+    <a href="https://app.smajor.org">Dashboard</a>
+    <a href="https://app.smajor.org/devis" class="active">Devis</a>
+    <a href="https://smajor.org">Site public</a>
+  </nav>
+</div></header>
+<main>
+  <div class="page-head">
+    <div><h1>Demandes de devis</h1></div>
+    <div style="display:flex;gap:10px;align-items:center">
+      <span class="badge-count">${devisList.length} demande${devisList.length!==1?'s':''}</span>
+      <button class="btn-refresh" onclick="location.reload()">↻ Actualiser</button>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th>Statut</th><th>Nom</th><th>Téléphone</th><th>Service</th><th>Adresse</th><th>Reçu le</th>
+      </tr></thead>
+      <tbody>${rowsHtml}</tbody>
+    </table>
+  </div>
+</main>
+</body></html>`);
+    }
+    // ── FIN DEVIS ──────────────────────────────────────────────────────────────
+
     const isCockpitProxy = (
       (hostname === 's25.smajor.org' && url.pathname.startsWith('/api/')) ||
       (hostname === 'api.smajor.org')
