@@ -10845,7 +10845,7 @@ document.getElementById('devisForm').addEventListener('submit',async(e)=>{
       } catch (_) {}
       const statusColors = { nouveau: '#f59e0b', contacté: '#60a5fa', accepté: '#4ade80', refusé: '#f87171' };
       const rowsHtml = devisList.length === 0
-        ? '<tr><td colspan="6" style="text-align:center;color:#8494b0;padding:32px">Aucun devis pour l\'instant</td></tr>'
+        ? '<tr><td colspan="7" style="text-align:center;color:#8494b0;padding:32px">Aucun devis pour l\'instant</td></tr>'
         : devisList.map(d => `<tr>
             <td><span style="background:rgba(245,158,11,.1);color:${statusColors[d.status]||'#f59e0b'};padding:3px 10px;border-radius:5px;font-size:12px;font-weight:600">${(d.status||'nouveau').toUpperCase()}</span></td>
             <td style="font-weight:600">${d.nom||''}</td>
@@ -10853,6 +10853,7 @@ document.getElementById('devisForm').addEventListener('submit',async(e)=>{
             <td style="color:#8494b0;font-size:13px">${d.service||''}</td>
             <td style="color:#8494b0;font-size:12px">${d.adresse||''}</td>
             <td style="color:#8494b0;font-size:12px">${d.created_at?new Date(d.created_at).toLocaleString('fr-CA',{timeZone:'America/Toronto',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):''}</td>
+            <td>${d.status==='nouveau'?`<button onclick="accepterDevis('${d.id}','${(d.nom||'').replace(/'/g,'\\\'')}')" style="background:#4ade80;color:#0a0f1a;border:none;padding:6px 14px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer">✓ Accepter</button>`:`<span style="color:#8494b0;font-size:12px">${d.status==='accepté'?'→ Job créé':'—'}</span>`}</td>
           </tr>`).join('');
       return responseHtml(`<!doctype html>
 <html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -10887,6 +10888,8 @@ tr:hover td{background:rgba(255,255,255,.02)}
   <nav>
     <a href="https://app.smajor.org">Dashboard</a>
     <a href="https://app.smajor.org/devis" class="active">Devis</a>
+    <a href="https://app.smajor.org/jobs">Jobs</a>
+    <a href="https://app.smajor.org/factures">Factures</a>
     <a href="https://smajor.org">Site public</a>
   </nav>
 </div></header>
@@ -10901,14 +10904,196 @@ tr:hover td{background:rgba(255,255,255,.02)}
   <div class="table-wrap">
     <table>
       <thead><tr>
-        <th>Statut</th><th>Nom</th><th>Téléphone</th><th>Service</th><th>Adresse</th><th>Reçu le</th>
+        <th>Statut</th><th>Nom</th><th>Téléphone</th><th>Service</th><th>Adresse</th><th>Reçu le</th><th>Action</th>
       </tr></thead>
       <tbody>${rowsHtml}</tbody>
     </table>
   </div>
 </main>
+<script>
+async function accepterDevis(id, nom) {
+  if (!confirm('Accepter le devis de ' + nom + ' et créer un job?')) return;
+  const r = await fetch('/api/jobs', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({devis_id: id})
+  });
+  const d = await r.json();
+  if (d.ok) { alert('✓ Job ' + d.job_id + ' créé!'); location.reload(); }
+  else alert('Erreur: ' + (d.error||'inconnue'));
+}
+</script>
 </body></html>`);
     }
+    // ── JOBS ───────────────────────────────────────────────────────────────────
+
+    // POST /api/jobs — créer un job depuis un devis
+    if (url.pathname === '/api/jobs' && request.method === 'POST') {
+      try {
+        const body = await request.json();
+        const stateResp = await fetch(`${S25_COCKPIT}/api/memory/state`, { headers: { 'X-S25-Secret': S25_SECRET } });
+        const stateData = await stateResp.json();
+        const arkon = stateData?.state?.agents?.ARKON || {};
+        const devisList = arkon.smajor_devis || [];
+        const jobsList = arkon.smajor_jobs || [];
+        const devis = devisList.find(d => d.id === body.devis_id);
+        if (!devis) return jsonResponse({ ok: false, error: 'Devis introuvable' }, 404);
+        const newJob = {
+          id: `JOB-${Date.now()}`,
+          devis_id: devis.id,
+          nom: devis.nom,
+          telephone: devis.telephone,
+          adresse: devis.adresse,
+          service: devis.service,
+          description: devis.description,
+          status: 'accepté',
+          montant: null,
+          created_at: new Date().toISOString(),
+          scheduled_at: null,
+          completed_at: null,
+        };
+        const updatedJobs = [newJob, ...jobsList].slice(0, 200);
+        const updatedDevis = devisList.map(d => d.id === body.devis_id ? {...d, status: 'accepté'} : d);
+        await fetch(`${S25_COCKPIT}/api/memory/state`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-S25-Secret': S25_SECRET },
+          body: JSON.stringify({ agent: 'ARKON', updates: { smajor_jobs: updatedJobs, smajor_devis: updatedDevis } })
+        });
+        return jsonResponse({ ok: true, job_id: newJob.id });
+      } catch (err) {
+        return jsonResponse({ ok: false, error: 'Erreur serveur' }, 500);
+      }
+    }
+
+    // PATCH /api/jobs — mettre à jour statut ou montant d'un job
+    if (url.pathname === '/api/jobs' && request.method === 'PATCH') {
+      try {
+        const body = await request.json();
+        const stateResp = await fetch(`${S25_COCKPIT}/api/memory/state`, { headers: { 'X-S25-Secret': S25_SECRET } });
+        const stateData = await stateResp.json();
+        const jobsList = stateData?.state?.agents?.ARKON?.smajor_jobs || [];
+        const updatedJobs = jobsList.map(j => j.id === body.id ? {
+          ...j,
+          ...(body.status && { status: body.status }),
+          ...(body.montant !== undefined && { montant: body.montant }),
+          ...(body.status === 'terminé' && { completed_at: new Date().toISOString() }),
+          ...(body.scheduled_at && { scheduled_at: body.scheduled_at }),
+        } : j);
+        await fetch(`${S25_COCKPIT}/api/memory/state`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-S25-Secret': S25_SECRET },
+          body: JSON.stringify({ agent: 'ARKON', updates: { smajor_jobs: updatedJobs } })
+        });
+        return jsonResponse({ ok: true });
+      } catch (err) {
+        return jsonResponse({ ok: false, error: 'Erreur serveur' }, 500);
+      }
+    }
+
+    // app.smajor.org/jobs — dashboard jobs
+    if (hostname === 'app.smajor.org' && url.pathname === '/jobs') {
+      let jobsList = [];
+      try {
+        const stateResp = await fetch(`${S25_COCKPIT}/api/memory/state`, { headers: { 'X-S25-Secret': S25_SECRET } });
+        const stateData = await stateResp.json();
+        jobsList = stateData?.state?.agents?.ARKON?.smajor_jobs || [];
+      } catch (_) {}
+      const sColors = { accepté:'#60a5fa', en_cours:'#f59e0b', terminé:'#4ade80', facturé:'#a78bfa', annulé:'#f87171' };
+      const sLabels = { accepté:'ACCEPTÉ', en_cours:'EN COURS', terminé:'TERMINÉ', facturé:'FACTURÉ', annulé:'ANNULÉ' };
+      const totalRevenu = jobsList.filter(j=>j.status==='facturé'&&j.montant).reduce((s,j)=>s+Number(j.montant),0);
+      const rowsHtml = jobsList.length === 0
+        ? '<tr><td colspan="7" style="text-align:center;color:#8494b0;padding:32px">Aucun job pour l\'instant — acceptez un devis pour commencer</td></tr>'
+        : jobsList.map(j => `<tr>
+            <td><span style="background:rgba(255,255,255,.06);color:${sColors[j.status]||'#8494b0'};padding:3px 10px;border-radius:5px;font-size:12px;font-weight:600">${sLabels[j.status]||j.status}</span></td>
+            <td style="font-weight:600">${j.nom||''}</td>
+            <td style="color:#8494b0;font-size:13px">${j.service||''}</td>
+            <td style="color:#8494b0;font-size:12px">${j.adresse||''}</td>
+            <td><a href="tel:${(j.telephone||'').replace(/\D/g,'')}" style="color:#60a5fa">${j.telephone||''}</a></td>
+            <td style="color:${j.montant?'#4ade80':'#8494b0'};font-weight:${j.montant?'700':'400'}">${j.montant?'$'+Number(j.montant).toLocaleString('fr-CA'):'—'}</td>
+            <td style="display:flex;gap:6px;flex-wrap:wrap">
+              ${j.status==='accepté'?`<button onclick="majJob('${j.id}','en_cours')" style="background:#f59e0b;color:#0a0f1a;border:none;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">▶ Démarrer</button>`:''}
+              ${j.status==='en_cours'?`<button onclick="majJob('${j.id}','terminé')" style="background:#4ade80;color:#0a0f1a;border:none;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">✓ Terminé</button>`:''}
+              ${j.status==='terminé'?`<button onclick="facturer('${j.id}')" style="background:#a78bfa;color:#0a0f1a;border:none;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">$ Facturer</button>`:''}
+              ${j.status!=='annulé'&&j.status!=='facturé'?`<button onclick="majJob('${j.id}','annulé')" style="background:rgba(248,113,113,.15);color:#f87171;border:1px solid rgba(248,113,113,.3);padding:5px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">✕</button>`:''}
+            </td>
+          </tr>`).join('');
+      return responseHtml(`<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Jobs — S. Major</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0a0f1a;color:#f1f5ff;font-family:"Inter",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+header{background:rgba(10,15,26,.94);backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,255,255,.09);padding:0 24px}
+.hdr{max-width:1200px;margin:0 auto;height:60px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.logo{font-weight:800;font-size:16px;letter-spacing:.08em;color:#f1f5ff;text-decoration:none}
+.logo em{font-style:normal;color:#f59e0b}
+nav{display:flex;gap:8px}
+nav a{color:#8494b0;font-size:13px;text-decoration:none;padding:6px 12px;border-radius:7px;border:1px solid rgba(255,255,255,.09)}
+nav a:hover,nav a.active{color:#f1f5ff;border-color:rgba(255,255,255,.2)}
+main{max-width:1200px;margin:0 auto;padding:36px 24px}
+.page-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px}
+h1{font-size:26px;font-weight:700;letter-spacing:-.02em}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:28px}
+.stat{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);border-radius:12px;padding:16px 20px}
+.stat-n{font-size:28px;font-weight:800;margin-bottom:4px}
+.stat-l{font-size:12px;color:#8494b0;font-weight:600;letter-spacing:.05em;text-transform:uppercase}
+.table-wrap{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);border-radius:14px;overflow:auto}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;padding:14px 16px;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#8494b0;border-bottom:1px solid rgba(255,255,255,.07)}
+td{padding:12px 16px;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:middle}
+tr:last-child td{border:none}
+tr:hover td{background:rgba(255,255,255,.02)}
+.btn-r{background:rgba(255,255,255,.06);color:#f1f5ff;border:1px solid rgba(255,255,255,.1);padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
+</style></head>
+<body>
+<header><div class="hdr">
+  <a class="logo" href="/">S.<em>MAJOR</em></a>
+  <nav>
+    <a href="https://app.smajor.org">Dashboard</a>
+    <a href="https://app.smajor.org/devis">Devis</a>
+    <a href="https://app.smajor.org/jobs" class="active">Jobs</a>
+    <a href="https://app.smajor.org/factures">Factures</a>
+    <a href="https://smajor.org">Site public</a>
+  </nav>
+</div></header>
+<main>
+  <div class="page-head">
+    <h1>Chantiers & Jobs</h1>
+    <button class="btn-r" onclick="location.reload()">↻ Actualiser</button>
+  </div>
+  <div class="stats">
+    <div class="stat"><div class="stat-n" style="color:#60a5fa">${jobsList.filter(j=>j.status==='accepté').length}</div><div class="stat-l">À planifier</div></div>
+    <div class="stat"><div class="stat-n" style="color:#f59e0b">${jobsList.filter(j=>j.status==='en_cours').length}</div><div class="stat-l">En cours</div></div>
+    <div class="stat"><div class="stat-n" style="color:#4ade80">${jobsList.filter(j=>j.status==='terminé').length}</div><div class="stat-l">Terminés</div></div>
+    <div class="stat"><div class="stat-n" style="color:#4ade80">$${totalRevenu.toLocaleString('fr-CA')}</div><div class="stat-l">Revenu facturé</div></div>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Statut</th><th>Client</th><th>Service</th><th>Adresse</th><th>Téléphone</th><th>Montant</th><th>Actions</th></tr></thead>
+      <tbody>${rowsHtml}</tbody>
+    </table>
+  </div>
+</main>
+<script>
+async function majJob(id, status) {
+  const r = await fetch('/api/jobs', {method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,status})});
+  const d = await r.json();
+  if(d.ok) location.reload();
+  else alert('Erreur');
+}
+async function facturer(id) {
+  const m = prompt('Montant de la facture ($):');
+  if(!m || isNaN(Number(m))) return;
+  const r = await fetch('/api/factures', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({job_id:id,montant:Number(m)})});
+  const d = await r.json();
+  if(d.ok) { alert('✓ Facture ' + d.facture_id + ' créée!'); location.href='/factures'; }
+  else alert('Erreur: '+(d.error||'inconnue'));
+}
+</script>
+</body></html>`);
+    }
+
     // ── FIN DEVIS ──────────────────────────────────────────────────────────────
 
     const isCockpitProxy = (
