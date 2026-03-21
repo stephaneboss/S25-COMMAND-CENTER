@@ -10763,7 +10763,7 @@ document.getElementById('devisForm').addEventListener('submit',async(e)=>{
           headers: { 'X-S25-Secret': S25_SECRET }
         });
         const stateData = await stateResp.json();
-        const currentList = stateData?.state?.smajor_devis || [];
+        const currentList = stateData?.state?.agents?.ARKON?.smajor_devis || [];
         const newDevis = {
           id: `DEV-${Date.now()}`,
           created_at: new Date().toISOString(),
@@ -10794,7 +10794,7 @@ document.getElementById('devisForm').addEventListener('submit',async(e)=>{
           headers: { 'X-S25-Secret': S25_SECRET }
         });
         const stateData = await stateResp.json();
-        const list = stateData?.state?.smajor_devis || [];
+        const list = stateData?.state?.agents?.ARKON?.smajor_devis || [];
         return jsonResponse({ ok: true, count: list.length, devis: list });
       } catch (_) {
         return jsonResponse({ ok: false, devis: [] });
@@ -10807,7 +10807,7 @@ document.getElementById('devisForm').addEventListener('submit',async(e)=>{
       try {
         const stateResp = await fetch(`${S25_COCKPIT}/api/memory/state`, { headers: { 'X-S25-Secret': S25_SECRET } });
         const stateData = await stateResp.json();
-        devisList = stateData?.state?.smajor_devis || [];
+        devisList = stateData?.state?.agents?.ARKON?.smajor_devis || [];
       } catch (_) {}
       const statusColors = { nouveau: '#f59e0b', contacté: '#60a5fa', accepté: '#4ade80', refusé: '#f87171' };
       const rowsHtml = devisList.length === 0
