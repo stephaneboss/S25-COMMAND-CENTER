@@ -1481,10 +1481,10 @@ function layout({
   nav = [],
   activePath = "/",
 }) {
-  const accent = tone === "app" ? "#7cf6d4" : "#ffd166";
+  const accent = tone === "app" ? "#4ade80" : "#60a5fa";
   const bg = tone === "app"
-    ? "radial-gradient(circle at top, #133b33 0%, #071311 44%, #030807 100%)"
-    : "radial-gradient(circle at top, #423111 0%, #120d04 42%, #070503 100%)";
+    ? "radial-gradient(ellipse at top, #0d2318 0%, #071310 44%, #040d09 100%)"
+    : "radial-gradient(ellipse at top, #0f1c2e 0%, #0a1120 44%, #060c17 100%)";
 
   const ctaHtml = ctas
     .map((cta) => `<a class="cta ${cta.kind || "primary"}" href="${cta.href}">${cta.label}</a>`)
@@ -3903,21 +3903,23 @@ function layout({
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>${title}</title>
     <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
       :root {
         --bg: ${bg};
-        --panel: rgba(255,255,255,0.06);
-        --line: rgba(255,255,255,0.15);
-        --text: #f7f3e8;
-        --muted: #d2c7b2;
+        --panel: rgba(255,255,255,0.05);
+        --line: rgba(255,255,255,0.10);
+        --text: #f0f4ff;
+        --muted: #94a3b8;
         --accent: ${accent};
       }
       * { box-sizing: border-box; }
       body {
         margin: 0;
         min-height: 100vh;
-        font-family: Georgia, "Times New Roman", serif;
+        font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         color: var(--text);
         background: var(--bg);
+        -webkit-font-smoothing: antialiased;
       }
       .shell {
         width: min(1200px, calc(100vw - 32px));
@@ -3929,12 +3931,14 @@ function layout({
         justify-content: space-between;
         align-items: center;
         gap: 16px;
-        margin-bottom: 20px;
-        font-size: 14px;
-        letter-spacing: 0.08em;
+        margin-bottom: 28px;
+        font-size: 13px;
+        letter-spacing: 0.06em;
         text-transform: uppercase;
+        padding-bottom: 20px;
+        border-bottom: 1px solid var(--line);
       }
-      .brand { font-weight: 700; }
+      .brand { font-weight: 700; font-size: 15px; letter-spacing: 0.12em; }
       .nav {
         display: flex;
         flex-wrap: wrap;
@@ -3943,25 +3947,33 @@ function layout({
       }
       .nav-link {
         text-decoration: none;
-        color: var(--text);
+        color: var(--muted);
         border: 1px solid var(--line);
-        border-radius: 999px;
-        padding: 9px 12px;
+        border-radius: 7px;
+        padding: 7px 14px;
         background: rgba(255,255,255,0.03);
-        font-size: 14px;
+        font-size: 13px;
+        font-weight: 500;
+        transition: color 0.15s, border-color 0.15s;
       }
+      .nav-link:hover { color: var(--text); border-color: rgba(255,255,255,0.2); }
       .nav-link.active {
         border-color: var(--accent);
         color: var(--accent);
+        background: rgba(96,165,250,0.08);
       }
       .eyebrow {
         display: inline-block;
-        border: 1px solid var(--line);
-        border-radius: 999px;
-        padding: 8px 12px;
+        border: 1px solid rgba(96,165,250,0.3);
+        border-radius: 6px;
+        padding: 5px 12px;
         color: var(--accent);
-        background: rgba(255,255,255,0.04);
-        margin-bottom: 16px;
+        background: rgba(96,165,250,0.08);
+        margin-bottom: 18px;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
       }
       .hero {
         display: grid;
@@ -3972,18 +3984,22 @@ function layout({
       .hero-copy, .hero-panel, .card {
         border: 1px solid var(--line);
         background: var(--panel);
-        backdrop-filter: blur(10px);
-        border-radius: 28px;
-        padding: 24px;
+        backdrop-filter: blur(12px);
+        border-radius: 16px;
+        padding: 28px;
       }
       h1 {
-        font-size: clamp(38px, 7vw, 74px);
-        line-height: 0.95;
+        font-size: clamp(36px, 6vw, 64px);
+        line-height: 1.05;
         margin: 0 0 16px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
       }
       h2 {
         margin: 6px 0 0;
-        font-size: 30px;
+        font-size: 26px;
+        font-weight: 600;
+        letter-spacing: -0.01em;
       }
       .hero-copy p, .card p, .section-head p {
         color: var(--muted);
@@ -4000,19 +4016,24 @@ function layout({
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        min-height: 44px;
-        padding: 0 16px;
-        border-radius: 999px;
+        min-height: 42px;
+        padding: 0 20px;
+        border-radius: 8px;
         text-decoration: none;
-        color: #07110f;
+        color: #fff;
         background: var(--accent);
-        font-weight: 700;
+        font-weight: 600;
+        font-size: 14px;
+        letter-spacing: 0.01em;
+        transition: opacity 0.15s;
       }
+      .cta:hover { opacity: 0.88; }
       .cta.secondary {
-        background: transparent;
+        background: rgba(255,255,255,0.07);
         color: var(--text);
         border: 1px solid var(--line);
       }
+      .cta.secondary:hover { background: rgba(255,255,255,0.12); }
       .hero-panel ul {
         margin: 0;
         padding-left: 18px;
@@ -4028,15 +4049,19 @@ function layout({
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
       .label {
-        font-size: 12px;
-        letter-spacing: 0.16em;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.12em;
         text-transform: uppercase;
         color: var(--accent);
         margin-bottom: 10px;
+        opacity: 0.85;
       }
       .card h3 {
-        margin: 0 0 12px;
-        font-size: 24px;
+        margin: 0 0 10px;
+        font-size: 20px;
+        font-weight: 600;
+        letter-spacing: -0.01em;
       }
       .links {
         display: flex;
@@ -4053,7 +4078,7 @@ function layout({
         margin-top: 20px;
         border: 1px solid var(--line);
         background: rgba(255,255,255,0.04);
-        border-radius: 28px;
+        border-radius: 16px;
         padding: 24px;
       }
       .section-head {
@@ -4100,7 +4125,7 @@ function layout({
       .module-card {
         border: 1px solid var(--line);
         background: rgba(255,255,255,0.03);
-        border-radius: 24px;
+        border-radius: 12px;
         padding: 20px;
       }
       .module-card ul {
@@ -4141,13 +4166,15 @@ function layout({
       .pill {
         display: inline-flex;
         align-items: center;
-        min-height: 34px;
-        padding: 0 12px;
-        border-radius: 999px;
+        min-height: 30px;
+        padding: 0 11px;
+        border-radius: 6px;
         border: 1px solid var(--line);
-        background: rgba(255,255,255,0.03);
-        color: var(--text);
-        font-size: 13px;
+        background: rgba(255,255,255,0.04);
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 500;
+        font-family: "SF Mono", "Fira Code", "Consolas", monospace;
       }
       .footer {
         margin-top: 24px;
