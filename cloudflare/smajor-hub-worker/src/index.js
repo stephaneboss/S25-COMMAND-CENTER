@@ -10716,6 +10716,48 @@ export default {
     const url = new URL(request.url);
     const hostname = url.hostname.toLowerCase();
 
+    // ── TRADE SIGNAL EARLY INTERCEPT — avant tout proxy ───────────────────────
+    if (url.pathname === '/api/trade/signal') {
+      if (request.method === 'OPTIONS') {
+        return new Response(null, { status: 204, headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type' } });
+      }
+      if (request.method === 'POST') {
+        try {
+          const body = await request.json();
+          if (body.secret && body.secret !== 'REDACTED_SECRET') {
+            return new Response(JSON.stringify({ ok: false, error: 'unauthorized' }), { status: 401, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
+          }
+          const signal = {
+            id: `SIG-${Date.now()}`,
+            received_at: new Date().toISOString(),
+            ticker: body.ticker || body.symbol || 'UNKNOWN',
+            action: (body.action || body.side || '').toLowerCase(),
+            price: body.price || body.close || null,
+            strategy: body.strategy || 'TradingView',
+            timeframe: body.timeframe || body.interval || null,
+            status: 'reçu',
+            source: 'tradingview',
+          };
+          // Sauvegarder dans le cockpit
+          const S25_COCKPIT_URL = env.DIRECT_RUNTIME_URL || 'http://uoqlngdqqlc29fhg8l78qt80d8.ingress.akashprovid.com';
+          try {
+            const stateResp = await fetch(`${S25_COCKPIT_URL}/api/memory/state`, { headers: { 'X-S25-Secret': 'REDACTED_SECRET' } });
+            const stateData = await stateResp.json();
+            const signals = stateData?.state?.agents?.ARKON?.s25_signals || [];
+            const updated = [signal, ...signals].slice(0, 500);
+            await fetch(`${S25_COCKPIT_URL}/api/memory/state`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'X-S25-Secret': 'REDACTED_SECRET' },
+              body: JSON.stringify({ agent: 'ARKON', updates: { s25_signals: updated } })
+            });
+          } catch (_) { /* cockpit offline — signal loggé quand même */ }
+          return new Response(JSON.stringify({ ok: true, signal_id: signal.id, ticker: signal.ticker, action: signal.action, dry_run: true }), { status: 200, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
+        } catch (err) {
+          return new Response(JSON.stringify({ ok: false, error: 'invalid_json' }), { status: 400, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
+        }
+      }
+    }
+
     // S25 Cockpit proxy — forward s25.smajor.org and api.smajor.org to Akash cockpit
     const S25_COCKPIT = env.DIRECT_RUNTIME_URL || 'http://uoqlngdqqlc29fhg8l78qt80d8.ingress.akashprovid.com';
 
