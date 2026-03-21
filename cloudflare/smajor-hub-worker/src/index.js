@@ -10337,7 +10337,7 @@ footer a:hover{color:var(--txt)}
     <div class="hdr-r">
       <div class="hdr-tel">📞 <strong>(514) 802-1771</strong></div>
       <a href="mailto:excavaneige@gmail.com" class="btn-b">Courriel</a>
-      <a href="tel:5148021771" class="btn-a">Devis gratuit</a>
+      <a href="/devis" class="btn-a">Devis gratuit</a>
     </div>
   </div>
 </header>
@@ -10350,7 +10350,7 @@ footer a:hover{color:var(--txt)}
       <p class="hero-sub">De père en fils, on travaille chaque chantier comme si c'était le nôtre. Mini excavation, drain français, déneigement résidentiel et commercial, portail client et dispatch rapide — rigueur et réactivité garanties.</p>
       <div class="cta-row">
         <a href="tel:5148021771" class="cta-tel">📞 (514) 802-1771</a>
-        <a href="mailto:excavaneige@gmail.com" class="cta-mail">✉ Demander un devis</a>
+        <a href="/devis" class="cta-mail">✉ Demander un devis</a>
       </div>
     </div>
     <div class="hpanel">
