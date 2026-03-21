@@ -10381,34 +10381,83 @@ export default {
     const url = new URL(request.url);
     const hostname = url.hostname.toLowerCase();
 
-    // S25 Cockpit proxy — forward s25.smajor.org/api/* to Akash cockpit
-    const S25_COCKPIT = 'http://uoqlngdqqlc29fhg8l78qt80d8.ingress.akashprovid.com';
+    // S25 Cockpit proxy — forward s25.smajor.org and api.smajor.org to Akash cockpit
+    const S25_COCKPIT = env.DIRECT_RUNTIME_URL || 'http://uoqlngdqqlc29fhg8l78qt80d8.ingress.akashprovid.com';
 
-    if (hostname === 's25.smajor.org' && url.pathname.startsWith('/api/')) {
-      // CORS preflight
+    // CORS preflight helper for cockpit proxies
+    const cockpitCorsHeaders = {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-S25-Secret',
+      'Access-Control-Max-Age': '86400',
+    };
+
+    const isCockpitProxy = (
+      (hostname === 's25.smajor.org' && url.pathname.startsWith('/api/')) ||
+      (hostname === 'api.smajor.org')
+    );
+
+    if (isCockpitProxy) {
       if (request.method === 'OPTIONS') {
-        return new Response(null, {
-          headers: {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-S25-Secret',
-            'Access-Control-Max-Age': '86400',
-          }
-        });
+        return new Response(null, { headers: cockpitCorsHeaders });
       }
 
-      const targetUrl = S25_COCKPIT + url.pathname + url.search;
-      const proxiedReq = new Request(targetUrl, {
-        method: request.method,
-        headers: request.headers,
-        body: request.method !== 'GET' && request.method !== 'HEAD' ? request.body : undefined,
-      });
+      try {
+        const targetUrl = S25_COCKPIT + url.pathname + url.search;
+        const proxiedReq = new Request(targetUrl, {
+          method: request.method,
+          headers: request.headers,
+          body: request.method !== 'GET' && request.method !== 'HEAD' ? request.body : undefined,
+        });
+        const resp = await fetch(proxiedReq, { signal: AbortSignal.timeout(8000) });
+        const newResp = new Response(resp.body, resp);
+        newResp.headers.set('Access-Control-Allow-Origin', '*');
+        return newResp;
+      } catch (_) {
+        return jsonResponse({
+          ok: false,
+          error: "cockpit_unreachable",
+          detail: "S25 Akash cockpit offline — redeploy needed",
+          cockpit_url: S25_COCKPIT,
+        }, 503);
+      }
+    }
 
-      const resp = await fetch(proxiedReq);
-      const newResp = new Response(resp.body, resp);
-      newResp.headers.set('Access-Control-Allow-Origin', '*');
-      newResp.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-      return newResp;
+    // s25.smajor.org root — serve cockpit status page
+    if (hostname === 's25.smajor.org') {
+      return responseHtml(`<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>S25 Lumiere — Cockpit</title>
+<style>
+  body{margin:0;min-height:100vh;background:radial-gradient(circle at top,#0a1f2a 0%,#030c11 100%);
+    font-family:monospace;color:#7cf6d4;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px}
+  .box{border:1px solid rgba(124,246,212,.25);border-radius:16px;padding:24px 32px;background:rgba(0,0,0,.4);max-width:480px;width:90%;text-align:center}
+  h1{margin:0 0 8px;font-size:22px;letter-spacing:.1em}
+  p{color:#9ac7bb;margin:8px 0;font-size:14px;line-height:1.5}
+  .badge{display:inline-block;padding:4px 10px;border-radius:99px;font-size:11px;letter-spacing:.12em}
+  .red{background:rgba(255,70,70,.15);color:#ff7070;border:1px solid rgba(255,70,70,.3)}
+  .links{display:flex;gap:12px;justify-content:center;margin-top:16px;flex-wrap:wrap}
+  a{color:#7cf6d4;text-decoration:none;border-bottom:1px solid rgba(124,246,212,.4);padding-bottom:2px;font-size:13px}
+</style></head>
+<body>
+  <div class="box">
+    <h1>S25 LUMIERE</h1>
+    <span class="badge red" id="status">COCKPIT OFFLINE</span>
+    <p>Le cockpit Akash est en cours de redéploiement.</p>
+    <p>API: <code>${S25_COCKPIT}</code></p>
+    <div class="links">
+      <a href="https://app.smajor.org">Smajor App</a>
+      <a href="${S25_COCKPIT}/api/status">API Status</a>
+      <a href="https://console.akash.network">Akash Console</a>
+    </div>
+  </div>
+  <script>
+    fetch('/api/status').then(r=>r.json()).then(d=>{
+      if(d.ok) document.getElementById('status').textContent='COCKPIT ONLINE';
+      document.getElementById('status').className='badge '+(d.ok?'':'red');
+    }).catch(()=>{});
+  </script>
+</body></html>`);
     }
 
     if (url.pathname === "/health") {

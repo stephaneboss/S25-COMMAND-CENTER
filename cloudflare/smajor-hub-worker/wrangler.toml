@@ -6,7 +6,8 @@ routes = [
   { pattern = "smajor.org", custom_domain = true },
   { pattern = "www.smajor.org", custom_domain = true },
   { pattern = "app.smajor.org", custom_domain = true },
-  { pattern = "s25.smajor.org", custom_domain = true }
+  { pattern = "s25.smajor.org", custom_domain = true },
+  { pattern = "api.smajor.org", custom_domain = true }
 ]
 
 [vars]
@@ -14,6 +15,8 @@ PUBLIC_APP_URL = "https://app.smajor.org"
 PUBLIC_API_URL = "https://api.smajor.org"
 PUBLIC_S25_URL = "https://s25.smajor.org"
 PUBLIC_MERLIN_URL = "https://merlin.smajor.org"
-DIRECT_RUNTIME_URL = "http://fpog7pbvepbkrfae1529ics23k.ingress.cap-test-compute.com"
+# Akash cockpit LIVE — DSEQ 25838342 (provider.akashprovid.com)
+# Update to new DSEQ ingress URL when redeployed
+DIRECT_RUNTIME_URL = "http://uoqlngdqqlc29fhg8l78qt80d8.ingress.akashprovid.com"
 MASTER_WALLET_ADDRESS = "REDACTED_WALLET_ADDRESS"
 MASTER_WALLET_LABEL = "Wallet creator"
