@@ -10758,12 +10758,12 @@ document.getElementById('devisForm').addEventListener('submit',async(e)=>{
         if (!body.nom || !body.telephone || !body.service) {
           return jsonResponse({ ok: false, error: 'Champs requis manquants' }, 400);
         }
-        // Read current quotes_invoices
+        // Read current smajor_devis from ARKON agent state
         const stateResp = await fetch(`${S25_COCKPIT}/api/memory/state`, {
           headers: { 'X-S25-Secret': S25_SECRET }
         });
         const stateData = await stateResp.json();
-        const currentList = stateData?.state?.business?.quotes_invoices || [];
+        const currentList = stateData?.state?.smajor_devis || [];
         const newDevis = {
           id: `DEV-${Date.now()}`,
           created_at: new Date().toISOString(),
@@ -10775,11 +10775,11 @@ document.getElementById('devisForm').addEventListener('submit',async(e)=>{
           status: 'nouveau'
         };
         const updatedList = [newDevis, ...currentList].slice(0, 100);
-        // Save back
+        // Save back to ARKON agent state
         await fetch(`${S25_COCKPIT}/api/memory/state`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-S25-Secret': S25_SECRET },
-          body: JSON.stringify({ agent: 'ARKON', business: { quotes_invoices: updatedList, last_write_at: new Date().toISOString() } })
+          body: JSON.stringify({ agent: 'ARKON', updates: { smajor_devis: updatedList } })
         });
         return jsonResponse({ ok: true, id: newDevis.id, message: 'Devis reçu — on vous rappelle sous 24h' });
       } catch (err) {
@@ -10794,7 +10794,7 @@ document.getElementById('devisForm').addEventListener('submit',async(e)=>{
           headers: { 'X-S25-Secret': S25_SECRET }
         });
         const stateData = await stateResp.json();
-        const list = stateData?.state?.business?.quotes_invoices || [];
+        const list = stateData?.state?.smajor_devis || [];
         return jsonResponse({ ok: true, count: list.length, devis: list });
       } catch (_) {
         return jsonResponse({ ok: false, devis: [] });
@@ -10807,7 +10807,7 @@ document.getElementById('devisForm').addEventListener('submit',async(e)=>{
       try {
         const stateResp = await fetch(`${S25_COCKPIT}/api/memory/state`, { headers: { 'X-S25-Secret': S25_SECRET } });
         const stateData = await stateResp.json();
-        devisList = stateData?.state?.business?.quotes_invoices || [];
+        devisList = stateData?.state?.smajor_devis || [];
       } catch (_) {}
       const statusColors = { nouveau: '#f59e0b', contacté: '#60a5fa', accepté: '#4ade80', refusé: '#f87171' };
       const rowsHtml = devisList.length === 0
