@@ -10237,49 +10237,242 @@ function agentServiceBindingsSection(pathname) {
 }
 
 function renderPublic(env) {
-  return layout({
-    title: "Smajor",
-    eyebrow: "Entreprise multi-service + IA industrielle",
-    heroTitle: "Unifier l'entreprise reelle et le systeme S25.",
-    heroText:
-      "Smajor devient la facade unique pour l'excavation, le deneigement, l'automatisation metier et l'infrastructure IA. Les clients voient une entreprise claire. Le mesh S25 fait tourner la machine derriere.",
-    ctas: [
-      { label: "Entrer dans l'app", href: env.PUBLIC_APP_URL },
-      { label: "Cockpit S25", href: env.PUBLIC_S25_URL, kind: "secondary" },
-      { label: "MERLIN MCP", href: `${env.PUBLIC_MERLIN_URL}/mcp`, kind: "secondary" },
-    ],
-    blocks: [
-      {
-        label: "Public",
-        title: "Services terrain",
-        text: "Excavation, deneigement, demandes client, suivi des operations et portail de service.",
-        links: [
-          { label: "Excavation", href: "https://app.smajor.org/clients" },
-          { label: "Deneigement", href: "https://app.smajor.org/clients" },
-        ],
-      },
-      {
-        label: "Ops",
-        title: "Backend S25",
-        text: "Le cockpit public, les missions, le feed intel et le mesh multi-agent restent centralises sur Akash.",
-        links: [
-          { label: "Status", href: `${env.PUBLIC_S25_URL}/api/status` },
-          { label: "Mesh", href: `${env.PUBLIC_S25_URL}/api/mesh/status` },
-        ],
-      },
-      {
-        label: "IA",
-        title: "MERLIN + TRINITY",
-        text: "MERLIN valide, TRINITY orchestre, COMET surveille, KIMI capte le Web3. Le domaine ne remplace pas le mesh, il le rend presentable.",
-        links: [
-          { label: "MERLIN MCP", href: `${env.PUBLIC_MERLIN_URL}/mcp` },
-          { label: "API", href: `${env.PUBLIC_API_URL}/api/version` },
-        ],
-      },
-    ],
-    visitorSection: VISITOR_STRUCTURE,
-    portalMatrix: PORTAL_MATRIX,
-  });
+  return responseHtml(`<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>S. Major — Excavation &amp; Déneigement | Montréal</title>
+<meta name="description" content="Mini excavation, drain français, nivellement, réparation de fissure béton. Déneigement résidentiel et commercial. Service 24/7. Devis gratuit. (514) 802-1771">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<style>
+:root{--bg:#0a0f1a;--surf:rgba(255,255,255,0.04);--bdr:rgba(255,255,255,0.09);--txt:#f1f5ff;--mut:#8494b0;--acc:#f59e0b;--acc-s:rgba(245,158,11,0.12);--blu:#60a5fa;--grn:#4ade80}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--txt);font-family:"Inter",system-ui,sans-serif;-webkit-font-smoothing:antialiased;line-height:1.6}
+/* HEADER */
+header{position:sticky;top:0;z-index:100;background:rgba(10,15,26,0.94);backdrop-filter:blur(12px);border-bottom:1px solid var(--bdr)}
+.hdr{max-width:1100px;margin:0 auto;padding:0 24px;display:flex;align-items:center;justify-content:space-between;height:64px;gap:16px}
+.logo{font-weight:800;font-size:17px;letter-spacing:0.08em;color:var(--txt);text-decoration:none}
+.logo em{font-style:normal;color:var(--acc)}
+.hdr-r{display:flex;align-items:center;gap:10px}
+.hdr-tel{color:var(--mut);font-size:14px;display:flex;align-items:center;gap:6px}
+.hdr-tel strong{color:var(--txt);font-size:15px;font-weight:600}
+.btn-a{background:var(--acc);color:#0a0a0a;font-weight:700;font-size:13px;padding:9px 18px;border-radius:8px;text-decoration:none;transition:opacity .15s}
+.btn-a:hover{opacity:.88}
+.btn-b{background:rgba(255,255,255,0.05);color:var(--txt);border:1px solid var(--bdr);font-weight:600;font-size:13px;padding:9px 18px;border-radius:8px;text-decoration:none;transition:background .15s}
+.btn-b:hover{background:rgba(255,255,255,0.1)}
+/* HERO */
+.hero{max-width:1100px;margin:0 auto;padding:72px 24px 60px;display:grid;grid-template-columns:1.15fr 0.85fr;gap:40px;align-items:center}
+.hero-badge{display:inline-flex;align-items:center;gap:8px;background:var(--acc-s);border:1px solid rgba(245,158,11,0.25);border-radius:6px;padding:5px 12px;color:var(--acc);font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;margin-bottom:20px}
+.dot{width:6px;height:6px;background:var(--acc);border-radius:50%;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+h1{font-size:clamp(34px,5vw,56px);font-weight:800;line-height:1.08;letter-spacing:-.02em;margin-bottom:20px}
+h1 em{font-style:normal;color:var(--acc)}
+.hero-sub{color:var(--mut);font-size:16px;line-height:1.7;margin-bottom:32px}
+.cta-row{display:flex;gap:12px;flex-wrap:wrap}
+.cta-tel{display:inline-flex;align-items:center;gap:10px;background:var(--acc);color:#0a0a0a;font-weight:700;font-size:16px;padding:13px 26px;border-radius:8px;text-decoration:none;transition:opacity .15s}
+.cta-tel:hover{opacity:.88}
+.cta-mail{display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,0.06);color:var(--txt);border:1px solid var(--bdr);font-weight:600;font-size:15px;padding:13px 22px;border-radius:8px;text-decoration:none;transition:background .15s}
+.cta-mail:hover{background:rgba(255,255,255,0.1)}
+/* HERO PANEL */
+.hpanel{background:var(--surf);border:1px solid var(--bdr);border-radius:16px;padding:26px}
+.hp-lbl{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--acc);margin-bottom:16px}
+.hp-list{list-style:none;display:grid;gap:10px}
+.hp-list li{display:flex;align-items:flex-start;gap:12px;padding:11px;border-radius:10px;background:rgba(255,255,255,0.03);border:1px solid var(--bdr)}
+.hp-ico{width:36px;height:36px;border-radius:8px;background:var(--acc-s);border:1px solid rgba(245,158,11,0.2);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.hp-list li strong{display:block;font-size:13px;font-weight:600;line-height:1.3}
+.hp-list li span{color:var(--mut);font-size:12px}
+/* SECTIONS */
+.sec{max-width:1100px;margin:0 auto;padding:60px 24px}
+.sec-tag{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--acc);margin-bottom:10px}
+.sec-title{font-size:clamp(24px,4vw,36px);font-weight:700;letter-spacing:-.02em;margin-bottom:10px}
+.sec-sub{color:var(--mut);font-size:15px;margin-bottom:32px}
+hr.div{border:none;border-top:1px solid var(--bdr);margin:0 24px}
+/* CARDS */
+.grid-4{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px}
+.grid-3{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:16px}
+.card{background:var(--surf);border:1px solid var(--bdr);border-radius:14px;padding:24px;transition:border-color .15s,transform .15s;cursor:default}
+.card:hover{border-color:rgba(245,158,11,0.3);transform:translateY(-2px)}
+.card.snow:hover{border-color:rgba(96,165,250,0.3)}
+.card-ico{width:48px;height:48px;border-radius:12px;background:var(--acc-s);border:1px solid rgba(245,158,11,0.2);display:flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:16px}
+.card.snow .card-ico{background:rgba(96,165,250,0.1);border-color:rgba(96,165,250,0.2)}
+.card-t{font-size:15px;font-weight:700;margin-bottom:8px}
+.card-d{color:var(--mut);font-size:13px;line-height:1.6}
+/* WHY */
+.why-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px;margin-top:32px}
+.why{text-align:center;padding:28px 20px;background:var(--surf);border:1px solid var(--bdr);border-radius:14px}
+.why-n{font-size:34px;font-weight:800;color:var(--acc);margin-bottom:8px;display:block}
+.why-l{font-size:14px;font-weight:600;margin-bottom:5px}
+.why-s{font-size:13px;color:var(--mut)}
+/* ZONE */
+.zone{background:var(--surf);border:1px solid var(--bdr);border-radius:16px;padding:36px;text-align:center}
+.zone h3{font-size:22px;font-weight:700;margin-bottom:10px}
+.zone p{color:var(--mut);font-size:15px;max-width:480px;margin:0 auto 20px}
+.ztags{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.ztag{padding:6px 14px;border-radius:6px;background:rgba(255,255,255,0.05);border:1px solid var(--bdr);font-size:13px;font-weight:500;color:var(--mut)}
+/* CONTACT */
+.cband{background:linear-gradient(135deg,rgba(245,158,11,0.07) 0%,rgba(96,165,250,0.04) 100%);border-top:1px solid var(--bdr);margin-top:64px}
+.cinner{max-width:1100px;margin:0 auto;padding:56px 24px;display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:center}
+.cinner h2{font-size:30px;font-weight:800;letter-spacing:-.02em;margin-bottom:10px}
+.cinner p{color:var(--mut);font-size:15px}
+.c-actions{display:flex;flex-direction:column;gap:12px;align-items:flex-start}
+.c-tel{display:flex;align-items:center;gap:10px;color:var(--acc);font-size:30px;font-weight:800;text-decoration:none;letter-spacing:-.01em}
+.c-tel:hover{opacity:.85}
+.c-email{color:var(--mut);font-size:14px;text-decoration:none;border-bottom:1px solid var(--bdr);padding-bottom:1px}
+.c-email:hover{color:var(--txt)}
+.badge-free{display:inline-flex;align-items:center;gap:6px;background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.25);color:var(--grn);font-size:12px;font-weight:600;padding:4px 10px;border-radius:6px;letter-spacing:.06em}
+/* FOOTER */
+footer{max-width:1100px;margin:0 auto;padding:24px 24px;display:flex;justify-content:space-between;align-items:center;color:var(--mut);font-size:13px;flex-wrap:wrap;gap:8px;border-top:1px solid var(--bdr)}
+footer a{color:var(--mut);text-decoration:none}
+footer a:hover{color:var(--txt)}
+@media(max-width:720px){.hero{grid-template-columns:1fr}.cinner{grid-template-columns:1fr}.hdr-tel,.btn-b{display:none}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hdr">
+    <a class="logo" href="/">S.<em>MAJOR</em></a>
+    <div class="hdr-r">
+      <div class="hdr-tel">📞 <strong>(514) 802-1771</strong></div>
+      <a href="mailto:excavaneige@gmail.com" class="btn-b">Courriel</a>
+      <a href="tel:5148021771" class="btn-a">Devis gratuit</a>
+    </div>
+  </div>
+</header>
+
+<section>
+  <div class="hero">
+    <div>
+      <div class="hero-badge"><span class="dot"></span>Service 24/7 — Devis gratuit</div>
+      <h1>Excavation &amp;<br><em>Déneigement</em><br>Professionnel</h1>
+      <p class="hero-sub">De père en fils, on travaille chaque chantier comme si c'était le nôtre. Mini excavation, drain français, nivellement, déneigement résidentiel et commercial — rigueur et rapidité garanties.</p>
+      <div class="cta-row">
+        <a href="tel:5148021771" class="cta-tel">📞 (514) 802-1771</a>
+        <a href="mailto:excavaneige@gmail.com" class="cta-mail">✉ Demander un devis</a>
+      </div>
+    </div>
+    <div class="hpanel">
+      <div class="hp-lbl">Nos services</div>
+      <ul class="hp-list">
+        <li><span class="hp-ico">⛏️</span><div><strong>Mini Excavation</strong><span>Terrassement général, fosses, accès difficiles</span></div></li>
+        <li><span class="hp-ico">💧</span><div><strong>Drain Français</strong><span>Installation et remplacement complet</span></div></li>
+        <li><span class="hp-ico">📐</span><div><strong>Nivellement</strong><span>Mise à niveau terrain résidentiel</span></div></li>
+        <li><span class="hp-ico">🏗️</span><div><strong>Réparation Béton</strong><span>Fissures fondation, dalle, entrée</span></div></li>
+        <li><span class="hp-ico">❄️</span><div><strong>Déneigement</strong><span>Résidentiel, commercial, piétons</span></div></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<hr class="div">
+
+<section class="sec">
+  <div class="sec-tag">Excavation</div>
+  <h2 class="sec-title">Services d'excavation</h2>
+  <p class="sec-sub">Mini excavation générale et travaux connexes — résidentiel et commercial.</p>
+  <div class="grid-4">
+    <div class="card">
+      <div class="card-ico">⛏️</div>
+      <div class="card-t">Mini Excavation Générale</div>
+      <p class="card-d">Terrassement, creusage de fosses, accès difficiles. Machinerie compacte adaptée aux espaces résidentiels.</p>
+    </div>
+    <div class="card">
+      <div class="card-ico">💧</div>
+      <div class="card-t">Drain Français</div>
+      <p class="card-d">Installation, remplacement et vérification de drain de fondation. Protection contre les infiltrations d'eau.</p>
+    </div>
+    <div class="card">
+      <div class="card-ico">📐</div>
+      <div class="card-t">Nivellement de Terrain</div>
+      <p class="card-d">Mise à niveau, remodelage de terrain, correction de pente pour drainage optimal autour de la maison.</p>
+    </div>
+    <div class="card">
+      <div class="card-ico">🏗️</div>
+      <div class="card-t">Réparation Fissure Béton</div>
+      <p class="card-d">Réparation de fissures sur fondation, dalle de béton, mur et entrée. Travail soigné et durable.</p>
+    </div>
+  </div>
+</section>
+
+<hr class="div">
+
+<section class="sec">
+  <div class="sec-tag">Déneigement</div>
+  <h2 class="sec-title">Services de déneigement</h2>
+  <p class="sec-sub">Résidentiel, commercial et accès piétons — on garde vos espaces dégagés tout l'hiver.</p>
+  <div class="grid-3">
+    <div class="card snow">
+      <div class="card-ico">🏠</div>
+      <div class="card-t">Résidentiel</div>
+      <p class="card-d">Déneigement d'entrée de garage, cour et stationnement privé. Service fiable après chaque bordée.</p>
+    </div>
+    <div class="card snow">
+      <div class="card-ico">🏢</div>
+      <div class="card-t">Commercial</div>
+      <p class="card-d">Stationnements, accès de livraison et bâtiments commerciaux. Contrats saisonniers disponibles.</p>
+    </div>
+    <div class="card snow">
+      <div class="card-ico">🚶</div>
+      <div class="card-t">Entrées Piéton</div>
+      <p class="card-d">Trottoirs, escaliers et passages piétons. Entretien conforme aux normes municipales.</p>
+    </div>
+  </div>
+</section>
+
+<hr class="div">
+
+<section class="sec">
+  <div class="sec-tag">Pourquoi Smajor</div>
+  <h2 class="sec-title">L'expertise terrain, sans compromis</h2>
+  <p class="sec-sub">Une entreprise de confiance qui travaille chaque projet comme si c'était le sien.</p>
+  <div class="why-grid">
+    <div class="why"><span class="why-n">24/7</span><div class="why-l">Disponibilité</div><div class="why-s">On répond à toute heure, urgences comprises</div></div>
+    <div class="why"><span class="why-n">100%</span><div class="why-l">Devis gratuit</div><div class="why-s">Estimation claire, sans obligation, en 24h</div></div>
+    <div class="why"><span class="why-n">👨‍👦</span><div class="why-l">Père &amp; fils</div><div class="why-s">Expertise transmise, fierté du travail bien fait</div></div>
+    <div class="why"><span class="why-n">⚡</span><div class="why-l">Réactivité</div><div class="why-s">Mobilisation rapide, chantier propre et respectueux</div></div>
+  </div>
+</section>
+
+<hr class="div">
+
+<section class="sec">
+  <div class="zone">
+    <div style="font-size:36px;margin-bottom:14px">📍</div>
+    <h3>Zone de service — Région de Montréal</h3>
+    <p>On dessert Montréal et les environs pour tous nos services d'excavation et de déneigement.</p>
+    <div class="ztags">
+      <span class="ztag">Montréal</span>
+      <span class="ztag">Rive-Sud</span>
+      <span class="ztag">Laval</span>
+      <span class="ztag">Longueuil</span>
+      <span class="ztag">Brossard</span>
+      <span class="ztag">Saint-Lambert</span>
+    </div>
+  </div>
+</section>
+
+<div class="cband">
+  <div class="cinner">
+    <div>
+      <h2>Prêt à démarrer?</h2>
+      <p>Appelez-nous ou envoyez un courriel — on répond vite et le devis est toujours gratuit.</p>
+    </div>
+    <div class="c-actions">
+      <span class="badge-free">✓ Devis gratuit — Sans obligation</span>
+      <a href="tel:5148021771" class="c-tel">📞 (514) 802-1771</a>
+      <a href="mailto:excavaneige@gmail.com" class="c-email">excavaneige@gmail.com</a>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <span>© 2026 S. Major Excavation &amp; Déneigement</span>
+  <span><a href="https://app.smajor.org">Portail client</a> · <a href="https://s25.smajor.org">S25 System</a></span>
+</footer>
+
+</body></html>`);
 }
 
 function renderApp(env, pathname, hostname, snapshot) {
