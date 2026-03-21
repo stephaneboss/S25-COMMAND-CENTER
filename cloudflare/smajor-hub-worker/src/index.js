@@ -10727,8 +10727,75 @@ export default {
       'Access-Control-Max-Age': '86400',
     };
 
-    // ── DEVIS API ──────────────────────────────────────────────────────────────
+    // ── AUTH app.smajor.org ────────────────────────────────────────────────────
     const S25_SECRET = 'REDACTED_SECRET';
+    const APP_SESSION = 'smj_9f3k2p8x_authorized'; // token de session (jamais le mdp)
+    const COOKIE_NAME = 'smajor_sess';
+    const APP_PROTECTED_ROUTES = hostname === 'app.smajor.org' && !['/login','/api/'].some(p => url.pathname.startsWith(p));
+
+    function isAuthed(req) {
+      const cookie = req.headers.get('Cookie') || '';
+      return cookie.split(';').map(c => c.trim()).some(c => c === `${COOKIE_NAME}=${APP_SESSION}`);
+    }
+
+    // Login page GET
+    if (hostname === 'app.smajor.org' && url.pathname === '/login' && request.method === 'GET') {
+      const erreur = url.searchParams.get('err') ? '<div style="background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.3);color:#f87171;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:16px">Mot de passe incorrect — réessayez.</div>' : '';
+      return responseHtml(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>S. Major — Connexion</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap">
+<style>*{box-sizing:border-box;margin:0;padding:0}body{background:#0a0f1a;color:#f1f5ff;font-family:"Inter",sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center}
+.box{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);border-radius:20px;padding:40px;width:100%;max-width:380px}
+.logo{font-weight:800;font-size:22px;letter-spacing:.06em;margin-bottom:8px}.logo em{font-style:normal;color:#f59e0b}
+.sub{color:#8494b0;font-size:13px;margin-bottom:28px}
+label{display:block;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#8494b0;margin-bottom:8px}
+input{width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:12px 14px;color:#f1f5ff;font-size:15px;font-family:inherit;outline:none;margin-bottom:20px}
+input:focus{border-color:#f59e0b}
+button{width:100%;background:#f59e0b;color:#0a0f1a;border:none;border-radius:10px;padding:14px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit}
+button:hover{background:#fbbf24}
+</style></head><body>
+<div class="box">
+  <div class="logo">S.<em>MAJOR</em></div>
+  <div class="sub">Portail administration — accès privé</div>
+  ${erreur}
+  <form method="POST" action="/login">
+    <label>Mot de passe</label>
+    <input type="password" name="pwd" autofocus autocomplete="current-password" placeholder="••••••••••">
+    <button type="submit">Connexion →</button>
+  </form>
+</div>
+</body></html>`);
+    }
+
+    // Login POST
+    if (hostname === 'app.smajor.org' && url.pathname === '/login' && request.method === 'POST') {
+      const form = await request.formData();
+      const pwd = form.get('pwd') || '';
+      if (pwd === 'Zz2244668800') {
+        return new Response(null, {
+          status: 302,
+          headers: {
+            'Location': '/',
+            'Set-Cookie': `${COOKIE_NAME}=${APP_SESSION}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${30*24*3600}`
+          }
+        });
+      }
+      return new Response(null, { status: 302, headers: { 'Location': '/login?err=1' } });
+    }
+
+    // Logout
+    if (hostname === 'app.smajor.org' && url.pathname === '/logout') {
+      return new Response(null, {
+        status: 302,
+        headers: { 'Location': '/login', 'Set-Cookie': `${COOKIE_NAME}=; Path=/; Max-Age=0` }
+      });
+    }
+
+    // Redirect to login si pas authentifié
+    if (APP_PROTECTED_ROUTES && !isAuthed(request)) {
+      return new Response(null, { status: 302, headers: { 'Location': '/login' } });
+    }
+
+    // ── DEVIS API ──────────────────────────────────────────────────────────────
 
     // GET /devis — formulaire public (smajor.org/devis)
     if (hostname === 'smajor.org' && url.pathname === '/devis' && request.method === 'GET') {
@@ -14451,6 +14518,7 @@ main{max-width:1200px;margin:0 auto;padding:32px 24px}
     <a href="https://app.smajor.org/jobs">Jobs ${jobsActifs>0?`<span style="background:#60a5fa;color:#0a0f1a;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px">${jobsActifs}</span>`:''}  </a>
     <a href="https://app.smajor.org/factures">Factures ${enAttente>0?`<span style="background:#a78bfa;color:#0a0f1a;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px">$${Math.round(enAttente/1000)}k</span>`:''}  </a>
     <a href="https://smajor.org" target="_blank">↗ Site public</a>
+    <a href="/logout" style="color:#f87171;border-color:rgba(248,113,113,.2)">Déconnexion</a>
   </nav>
 </div></header>
 <main>
