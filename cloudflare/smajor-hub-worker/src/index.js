@@ -10921,17 +10921,18 @@ document.getElementById('devisForm').addEventListener('submit',async(e)=>{
           headers: { 'Content-Type': 'application/json', 'X-S25-Secret': S25_SECRET },
           body: JSON.stringify({ agent: 'ARKON', updates: { smajor_devis: updatedList } })
         });
-        // Notification email via MailChannels (gratuit sur Cloudflare Workers)
+        // Notification push via ntfy.sh (gratuit, aucun compte requis)
         try {
-          await fetch('https://api.mailchannels.net/tx/v1/send', {
+          await fetch('https://ntfy.sh/smajor-devis-alertes-2026', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              personalizations: [{ to: [{ email: 'excavaneige@gmail.com', name: 'Stef S. Major' }] }],
-              from: { email: 'noreply@smajor.org', name: 'S. Major — Nouveau Devis' },
-              subject: `🔔 Nouveau devis: ${newDevis.nom} — ${newDevis.service}`,
-              content: [{ type: 'text/plain', value: `Nouveau devis reçu!\n\nClient: ${newDevis.nom}\nTéléphone: ${newDevis.telephone}\nAdresse: ${newDevis.adresse}\nService: ${newDevis.service}\nDescription: ${newDevis.description}\n\nVoir le dashboard: https://app.smajor.org/devis\n\n— S. Major Système` }]
-            })
+            headers: {
+              'Content-Type': 'text/plain',
+              'Title': `🔔 Nouveau devis — ${newDevis.service}`,
+              'Priority': 'high',
+              'Tags': 'construction,bell',
+              'Click': 'https://app.smajor.org/devis'
+            },
+            body: `${newDevis.nom}\n📞 ${newDevis.telephone}\n📍 ${newDevis.adresse||'—'}\n🔧 ${newDevis.service}${newDevis.description?'\n💬 '+newDevis.description:''}`
           });
         } catch (_) { /* notification non critique */ }
         return jsonResponse({ ok: true, id: newDevis.id, message: 'Devis reçu — on vous rappelle sous 24h' });
@@ -11133,6 +11134,7 @@ async function accepterDevis(id, nom) {
               ${j.status==='accepté'?`<button onclick="majJob('${j.id}','en_cours')" style="background:#f59e0b;color:#0a0f1a;border:none;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">▶ Démarrer</button>`:''}
               ${j.status==='en_cours'?`<button onclick="majJob('${j.id}','terminé')" style="background:#4ade80;color:#0a0f1a;border:none;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">✓ Terminé</button>`:''}
               ${j.status==='terminé'?`<button onclick="facturer('${j.id}')" style="background:#a78bfa;color:#0a0f1a;border:none;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">$ Facturer</button>`:''}
+              <a href="/contrat/${j.id}" target="_blank" style="background:rgba(96,165,250,.12);color:#60a5fa;border:1px solid rgba(96,165,250,.25);padding:5px 10px;border-radius:6px;font-size:11px;font-weight:700;text-decoration:none">📄 Contrat</a>
               ${j.status!=='annulé'&&j.status!=='facturé'?`<button onclick="majJob('${j.id}','annulé')" style="background:rgba(248,113,113,.15);color:#f87171;border:1px solid rgba(248,113,113,.3);padding:5px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">✕</button>`:''}
             </td>
           </tr>`).join('');
@@ -11273,6 +11275,121 @@ async function facturer(id) {
       } catch (err) {
         return jsonResponse({ ok: false, error: 'Erreur serveur' }, 500);
       }
+    }
+
+    // app.smajor.org/contrat/:id — contrat imprimable
+    if (hostname === 'app.smajor.org' && url.pathname.startsWith('/contrat/')) {
+      const jobId = url.pathname.replace('/contrat/', '').trim();
+      let job = null;
+      try {
+        const st = await fetch(`${S25_COCKPIT}/api/memory/state`, { headers: { 'X-S25-Secret': S25_SECRET } });
+        const sd = await st.json();
+        const jobs = sd?.state?.agents?.ARKON?.smajor_jobs || [];
+        job = jobs.find(j => j.id === jobId) || null;
+      } catch(_) {}
+      if (!job) return new Response('Job introuvable', { status: 404 });
+      const dateAuj = new Date().toLocaleDateString('fr-CA', { timeZone: 'America/Toronto', year: 'numeric', month: 'long', day: 'numeric' });
+      const noContrat = `CTR-${jobId.replace('JOB-','')}`;
+      return new Response(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Contrat — ${job.nom}</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#fff;color:#111;font-family:"Inter",sans-serif;padding:40px;max-width:760px;margin:0 auto;font-size:14px;line-height:1.6}
+@media print{body{padding:20px}.no-print{display:none!important}}
+.print-btn{position:fixed;bottom:24px;right:24px;background:#0a0f1a;color:#fff;border:none;border-radius:10px;padding:12px 20px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit}
+.header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:40px;padding-bottom:20px;border-bottom:2px solid #111}
+.logo{font-size:22px;font-weight:800;letter-spacing:.04em}.logo em{font-style:normal;color:#d97706}
+.logo-sub{font-size:12px;color:#666;margin-top:4px}
+.coords{text-align:right;font-size:13px;color:#444;line-height:1.8}
+.doc-title{background:#0a0f1a;color:#fff;border-radius:8px;padding:16px 20px;margin-bottom:28px;display:flex;justify-content:space-between;align-items:center}
+.doc-title h1{font-size:18px;font-weight:700;margin:0}
+.doc-title .no{font-size:13px;color:#8494b0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px}
+.bloc{background:#f8f9fa;border-radius:8px;padding:16px}
+.bloc-title{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#888;margin-bottom:12px}
+.row-info{display:flex;gap:8px;margin-bottom:6px;font-size:13px}
+.row-info strong{min-width:90px;color:#555;font-weight:600}
+.terms{margin:24px 0}
+.terms h3{font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#555;margin-bottom:12px}
+.terms ol{padding-left:20px}
+.terms li{margin-bottom:8px;font-size:13px;color:#333}
+.sign-grid{display:grid;grid-template-columns:1fr 1fr;gap:32px;margin-top:40px;padding-top:24px;border-top:1px solid #ddd}
+.sign-bloc{text-align:center}
+.sign-line{border-bottom:1.5px solid #333;margin:40px 0 8px}
+.sign-label{font-size:12px;color:#666;font-weight:600}
+.footer{margin-top:32px;padding-top:16px;border-top:1px solid #eee;font-size:11px;color:#aaa;text-align:center}
+</style></head><body>
+<button class="print-btn no-print" onclick="window.print()">🖨 Imprimer / PDF</button>
+<div class="header">
+  <div>
+    <div class="logo">S.<em>MAJOR</em></div>
+    <div class="logo-sub">Excavation · Déneigement · Multi-Service</div>
+  </div>
+  <div class="coords">
+    Stéphane Major<br>
+    Montréal, Québec<br>
+    (514) 802-1771<br>
+    excavaneige@gmail.com<br>
+    smajor.org
+  </div>
+</div>
+
+<div class="doc-title">
+  <h1>Contrat de service</h1>
+  <div class="no">${noContrat} · ${dateAuj}</div>
+</div>
+
+<div class="grid2">
+  <div class="bloc">
+    <div class="bloc-title">Prestataire</div>
+    <div class="row-info"><strong>Entreprise:</strong> Mini Excavation S. Major</div>
+    <div class="row-info"><strong>Propriétaire:</strong> Stéphane Major</div>
+    <div class="row-info"><strong>Téléphone:</strong> (514) 802-1771</div>
+    <div class="row-info"><strong>Email:</strong> excavaneige@gmail.com</div>
+  </div>
+  <div class="bloc">
+    <div class="bloc-title">Client</div>
+    <div class="row-info"><strong>Nom:</strong> ${job.nom}</div>
+    <div class="row-info"><strong>Téléphone:</strong> ${job.telephone}</div>
+    <div class="row-info"><strong>Adresse:</strong> ${job.adresse||'—'}</div>
+  </div>
+</div>
+
+<div class="bloc" style="margin-bottom:20px">
+  <div class="bloc-title">Description des travaux</div>
+  <div class="row-info"><strong>Service:</strong> ${job.service}</div>
+  ${job.description?`<div class="row-info"><strong>Détails:</strong> ${job.description}</div>`:''}
+  ${job.montant?`<div class="row-info"><strong>Montant:</strong> <span style="font-weight:700;font-size:16px;color:#111">$${Number(job.montant).toLocaleString('fr-CA')}</span></div>`:'<div class="row-info"><strong>Montant:</strong> À déterminer lors de l\'inspection</div>'}
+</div>
+
+<div class="terms">
+  <h3>Conditions générales</h3>
+  <ol>
+    <li><strong>Exécution des travaux:</strong> Les travaux seront réalisés selon les règles de l'art et les normes en vigueur au Québec.</li>
+    <li><strong>Garantie à vie — imperméabilisation fondation:</strong> Les travaux d'imperméabilisation de fondation sont garantis à vie contre les infiltrations d'eau, sous conditions d'entretien normal.</li>
+    <li><strong>Garantie main-d'œuvre:</strong> Tous les autres travaux bénéficient d'une garantie de 2 ans sur la main-d'œuvre.</li>
+    <li><strong>Paiement:</strong> Le règlement s'effectue par virement Interac à l'adresse excavaneige@gmail.com, à la fin des travaux ou selon entente écrite.</li>
+    <li><strong>Modifications:</strong> Tout changement à la portée des travaux doit être convenu par écrit entre les deux parties.</li>
+    <li><strong>Accès au chantier:</strong> Le client s'engage à fournir un accès sécuritaire au lieu des travaux.</li>
+    <li><strong>Litige:</strong> En cas de désaccord, les parties s'engagent à tenter une résolution à l'amiable avant tout recours légal.</li>
+  </ol>
+</div>
+
+<div class="sign-grid">
+  <div class="sign-bloc">
+    <div class="sign-line"></div>
+    <div class="sign-label">Stéphane Major — Prestataire</div>
+    <div style="font-size:12px;color:#aaa;margin-top:4px">Date: ____________________</div>
+  </div>
+  <div class="sign-bloc">
+    <div class="sign-line"></div>
+    <div class="sign-label">${job.nom} — Client</div>
+    <div style="font-size:12px;color:#aaa;margin-top:4px">Date: ____________________</div>
+  </div>
+</div>
+
+<div class="footer">Mini Excavation S. Major · smajor.org · (514) 802-1771 · excavaneige@gmail.com — Document généré le ${dateAuj}</div>
+</body></html>`, { headers: { 'Content-Type': 'text/html;charset=utf-8' } });
     }
 
     // app.smajor.org/factures — dashboard factures
