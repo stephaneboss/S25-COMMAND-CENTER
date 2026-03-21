@@ -11778,7 +11778,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
 
     const isCockpitProxy = (
       (hostname === 's25.smajor.org' && url.pathname.startsWith('/api/')) ||
-      (hostname === 'api.smajor.org')
+      (hostname === 'api.smajor.org' && !url.pathname.startsWith('/api/trade/') && !url.pathname.startsWith('/api/devis') && !url.pathname.startsWith('/api/jobs') && !url.pathname.startsWith('/api/factures'))
     );
 
     if (isCockpitProxy) {
