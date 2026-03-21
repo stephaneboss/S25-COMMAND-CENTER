@@ -10432,6 +10432,40 @@ footer a:hover{color:var(--txt)}
     <div class="why"><span class="why-n">100%</span><div class="why-l">Devis gratuit</div><div class="why-s">Estimation claire, sans obligation, en 24h</div></div>
     <div class="why"><span class="why-n">👨‍👦</span><div class="why-l">Père &amp; fils</div><div class="why-s">Expertise transmise, fierté du travail bien fait</div></div>
     <div class="why"><span class="why-n">⚡</span><div class="why-l">Réactivité</div><div class="why-s">Mobilisation rapide, chantier propre et respectueux</div></div>
+    <div class="why"><span class="why-n">∞</span><div class="why-l">Garantie à vie</div><div class="why-s">Imperméabilisation fondation garantie à vie — artisan fier de son ouvrage</div></div>
+  </div>
+</section>
+
+<hr class="div">
+
+<section class="sec">
+  <div class="sec-tag">Ce que nos clients disent</div>
+  <h2 class="sec-title">Ils ont fait confiance à S. Major</h2>
+  <p class="sec-sub">Des vrais clients, des vrais projets — avis Google vérifiés.</p>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-top:8px">
+    <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:12px">
+      <div style="color:#f59e0b;font-size:18px;letter-spacing:2px">★★★★★</div>
+      <p style="font-size:14px;line-height:1.7;color:#cbd5e1;font-style:italic">"Je suis ingénieur et un client exigeant. Mini excavation s.major a réalisé des travaux d'installation de drain français, d'étanchéisation et de pose de membrane sur la fondation de ma maison. L'entreprise offre un service personnalisé et de qualité."</p>
+      <div style="font-size:13px;color:#60a5fa;font-weight:600">— Ingénieur en construction · Google Maps ✓</div>
+    </div>
+    <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:12px">
+      <div style="color:#f59e0b;font-size:18px;letter-spacing:2px">★★★★★</div>
+      <p style="font-size:14px;line-height:1.7;color:#cbd5e1;font-style:italic">"Super gars pour vos excavations!!! Ponctuel, super travaillant et compétant!!! Je vous le recommande pour un travail bien fait. Merci Stéphane à toi et toute ton équipe 💪"</p>
+      <div style="font-size:13px;color:#60a5fa;font-weight:600">— John S. · Local Guide Google ✓</div>
+    </div>
+    <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:12px">
+      <div style="color:#f59e0b;font-size:18px;letter-spacing:2px">★★★★★</div>
+      <p style="font-size:14px;line-height:1.7;color:#cbd5e1;font-style:italic">"Excellent service, bon conseil, je recommande vivement."</p>
+      <div style="font-size:13px;color:#60a5fa;font-weight:600">— Mathieu D. · Google Maps ✓</div>
+      <div style="margin-top:auto;background:rgba(74,222,128,.08);border:1px solid rgba(74,222,128,.2);border-radius:10px;padding:14px;text-align:center">
+        <div style="font-size:22px;font-weight:800;color:#4ade80">Garantie à vie</div>
+        <div style="font-size:12px;color:#86efac;margin-top:4px">Imperméabilisation fondation</div>
+        <div style="font-size:11px;color:#6ee7b7;margin-top:6px">Travail bien fait, une seule fois.</div>
+      </div>
+    </div>
+  </div>
+  <div style="text-align:center;margin-top:20px">
+    <a href="https://maps.google.com/?q=mini+excavation+s.major" target="_blank" style="display:inline-flex;align-items:center;gap:8px;color:#f59e0b;font-size:13px;font-weight:600;text-decoration:none;border:1px solid rgba(245,158,11,.25);border-radius:8px;padding:8px 16px;background:rgba(245,158,11,.06)">⭐ 4,3/5 · Voir tous les avis Google →</a>
   </div>
 </section>
 
