@@ -11697,9 +11697,86 @@ body{background:#fff;color:#111;font-family:"Inter",sans-serif;padding:0;margin:
           signal.execution = execution;
         }
 
-        return jsonResponse({ ok: true, signal_id: signal.id, received: signal.received_at, ticker: signal.ticker, action: signal.action, dry_run: TRADE_DRY_RUN, execution });
+        // ── TRACKER P&L automatique ──────────────────────────────────────────
+        const trades = stateData?.state?.agents?.ARKON?.s25_trades || [];
+        let tradeUpdate = null;
+
+        if (signal.action === 'buy') {
+          // Nouvelle position ouverte
+          tradeUpdate = {
+            id: `TRD-${Date.now()}`,
+            signal_id: signal.id,
+            ticker: signal.ticker,
+            strategy: signal.strategy,
+            entry_price: parseFloat(signal.price) || 0,
+            entry_time: signal.received_at,
+            status: 'ouvert',
+            pnl_usdt: null,
+            pnl_pct: null,
+          };
+          const updatedTrades = [tradeUpdate, ...trades].slice(0, 200);
+          await fetch(`${S25_COCKPIT}/api/memory/state`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-S25-Secret': S25_SECRET },
+            body: JSON.stringify({ agent: 'ARKON', updates: { s25_trades: updatedTrades } })
+          });
+        } else if (['sell','close'].includes(signal.action)) {
+          // Fermer la dernière position ouverte sur ce ticker
+          const openIdx = trades.findIndex(t => t.ticker === signal.ticker && t.status === 'ouvert');
+          if (openIdx !== -1) {
+            const exitPrice = parseFloat(signal.price) || 0;
+            const entryPrice = trades[openIdx].entry_price || 0;
+            const pnl_pct = entryPrice > 0 ? ((exitPrice - entryPrice) / entryPrice) * 100 : 0;
+            const pnl_usdt = entryPrice > 0 ? (exitPrice - entryPrice) : 0;
+            trades[openIdx] = {
+              ...trades[openIdx],
+              exit_price: exitPrice,
+              exit_time: signal.received_at,
+              pnl_usdt: Math.round(pnl_usdt * 100) / 100,
+              pnl_pct: Math.round(pnl_pct * 100) / 100,
+              status: pnl_usdt >= 0 ? 'gagné' : 'perdu',
+              duration_min: trades[openIdx].entry_time
+                ? Math.round((new Date(signal.received_at) - new Date(trades[openIdx].entry_time)) / 60000)
+                : null,
+            };
+            await fetch(`${S25_COCKPIT}/api/memory/state`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'X-S25-Secret': S25_SECRET },
+              body: JSON.stringify({ agent: 'ARKON', updates: { s25_trades: trades } })
+            });
+            tradeUpdate = trades[openIdx];
+          }
+        }
+
+        return jsonResponse({ ok: true, signal_id: signal.id, received: signal.received_at, ticker: signal.ticker, action: signal.action, dry_run: TRADE_DRY_RUN, trade: tradeUpdate, execution });
       } catch (err) {
         return jsonResponse({ ok: false, error: 'Erreur serveur' }, 500);
+      }
+    }
+
+    // GET /api/trade/performance — stats ARKON auto-ajustement
+    if (url.pathname === '/api/trade/performance' && request.method === 'GET') {
+      try {
+        const stateResp = await fetch(`${S25_COCKPIT}/api/memory/state`, { headers: { 'X-S25-Secret': S25_SECRET } });
+        const stateData = await stateResp.json();
+        const trades = (stateData?.state?.agents?.ARKON?.s25_trades || []).filter(t => t.status !== 'ouvert');
+        const total = trades.length;
+        const wins = trades.filter(t => t.status === 'gagné').length;
+        const losses = trades.filter(t => t.status === 'perdu').length;
+        const winRate = total > 0 ? Math.round((wins / total) * 100) : 0;
+        const totalPnl = trades.reduce((sum, t) => sum + (t.pnl_usdt || 0), 0);
+        const avgWin = wins > 0 ? trades.filter(t => t.status==='gagné').reduce((s,t) => s+(t.pnl_pct||0),0)/wins : 0;
+        const avgLoss = losses > 0 ? trades.filter(t => t.status==='perdu').reduce((s,t) => s+(t.pnl_pct||0),0)/losses : 0;
+        // Recommandation ARKON auto-ajustement
+        let arkon_advice = null;
+        if (total >= 10) {
+          if (winRate < 40) arkon_advice = { action: 'resserrer', note: 'Win rate < 40% — resserrer RSI: long < 35, short > 65' };
+          else if (winRate > 65) arkon_advice = { action: 'relâcher', note: 'Win rate > 65% — élargir RSI: long < 50, short > 50 pour plus de signaux' };
+          else arkon_advice = { action: 'maintenir', note: `Win rate ${winRate}% — stratégie stable, maintenir paramètres actuels` };
+        }
+        return jsonResponse({ ok: true, stats: { total, wins, losses, winRate, totalPnl: Math.round(totalPnl*100)/100, avgWin: Math.round(avgWin*100)/100, avgLoss: Math.round(avgLoss*100)/100 }, arkon_advice, trades: trades.slice(0,50) });
+      } catch (_) {
+        return jsonResponse({ ok: false, stats: {} });
       }
     }
 
@@ -11717,11 +11794,24 @@ body{background:#fff;color:#111;font-family:"Inter",sans-serif;padding:0;margin:
 
     // app.smajor.org/trade — dashboard signaux TradingView
     if (hostname === 'app.smajor.org' && url.pathname === '/trade') {
-      let signals = [];
+      let signals = [], trades = [], perf = { total:0, wins:0, losses:0, winRate:0, totalPnl:0 }, arkonAdvice = null, openPosition = null;
       try {
         const stateResp = await fetch(`${S25_COCKPIT}/api/memory/state`, { headers: { 'X-S25-Secret': S25_SECRET } });
         const stateData = await stateResp.json();
         signals = stateData?.state?.agents?.ARKON?.s25_signals || [];
+        trades = stateData?.state?.agents?.ARKON?.s25_trades || [];
+        const closed = trades.filter(t => t.status !== 'ouvert');
+        openPosition = trades.find(t => t.status === 'ouvert') || null;
+        perf.total = closed.length;
+        perf.wins = closed.filter(t => t.status==='gagné').length;
+        perf.losses = closed.filter(t => t.status==='perdu').length;
+        perf.winRate = perf.total > 0 ? Math.round((perf.wins/perf.total)*100) : 0;
+        perf.totalPnl = Math.round(closed.reduce((s,t)=>s+(t.pnl_usdt||0),0)*100)/100;
+        if (perf.total >= 10) {
+          if (perf.winRate < 40) arkonAdvice = { color:'#f87171', icon:'⚠️', text:`Win rate ${perf.winRate}% — ARKON recommande: resserrer RSI long < 35 / short > 65` };
+          else if (perf.winRate > 65) arkonAdvice = { color:'#4ade80', icon:'🚀', text:`Win rate ${perf.winRate}% — ARKON recommande: élargir RSI pour plus de signaux` };
+          else arkonAdvice = { color:'#60a5fa', icon:'✅', text:`Win rate ${perf.winRate}% — Stratégie stable, maintenir paramètres S25v1` };
+        }
       } catch (_) {}
       const actionColor = { buy:'#4ade80', sell:'#f87171', close:'#f59e0b' };
       const rowsHtml = signals.length === 0
@@ -11799,13 +11889,37 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <div class="payload-example">{"ticker":"{{ticker}}","action":"{{strategy.order.action}}","price":"{{close}}","strategy":"{{strategy.order.comment}}","timeframe":"{{interval}}","volume":"{{volume}}","secret":"s25sandbox2026"}</div>
   </div>
 
+  <!-- KPI Performance -->
   <div class="stats">
-    <div class="stat"><div class="stat-n" style="color:#4ade80">${signals.filter(s=>s.action==='buy').length}</div><div class="stat-l">BUY signals</div></div>
-    <div class="stat"><div class="stat-n" style="color:#f87171">${signals.filter(s=>s.action==='sell').length}</div><div class="stat-l">SELL signals</div></div>
-    <div class="stat"><div class="stat-n" style="color:#f59e0b">${signals.filter(s=>s.action==='close').length}</div><div class="stat-l">CLOSE signals</div></div>
-    <div class="stat"><div class="stat-n" style="color:#a78bfa">${signals.length}</div><div class="stat-l">Total signaux</div></div>
+    <div class="stat"><div class="stat-n" style="color:${perf.totalPnl>=0?'#4ade80':'#f87171'}">${perf.totalPnl>=0?'+':''}${perf.totalPnl} USDT</div><div class="stat-l">P&L Total</div></div>
+    <div class="stat"><div class="stat-n" style="color:${perf.winRate>=50?'#4ade80':'#f87171'}">${perf.winRate}%</div><div class="stat-l">Win Rate</div></div>
+    <div class="stat"><div class="stat-n" style="color:#4ade80">${perf.wins}</div><div class="stat-l">✅ Gagnés</div></div>
+    <div class="stat"><div class="stat-n" style="color:#f87171">${perf.losses}</div><div class="stat-l">❌ Perdus</div></div>
+    <div class="stat"><div class="stat-n" style="color:#a78bfa">${signals.length}</div><div class="stat-l">Signaux reçus</div></div>
+    <div class="stat"><div class="stat-n" style="color:#60a5fa">${openPosition?'1':'0'}</div><div class="stat-l">Position ouverte</div></div>
   </div>
 
+  <!-- ARKON Auto-Ajustement -->
+  ${arkonAdvice ? `<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:16px 20px;margin-bottom:20px;display:flex;align-items:center;gap:12px">
+    <span style="font-size:20px">${arkonAdvice.icon}</span>
+    <div><div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#8494b0;margin-bottom:3px">ARKON — Recommandation</div>
+    <div style="color:${arkonAdvice.color};font-weight:600;font-size:14px">${arkonAdvice.text}</div></div>
+  </div>` : perf.total < 10 ? `<div style="background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:14px 20px;margin-bottom:20px;color:#8494b0;font-size:13px">
+    🧠 <strong style="color:#f1f5ff">ARKON</strong> — En attente de ${10-perf.total} trade(s) supplémentaire(s) pour analyser la performance et recommander des ajustements.
+  </div>` : ''}
+
+  <!-- Position ouverte -->
+  ${openPosition ? `<div style="background:rgba(74,222,128,.06);border:1px solid rgba(74,222,128,.2);border-radius:12px;padding:16px 20px;margin-bottom:20px">
+    <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#4ade80;margin-bottom:8px">⚡ Position Ouverte</div>
+    <div style="display:flex;gap:24px;flex-wrap:wrap">
+      <span style="color:#f1f5ff"><strong>${openPosition.ticker}</strong></span>
+      <span style="color:#8494b0">Entrée: <strong style="color:#4ade80">$${Number(openPosition.entry_price).toLocaleString('en-US',{minimumFractionDigits:2})} USDT</strong></span>
+      <span style="color:#8494b0">Depuis: ${new Date(openPosition.entry_time).toLocaleString('fr-CA',{timeZone:'America/Toronto',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}</span>
+      <span style="color:#8494b0">Stratégie: ${openPosition.strategy}</span>
+    </div>
+  </div>` : ''}
+
+  <!-- Signaux -->
   <div class="table-wrap">
     <table>
       <thead><tr><th>Action</th><th>Ticker</th><th>Prix</th><th>Stratégie</th><th>TF</th><th>Statut</th><th>Reçu le</th></tr></thead>
