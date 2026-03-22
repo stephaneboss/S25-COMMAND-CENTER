@@ -1,0 +1,36 @@
+---
+version: "2.0"
+
+services:
+  browser:
+    image: ghcr.io/stephaneboss/s25-browser-service:latest
+    expose:
+      - port: 7070
+        as: 80
+        to:
+          - global: true
+    env:
+      - S25_SECRET=s25sandbox2026
+
+profiles:
+  compute:
+    browser:
+      resources:
+        cpu:
+          units: 1.0
+        memory:
+          size: 1Gi
+        storage:
+          size: 2Gi
+  placement:
+    akash:
+      pricing:
+        browser:
+          denom: uakt
+          amount: 1000
+
+deployment:
+  browser:
+    akash:
+      profile: browser
+      count: 1
