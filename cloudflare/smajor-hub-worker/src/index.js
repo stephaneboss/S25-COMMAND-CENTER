@@ -11729,7 +11729,7 @@ body{background:#fff;color:#111;font-family:"Inter",sans-serif;padding:0;margin:
         : signals.slice(0,100).map(s => `<tr>
             <td><span style="background:rgba(${s.action==='buy'?'74,222,128':'248,113,113'},.1);color:${actionColor[s.action]||'#8494b0'};padding:3px 10px;border-radius:5px;font-size:12px;font-weight:800;letter-spacing:.04em">${(s.action||'?').toUpperCase()}</span></td>
             <td style="font-weight:700;color:#60a5fa;font-family:monospace">${s.ticker}</td>
-            <td style="color:#4ade80;font-weight:600">${s.price?'$'+Number(s.price).toLocaleString('fr-CA',{minimumFractionDigits:2,maximumFractionDigits:2}):'-'}</td>
+            <td style="color:#4ade80;font-weight:600;font-family:monospace">${s.price?'$'+Number(s.price).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+' USD':'-'}</td>
             <td style="color:#8494b0;font-size:13px">${s.strategy||'-'}</td>
             <td style="color:#8494b0;font-size:12px">${s.timeframe||'-'}</td>
             <td><span style="background:rgba(255,255,255,.05);color:#8494b0;padding:2px 8px;border-radius:4px;font-size:11px">${s.status||'reçu'}</span></td>
