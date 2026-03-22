@@ -11792,6 +11792,71 @@ body{background:#fff;color:#111;font-family:"Inter",sans-serif;padding:0;margin:
       }
     }
 
+    // ── S25 MISSION DISPATCH ──────────────────────────────────────────────────
+    // POST /api/missions — ARKON écrit une mission pour un agent
+    if (url.pathname === '/api/missions' && request.method === 'POST') {
+      try {
+        const body = await request.json();
+        if (body.secret !== S25_SECRET) return jsonResponse({ ok: false, error: 'unauthorized' }, 401);
+        const stateResp = await fetch(`${S25_COCKPIT}/api/memory/state`, { headers: { 'X-S25-Secret': S25_SECRET } });
+        const stateData = await stateResp.json();
+        const missions = stateData?.state?.agents?.ARKON?.s25_missions || [];
+        const mission = {
+          id: `MSN-${Date.now()}`,
+          created_at: new Date().toISOString(),
+          from: body.from || 'ARKON',
+          to: body.to || 'COMET',
+          priority: body.priority || 'normal',
+          title: body.title || 'Mission S25',
+          payload: body.payload || {},
+          status: 'pending',
+          result: null,
+        };
+        const updated = [mission, ...missions].slice(0, 100);
+        await fetch(`${S25_COCKPIT}/api/memory/state`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-S25-Secret': S25_SECRET },
+          body: JSON.stringify({ agent: 'ARKON', updates: { s25_missions: updated } })
+        });
+        return jsonResponse({ ok: true, mission_id: mission.id, to: mission.to, title: mission.title });
+      } catch (e) { return jsonResponse({ ok: false, error: 'Erreur' }, 500); }
+    }
+
+    // GET /api/missions — agents fetche leurs missions pending
+    if (url.pathname === '/api/missions' && request.method === 'GET') {
+      try {
+        const agent = url.searchParams.get('agent') || null;
+        const status = url.searchParams.get('status') || 'pending';
+        const stateResp = await fetch(`${S25_COCKPIT}/api/memory/state`, { headers: { 'X-S25-Secret': S25_SECRET } });
+        const stateData = await stateResp.json();
+        let missions = stateData?.state?.agents?.ARKON?.s25_missions || [];
+        if (agent) missions = missions.filter(m => m.to === agent.toUpperCase());
+        if (status !== 'all') missions = missions.filter(m => m.status === status);
+        return jsonResponse({ ok: true, count: missions.length, missions: missions.slice(0, 20) });
+      } catch (_) { return jsonResponse({ ok: false, missions: [] }); }
+    }
+
+    // PATCH /api/missions/:id — agent marque mission DONE avec résultat
+    if (url.pathname.startsWith('/api/missions/') && request.method === 'PATCH') {
+      try {
+        const missionId = url.pathname.split('/api/missions/')[1];
+        const body = await request.json();
+        if (body.secret !== S25_SECRET) return jsonResponse({ ok: false, error: 'unauthorized' }, 401);
+        const stateResp = await fetch(`${S25_COCKPIT}/api/memory/state`, { headers: { 'X-S25-Secret': S25_SECRET } });
+        const stateData = await stateResp.json();
+        const missions = stateData?.state?.agents?.ARKON?.s25_missions || [];
+        const idx = missions.findIndex(m => m.id === missionId);
+        if (idx === -1) return jsonResponse({ ok: false, error: 'Mission introuvable' }, 404);
+        missions[idx] = { ...missions[idx], status: body.status || 'done', result: body.result || null, completed_at: new Date().toISOString() };
+        await fetch(`${S25_COCKPIT}/api/memory/state`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-S25-Secret': S25_SECRET },
+          body: JSON.stringify({ agent: 'ARKON', updates: { s25_missions: missions } })
+        });
+        return jsonResponse({ ok: true, mission_id: missionId, status: missions[idx].status });
+      } catch (e) { return jsonResponse({ ok: false, error: 'Erreur' }, 500); }
+    }
+
     // app.smajor.org/trade — dashboard signaux TradingView
     if (hostname === 'app.smajor.org' && url.pathname === '/trade') {
       let signals = [], trades = [], perf = { total:0, wins:0, losses:0, winRate:0, totalPnl:0 }, arkonAdvice = null, openPosition = null;
