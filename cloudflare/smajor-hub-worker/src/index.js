@@ -11666,17 +11666,22 @@ body{background:#fff;color:#111;font-family:"Inter",sans-serif;padding:0;margin:
         if (body.secret && body.secret !== S25_SECRET) {
           return jsonResponse({ ok: false, error: 'unauthorized' }, 401);
         }
+        const rawAction = (body.action || body.side || '').toLowerCase();
+        const isEmergencyStop = rawAction === 'emergency_stop';
         const signal = {
           id: `SIG-${Date.now()}`,
           received_at: new Date().toISOString(),
-          ticker: body.ticker || body.symbol || 'UNKNOWN',
-          action: (body.action || body.side || '').toLowerCase(), // buy / sell / close
+          ticker: body.ticker || body.symbol || (body.bot ? 'BTCUSDT' : 'UNKNOWN'),
+          action: rawAction, // buy / sell / close / emergency_stop
           price: body.price || body.close || null,
-          strategy: body.strategy || body.comment || 'TradingView',
+          qty: body.qty || null,
+          level: body.level !== undefined ? body.level : null, // Grid Bot: niveau 0-5
+          strategy: body.strategy || body.bot || body.comment || 'TradingView',
           timeframe: body.timeframe || body.interval || null,
           volume: body.volume || null,
-          status: 'reçu', // reçu → analysé → exécuté / rejeté
-          source: 'tradingview',
+          dd_percent: body.dd_percent || null, // Hard-stop drawdown
+          status: isEmergencyStop ? '🚨 EMERGENCY STOP' : 'reçu',
+          source: body.bot ? 'grid_bot' : 'tradingview',
         };
         // Sauvegarder dans le cockpit
         const stateResp = await fetch(`${S25_COCKPIT}/api/memory/state`, { headers: { 'X-S25-Secret': S25_SECRET } });
