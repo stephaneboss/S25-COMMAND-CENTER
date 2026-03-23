@@ -1,0 +1,56 @@
+---
+version: "2.0"
+
+services:
+  s25-phoenix:
+    image: ubuntu:24.04
+    expose:
+      - port: 7777
+        as: 7777
+        to:
+          - global: true
+      - port: 8080
+        as: 8080
+        to:
+          - global: true
+      - port: 3117
+        as: 3117
+        to:
+          - global: true
+      - port: 9191
+        as: 9191
+        to:
+          - global: true
+      - port: 22
+        as: 22
+        to:
+          - global: true
+    env:
+      - "DEBIAN_FRONTEND=noninteractive"
+    command:
+      - "/bin/bash"
+      - "-c"
+      - "apt-get update && apt-get install -y curl git python3 python3-pip nodejs npm wget && tail -f /dev/null"
+
+profiles:
+  compute:
+    s25-phoenix:
+      resources:
+        cpu:
+          units: 4
+        memory:
+          size: 8Gi
+        storage:
+          size: 100Gi
+  placement:
+    dcloud:
+      pricing:
+        s25-phoenix:
+          denom: uakt
+          amount: 10000
+
+deployment:
+  s25-phoenix:
+    dcloud:
+      profile: s25-phoenix
+      count: 1
