@@ -1,12 +1,13 @@
 ---
 version: "2.0"
 
+
 services:
   s25-lumiere:
     image: ghcr.io/stephaneboss/s25-command-center:latest
     expose:
       - port: 7777
-        as: 80
+        as: 8080
         to:
           - global: true
       - port: 9090
@@ -34,31 +35,3 @@ services:
       - ORACLE_SYMBOLS=BTC,ETH,AKT,ATOM
       - GEMINI_MODEL=gemini-1.5-flash
 
-profiles:
-  compute:
-    s25-pro:
-      resources:
-        cpu:
-          units: 4
-        memory:
-          size: 8Gi
-        storage:
-          - size: 40Gi
-
-  placement:
-    akash:
-      attributes:
-        host: akash
-      signedBy:
-        anyOf:
-          - akash1365yvmc4s7awdyj3n2sav7xfx76adc6dnmlx63
-      pricing:
-        s25-pro:
-          denom: uakt
-          amount: 800
-
-deployment:
-  s25-lumiere:
-    akash:
-      profile: s25-pro
-      count: 1
