@@ -1,0 +1,64 @@
+---
+version: "2.0"
+
+services:
+  s25-lumiere:
+    image: ghcr.io/stephaneboss/s25-command-center:latest
+    expose:
+      - port: 7777
+        as: 80
+        to:
+          - global: true
+      - port: 9090
+        as: 9090
+        to:
+          - global: true
+      - port: 9191
+        as: 9191
+        to:
+          - global: true
+    env:
+      - HA_URL=http://homeassistant.local:8123
+      - HA_TOKEN=
+      - ANTHROPIC_API_KEY=
+      - OPENAI_API_KEY=
+      - GEMINI_API_KEY=
+      - KIMI_API_KEY=
+      - PERPLEXITY_API_KEY=
+      - MEXC_API_KEY=
+      - MEXC_SECRET_KEY=
+      - CLOUDFLARE_TOKEN=
+      - PORT=7777
+      - S25_SHARED_SECRET=s25_lumiere_prod_2026
+      - CHECK_INTERVAL=60
+      - ORACLE_SYMBOLS=BTC,ETH,AKT,ATOM
+      - GEMINI_MODEL=gemini-1.5-flash
+
+profiles:
+  compute:
+    s25-pro:
+      resources:
+        cpu:
+          units: 4
+        memory:
+          size: 8Gi
+        storage:
+          - size: 40Gi
+
+  placement:
+    akash:
+      attributes:
+        host: akash
+      signedBy:
+        anyOf:
+          - akash1365yvmc4s7awdyj3n2sav7xfx76adc6dnmlx63
+      pricing:
+        s25-pro:
+          denom: uakt
+          amount: 800
+
+deployment:
+  s25-lumiere:
+    akash:
+      profile: s25-pro
+      count: 1
