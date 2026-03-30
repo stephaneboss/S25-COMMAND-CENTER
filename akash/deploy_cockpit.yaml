@@ -1,15 +1,3 @@
-# ============================================================
-# S25 LUMIERE - Akash Deployment SDL v2
-# Image: ghcr.io/stephaneboss/s25-command-center:main
-# Auto-built by GitHub Actions on every push to main
-# Prod cockpit with TRINITY + memory routes
-#
-# VARIABLES CRITIQUES A SETTER AVANT DEPLOY:
-# HA_TOKEN      -> Long-lived token HA (Profil -> Tokens)
-# GEMINI_API_KEY -> Cle Gemini Flash (aistudio.google.com)
-# S25_SHARED_SECRET -> Secret TRINITY auth (meme valeur dans wrangler)
-# HA_URL        -> http://10.0.0.136:8123 (LAN) OU nabu.casa si Akash
-# ============================================================
 ---
 version: "2.0"
 services:
@@ -21,17 +9,14 @@ services:
         to:
           - global: true
     env:
-      # HA local LAN preferee (nabu.casa echoue depuis Akash)
       - HA_URL=http://10.0.0.136:8123
-      # REQUIS: setter manuellement dans Akash Console -> Leases -> Update Env
-      - HA_TOKEN=
-      - GEMINI_API_KEY=
+      - HA_TOKEN=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiI2MjAwZWRlM2QyZjE0OTkxYTI4NTE4ZDlmM2YxZjgxYyIsImlhdCI6MTc3NDg5MDc4MiwiZXhwIjoyMDkwMjUwNzgyfQ.mX7EiKwj3nS8leuKrrkRqAz5gQXfnz3sn55ftK29LdU
+      - GEMINI_API_KEY=AIzaSyCV6qbN86YirH9c3wNyu2rqAB71AznnKX0
       - MEMORY_DIR=/app/memory
       - PORT=7777
       - CHECK_INTERVAL=60
-      - S25_SHARED_SECRET=
-      - BUILD=20260330h
-      # S25 Lumière — URL OFFICIELLE CONFIRMEE LIVE
+      - S25_SHARED_SECRET=s25_lumiere_prod_2026
+      - BUILD=20260330
       - COCKPIT_URL=http://pljfe3r2bh859ela04v9vrrh5s.ingress.jjozzietech.com.au
       - S25_BASE_URL=http://pljfe3r2bh859ela04v9vrrh5s.ingress.jjozzietech.com.au
       - TRINITY_ENDPOINT=http://pljfe3r2bh859ela04v9vrrh5s.ingress.jjozzietech.com.au/api/trinity
@@ -44,7 +29,6 @@ services:
       - ORACLE_POLL_SECONDS=300
       - ORACLE_SYMBOLS=BTC,ETH,AKT,ATOM
       - ONCHAIN_POLL_SECONDS=420
-      - ONCHAIN_TOKEN_LIST=
 profiles:
   compute:
     s25-cockpit:
