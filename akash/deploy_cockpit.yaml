@@ -10,12 +10,12 @@ services:
           - global: true
     env:
       - HA_URL=http://10.0.0.136:8123
-      - HA_TOKEN=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiI2MjAwZWRlM2QyZjE0OTkxYTI4NTE4ZDlmM2YxZjgxYyIsImlhdCI6MTc3NDg5MDc4MiwiZXhwIjoyMDkwMjUwNzgyfQ.mX7EiKwj3nS8leuKrrkRqAz5gQXfnz3sn55ftK29LdU
-      - GEMINI_API_KEY=AIzaSyCV6qbN86YirH9c3wNyu2rqAB71AznnKX0
+      - HA_TOKEN=
+      - GEMINI_API_KEY=
       - MEMORY_DIR=/app/memory
       - PORT=7777
       - CHECK_INTERVAL=60
-      - S25_SHARED_SECRET=s25_lumiere_prod_2026
+      - S25_SHARED_SECRET=
       - BUILD=20260330
       - COCKPIT_URL=http://pljfe3r2bh859ela04v9vrrh5s.ingress.jjozzietech.com.au
       - S25_BASE_URL=http://pljfe3r2bh859ela04v9vrrh5s.ingress.jjozzietech.com.au
