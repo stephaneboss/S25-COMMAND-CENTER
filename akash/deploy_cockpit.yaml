@@ -11,7 +11,7 @@ services:
     env:
       - HA_URL=http://10.0.0.136:8123
       - HA_TOKEN=
-      - GEMINI_API_KEY=AIzaSyAzUs3pH6KfFbmbgD2e_Blk_rPmvUOZuSI
+    - GEMINI_API_KEY=
       - MEMORY_DIR=/app/memory
       - PORT=7777
       - CHECK_INTERVAL=60
