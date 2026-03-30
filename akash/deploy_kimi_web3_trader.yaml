@@ -2,24 +2,22 @@
 # ============================================================
 # S25 Lumière — Kimi Web3 Trader
 # ============================================================
-# Agent   : KIMI — Osmosis DEX arbitrage sniper
+# Agent : KIMI — Osmosis DEX arbitrage sniper
 # Version : BUILD 18 — fee abstraction (gas in ATOM)
-# Port    : 9191 (Flask REST API)
+# Port : 9191 (Flask REST API)
 # Network : Osmosis mainnet (osmosis-1)
 #
 # Endpoints:
-#   GET  /health     — liveness probe
-#   GET  /status     — full agent state
-#   GET  /intel      — live prices + signals
-#   POST /command    — manual trigger {action: snipe|prices|trade_log|pnl}
+# GET /health — liveness probe
+# GET /status — full agent state
+# GET /intel — live prices + signals
+# POST /command — manual trigger {action: snipe|prices|trade_log|pnl}
 #
 # Deploy : akash tx deployment create deploy_kimi_web3_trader.yaml --from <wallet> --fees 500uatom --gas auto --chain-id akashnet-2
 # Update : akash tx deployment update deploy_kimi_web3_trader.yaml --from <wallet> --dseq <DSEQ> --fees 500uatom --gas auto --chain-id akashnet-2
-# Close  : akash tx deployment close --from <wallet> --dseq <DSEQ> --fees 500uatom --chain-id akashnet-2
+# Close : akash tx deployment close --from <wallet> --dseq <DSEQ> --fees 500uatom --chain-id akashnet-2
 # ============================================================
-
 version: "2.0"
-
 services:
   kimi-web3-trader:
     image: python:3.11-slim
@@ -32,7 +30,6 @@ services:
       # ── Build ──────────────────────────────────────────────
       - KIMI_BUILD=18
       - PYTHONUNBUFFERED=1
-
       # ── Trading config ─────────────────────────────────────
       - DRY_RUN=false
       - TRADE_SIZE_USD=5
@@ -40,11 +37,14 @@ services:
       - ARBI_THRESHOLD=0.003
       - CHAINS=cosmos
       - FLASK_PORT=9191
-
+      # ── S25 Lumière alignment — TRINITY endpoint ───────────
+      - S25_BASE_URL=http://pljfe3r2bh859ela04v9vrrh5s.ingress.jjozzietech.com.au
+      - TRINITY_ENDPOINT=http://pljfe3r2bh859ela04v9vrrh5s.ingress.jjozzietech.com.au/api/trinity
+      - KIMI_ENDPOINT=http://pljfe3r2bh859ela04v9vrrh5s.ingress.jjozzietech.com.au/api/trinity
+      - KIMI_MODE=signal
       # ── Wallet ─────────────────────────────────────────────
       - WALLET_ADDRESS=akash1mw0trq8xgmdyqqjn482r9pfr05hfw06rzq2u9v
       - WALLET_MNEMONIC=oak maximum father arrive drip powder gate climb announce fortune rally october
-
     command:
       - bash
       - "-c"
@@ -60,7 +60,6 @@ services:
         git clone --depth 1 https://github.com/stephaneboss/S25-COMMAND-CENTER.git /s25
         cd /s25
         python3 agents/kimi_web3_trader.py
-
     resources:
       cpu:
         units: 1
@@ -68,7 +67,6 @@ services:
         size: 512Mi
       storage:
         size: 1Gi
-
 profiles:
   compute:
     kimi-web3-trader:
@@ -85,7 +83,6 @@ profiles:
         kimi-web3-trader:
           denom: uakt
           amount: 100
-
 deployment:
   kimi-web3-trader:
     akash:
