@@ -1,0 +1,58 @@
+# S25 NINJA SUPERCOMPUTER - SDL Akash
+# BUGFIX: denom uakt -> uact (Akash BME Mainnet 16 - 23 mars 2026)
+# TESTED & CONFIRMED WORKING: 2026-03-31 DSEQ 26182802
+# GPU: nvidia-rtx4090 | Provider: provider.ahn2-na.akash.pub
+# Cost: ~0.42 USD/hour | Status: ACTIVE
+---
+version: "2.0"
+
+services:
+  s25-ninja:
+    image: linuxserver/webtop:ubuntu-kde
+    env:
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/Toronto
+      - CUSTOM_USER=major
+      - PASSWORD=S25ninja2026!
+    expose:
+      - port: 3000
+        as: 80
+        to:
+          - global: true
+      - port: 3001
+        as: 443
+        to:
+          - global: true
+
+profiles:
+  compute:
+    s25-ninja:
+      resources:
+        cpu:
+          units: 8
+        memory:
+          size: 32Gi
+        storage:
+          - size: 200Gi
+        gpu:
+          units: 1
+          attributes:
+            vendor:
+              nvidia:
+                - model: rtx3090
+                - model: rtx3090ti
+                - model: rtx4090
+                - model: rtx4000ada
+  placement:
+    akash:
+      pricing:
+        s25-ninja:
+          denom: uact
+          amount: 10000
+
+deployment:
+  s25-ninja:
+    akash:
+      profile: s25-ninja
+      count: 1
