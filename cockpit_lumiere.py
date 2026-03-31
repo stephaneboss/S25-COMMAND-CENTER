@@ -676,6 +676,80 @@ def api_memory_ping():
 
     return jsonify({"ok": False, "error": f"Agent {agent} inconnu"}), 404
 
+
+# ═══════════════════════════════════════════════════════════════
+# KIMI BRIDGE — Moonshot AI (kimi-k2.5) compatible OpenAI
+# ═══════════════════════════════════════════════════════════════
+KIMI_API_KEY  = os.getenv("KIMI_API_KEY", "")
+KIMI_MODEL    = os.getenv("KIMI_MODEL", "kimi-k2.5")
+KIMI_BASE_URL = os.getenv("KIMI_BASE_URL", "https://api.moonshot.ai/v1")
+
+def _kimi_query(prompt: str, system: str = "Tu es Kimi, agent Web3 Signal du reseau S25 Lumiere.") -> str:
+    """Appel direct Kimi (Moonshot AI) via API compatible OpenAI."""
+    if not KIMI_API_KEY:
+        return "KIMI OFFLINE: KIMI_API_KEY non configuree"
+    try:
+        r = requests.post(
+            f"{KIMI_BASE_URL}/chat/completions",
+            headers={"Authorization": f"Bearer {KIMI_API_KEY}", "Content-Type": "application/json"},
+            json={
+                "model": KIMI_MODEL,
+                "messages": [
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": prompt}
+                ],
+                "max_tokens": 512,
+                "temperature": 0.7,
+            },
+            timeout=30,
+        )
+        if r.status_code == 200:
+            choices = r.json().get("choices", [])
+            if choices:
+                return choices[0]["message"]["content"].strip()
+        return f"Kimi error HTTP {r.status_code}: {r.text[:200]}"
+    except Exception as e:
+        return f"Kimi exception: {e}"
+
+@app.route('/api/kimi/ping', methods=['GET'])
+def kimi_ping():
+    """Healthcheck pour Kimi Bridge."""
+    return jsonify({
+        "ok": True,
+        "service": "S25 Lumiere — KIMI Bridge",
+        "version": "1.0.0",
+        "kimi": "online" if KIMI_API_KEY else "offline",
+        "model": KIMI_MODEL,
+    })
+
+@app.route('/api/kimi', methods=['POST'])
+def kimi_dispatch():
+    """
+    Endpoint Kimi Web3 Signal.
+    Body JSON:
+      intent : texte de la requete
+      action : "query" | "signal" | "analyze"
+    """
+    if not _trinity_auth():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+    body   = request.get_json(silent=True) or {}
+    intent = body.get("intent", "").strip()
+    action = body.get("action", "query").lower()
+    if action == "analyze":
+        snap   = _market_snapshot()
+        prices = snap.get("prices", {})
+        btc    = prices.get("bitcoin", {}).get("usd", 0)
+        eth    = prices.get("ethereum", {}).get("usd", 0)
+        fg     = snap.get("fear_greed", {})
+        prompt = f"""Tu es KIMI, analyste Web3 senior du reseau S25 Lumiere.
+Stef demande: "{intent}"
+Contexte marche: BTC ${btc:,.0f} | ETH ${eth:,.2f} | F&G {fg.get('value','?')}/100 ({fg.get('label','?')})
+Reponds en 2-3 phrases max, direct et actionnable."""
+        resp = _kimi_query(prompt)
+        return jsonify({"ok": True, "action": "analyze", "kimi_response": resp, "market": snap})
+    # default query
+    resp = _kimi_query(intent or "Donne-moi un update marche crypto.")
+    return jsonify({"ok": True, "action": "query", "intent": intent, "kimi_response": resp})
 if __name__ == '__main__':
     port = int(os.getenv("PORT", "7777"))
     app.run(host='0.0.0.0', port=port, debug=False)
