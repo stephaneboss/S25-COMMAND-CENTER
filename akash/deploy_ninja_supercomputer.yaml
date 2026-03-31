@@ -3,6 +3,15 @@
 # TESTED & CONFIRMED WORKING: 2026-03-31 DSEQ 26182802
 # GPU: nvidia-rtx4090 | Provider: provider.ahn2-na.akash.pub
 # Cost: ~0.42 USD/hour | Status: ACTIVE
+#
+# === DEPLOYMENT ACTIF 2026-03-31 ===
+# DSEQ        : 26182802
+# Console URL : https://console.akash.network/deployments/26182802
+# Ingress URL : http://ev5hvoffv1djbdh02ddqoog9os.ingress.ahn2-na.akash.pub/
+# Port direct : http://provider.ahn2-na.akash.pub:31442/
+# Provider    : provider.ahn2-na.akash.pub
+# Login       : user=major | pass=S25ninja2026!
+# =====================================
 ---
 version: "2.0"
 
