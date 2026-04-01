@@ -1,65 +1,55 @@
-# S25 NINJA SUPERCOMPUTER - SDL Akash
-# BUGFIX: denom uakt -> uact (Akash BME Mainnet 16 - 23 mars 2026)
-# TESTED & CONFIRMED WORKING: 2026-03-31 DSEQ 26182802
-# GPU: nvidia-rtx4090 | Provider: provider.ahn2-na.akash.pub
-# Cost: ~0.42 USD/hour | Status: ACTIVE
-#
-# === DEPLOYMENT ACTIF 2026-03-31 ===
-# DSEQ        : 26182802
-# Console URL : https://console.akash.network/deployments/26182802
-# Ingress URL : http://ev5hvoffv1djbdh02ddqoog9os.ingress.ahn2-na.akash.pub/
-# Port direct : http://provider.ahn2-na.akash.pub:31442/
-# Provider    : provider.ahn2-na.akash.pub
-# Login       : user=major | pass=S25ninja2026!
-# =====================================
+# S25 NINJA COMMAND CENTER - SDL Akash
+# RTX3090 24GB - VRAM optimise pour multi-agent
+# BUGFIX: denom uact (Akash BME Mainnet 2026)
+# VERSION: 3090-ONLY - Mise a jour 2026-04-01
+# NOTE: PASSWORD a rotater apres premier acces stable
 ---
 version: "2.0"
-
 services:
   s25-ninja:
-    image: linuxserver/webtop:ubuntu-kde
+    image: lscr.io/linuxserver/webtop:ubuntu-kde
+    expose:
+      - port: 3000
+        as: 3000
+        to:
+          - global: true
+      - port: 3001
+        as: 3001
+        to:
+          - global: true
     env:
       - PUID=1000
       - PGID=1000
       - TZ=America/Toronto
+      - SUBFOLDER=/
+      - TITLE=S25-Ninja-Command-Center
       - CUSTOM_USER=major
-      - PASSWORD=S25ninja2026!
-    expose:
-      - port: 3000
-        as: 80
-        to:
-          - global: true
-      - port: 3001
-        as: 443
-        to:
-          - global: true
-
+      - PASSWORD=major2244668800
 profiles:
   compute:
     s25-ninja:
       resources:
         cpu:
-          units: 8
+          units: 4
         memory:
           size: 32Gi
         storage:
-          - size: 200Gi
+          - size: 100Gi
         gpu:
           units: 1
           attributes:
             vendor:
               nvidia:
                 - model: rtx3090
+                  ram: 24
                 - model: rtx3090ti
-                - model: rtx4090
-                - model: rtx4000ada
+                  ram: 24
   placement:
     akash:
       pricing:
         s25-ninja:
           denom: uact
-          amount: 10000
-
+          amount: 100000
 deployment:
   s25-ninja:
     akash:
