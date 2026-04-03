@@ -61,6 +61,14 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      env:
+              GEMINI_API_KEY_MERLIN: ${{ secrets.GEMINI_API_KEY_MERLIN }}
+                      GEMINI_API_KEY_ARKON: ${{ secrets.GEMINI_API_KEY_ARKON }}
+                              GEMINI_API_KEY_KIMI: ${{ secrets.GEMINI_API_KEY_KIMI }}
+                                      GPT_API_KEY: ${{ secrets.GPT_API_KEY }}
+                                              PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
+                                                      HA_TOKEN: ${{ secrets.HA_TOKEN }}
+                                                              CLOUDFLARE_TOKEN: ${{ secrets.CLOUDFLARE_TOKEN }}
       - name: Summary
         run: |
           echo "## Docker Build Complete" >> $GITHUB_STEP_SUMMARY
