@@ -10,9 +10,10 @@ services:
           - global: true
     env:
       - HA_URL=http://10.0.0.136:8123
-      - HA_TOKEN=
-    - GEMINI_API_KEY=
+      - HA_TOKEN=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiI2ZjhjMTlkYTEzOGM0YTk5OTc2OTRiNjM3Y2Y1NTc0MyIsImlhdCI6MTc0NDA1NzUwMCwiZXhwIjoxNzc1NTkzNTAwfQ.test
+    - GEMINI_API_KEY=AIzaSyDn4HbxVnQzSG3Y5lniAZ7fwFzC7VCnsU4
       - MEMORY_DIR=/app/memory
+  -   - GPT_API_KEY=sk-proj-Dy396yxlhAX4Qm-jmRKHoQFFfJ
       - PORT=7777
       - CHECK_INTERVAL=60
       - S25_SHARED_SECRET=
