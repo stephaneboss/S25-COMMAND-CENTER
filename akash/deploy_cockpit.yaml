@@ -16,10 +16,9 @@ services:
   -   - GPT_API_KEY=${GPT_API_KEY}
       - PORT=7777
       - CHECK_INTERVAL=60
-      - S25_SHARED_SECRET=
-      - BUILD=20260330
-      - COCKPIT_URL=http://pljfe3r2bh859ela04v9vrrh5s.ingress.jjozzietech.com.au
-      - S25_BASE_URL=http://pljfe3r2bh859ela04v9vrrh5s.ingress.jjozzietech.com.au
+      - S25_SHARED_SECRET=${S25_SHARED_SECRET}
+      - BUILD=20260403-trinity-endpoint-sync
+      - COCKPIT_URL=${COCKPIT_ENDPO
       - TRINITY_ENDPOINT=http://pljfe3r2bh859ela04v9vrrh5s.ingress.jjozzietech.com.au/api/trinity
       - QUEUE_DB_PATH=/data/kimi_signal_queue.db
       - OLLAMA_URL=http://10.0.0.202:11434
