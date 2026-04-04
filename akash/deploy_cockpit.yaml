@@ -2,51 +2,41 @@
 version: "2.0"
 services:
   s25-cockpit:
-    image: ghcr.io/stephaneboss/s25-command-center:main
-    expose:
-      - port: 7777
-        as: 80
-        to:
-          - global: true
-    env:
-      - HA_URL=http://10.0.0.136:8123
-      - HA_TOKEN=${HA_TOKEN}
-    - GEMINI_API_KEY=${GEMINI_API_KEY_MERLIN}
-      - MEMORY_DIR=/app/memory
-  -   - GPT_API_KEY=${GPT_API_KEY}
-      - PORT=7777
-      - CHECK_INTERVAL=60
-      - S25_SHARED_SECRET=${S25_SHARED_SECRET}
-      - BUILD=20260403-trinity-endpoint-sync
-      - COCKPIT_URL=${COCKPIT_ENDPO
-      - TRINITY_ENDPOINT=http://pljfe3r2bh859ela04v9vrrh5s.ingress.jjozzietech.com.au/api/trinity
-      - QUEUE_DB_PATH=/data/kimi_signal_queue.db
-      - OLLAMA_URL=http://10.0.0.202:11434
-      - OLLAMA_MODEL=llama3:latest
-      - RUN_AGENT_LOOP=true
-      - RUN_ORACLE_AGENT=true
-      - RUN_ONCHAIN_GUARDIAN=true
-      - ORACLE_POLL_SECONDS=300
-      - ORACLE_SYMBOLS=BTC,ETH,AKT,ATOM
-      - ONCHAIN_POLL_SECONDS=420
-profiles:
-  compute:
-    s25-cockpit:
-      resources:
-        cpu:
-          units: 0.5
-        memory:
-          size: 512Mi
-        storage:
-          size: 512Mi
-  placement:
-    akash:
-      pricing:
-        s25-cockpit:
-          denom: uakt
-          amount: 100
-deployment:
-  s25-cockpit:
-    akash:
-      profile: s25-cockpit
-      count: 1
+      image: ghcr.io/stephaneboss/s25-command-center:main
+          expose:
+                - port: 7777
+                        as: 80
+                                to:
+                                          - global: true
+                                              env:
+                                                    - HA_URL=http://10.0.0.136:8123
+                                                          - HA_TOKEN=${HA_TOKEN}
+                                                                - GEMINI_API_KEY=${GEMINI_API_KEY}
+                                                                      - MEMORY_DIR=/app/memory
+                                                                            - GPT_API_KEY=${GPT_API_KEY}
+                                                                                  - PORT=7777
+                                                                                        - CHECK_INTERVAL=60
+                                                                                              - S25_SHARED_SECRET=${S25_SHARED_SECRET}
+                                                                                                    - BUILD=20260403-trinity-endpoint-sync
+                                                                                                          - COCKPIT_URL=${COCKPIT_ENDPOINT}
+                                                                                                                - TRINITY_ENDPOINT=http://pljfe3r2bh859ela04v9vrrhSs.ingress.jjozzietech.com.au/api/trinity
+                                                                                                                      - QUEUE_DB_PATH=/data/kimi_signal_queue.db
+                                                                                                                            - OLLAMA_URL=http://10.0.0.202:11434
+                                                                                                                                  - OLLAMA_MODEL=llama3:latest
+                                                                                                                                        - RUN_AGENT_LOOP=true
+                                                                                                                                              - RUN_ORACLE_AGENT=true
+                                                                                                                                                    - RUN_ONCHAIN_GUARDIAN=true
+                                                                                                                                                          - ORACLE_POLL_SECONDS=300
+                                                                                                                                                                - ORACLE_SYMBOLS=BTC,ETH,AKT,ATOM
+                                                                                                                                                                      - ONCHAIN_POLL_SECONDS=420
+                                                                                                                                                                      
+                                                                                                                                                                      profiles:
+                                                                                                                                                                        compute:
+                                                                                                                                                                            s25-cockpit:
+                                                                                                                                                                                  resources:
+                                                                                                                                                                                          cpu:
+                                                                                                                                                                                                    units: 0.5
+                                                                                                                                                                                                            memory:
+                                                                                                                                                                                                                      size: 512Mi
+                                                                                                                                                                                                                              storage:
+                                                                                                                                                                                                                                        - size: 512Mi
