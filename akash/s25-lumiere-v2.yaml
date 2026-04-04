@@ -19,7 +19,7 @@ services:
         to:
           - global: true
     env:
-      - HA_URL=http://homeassistant.local:8123
+      - HA_URL=http://homeassistant.local.local:8123
       - HA_TOKEN=
       - ANTHROPIC_API_KEY=
       - OPENAI_API_KEY=
@@ -35,3 +35,4 @@ services:
       - ORACLE_SYMBOLS=BTC,ETH,AKT,ATOM
       - GEMINI_MODEL=gemini-1.5-flash
 
+homeassistant.local  10.0.0.136
