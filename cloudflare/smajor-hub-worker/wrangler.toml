@@ -15,7 +15,7 @@ PUBLIC_APP_URL = "https://app.smajor.org"
 PUBLIC_API_URL = "https://api.smajor.org"
 PUBLIC_S25_URL = "https://s25.smajor.org"
 PUBLIC_MERLIN_URL = "https://merlin.smajor.org"
-# Akash cockpit LIVE — DSEQ 26034859 (provider.jjozzietech.com.au) — redeployed 2026-03-21
-DIRECT_RUNTIME_URL = "http://pljfe3r2bh859ela04v9vrrh5s.ingress.jjozzietech.com.au"
+# Akash cockpit LIVE — DSEQ 26128127 (provider.akash.antonaccimattia.it) — updated 2026-04-05
+DIRECT_RUNTIME_URL = "http://3mrnmfj4v99jpcfsem9ca4r368.ingress.akash.antonaccimattia.it"
 MASTER_WALLET_ADDRESS = "akash1mw0trq8xgmdyqqjn482r9pfr05hfw06rzq2u9v"
 MASTER_WALLET_LABEL = "Wallet creator"
