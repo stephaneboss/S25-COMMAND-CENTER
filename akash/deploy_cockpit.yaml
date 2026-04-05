@@ -2,41 +2,73 @@
 version: "2.0"
 services:
   s25-cockpit:
-      image: ghcr.io/stephaneboss/s25-command-center:main
-          expose:
-                - port: 7777
-                        as: 80
-                                to:
-                                          - global: true
-                                              env:
-                                                    - HA_URL=http://10.0.0.136:8123
-                                                          - HA_TOKEN=${HA_TOKEN}
-                                                                - GEMINI_API_KEY=${GEMINI_API_KEY}
-                                                                      - MEMORY_DIR=/app/memory
-                                                                            - GPT_API_KEY=${GPT_API_KEY}
-                                                                                  - PORT=7777
-                                                                                        - CHECK_INTERVAL=60
-                                                                                              - S25_SHARED_SECRET=${S25_SHARED_SECRET}
-                                                                                                    - BUILD=20260403-trinity-endpoint-sync
-                                                                                                          - COCKPIT_URL=${COCKPIT_ENDPOINT}
-                                                                                                                - TRINITY_ENDPOINT=http://pljfe3r2bh859ela04v9vrrhSs.ingress.jjozzietech.com.au/api/trinity
-                                                                                                                      - QUEUE_DB_PATH=/data/kimi_signal_queue.db
-                                                                                                                            - OLLAMA_URL=http://10.0.0.202:11434
-                                                                                                                                  - OLLAMA_MODEL=llama3:latest
-                                                                                                                                        - RUN_AGENT_LOOP=true
-                                                                                                                                              - RUN_ORACLE_AGENT=true
-                                                                                                                                                    - RUN_ONCHAIN_GUARDIAN=true
-                                                                                                                                                          - ORACLE_POLL_SECONDS=300
-                                                                                                                                                                - ORACLE_SYMBOLS=BTC,ETH,AKT,ATOM
-                                                                                                                                                                      - ONCHAIN_POLL_SECONDS=420
-                                                                                                                                                                      
-                                                                                                                                                                      profiles:
-                                                                                                                                                                        compute:
-                                                                                                                                                                            s25-cockpit:
-                                                                                                                                                                                  resources:
-                                                                                                                                                                                          cpu:
-                                                                                                                                                                                                    units: 0.5
-                                                                                                                                                                                                            memory:
-                                                                                                                                                                                                                      size: 512Mi
-                                                                                                                                                                                                                              storage:
-                                                                                                                                                                                                                                        - size: 512Mi
+    image: ghcr.io/stephaneboss/s25-command-center:latest
+    expose:
+      - port: 7777
+        as: 8080
+        to:
+          - global: true
+      - port: 5000
+        as: 5000
+        to:
+          - global: false
+      - port: 5001
+        as: 5001
+        to:
+          - global: false
+      - port: 5002
+        as: 5002
+        to:
+          - global: false
+      - port: 5003
+        as: 5003
+        to:
+          - global: false
+    env:
+      - HA_URL=http://10.0.0.136:8123
+      - HA_TOKEN=${HA_TOKEN}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - MEMORY_DIR=/app/memory
+      - GPT_API_KEY=${GPT_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - PERPLEXITY_API_KEY=${PERPLEXITY_API_KEY}
+      - KIMI_API_KEY=${KIMI_API_KEY}
+      - MEXC_API_KEY=${MEXC_API_KEY}
+      - MEXC_API_SECRET=${MEXC_API_SECRET}
+      - CLOUDFLARE_TOKEN=${CLOUDFLARE_TOKEN}
+      - S25_SHARED_SECRET=${S25_SHARED_SECRET}
+      - PORT=7777
+      - CHECK_INTERVAL=60
+      - BUILD=20260405-akash-endpoint-fix
+      - COCKPIT_URL=${COCKPIT_ENDPOINT}
+      - TRINITY_ENDPOINT=http://3mrnmfj4v99jpcfsem9ca4r368.ingress.akash.antonaccimattia.it/api/trinity
+      - QUEUE_DB_PATH=/data/kimi_signal_queue.db
+      - OLLAMA_URL=http://10.0.0.202:11434
+      - OLLAMA_MODEL=llama3:latest
+      - RUN_AGENT_LOOP=true
+      - RUN_ORACLE_AGENT=true
+      - RUN_ONCHAIN_GUARDIAN=true
+      - ORACLE_POLL_SECONDS=300
+      - ORACLE_SYMBOLS=BTC,ETH,AKT,ATOM
+      - ONCHAIN_POLL_SECONDS=420
+profiles:
+  compute:
+    s25-cockpit:
+      resources:
+        cpu:
+          units: 4
+        memory:
+          size: 8Gi
+        storage:
+          - size: 40Gi
+  placement:
+    akash:
+      pricing:
+        s25-cockpit:
+          denom: uakt
+          amount: 1000
+deployment:
+  s25-cockpit:
+    akash:
+      profile: s25-cockpit
+      count: 1
