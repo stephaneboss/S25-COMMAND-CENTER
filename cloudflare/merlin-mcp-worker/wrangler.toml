@@ -7,7 +7,8 @@ routes = [
 ]
 
 [vars]
-ORIGIN_BASE = "https://da0m4r4tu5ctn0ja9r2t9c2vho.ingress.akashprovid.com"
-ORIGIN_HOST_HEADER = "da0m4r4tu5ctn0ja9r2t9c2vho.ingress.akashprovid.com"
+ORIGIN_BASE = "http://3mrnmfj4v99jpcfsem9ca4r368.ingress.akash.antonaccimattia.it"
+ORIGIN_HOST_HEADER = "3mrnmfj4v99jpcfsem9ca4r368.ingress.akash.antonaccimattia.it"
 PROXY_TIMEOUT_MS = "30000"
 PROXY_RETRIES = "0"
+# Updated 2026-04-05 — Deployment #26128127 provider.akash.antonaccimattia.it
