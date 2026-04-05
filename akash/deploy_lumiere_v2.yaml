@@ -1,0 +1,55 @@
+---
+version: "2.0"
+services:
+  s25-lumiere:
+      image: ghcr.io/stephaneboss/s25-command-center:latest
+          expose:
+                - port: 5000
+                        as: 8080
+                                to:
+                                          - global: true
+                                                - port: 5001
+                                                        as: 5001
+                                                                to:
+                                                                          - global: true
+                                                                                - port: 5002
+                                                                                        as: 5002
+                                                                                                to:
+                                                                                                          - global: true
+                                                                                                                - port: 5003
+                                                                                                                        as: 5003
+                                                                                                                                to:
+                                                                                                                                          - global: true
+                                                                                                                                              env:
+                                                                                                                                                    - HA_URL=http://10.0.0.136:8123
+                                                                                                                                                          - MEXC_BASE_URL=https://api.mexc.com
+                                                                                                                                                                - TRINITY_ENABLED=true
+                                                                                                                                                                      - ARKON_ENABLED=true
+                                                                                                                                                                            - KIMI_ENABLED=true
+                                                                                                                                                                                  - MERLIN_ENABLED=true
+                                                                                                                                                                                        - COMET_ENABLED=true
+                                                                                                                                                                                              - DRY_RUN=true
+                                                                                                                                                                                                    - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+                                                                                                                                                                                                          - OPENAI_API_KEY=${OPENAI_API_KEY}
+                                                                                                                                                                                                                - GEMINI_API_KEY=${GEMINI_API_KEY}
+                                                                                                                                                                                                                      - KIMI_API_KEY=${KIMI_API_KEY}
+                                                                                                                                                                                                                            - PERPLEXITY_API_KEY=${PERPLEXITY_API_KEY}
+                                                                                                                                                                                                                                  - MEXC_API_KEY=${MEXC_API_KEY}
+                                                                                                                                                                                                                                        - MEXC_API_SECRET=${MEXC_API_SECRET}
+                                                                                                                                                                                                                                              - CLOUDFLARE_TOKEN=${CLOUDFLARE_TOKEN}
+                                                                                                                                                                                                                                                    - HA_TOKEN=${HA_TOKEN}
+                                                                                                                                                                                                                                                    profiles:
+                                                                                                                                                                                                                                                      compute:
+                                                                                                                                                                                                                                                          s25-lumiere:
+                                                                                                                                                                                                                                                                resources:
+                                                                                                                                                                                                                                                                        cpu:
+                                                                                                                                                                                                                                                                                  units: 4
+                                                                                                                                                                                                                                                                                          memory:
+                                                                                                                                                                                                                                                                                                    size: 8Gi
+                                                                                                                                                                                                                                                                                                            storage:
+                                                                                                                                                                                                                                                                                                                      - size: 40Gi
+                                                                                                                                                                                                                                                                                                                      deployment:
+                                                                                                                                                                                                                                                                                                                        s25-lumiere:
+                                                                                                                                                                                                                                                                                                                            akash:
+                                                                                                                                                                                                                                                                                                                                  profile: compute
+                                                                                                                                                                                                                                                                                                                                        count: 1
