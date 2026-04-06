@@ -10,12 +10,13 @@ routes = [
   { pattern = "api.smajor.org", custom_domain = true }
 ]
 
+
 [vars]
 PUBLIC_APP_URL = "https://app.smajor.org"
 PUBLIC_API_URL = "https://api.smajor.org"
 PUBLIC_S25_URL = "https://s25.smajor.org"
 PUBLIC_MERLIN_URL = "https://merlin.smajor.org"
-# Akash cockpit LIVE — DSEQ 26128127 (provider.akash.antonaccimattia.it) — updated 2026-04-05
-DIRECT_RUNTIME_URL = "http://3mrnmfj4v99jpcfsem9ca4r368.ingress.akash.antonaccimattia.it"
+# Akash cockpit LIVE — DSEQ 26269781 (provider.team-michel.com:30717) — updated 2026-04-06
+DIRECT_RUNTIME_URL = "http://provider.team-michel.com:30717"
 MASTER_WALLET_ADDRESS = "REDACTED_WALLET_ADDRESS"
 MASTER_WALLET_LABEL = "Wallet creator"
