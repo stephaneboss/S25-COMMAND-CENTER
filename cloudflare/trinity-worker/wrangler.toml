@@ -8,10 +8,10 @@ routes = [
 ]
 
 [vars]
-ORIGIN_BASE = "http://provider.team-michel.com:30717"
+ORIGIN_BASE = "http://provider.team-michel.com:31554"
 ORIGIN_HOST_HEADER = "provider.team-michel.com"
 PUBLIC_GATEWAY_URL = "https://api.smajor.org"
 PUBLIC_RUNTIME_URL = "https://s25.smajor.org"
 PROXY_TIMEOUT_MS = "15000"
 PROXY_RETRIES = "1"
-# Updated 2026-04-06 — Deployment #26269781 provider.team-michel.com:30717
+# Updated 2026-04-06 — Deployment #26270769 provider.team-michel.com:31554
