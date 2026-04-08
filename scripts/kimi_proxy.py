@@ -1,20 +1,20 @@
 """
-S25 Lumiere -- Kimi Proxy v2.0 avec queue SQLite persistante
-=============================================================
-Proxy HTTP port 9191 : recoit les signaux Kimi Web3 via tunnel CloudFlare
-et les forward au webhook HA interne.
+S25 Lumiere -- Kimi Proxy v3.0 (DIRECT API — NO CLOUDFLARE TUNNEL)
+==================================================================
+PRIORITÉ 1 IMPLEMENTATION: Direct endpoint integration
 
-FIX #3 (Issue pipeline S25):
-  - File d'attente SQLite persistante : aucun signal perdu meme si HA redémarre
-  - Retry automatique toutes les 30s pour les signaux non-livres
-  - Compteur de signaux manques dans /status
-  - Auto-reconnect si webhook HA repond 4xx/5xx
+Changed from v2.0:
+  - REMOVED Cloudflare tunnel dependency
+  - ADDED direct API endpoint: https://api.smajor.org/api/agents/kimi/intel
+  - Same SQLite queue + retry logic
+  - Optimized latency & stability
 
 Deploy: copier ce fichier dans /config/python_scripts/kimi_proxy.py sur HA
 puis lancer avec: python3 /config/python_scripts/kimi_proxy.py
 
 Variables d'environnement:
   KIMI_PROXY_PORT     Port d'ecoute (defaut: 9191)
+  KIMI_API_ENDPOINT   Direct endpoint (defaut: https://api.smajor.org/api/agents/kimi/intel)
   HA_WEBHOOK_URL      URL webhook HA interne (defaut: http://homeassistant:8123/...)
   HA_WEBHOOK_ID       ID du webhook HA
   QUEUE_DB_PATH       Chemin SQLite (defaut: /data/kimi_signal_queue.db)
@@ -40,8 +40,9 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
-# --- Config ---
+# --- Config (PRIORITÉ 1: Direct API, no Cloudflare tunnel) ---
 PROXY_PORT    = int(os.getenv("KIMI_PROXY_PORT", "9191"))
+KIMI_API_ENDPOINT = os.getenv("KIMI_API_ENDPOINT", "https://api.smajor.org/api/agents/kimi/intel")
 HA_BASE       = os.getenv("HA_BASE_URL", "http://homeassistant:8123")
 WEBHOOK_ID    = os.getenv("HA_WEBHOOK_ID", "s25_kimi_scan_secret_xyz")
 HA_WEBHOOK    = f"{HA_BASE}/api/webhook/{WEBHOOK_ID}"
@@ -49,70 +50,61 @@ QUEUE_DB      = os.getenv("QUEUE_DB_PATH", "/data/kimi_signal_queue.db")
 RETRY_INTERVAL = 30   # secondes entre chaque retry des signaux en attente
 MAX_RETRIES    = 10   # apres 10 echecs, marquer comme dead-letter (pas supprime)
 
-# --- HA Tunnel URL Publisher config ---
-HA_URL         = os.getenv("HA_URL", "http://homeassistant:8123")
+# --- HA Direct endpoint (no tunnel needed) ---
+HA_URL         = os.getenv("HA_URL", "https://ha.smajor.org")  # Cloudflare Zero Trust
+HA_FALLBACK    = os.getenv("HA_FALLBACK", "http://homeassistant:8123")  # Local fallback
 HA_TOKEN       = os.getenv("HA_TOKEN", "")
-TUNNEL_LOG     = os.getenv("TUNNEL_LOG_PATH", "/tmp/cf_tunnel.log")
-TUNNEL_PUBLISH_INTERVAL = 1800  # publier URL tunnel toutes les 30 min
 
 
 
-# --- Tunnel URL Publisher ---
+# --- PRIORITÉ 1: Direct API Status Publisher (replaces tunnel) ---
 
-def read_tunnel_url() -> str:
-    # Read the current Cloudflare tunnel URL from the log file
-    import re as _re
-    try:
-        with open(TUNNEL_LOG, "r") as f:
-            for line in f:
-                line = line.strip()
-                m = _re.search(r"https://[\w\-]+\.(?:trycloudflare|cfargotunnel)\.com", line)
-                if m:
-                    return m.group(0)
-    except FileNotFoundError:
-        log.debug("Tunnel log not found: %s", TUNNEL_LOG)
-    except Exception as e:
-        log.warning("read_tunnel_url error: %s", e)
-    return ""
-
-
-def publish_tunnel_url_to_ha(url: str) -> bool:
-    # Publish the tunnel URL to HA input_text.kimi_tunnel_url entity
+def publish_kimi_endpoint_to_ha() -> bool:
+    """Publish the direct KIMI API endpoint to HA for monitoring."""
     if not HA_TOKEN:
-        log.debug("HA_TOKEN not set -- tunnel URL publish skipped")
-        return False
-    if not url:
-        log.debug("No tunnel URL found -- skipping publish")
+        log.debug("HA_TOKEN not set -- endpoint publish skipped")
         return False
     try:
         r = requests.post(
-            HA_URL + "/api/states/input_text.kimi_tunnel_url",
+            HA_URL + "/api/states/input_text.kimi_api_endpoint",
             headers={
                 "Authorization": "Bearer " + HA_TOKEN,
                 "Content-Type": "application/json",
             },
-            json={"state": url},
+            json={"state": KIMI_API_ENDPOINT},
             timeout=5,
         )
         if r.status_code in (200, 201):
-            log.info("Tunnel URL published to HA: %s", url)
+            log.info("KIMI direct API endpoint published to HA: %s", KIMI_API_ENDPOINT)
             return True
-        log.warning("HA tunnel URL publish failed: HTTP %s", r.status_code)
+        # Try fallback HA
+        log.debug("Primary HA unreachable, trying fallback...")
+        r = requests.post(
+            HA_FALLBACK + "/api/states/input_text.kimi_api_endpoint",
+            headers={
+                "Authorization": "Bearer " + HA_TOKEN,
+                "Content-Type": "application/json",
+            },
+            json={"state": KIMI_API_ENDPOINT},
+            timeout=5,
+        )
+        if r.status_code in (200, 201):
+            log.info("KIMI endpoint published to fallback HA")
+            return True
+        log.warning("HA endpoint publish failed: HTTP %s", r.status_code)
         return False
     except Exception as e:
-        log.warning("publish_tunnel_url_to_ha error: %s", e)
+        log.warning("publish_kimi_endpoint_to_ha error: %s", e)
         return False
 
 
-def tunnel_url_publisher_loop():
-    # Background thread: read tunnel URL at startup and every 30 min, publish to HA
-    log.info("TunnelPublisher: demarrage")
-    url = read_tunnel_url()
-    publish_tunnel_url_to_ha(url)
+def endpoint_publisher_loop():
+    """Background thread: publish KIMI endpoint status to HA every 30 min."""
+    log.info("KimiEndpointPublisher: starting")
+    publish_kimi_endpoint_to_ha()
     while True:
-        time.sleep(TUNNEL_PUBLISH_INTERVAL)
-        url = read_tunnel_url()
-        publish_tunnel_url_to_ha(url)
+        time.sleep(1800)  # Every 30 minutes
+        publish_kimi_endpoint_to_ha()
 # --- SQLite Queue ---
 
 def init_db():
@@ -333,11 +325,11 @@ if __name__ == "__main__":
     if pending:
         log.warning(f"Reprise: {len(pending)} signaux en attente dans la queue")
 
-    # Start tunnel URL publisher thread
-    tunnel_publisher = threading.Thread(
-        target=tunnel_url_publisher_loop, daemon=True, name="tunnel-publisher"
+    # Start KIMI endpoint publisher thread (PRIORITÉ 1: Direct API)
+    endpoint_publisher = threading.Thread(
+        target=endpoint_publisher_loop, daemon=True, name="endpoint-publisher"
     )
-    tunnel_publisher.start()
+    endpoint_publisher.start()
 
     retry_worker = RetryWorker()
     retry_worker.start()
