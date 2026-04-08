@@ -22,6 +22,17 @@ AGENTS_STATE_FILE  = MEMORY_DIR / "agents_state.json"
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "s25_lumiere_secret_x100")
 
+# ── S25 NEXUS v2.0 Blueprint ──────────────────────────────────
+try:
+    import sys
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from s25_nexus_routes_v2 import nexus_bp
+    app.register_blueprint(nexus_bp)
+    _nexus_loaded = True
+except Exception as _e:
+    _nexus_loaded = False
+    print(f"[NEXUS] Blueprint not loaded: {_e}")
+
 HA_URL          = os.getenv("HA_URL", "http://homeassistant.local:8123")
 HA_TOKEN        = vault_get("HA_TOKEN", os.getenv("HA_TOKEN", "")) or ""
 GEMINI_API_KEY  = vault_get("GEMINI_API_KEY", os.getenv("GEMINI_API_KEY", "")) or ""
@@ -948,6 +959,16 @@ refreshData();
 </script>
 </body>
 </html>'''
+
+@app.route('/nexus')
+def nexus_v2_ui():
+    """S25 NEXUS Command Center v2.0"""
+    static_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'static', 'nexus_v2.html')
+    try:
+        with open(static_path, 'r') as f:
+            return f.read(), 200, {'Content-Type': 'text/html'}
+    except FileNotFoundError:
+        return '<h1>nexus_v2.html not found — deploy the file to static/</h1>', 404
 
 @app.route('/')
 def index():
