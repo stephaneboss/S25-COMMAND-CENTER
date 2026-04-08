@@ -35,4 +35,26 @@ services:
       - ORACLE_SYMBOLS=BTC,ETH,AKT,ATOM
       - GEMINI_MODEL=gemini-1.5-flash
 
-homeassistant.local  10.0.0.136
+
+profiles:
+  compute:
+    s25-lumiere:
+      resources:
+        cpu:
+          units: 1.0
+        memory:
+          size: 512Mi
+        storage:
+          size: 1Gi
+  placement:
+    dcloud:
+      pricing:
+        s25-lumiere:
+          denom: uakt
+          amount: 1000
+
+deployment:
+  s25-lumiere:
+    dcloud:
+      profile: s25-lumiere
+      count: 1
