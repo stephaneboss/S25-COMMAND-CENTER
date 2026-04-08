@@ -8,13 +8,12 @@ Ajouter ces routes dans le app.py principal du S25-COMMAND-CENTER.
 
 import os
 import time
-import json
 import hashlib
 import requests
 from datetime import datetime, timezone
 from functools import wraps
-from flask import Blueprint, jsonify, request, Response
-import threading
+from flask import Blueprint, jsonify, request
+
 
 nexus_bp = Blueprint('nexus_v2', __name__, url_prefix='/api/v2')
 
@@ -38,6 +37,9 @@ def require_s25_auth(f):
         return f(*args, **kwargs)
     return decorated
 
+
+
+
 # ─────────────────────────────────────────────
 # CACHE EN MÉMOIRE (simple)
 # ─────────────────────────────────────────────
@@ -52,6 +54,8 @@ def cache_get(key):
 def cache_set(key, value, ttl=30):
     _cache[key] = value
     _cache_ttl[key] = time.time() + ttl
+
+
 
 # ─────────────────────────────────────────────
 # HELPERS MEXC
@@ -126,7 +130,7 @@ def nexus_status():
                 'high': float(d.get('highPrice', 0)),
                 'low': float(d.get('lowPrice', 0)),
             }
-        except:
+        except Exception:
             prices[sym.replace('USDT', '')] = {'price': 0, 'change_24h': 0}
 
     # HA Status
@@ -135,7 +139,7 @@ def nexus_status():
         r = requests.get(f'{HA_URL}/api/', headers={'Authorization': f'Bearer {HA_TOKEN}'}, timeout=3)
         if r.status_code == 200:
             ha_status = {'connected': True, 'version': r.json().get('version', '?')}
-    except:
+    except Exception:
         pass
 
     data = {
@@ -251,7 +255,7 @@ def nexus_signals():
             'confidence': base.get('arkon5_conf', 0),
             'timestamp': datetime.now(timezone.utc).isoformat()
         }
-    except:
+    except Exception:
         arkon = {'source': 'ARKON-5', 'action': 'HOLD', 'confidence': 0.5}
 
     # Signal KIMI (si endpoint dispo sur Akash)
@@ -446,11 +450,12 @@ def nexus_execute():
 
     # TODO: intégrer spot_buy_direct.py ici pour vrai execution
     # Pour l'instant: simulation + log
-    import json, pathlib
+    import json as _json
+    import pathlib
     log_path = pathlib.Path('/tmp/s25_orders.json')
-    orders = json.loads(log_path.read_text()) if log_path.exists() else []
+    orders = _json.loads(log_path.read_text()) if log_path.exists() else []
     orders.append(order_log)
-    log_path.write_text(json.dumps(orders, indent=2))
+    log_path.write_text(_json.dumps(orders, indent=2))
 
     return jsonify({
         'ok': True,
@@ -476,7 +481,7 @@ def nexus_oracle():
             r = requests.get(f'{MEXC_BASE}/api/v3/ticker/price?symbol={sym}', timeout=3)
             price = float(r.json().get('price', 0))
             result[sym.replace('USDT', '')] = {'price': price, 'source': 'MEXC', 'ts': time.time()}
-        except:
+        except Exception:
             result[sym.replace('USDT', '')] = {'price': 0, 'source': 'error'}
 
     data = {'prices': result, 'timestamp': datetime.now(timezone.utc).isoformat()}
@@ -531,7 +536,7 @@ def nexus_infra():
         r = requests.get(f'{HA_URL}/api/', headers={'Authorization': f'Bearer {HA_TOKEN}'}, timeout=3)
         ha_ok = r.status_code == 200
         ha_info = r.json() if ha_ok else {}
-    except:
+    except Exception:
         pass
 
     # Cloudflare (on sait que HEALTHY depuis audit)
