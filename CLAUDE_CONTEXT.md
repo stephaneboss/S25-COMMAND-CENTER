@@ -1,5 +1,5 @@
 # 🧠 CLAUDE_CONTEXT.md — Mémoire Persistante Claude
-> Dernière mise à jour: 2026-04-09
+> Dernière mise à jour: 2026-04-09 — SESSION ACTIVE
 > Projet: S25 Lumière — Autonomous Multi-Agent Crypto Trading
 > Major: Stef Boss (stephaneboss) | excavaneige@gmail.com
 
@@ -11,206 +11,109 @@
 2. Lire la mémoire MASTER sur Google Drive:
    👉 https://docs.google.com/document/d/1ztAi7FxXG6ZTLhqaSQX46CQJz5vMvWaNtLEM5sIVkZE/edit
    (MEMOIRE IA PERSISTANTE - Stephane Major - NE PAS SUPPRIMER)
-3. Lire dernière conversation TRINITY: chatgpt.com > Trinity S25 Lumière Commander
-4. Vérifier état live: https://s25.smajor.org
-5. Continuer les workstreams actifs
+3. Vérifier TRINITY ChatGPT pour directives récentes
+4. Checker s25.smajor.org + api.smajor.org/api/status
 
 ---
 
-## 🎯 MON RÔLE
-**CLAUDE = Builder / Deploy + WS5 Claude Subagents**
-- Architecture, code backend, Docker, manifests Akash
-- oracle-agent et onchain-guardian (WS5)
-- PRs, refactoring, Dockerfile, tests CI
+## 🎯 ROLE DE CLAUDE (WS5)
+
+Claude = **Builder / Deploy** — Workstream 5
+- Construit et déploie le code sur Akash
+- Maintient cockpit_lumiere.py + nexus routes
+- Gère les subagents: oracle-agent, onchain-guardian
+- Aucune dépendance locale — tout via endpoints stables smajor.org
 
 ---
 
-## 🏗️ INFRASTRUCTURE AKASH (état 2026-04-09)
+## ✅ COMMITS RÉCENTS (SESSION 2026-04-09)
 
-| DSEQ | Type | Statut |
-|------|------|--------|
-| 25883220 | Cockpit public (RTX?) | 🟢 LIVE |
-| 25878071 | merlin-mesh officiel | 🟢 LIVE |
-| 25838342 | Cockpit principal historique | conservé |
-| 25822281 | Cockpit secondaire | conservé |
-| 25882621 | Cockpit secondaire v2 | créé |
-| 25708774 | GPU module | conservé |
-| 26182802 | RTX 4090 @$0.42/h | ⚠️ EN COURS |
+| Commit | Fichier | Description |
+|--------|---------|-------------|
+| `e7e2329` | cockpit_lumiere.py | Priority 3B + Priority 1 — HA non-bloquant + KIMI direct |
+| `e1c5be7` | s25_nexus_routes_v2.py | Priority 3B — HA secondaire non-bloquant /api/v2/* |
 
-**V3 Migration en cours:**
-- SDL V2 prêt: RTX 3090Ti @$0.30/h — AWAITING WALLET SIGNATURE (Stef via Keplr)
-- Étape 1 (STEF): Signer le déploiement SDL V2 sur console.akash.network
-- Étape 2 (COMET): Récupérer nouvel ingress, update DNS smajor.org
+### Détail Priority 3B (cockpit_lumiere.py)
+- `/api/status` : 1 test HA (2s timeout) au lieu de 6x5s = ZERO blocage
+- Source primaire: `agents_state.json` (runtime memory)
+- HA devient secondaire: `ha_status`, `ha_warning` dans la réponse
+- **LIVE CONFIRMÉ**: api.smajor.org/api/status retourne `ha_status:"unreachable"` + pipeline MULTI_SOURCE
 
----
+### Détail Priority 1 (cockpit_lumiere.py)
+- Nouveau endpoint `POST /api/kimi/intel` — KIMI signal direct sans Cloudflare tunnel
+- Nouveau endpoint `GET /api/kimi/intel` — lecture cache signaux KIMI
+- Auth: `_trinity_auth()` (X-S25-Secret ou HA_TOKEN)
+- `mode: "direct_no_tunnel"` dans la réponse
 
-## 📋 WORKSTREAMS ACTIFS
-
-### WS1 — Runtime Akash (Owner: Codex)
-- ✅ Cockpit public 25883220 stable
-- ✅ Worker endpoint stable
-- ⏳ Nettoyer dépendances HA (HA ne doit plus être source de vérité)
-
-### WS2 — GPT/TRINITY (Owner: Codex)
-- ✅ spec x-openai-isConsequential: false
-- ✅ Backend status corrigé
-- ⏳ Republier UI GPT + vérifier vocal TRINITY lit MESH_READY
-
-### WS3 — Gemini/MERLIN (Owner: Codex + Claude)
-- ✅ MCP Bridge live: da0m4r4tu5ctn0ja9r2t9c2vho.ingress.akashprovid.com/mcp
-- ✅ Writeback MCP direct fonctionne
-- ⏳ Brancher retrieval à TRINITY/MERLIN, débloquer quota Google
-
-### WS4 — KIMI (Owner: Codex) ← PRIORITÉ 1
-- ⚠️ Encore dépendant d'un tunnel manuel
-- ⏳ Endpoint stable KIMI → api.smajor.org/api/agents/kimi/intel
-- ⏳ Couper tunnel Cloudflare
-
-### WS5 — Claude Subagents (Owner: CLAUDE ← MOI)
-- ✅ Runtimes Python posés (oracle-agent, onchain-guardian)
-- ✅ Contrats cockpit posés
-- ⏳ Tuning sources + enrichissement risk model
-
-### WS6 — Provider Intel (Owner: Codex + COMET + MERLIN)
-- ✅ Doctrine provider intelligence posée
-- ⏳ Armer mission COMET provider-watch
+### Détail Priority 3B (s25_nexus_routes_v2.py)
+- `/api/v2/status` : HA 2s timeout, `ha_warning` + `ha_status.source` dans data dict
+- `/api/v2/infra` : HA 2s timeout, `ha.source` + `ha.warning` dans return jsonify
 
 ---
 
-## 🔥 PRIORITÉS IMMÉDIATES (selon TRINITY 2026-04-09)
+## 🏗️ INFRASTRUCTURE
 
-1. **PRIORITÉ 1** — Supprimer tunnel Cloudflare KIMI → connecter vers api.smajor.org
-2. **PRIORITÉ 3B** — HA devient secondaire (visu/automation), S25 API = source de vérité
-3. **PRIORITÉ 2** — Redéployer MERLIN sur Akash (merlin.smajor.org stable)
-4. **BONUS** — COMET poids 0.5→0.65, consensus >=2 agents
-
----
-
-## 🤖 AGENTS
-
-| Agent | Rôle | Endpoint | Statut |
-|-------|------|----------|--------|
-| CLAUDE | Builder/Deploy/WS5 | Cowork Anthropic | 🟢 |
-| TRINITY (GPT) | Vocal+Guide+GOUV4 | trinity-s25-proxy.trinitys25steph.workers.dev | 🟢 |
-| MERLIN (Gemini) | Orchestrateur HA + MCP | merlin.smajor.org/mcp | 🟢 |
-| COMET (Perplexity) | Watchman Radar | cloud | 🟢 |
-| ARKON-5 (Gemini) | Analyseur Trading | Akash | 🟢 |
-| KIMI Web3 | Signaux crypto | ⚠️ tunnel → à migrer | 🟡 |
-| Gemini Orchestrator | Orchestration | Google | ⚠️ needs realignment |
+| Composant | Endpoint | État |
+|-----------|----------|------|
+| Cockpit | s25.smajor.org | ✅ ONLINE |
+| API | api.smajor.org | ✅ ONLINE |
+| MERLIN MCP | merlin.smajor.org/mcp | ⚠️ A redéployer |
+| Home Assistant | http://10.0.0.136:8123 | ⚠️ LAN only (normal) |
+| Akash DSEQ actif | 26182802 | RTX 4090 $0.42/h |
+| SDL V2 ready | — | RTX 3090Ti $0.30/h (attente sig Keplr) |
 
 ---
 
-## 🌐 ENDPOINTS
+## 🤖 AGENTS MESH S25
 
-| Service | URL stable | Statut |
-|---------|-----------|--------|
-| Cockpit public | https://s25.smajor.org | ✅ CIBLE |
-| API business | https://api.smajor.org | ✅ CIBLE |
-| MERLIN MCP | https://merlin.smajor.org/mcp | ✅ CIBLE |
-| TRINITY proxy | https://trinity-s25-proxy.trinitys25steph.workers.dev | 🟢 LIVE |
-| MERLIN MCP live | https://da0m4r4tu5ctn0ja9r2t9c2vho.ingress.akashprovid.com/mcp | 🟢 LIVE |
-| Home Assistant | http://10.0.0.136:8123 | 🔴 LAN only |
-| Cockpit Akash | DSEQ 25883220 ingress | 🟢 LIVE |
-
-> RÈGLE: Les agents pointent vers les endpoints STABLES (smajor.org), pas vers les URL Akash temporaires.
+| Agent | Rôle | Plateforme |
+|-------|------|-----------|
+| TRINITY | Commander / Guide | ChatGPT GPT |
+| MERLIN | Orchestrateur HA | Gemini Gems |
+| COMET | Watchman Radar | Perplexity/Harpa |
+| ARKON-5 | Signal Engine | s25.smajor.org |
+| KIMI K2 | Web3 Signal | Akash Network |
+| CLAUDE | Builder / Deploy | Anthropic Cowork |
+| GOUV4 | Planificateur | GPT-4 |
 
 ---
 
-## 💾 MÉMOIRE PERSISTANTE SYSTÈME
+## 📋 WORKSTREAMS
 
-| Source | Lien | Notes |
-|--------|------|-------|
-| **MASTER (Google Drive)** | https://docs.google.com/document/d/1ztAi7FxXG6ZTLhqaSQX46CQJz5vMvWaNtLEM5sIVkZE/edit | NE PAS SUPPRIMER |
-| Backup Drive (13 fév) | https://docs.google.com/document/d/1irqVlNvbJ35lQ87tk48I4FEIVkSLlISFTHMY9bX5j04/edit | Backup |
-| Ce fichier (GitHub) | CLAUDE_CONTEXT.md (ce repo) | Index léger |
-| Drive folder Claude | https://drive.google.com/drive/folders/1dgTh_D3wp5U2Fk01aFAPKF2RXdgOO7LN | Dossier Claude |
-| Drive S25 mem activation | https://drive.google.com/drive/folders/1HmOfRTULJN9slFoMonJOMaWO-j1-IBOr | Phase 2 |
-| Drive health monitor | https://drive.google.com/drive/folders/1TYg4-s7fLcoV3D_mibdtOURHGHD-O9-H | Monitoring |
-| memory/ (GitHub) | ./memory/ dans ce repo | State local |
-
----
-
-## 🔐 SÉCURITÉ — RÈGLES NON NÉGOCIABLES
-
-- **Wallet Keplr (STEF SEULEMENT)** = seule autorité pour transactions/deployments
-- **Secrets** = jamais dans repo public
-- **Drive mémoire** = NE PAS SUPPRIMER
-- Aucun agent ne signe de façon autonome
+| WS | Nom | Status | Notes |
+|----|-----|--------|-------|
+| WS1 | Akash Runtime | ACTIF | DSEQ 26182802, V3 migration pending (Keplr) |
+| WS2 | TRINITY/GPT | ONLINE | Guide projet, check ChatGPT |
+| WS3 | Gemini/MERLIN | PENDING | Redéploiement Akash requis |
+| WS4 | KIMI Direct | DONE | /api/kimi/intel endpoint live (Priority 1) |
+| WS5 | Claude Subagents | ACTIF | oracle-agent + onchain-guardian a tuner |
+| WS6 | Provider Intel | BACKLOG | — |
 
 ---
 
-## 🧭 DOCTRINE S25
+## 🚀 PROCHAINES PRIORITÉS
+
+1. **V3 Migration Akash**: Stef signe le SDL V2 via Keplr (RTX 3090Ti $0.30/h)
+2. **MERLIN redéploiement**: merlin.smajor.org/mcp doit être stable sur Akash
+3. **WS5 Bonus**: COMET weight 0.5->0.65, consensus >=2 agents actif
+4. **oracle-agent**: Enrichir sources + tuner risk model
+5. **onchain-guardian**: Tuner sources onchain
+
+---
+
+## 🔑 DOCTRINE S25
 
 > "L'agent est un maillon interchangeable, pas la source de vérité."
-> "ZERO dépendance locale — tout sur Akash ou cloud stable."
-> Score actuel: 80-85% S25 compliant. Objectif: 100%.
-
----
-*Built by Claude for Major Stef — S25 Lumière Project 2026*# 🧠 CLAUDE_CONTEXT.md — Mémoire Persistante Claude
-> Dernière mise à jour: 2026-04-09
-> Projet: S25 Lumière — Autonomous Multi-Agent Crypto Trading
-> Major: Stef Boss (stephaneboss)
+> ZERO dépendance locale. Tout via endpoints stables (smajor.org).
+> HA = secondaire. agents_state.json = runtime memory.
 
 ---
 
-## 🎯 MON RÔLE
-**CLAUDE = Builder / Deploy** dans le système S25 Lumière.
-Je construis, déploie et optimise l'infrastructure.
+## 🔗 LIENS CLÉS
 
----
-
-## 📋 PRIORITÉS EN COURS (2026-04-09)
-
-### 🔥 PRIORITÉ 1 — Supprimer tunnel Cloudflare
-- [ ] Couper tunnel Cloudflare KIMI → HA
-- [ ] Connecter KIMI → https://api.smajor.org/api/agents/kimi/intel
-
-### 🔥 PRIORITÉ 3B — HA secondaire
-- [ ] HA devient visu/automation seulement
-- [ ] S25 API = source de vérité
-- HA actuel: http://10.0.0.136:8123 (LAN only)
-
-### 🔥 PRIORITÉ 2 — MERLIN sur Akash
-- [ ] MERLIN local (10.0.0.97) → merlin.smajor.org
-
-### ⚙️ BONUS
-- [ ] COMET poids: 0.5 → 0.65
-- [ ] Consensus réel: EXECUTE si >=2 agents alignés
-
----
-
-## 🤖 AGENTS
-| Agent | Rôle | Statut |
-|-------|------|--------|
-| CLAUDE | Builder/Deploy | 🟢 |
-| TRINITY (GPT) | Guide Projet + TTS | 🟢 |
-| MERLIN (Gemini) | Orchestrateur HA | 🔴 LOCAL |
-| COMET (Perplexity) | Watchman | 🟢 |
-| ARKON-5 (Gemini) | Analyseur Trading | 🟢 |
-| KIMI Web3 | Signaux | 🟡 |
-| Gemini | Orchestrateur | 🟢 |
-
----
-
-## 🌐 ENDPOINTS
-- s25.smajor.org ✅
-- api.smajor.org ✅
-- merlin.smajor.org ⚠️
-- HA: 10.0.0.136:8123 🔴 LAN
-- Cockpit Akash: :7777
-
----
-
-## 🧭 DOCTRINE
-> "ZERO dépendance locale. L'agent = maillon interchangeable."
-> Score S25 actuel: 80-85%. Objectif: 100%.
-
----
-
-## 📌 DÉMARRAGE SESSION
-1. Lire ce fichier
-2. Vérifier https://s25.smajor.org
-3. Lire dernière conv TRINITY: chatgpt.com > Trinity S25
-4. Continuer priorités
-
-*Built by Claude for Major Stef — S25 2026*
+- GitHub: https://github.com/stephaneboss/S25-COMMAND-CENTER
+- Cockpit: https://s25.smajor.org
+- API Status: https://api.smajor.org/api/status
+- KIMI Intel: https://api.smajor.org/api/kimi/intel
+- Nexus V2: https://api.smajor.org/api/v2/status
+- Google Drive MASTER: https://docs.google.com/document/d/1ztAi7FxXG6ZTLhqaSQX46CQJz5vMvWaNtLEM5sIVkZE/edit
