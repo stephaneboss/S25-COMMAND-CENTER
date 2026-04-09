@@ -297,49 +297,55 @@ def index():
 
 @app.route('/api/status')
 def api_status():
-    """Retourne l'état du système S25 depuis HA"""
+    """S25 Status — Priority 3B: HA secondaire, non-bloquant.
+    Source de verite = S25 Runtime (memoire interne).
+    HA = visualisation/automation optionnelle.
+    """
+    mem_state = _load_agents_state()
+    pipeline = mem_state.get("pipeline", {})
+
     status = {
         "timestamp": datetime.utcnow().isoformat(),
-        "arkon5_action": "HOLD",
-        "arkon5_conf": 0,
-        "pipeline_status": "INIT",
+        "arkon5_action": pipeline.get("arkon5_action", "HOLD"),
+        "arkon5_conf": pipeline.get("arkon5_conf", 0),
+        "pipeline_status": pipeline.get("status", "S25_RUNTIME"),
         "hashrate": "--",
         "temp": "--",
-        "comet_intel": "En attente...",
-        "tunnel_active": False
+        "comet_intel": pipeline.get("comet_intel", "S25 Runtime actif - HA secondaire"),
+        "tunnel_active": True,
+        "ha_status": "secondary",
+        "ha_warning": None,
     }
 
-    if not HA_TOKEN:
-        return jsonify(status)
-
-    try:
-        headers = {"Authorization": f"Bearer {HA_TOKEN}"}
-        entities = ["sensor.s25_arkon5_action", "sensor.s25_arkon5_conf",
-                    "input_text.ai_model_actif", "sensor.antminer_hashrate",
-                    "sensor.antminer_temp", "input_text.s25_comet_intel"]
-
-        for entity in entities:
-            r = requests.get(f"{HA_URL}/api/states/{entity}", headers=headers, timeout=5)
-            if r.status_code == 200:
-                state = r.json().get("state", "--")
-                if "arkon5_action" in entity: status["arkon5_action"] = state
-                elif "arkon5_conf" in entity: status["arkon5_conf"] = state
-                elif "ai_model_actif" in entity: status["pipeline_status"] = state
-                elif "antminer_hashrate" in entity: status["hashrate"] = state
-                elif "antminer_temp" in entity: status["temp"] = state
-                elif "comet_intel" in entity: status["comet_intel"] = state
-
-        # Check tunnel: try local process first (HA container), then fallback
-        # to comet_intel state (Akash container — cloudflared runs on HA side).
-        tunnel_active = _process_running("cloudflared")
-        if not tunnel_active:
-            ci = status.get("comet_intel", "")
-            if "ACTIF" in ci or "trycloudflare.com" in ci:
-                tunnel_active = True
-        status["tunnel_active"] = tunnel_active
-
-    except Exception as e:
-        status["error"] = str(e)
+    if HA_TOKEN:
+        try:
+            headers = {"Authorization": f"Bearer {HA_TOKEN}"}
+            test = requests.get(f"{HA_URL}/api/", headers=headers, timeout=2)
+            if test.status_code == 200:
+                entity_map = {
+                    "sensor.s25_arkon5_action": "arkon5_action",
+                    "sensor.s25_arkon5_conf": "arkon5_conf",
+                    "input_text.ai_model_actif": "pipeline_status",
+                    "sensor.antminer_hashrate": "hashrate",
+                    "sensor.antminer_temp": "temp",
+                    "input_text.s25_comet_intel": "comet_intel",
+                }
+                for entity, key in entity_map.items():
+                    try:
+                        r = requests.get(f"{HA_URL}/api/states/{entity}", headers=headers, timeout=2)
+                        if r.status_code == 200:
+                            status[key] = r.json().get("state", status[key])
+                    except Exception:
+                        pass
+                status["ha_status"] = "connected"
+                tunnel_active = _process_running("cloudflared")
+                if not tunnel_active:
+                    ci = status.get("comet_intel", "")
+                    tunnel_active = "ACTIF" in ci or "trycloudflare.com" in ci
+                status["tunnel_active"] = tunnel_active
+        except Exception as ha_err:
+            status["ha_status"] = "unreachable"
+            status["ha_warning"] = str(ha_err)[:120]
 
     return jsonify(status)
 
@@ -750,6 +756,43 @@ Reponds en 2-3 phrases max, direct et actionnable."""
     # default query
     resp = _kimi_query(intent or "Donne-moi un update marche crypto.")
     return jsonify({"ok": True, "action": "query", "intent": intent, "kimi_response": resp})
+
+# === KIMI INTEL DIRECT — Priority 1: sans tunnel Cloudflare ===
+# Avant: KIMI -> Cloudflare tunnel -> HA webhook -> S25
+# Apres: KIMI -> https://api.smajor.org/api/kimi/intel -> S25
+_kimi_intel_cache = []
+
+@app.route('/api/kimi/intel', methods=['POST'])
+def kimi_intel_push():
+    """KIMI signal direct - sans tunnel (Priority 1)."""
+    if not _trinity_auth():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+    body = request.get_json(silent=True) or {}
+    signal = {
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "source": "KIMI_DIRECT",
+        "action": body.get("action", "HOLD").upper(),
+        "confidence": float(body.get("confidence", 0.5)),
+        "symbol": body.get("symbol", "BTC"),
+        "reason": body.get("reason", ""),
+    }
+    state = _load_agents_state()
+    state.setdefault("agents", {}).setdefault("KIMI", {}).update({
+        "last_seen": signal["ts"], "status": "online",
+        "last_signal": signal["action"], "last_confidence": signal["confidence"],
+    })
+    state.setdefault("pipeline", {})["kimi_last_signal"] = signal
+    _save_agents_state(state)
+    _kimi_intel_cache.append(signal)
+    if len(_kimi_intel_cache) > 50:
+        _kimi_intel_cache.pop(0)
+    return jsonify({"ok": True, "signal": signal, "mode": "direct_no_tunnel"})
+
+@app.route('/api/kimi/intel', methods=['GET'])
+def kimi_intel_get():
+    limit = int(request.args.get('limit', 10))
+    return jsonify({"ok": True, "signals": _kimi_intel_cache[-limit:], "count": len(_kimi_intel_cache), "mode": "direct_no_tunnel"})
+
 if __name__ == '__main__':
     port = int(os.getenv("PORT", "7777"))
     app.run(host='0.0.0.0', port=port, debug=False)
