@@ -133,14 +133,16 @@ def nexus_status():
         except Exception:
             prices[sym.replace('USDT', '')] = {'price': 0, 'change_24h': 0}
 
-    # HA Status
-    ha_status = {'connected': False, 'entities': 0}
-    try:
-        r = requests.get(f'{HA_URL}/api/', headers={'Authorization': f'Bearer {HA_TOKEN}'}, timeout=3)
-        if r.status_code == 200:
-            ha_status = {'connected': True, 'version': r.json().get('version', '?')}
-    except Exception:
-        pass
+    # HA Status — Priority 3B: secondaire, non-bloquant
+    ha_status = {'connected': False, 'entities': 0, 'source': 'secondary'}
+    ha_warning_v2 = None
+    if HA_TOKEN:
+        try:
+            r = requests.get(f'{HA_URL}/api/', headers={'Authorization': f'Bearer {HA_TOKEN}'}, timeout=2)
+            if r.status_code == 200:
+                ha_status = {'connected': True, 'version': r.json().get('version', '?'), 'source': 'live'}
+        except Exception as ha_err:
+            ha_warning_v2 = str(ha_err)[:100]
 
     data = {
         'ts': datetime.now(timezone.utc).isoformat(),
@@ -148,6 +150,7 @@ def nexus_status():
         'ok': True,
         'prices': prices,
         'ha': ha_status,
+        'ha_warning': ha_warning_v2,
         'agents': {
             'MERLIN': {'status': 'online', 'role': 'orchestrateur', 'missions': 2},
             'COMET': {'status': 'online', 'role': 'watchman', 'missions': 1},
@@ -529,15 +532,17 @@ def nexus_intel_push():
 def nexus_infra():
     """Statut infrastructure: HA + Cloudflare + Akash + Dell"""
 
-    # Check HA
+    # Check HA — Priority 3B: secondaire, non-bloquant (2s max)
     ha_ok = False
     ha_info = {}
-    try:
-        r = requests.get(f'{HA_URL}/api/', headers={'Authorization': f'Bearer {HA_TOKEN}'}, timeout=3)
-        ha_ok = r.status_code == 200
-        ha_info = r.json() if ha_ok else {}
-    except Exception:
-        pass
+    ha_warn_infra = None
+    if HA_TOKEN:
+        try:
+            r = requests.get(f'{HA_URL}/api/', headers={'Authorization': f'Bearer {HA_TOKEN}'}, timeout=2)
+            ha_ok = r.status_code == 200
+            ha_info = r.json() if ha_ok else {}
+        except Exception as ha_err:
+            ha_warn_infra = str(ha_err)[:100]
 
     # Cloudflare (on sait que HEALTHY depuis audit)
     cf = {
@@ -560,6 +565,8 @@ def nexus_infra():
     return jsonify({
         'ha': {
             'connected': ha_ok,
+            'source': 'live' if ha_ok else 'secondary',
+            'warning': ha_warn_infra,
             'url': 'ha.smajor.org',
             'lan': '10.0.0.136:8123',
             'version': ha_info.get('version', '?'),
