@@ -228,3 +228,42 @@ Si tu es Claude/ARKON et tu as perdu la memoire de session:
 - Test RAG: retrieval declenche OK, generation lente au 1er appel (embedding warmup)
 - Prochaine etape: warmup embedding + bridge ARKON vers BRAS ALIEN via Ollama API
 - Pour prochain Claude/ARKON: ce fichier est la source de verite — lis-le en entier au boot
+
+---
+
+## PATCH LOG 2026-04-09 18:47 UTC (ARKON — SYNC endpoints + triple consensus agents externes)
+
+### Endpoints LIVE verifies (fetch directs)
+- https://smajor.org (landing OK)
+- https://app.smajor.org (portail client 6x Next.js OK)
+- https://s25.smajor.org (cockpit DSEQ 25883220, fallback worker trinity-s25-proxy.trinitys25steph.workers.dev)
+- https://api.smajor.org/api/status -> status:online, pipeline:MULTI_SOURCE, mode:showroom, policy:audit_first
+- https://api.smajor.org/api/memory/state -> kill_switch:false, mode:mesh_live, threat_level:T0, arkon_threshold:0.6, consensus_bonus:0.15
+- https://merlin.smajor.org (MCP proxy, root 404 attendu)
+- KIMI Web3 DSEQ 25920459 LIVE (scan 60s BTC/USDT + AKT/USDT)
+
+### Source weights confirmes runtime
+- TRINITY 0.80 | MERLIN 0.70 | KIMI 0.65 | ORACLE 0.60 | ONCHAIN 0.55 | AGENT_LOOP 0.55 | COMET 0.50
+
+### Triple consensus agents externes (brief via INFRA_BRIEF_20260409.md)
+- TRINITY (GPT-4o, tab chatgpt.com): role orchestrateur vocal confirme, endpoint principal /api/status + lane /api/trinity, posture audit_first/showroom alignee, lead signal_lane
+- MERLIN (Gemini 3 Flash Gem "S25 ORCHESTRATOR"): RAPPORT D'ACTIVATION OPERATIONNEL, lead risk_lane, validation signal BUY arkon5_conf 0.8 -> DECISION [GO] (force 0.8, wallet AKT OK, BTC > support 82k), delegation action stef + COMET arbitrage
+- KIMI (Kimi Claw K2.5 Instant, live web): BUY EXECUTE recommande, BTC/USD 83446.95 > 82k, AKT range accumulation, wallet 47.79 AKT OK, mesh consensus valide, fallback BRAS ALIEN pret
+
+### Etat pipeline
+- Dernier signal dans /api/signal reste un test (eff_conf 0.44 -> NO_TRADE)
+- Le triple consensus chat n'est PAS automatiquement injecte dans pipeline; execution reelle requiert POST /api/signal avec sources mesh reelles OU trigger manuel stef via cockpit s25.smajor.org
+- Aucun trade execute, conforme mode showroom + audit_first
+- 15 mesh_agents_online, 10 missions_active en file depuis 2026-04-08
+
+### Bras local
+- S25-BRAS-ALIEN LIVE sur AlienStef 10.0.0.97:8080 (qwen2.5-coder:7b via Ollama 11434)
+- Open WebUI KB "S25-MEMORY" sync raw git (SHARED_MEMORY.md + PROVIDER_WATCH.md)
+- Relais MERLIN quand Akash pod off
+
+### Prochaines etapes (GATE stef)
+- [GO stef requis] POST /api/signal avec sources mesh reelles pour sortir du test signal
+- [TRIGGER stef requis] Execution BUY manuelle via cockpit ou HA webhook
+- [ARKON backlog] Bridge ARKON <-> BRAS ALIEN via Ollama API, warmup embedding KB, redemarrage OpenHands 3001 + DeerFlow
+
+SEAL ARKON 2026-04-09 18:47 UTC - infra synchro verifiee, mesh externe aligne, attente GO stef pour activation live.
