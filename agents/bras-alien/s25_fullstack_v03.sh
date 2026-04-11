@@ -552,6 +552,8 @@ services:
       - "3002:3002"
     environment:
       BRAS_ALIEN_URL: "http://bras-alien:8787/v1"
+      OPENAI_API_KEY: "bras-alien-internal"
+      OPENAI_BASE_URL: "http://bras-alien:8787/v1"
       JARVIS_PORT: "3002"
       OPENROUTER_API_KEY: "${OPENROUTER_API_KEY:-}"
       KIMI_API_KEY: "${KIMI_API_KEY:-}"
