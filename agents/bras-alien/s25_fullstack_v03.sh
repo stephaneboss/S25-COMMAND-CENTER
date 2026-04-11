@@ -211,22 +211,30 @@ providers:
     api_key_env: "OPENROUTER_API_KEY"
     default_model: "moonshotai/kimi-k2"
     models:
+      - id: "nousresearch/hermes-3-llama-3.1-405b:free"
+        tier: "free"
+        ctx: 131072
+        role_hints: ["chat", "intel", "free"]
+      - id: "google/gemma-4-31b-it:free"
+        tier: "free"
+        ctx: 131072
+        role_hints: ["deep_research", "free"]
       - id: "moonshotai/kimi-k2:free"
         tier: "free"
         ctx: 131072
         role_hints: ["intel", "nl2json", "free"]
-      - id: "moonshotai/kimi-k2"
-        tier: "paid"
-        ctx: 131072
-        role_hints: ["intel", "audit", "review"]
       - id: "google/gemini-2.0-flash-exp:free"
         tier: "free"
         ctx: 1048576
         role_hints: ["intel", "deep_research"]
-      - id: "meta-llama/llama-3.3-70b-instruct:free"
+      - id: "qwen/qwen3-235b-a22b:free"
         tier: "free"
+        ctx: 40960
+        role_hints: ["chat", "reasoning", "free"]
+      - id: "moonshotai/kimi-k2"
+        tier: "paid"
         ctx: 131072
-        role_hints: ["chat", "free"]
+        role_hints: ["intel", "audit", "review"]
       - id: "anthropic/claude-3.5-sonnet"
         tier: "paid"
         ctx: 200000
@@ -335,8 +343,8 @@ COPY --from=fetch /src/openjarvis.sha /opt/openjarvis.sha
 
 WORKDIR /opt/openjarvis
 
-RUN uv sync --frozen 2>/dev/null || \
-    uv sync 2>/dev/null || \
+RUN uv sync --extra server --frozen 2>/dev/null || \
+    uv sync --extra server 2>/dev/null || \
     pip install -e . --break-system-packages || \
     pip install -e .
 
@@ -547,6 +555,7 @@ services:
       JARVIS_PORT: "3002"
       OPENROUTER_API_KEY: "${OPENROUTER_API_KEY:-}"
       KIMI_API_KEY: "${KIMI_API_KEY:-}"
+      OPENJARVIS_API_KEY: "${OPENJARVIS_API_KEY:-}"
     volumes:
       - s25-openjarvis-home:/opt/openjarvis-home
     networks:
@@ -1422,23 +1431,15 @@ def _pick_tier_order_from_model(model_id: Optional[str], default_order: List[str
 
 
 @app.post("/v1/chat/completions")
-async def oai_chat_completions(req: OAIChatReq, request: Request) -> Dict[str, Any]:
-    if req.stream:
-        raise HTTPException(
-            status_code=400,
-            detail={"ok": False, "error": "streaming not implemented on /v1/chat/completions yet"},
-        )
-
+async def oai_chat_completions(req: OAIChatReq, request: Request):
+    _want_stream = req.stream
     pool: CloudPool = request.app.state.cloud
     backends: List[Backend] = request.app.state.backends
-
     sys_h, usr_b = _messages_to_sys_user(req.messages)
     if not sys_h:
         sys_h = SYSTEM_PREFIX_TEMPLATE.format(role="free")
-
     default_order = list(pool.policy.get("prefer_order", ["local", "free", "paid"]))
     tier_order, prefer_backend = _pick_tier_order_from_model(req.model, default_order)
-
     res = await _call_with_failover(
         request.app.state.client, backends, pool,
         sys_h, usr_b, req.temperature, req.max_tokens,
@@ -1448,17 +1449,15 @@ async def oai_chat_completions(req: OAIChatReq, request: Request) -> Dict[str, A
     )
     if not res.get("ok"):
         raise HTTPException(status_code=503, detail=res)
-
     now = int(time.time())
     completion_id = f"chatcmpl-bras-{uuid.uuid4().hex[:24]}"
     model_label = res.get("model") or req.model or "arkon-auto"
-    text = res.get("response", "")
+    text_resp = res.get("response", "")
     usage = res.get("usage") or {}
-
-    return {
+    oai = {
         "id": completion_id, "object": "chat.completion", "created": now,
         "model": f"bras-alien/{res.get('tier','?')}/{model_label}",
-        "choices": [{"index": 0, "message": {"role": "assistant", "content": text}, "finish_reason": "stop"}],
+        "choices": [{"index": 0, "message": {"role": "assistant", "content": text_resp}, "finish_reason": "stop"}],
         "usage": {
             "prompt_tokens": int(usage.get("prompt_tokens") or 0),
             "completion_tokens": int(usage.get("completion_tokens") or 0),
@@ -1469,7 +1468,16 @@ async def oai_chat_completions(req: OAIChatReq, request: Request) -> Dict[str, A
             "backend": res.get("backend") or res.get("provider"), "build": BUILD_TAG,
         },
     }
-
+    if _want_stream:
+        import json as _j
+        async def _sse():
+            ch = {"id": oai["id"], "object": "chat.completion.chunk", "created": oai["created"], "model": oai["model"], "choices": [{"index": 0, "delta": {"role": "assistant", "content": text_resp}, "finish_reason": None}]}
+            yield "data: " + _j.dumps(ch) + chr(10) + chr(10)
+            ch["choices"] = [{"index": 0, "delta": {}, "finish_reason": "stop"}]
+            yield "data: " + _j.dumps(ch) + chr(10) + chr(10)
+            yield "data: [DONE]" + chr(10) + chr(10)
+        return StreamingResponse(_sse(), media_type="text/event-stream")
+    return oai
 
 @app.exception_handler(Exception)
 async def _on_any_error(_req: Request, exc: Exception) -> JSONResponse:
