@@ -19,6 +19,7 @@ PUBLIC_GATEWAY_URL = "https://api.smajor.org"
 PUBLIC_RUNTIME_URL = "https://s25.smajor.org"
 PROXY_TIMEOUT_MS = "15000"
 PROXY_RETRIES = "1"
+FALLBACK_ORIGIN = "https://cockpit-alien.smajor.org"
 # S25_WEBHOOK_PRIVATE_KEY — moved to Cloudflare secrets (wrangler secret put S25_WEBHOOK_PRIVATE_KEY)
 # Updated: 2026-04-03 Trinity Endpoint Sync Phase 3B+ / Webhook Refactor
 # All Trinity requests proxied through this Cloudflare worker to Akash ingress endpoint

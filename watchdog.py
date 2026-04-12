@@ -12,7 +12,7 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s [WATCHDOG] %(levelname)s: %(message)s',
     handlers=[
-        logging.FileHandler('/var/log/s25_watchdog.log'),
+        logging.FileHandler('/tmp/s25_watchdog.log'),
         logging.StreamHandler()
     ]
 )

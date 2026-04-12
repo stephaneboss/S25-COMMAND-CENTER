@@ -2654,25 +2654,36 @@ export default {
       );
     }
 
-    const target = buildTargetUrl(request.url, env.ORIGIN_BASE);
-    try {
-      const upstream = await fetchWithPolicy(target, request, env, requestId);
-      return new Response(upstream.body, {
-        status: upstream.status,
-        statusText: upstream.statusText,
-        headers: copyResponseHeaders(upstream.headers, requestId),
-      });
-    } catch (error) {
-      return jsonResponse(
-        {
-          ok: false,
-          error: "upstream_unreachable",
-          request_id: requestId,
-          detail: String(error),
-          target: target.toString(),
-        },
-        { status: 502 }
-      );
+    // Primary: ORIGIN_BASE (Akash) — Fallback: FALLBACK_ORIGIN (AlienStef)
+    const origins = [env.ORIGIN_BASE, env.FALLBACK_ORIGIN].filter(Boolean);
+    let lastError = null;
+
+    for (const origin of origins) {
+      const target = buildTargetUrl(request.url, origin);
+      try {
+        const upstream = await fetchWithPolicy(target, request, env, requestId);
+        if (upstream.status < 500) {
+          return new Response(upstream.body, {
+            status: upstream.status,
+            statusText: upstream.statusText,
+            headers: copyResponseHeaders(upstream.headers, requestId),
+          });
+        }
+        lastError = new Error(`origin-${origin}-status-${upstream.status}`);
+      } catch (error) {
+        lastError = error;
+      }
     }
+
+    return jsonResponse(
+      {
+        ok: false,
+        error: "all_origins_unreachable",
+        request_id: requestId,
+        detail: String(lastError),
+        origins_tried: origins.length,
+      },
+      { status: 502 }
+    );
   },
 };

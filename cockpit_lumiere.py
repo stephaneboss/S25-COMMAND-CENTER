@@ -48,245 +48,165 @@ HTML = '''<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>⚡ S25 LUMIÈRE — COCKPIT</title>
+<title>S25 LUMIERE - COCKPIT</title>
 <style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body {
-  background: radial-gradient(ellipse at top, #0d1b2a 0%, #0a0a0f 100%);
-  color: #e0e6ff; font-family: 'Courier New', monospace;
-  min-height: 100vh; overflow-x: hidden;
-}
-.scanlines {
-  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,255,200,0.015) 2px, rgba(0,255,200,0.015) 4px);
-  pointer-events: none; z-index: 1;
-}
-.container { max-width: 1200px; margin: 0 auto; padding: 20px; position: relative; z-index: 2; }
-.header { text-align: center; margin-bottom: 30px; }
-.header h1 {
-  font-size: 2.5rem; color: #00ffcc;
-  text-shadow: 0 0 20px #00ffcc, 0 0 40px #00ffcc;
-  animation: pulse 2s ease-in-out infinite;
-  letter-spacing: 0.3em;
-}
-@keyframes pulse {
-  0%, 100% { opacity: 1; } 50% { opacity: 0.8; }
-}
-.subtitle { color: #4fc3f7; font-size: 0.9rem; letter-spacing: 0.2em; margin-top: 5px; }
-.timestamp { color: #546e7a; font-size: 0.75rem; margin-top: 5px; }
-.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 20px; }
-.card {
-  background: rgba(0, 255, 200, 0.05);
-  border: 1px solid rgba(0, 255, 200, 0.2);
-  border-radius: 12px; padding: 20px;
-  transition: all 0.3s ease;
-  position: relative; overflow: hidden;
-}
-.card:hover { border-color: rgba(0, 255, 200, 0.5); box-shadow: 0 0 20px rgba(0, 255, 200, 0.1); }
-.card::before {
-  content: ''; position: absolute; top: 0; left: -100%;
-  width: 100%; height: 2px;
-  background: linear-gradient(90deg, transparent, #00ffcc, transparent);
-  animation: scan 3s linear infinite;
-}
-@keyframes scan { to { left: 200%; } }
-.card-title { color: #00ffcc; font-size: 0.8rem; letter-spacing: 0.2em; margin-bottom: 10px; }
-.card-value { font-size: 2rem; font-weight: bold; color: #fff; }
-.card-value.green { color: #00ff88; text-shadow: 0 0 10px #00ff88; }
-.card-value.red { color: #ff4444; text-shadow: 0 0 10px #ff4444; }
-.card-value.orange { color: #ff9800; text-shadow: 0 0 10px #ff9800; }
-.card-value.blue { color: #4fc3f7; text-shadow: 0 0 10px #4fc3f7; }
-.card-subtitle { color: #546e7a; font-size: 0.75rem; margin-top: 5px; }
-.status-dot {
-  width: 10px; height: 10px; border-radius: 50%;
-  display: inline-block; margin-right: 8px;
-  animation: blink 1s ease-in-out infinite;
-}
-.status-dot.green { background: #00ff88; box-shadow: 0 0 8px #00ff88; }
-.status-dot.red { background: #ff4444; box-shadow: 0 0 8px #ff4444; }
-.status-dot.orange { background: #ff9800; box-shadow: 0 0 8px #ff9800; }
-@keyframes blink { 50% { opacity: 0.3; } }
-.section-title { color: #4fc3f7; font-size: 0.9rem; letter-spacing: 0.2em; margin: 20px 0 10px; border-bottom: 1px solid rgba(79, 195, 247, 0.2); padding-bottom: 5px; }
-.agents-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
-.agent-card {
-  background: rgba(79, 195, 247, 0.05); border: 1px solid rgba(79, 195, 247, 0.2);
-  border-radius: 8px; padding: 15px; text-align: center;
-}
-.agent-name { color: #4fc3f7; font-size: 0.85rem; letter-spacing: 0.15em; margin-bottom: 8px; }
-.agent-status { font-size: 0.75rem; color: #546e7a; }
-.controls { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
-.btn {
-  padding: 10px 20px; border: 1px solid rgba(0, 255, 200, 0.4);
-  background: rgba(0, 255, 200, 0.1); color: #00ffcc;
-  border-radius: 6px; cursor: pointer; font-family: 'Courier New', monospace;
-  font-size: 0.8rem; letter-spacing: 0.1em; transition: all 0.2s;
-}
-.btn:hover { background: rgba(0, 255, 200, 0.2); box-shadow: 0 0 15px rgba(0, 255, 200, 0.3); }
-.btn.red { border-color: rgba(255, 68, 68, 0.4); background: rgba(255, 68, 68, 0.1); color: #ff4444; }
-.btn.red:hover { background: rgba(255, 68, 68, 0.2); }
-.intel-box {
-  background: rgba(0, 0, 0, 0.4); border: 1px solid rgba(0, 255, 200, 0.15);
-  border-radius: 8px; padding: 15px; font-size: 0.8rem; color: #80cbc4;
-  max-height: 150px; overflow-y: auto; white-space: pre-wrap;
-  font-family: 'Courier New', monospace;
-}
-.threat-bar {
-  display: flex; gap: 5px; margin: 10px 0;
-}
-.threat-level {
-  flex: 1; padding: 8px; border-radius: 4px; text-align: center;
-  font-size: 0.7rem; letter-spacing: 0.1em; border: 1px solid transparent;
-}
-.threat-level.active-t0 { background: rgba(0, 255, 136, 0.2); border-color: #00ff88; color: #00ff88; }
-.threat-level.active-t1 { background: rgba(255, 235, 59, 0.2); border-color: #ffeb3b; color: #ffeb3b; }
-.threat-level.active-t2 { background: rgba(255, 152, 0, 0.2); border-color: #ff9800; color: #ff9800; }
-.threat-level.active-t3 { background: rgba(255, 68, 68, 0.2); border-color: #ff4444; color: #ff4444; }
-.threat-level.inactive { background: rgba(255,255,255,0.02); border-color: rgba(255,255,255,0.05); color: #37474f; }
-footer { text-align: center; color: #263238; font-size: 0.7rem; margin-top: 30px; letter-spacing: 0.2em; }
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:radial-gradient(ellipse at top,#0d1b2a 0%,#0a0a0f 100%);color:#e0e6ff;font-family:'Courier New',monospace;min-height:100vh;overflow-x:hidden}
+.scanlines{position:fixed;top:0;left:0;width:100%;height:100%;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,255,200,.015) 2px,rgba(0,255,200,.015) 4px);pointer-events:none;z-index:1}
+.container{max-width:1400px;margin:0 auto;padding:15px;position:relative;z-index:2}
+.header{text-align:center;margin-bottom:20px}
+.header h1{font-size:2.2rem;color:#00ffcc;text-shadow:0 0 20px #00ffcc,0 0 40px #00ffcc;animation:pulse 2s ease-in-out infinite;letter-spacing:.3em}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.8}}
+.subtitle{color:#4fc3f7;font-size:.85rem;letter-spacing:.2em;margin-top:4px}
+.timestamp{color:#546e7a;font-size:.7rem;margin-top:4px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:15px}
+.card{background:rgba(0,255,200,.05);border:1px solid rgba(0,255,200,.2);border-radius:10px;padding:14px;transition:all .3s;position:relative;overflow:hidden}
+.card:hover{border-color:rgba(0,255,200,.5);box-shadow:0 0 20px rgba(0,255,200,.1)}
+.card::before{content:'';position:absolute;top:0;left:-100%;width:100%;height:2px;background:linear-gradient(90deg,transparent,#00ffcc,transparent);animation:scan 3s linear infinite}
+@keyframes scan{to{left:200%}}
+.card-title{color:#00ffcc;font-size:.72rem;letter-spacing:.15em;margin-bottom:6px}
+.card-value{font-size:1.5rem;font-weight:bold;color:#fff}
+.green{color:#00ff88;text-shadow:0 0 10px #00ff88}.red{color:#ff4444;text-shadow:0 0 10px #ff4444}.orange{color:#ff9800;text-shadow:0 0 10px #ff9800}.blue{color:#4fc3f7;text-shadow:0 0 10px #4fc3f7}
+.card-sub{color:#546e7a;font-size:.68rem;margin-top:3px}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:5px}
+.dot.on{background:#00ff88;box-shadow:0 0 6px #00ff88}.dot.standby{background:#ff9800;box-shadow:0 0 6px #ff9800}.dot.off{background:#ff4444;box-shadow:0 0 6px #ff4444}
+.section{color:#4fc3f7;font-size:.82rem;letter-spacing:.2em;margin:15px 0 8px;border-bottom:1px solid rgba(79,195,247,.2);padding-bottom:4px}
+.svc-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.svc-link{padding:7px 14px;border:1px solid rgba(0,255,200,.3);background:rgba(0,255,200,.08);color:#00ffcc;border-radius:6px;text-decoration:none;font-family:'Courier New',monospace;font-size:.72rem;letter-spacing:.1em;transition:all .2s}
+.svc-link:hover{background:rgba(0,255,200,.2);box-shadow:0 0 12px rgba(0,255,200,.2)}
+.agents-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:12px}
+.ag{background:rgba(79,195,247,.05);border:1px solid rgba(79,195,247,.15);border-radius:7px;padding:10px;text-align:center;transition:all .2s}
+.ag:hover{border-color:rgba(79,195,247,.4);transform:translateY(-1px)}
+.ag.on{border-color:rgba(0,255,136,.3)}.ag.standby{border-color:rgba(255,152,0,.2)}
+.ag-name{color:#4fc3f7;font-size:.75rem;letter-spacing:.08em;margin-bottom:4px}
+.ag-info{font-size:.65rem;color:#546e7a}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:768px){.two-col{grid-template-columns:1fr}}
+.intel-box{background:rgba(0,0,0,.4);border:1px solid rgba(0,255,200,.15);border-radius:8px;padding:10px;font-size:.72rem;color:#80cbc4;height:280px;overflow-y:auto;white-space:pre-wrap;font-family:'Courier New',monospace}
+.jarvis-box{background:rgba(0,0,0,.5);border:1px solid rgba(79,195,247,.3);border-radius:10px;padding:12px;display:flex;flex-direction:column;height:280px}
+.j-msgs{flex:1;overflow-y:auto;margin-bottom:8px;font-size:.78rem;line-height:1.4}
+.j-msgs .m{margin-bottom:6px;padding:5px 9px;border-radius:6px;max-width:85%;word-wrap:break-word}
+.m.u{background:rgba(0,255,200,.1);color:#00ffcc;margin-left:auto}
+.m.a{background:rgba(79,195,247,.1);color:#e0e6ff}
+.j-in{display:flex;gap:6px}
+.j-in input{flex:1;padding:7px 10px;background:rgba(255,255,255,.05);border:1px solid rgba(79,195,247,.3);border-radius:6px;color:#e0e6ff;font-family:'Courier New',monospace;font-size:.78rem;outline:none}
+.j-in input:focus{border-color:#4fc3f7}
+.j-in button{padding:7px 14px;background:rgba(79,195,247,.2);border:1px solid rgba(79,195,247,.4);border-radius:6px;color:#4fc3f7;cursor:pointer;font-family:'Courier New',monospace;font-size:.78rem}
+.controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.btn{padding:7px 14px;border:1px solid rgba(0,255,200,.4);background:rgba(0,255,200,.1);color:#00ffcc;border-radius:6px;cursor:pointer;font-family:'Courier New',monospace;font-size:.72rem;letter-spacing:.1em;transition:all .2s}
+.btn:hover{background:rgba(0,255,200,.2);box-shadow:0 0 12px rgba(0,255,200,.2)}
+.btn.red{border-color:rgba(255,68,68,.4);background:rgba(255,68,68,.1);color:#ff4444}
+footer{text-align:center;color:#263238;font-size:.6rem;margin-top:15px;letter-spacing:.15em}
+.typing{display:inline-block;width:12px;animation:typingAnim .8s steps(3) infinite}
+@keyframes typingAnim{0%{content:'.'} 33%{content:'..'} 66%{content:'...'}}
 </style>
 </head>
 <body>
 <div class="scanlines"></div>
 <div class="container">
   <div class="header">
-    <h1>⚡ S25 LUMIÈRE</h1>
-    <div class="subtitle">ARKON-5 COMMAND CENTER // COCKPIT v1.0</div>
+    <h1>S25 LUMIERE</h1>
+    <div class="subtitle">COMMAND CENTER // AlienStef Node</div>
     <div class="timestamp" id="clock">--</div>
   </div>
 
-  <!-- THREAT LEVEL BAR -->
-  <div id="threat-bar" class="threat-bar">
-    <div class="threat-level active-t0">T0 🟢 NORMAL</div>
-    <div class="threat-level inactive">T1 🟡 SURVEILLANCE</div>
-    <div class="threat-level inactive">T2 🟠 ALERTE</div>
-    <div class="threat-level inactive">T3 🔴 CRITIQUE</div>
+  <div class="section">SERVICES</div>
+  <div class="svc-bar">
+    <a class="svc-link" href="https://alien.smajor.org" target="_blank">Open WebUI</a>
+    <a class="svc-link" href="https://jarvis.smajor.org/docs" target="_blank">Jarvis API</a>
+    <a class="svc-link" href="https://api-alien.smajor.org" target="_blank">Bras-Alien</a>
+    <a class="svc-link" href="https://cockpit-alien.smajor.org" target="_blank">Cockpit</a>
+    <a class="svc-link" href="https://s25.smajor.org" target="_blank">Akash</a>
+    <a class="svc-link" href="https://app.smajor.org" target="_blank">Admin</a>
+    <a class="svc-link" href="https://smajor.org" target="_blank">smajor.org</a>
   </div>
 
-  <!-- STATUS CARDS -->
   <div class="grid" id="status-grid">
-    <div class="card">
-      <div class="card-title">🎯 SIGNAL ARKON-5</div>
-      <div class="card-value" id="arkon-action">--</div>
-      <div class="card-subtitle" id="arkon-conf">Confiance: --</div>
-    </div>
-    <div class="card">
-      <div class="card-title">📊 PIPELINE S25</div>
-      <div class="card-value blue" id="pipeline-status">--</div>
-      <div class="card-subtitle">Modèle actif</div>
-    </div>
-    <div class="card">
-      <div class="card-title">⛏️ HASHRATE</div>
-      <div class="card-value orange" id="hashrate">-- TH/s</div>
-      <div class="card-subtitle" id="temp">Temp: --°C</div>
-    </div>
-    <div class="card">
-      <div class="card-title">🌐 TUNNEL S25</div>
-      <div class="card-value" id="tunnel-status">--</div>
-      <div class="card-subtitle">Cloudflare ↔ Kimi</div>
-    </div>
+    <div class="card"><div class="card-title">MESH AGENTS</div><div class="card-value green" id="mesh-count">--</div><div class="card-sub" id="mesh-detail">loading...</div></div>
+    <div class="card"><div class="card-title">BRAS-ALIEN</div><div class="card-value blue" id="fleet-count">--</div><div class="card-sub" id="fleet-detail">--</div></div>
+    <div class="card"><div class="card-title">OLLAMA</div><div class="card-value green" id="ollama-status">--</div><div class="card-sub" id="ollama-models">--</div></div>
+    <div class="card"><div class="card-title">ARKON-5</div><div class="card-value orange" id="arkon-action">HOLD</div><div class="card-sub" id="arkon-conf">--</div></div>
+    <div class="card"><div class="card-title">TUNNEL CF</div><div class="card-value" id="tunnel-status">--</div><div class="card-sub">s25-alien</div></div>
+    <div class="card"><div class="card-title">SYSTEM</div><div class="card-value blue" id="sys-info">--</div><div class="card-sub" id="sys-detail">--</div></div>
   </div>
 
-  <!-- AGENTS STATUS -->
-  <div class="section-title">⟐ AGENTS NETWORK</div>
-  <div class="agents-grid">
-    <div class="agent-card">
-      <div class="agent-name">🤖 MERLIN</div>
-      <div><span class="status-dot green"></span><span class="agent-status">Orchestrateur HA</span></div>
+  <div class="section">AGENT MESH</div>
+  <div class="agents-grid" id="agents-grid"><div class="ag"><div class="ag-name">Loading...</div></div></div>
+
+  <div class="section">JARVIS + INTEL</div>
+  <div class="two-col">
+    <div class="jarvis-box">
+      <div class="j-msgs" id="j-msgs"><div class="m a">Jarvis S25 pret. Pose ta question.</div></div>
+      <div class="j-in"><input type="text" id="j-in" placeholder="Parle a Jarvis..." onkeydown="if(event.key==='Enter')sendJ()"><button onclick="sendJ()">SEND</button></div>
     </div>
-    <div class="agent-card">
-      <div class="agent-name">🔭 COMET</div>
-      <div><span class="status-dot green"></span><span class="agent-status">Watchman Radar</span></div>
-    </div>
-    <div class="agent-card">
-      <div class="agent-name">🧠 GEMINI</div>
-      <div><span class="status-dot green"></span><span class="agent-status">ARKON-5 Analyzer</span></div>
-    </div>
-    <div class="agent-card">
-      <div class="agent-name">🌐 KIMI Web3</div>
-      <div><span class="status-dot orange"></span><span class="agent-status">Signal Source</span></div>
-    </div>
-    <div class="agent-card">
-      <div class="agent-name">🤝 GPT</div>
-      <div><span class="status-dot green"></span><span class="agent-status">GOUV4 Planner</span></div>
-    </div>
-    <div class="agent-card">
-      <div class="agent-name">⚡ CLAUDE</div>
-      <div><span class="status-dot green"></span><span class="agent-status">Builder / Deploy</span></div>
-    </div>
+    <div class="intel-box" id="intel-log">En attente...</div>
   </div>
 
-  <!-- COMET INTEL -->
-  <div class="section-title">📡 INTEL COMET</div>
-  <div class="intel-box" id="comet-intel">En attente de connexion HA...</div>
-
-  <!-- CONTRÔLES -->
-  <div class="section-title">🎛️ CONTRÔLES</div>
+  <div class="section">CONTROLS</div>
   <div class="controls">
-    <button class="btn" onclick="startTunnel()">▶ START TUNNEL</button>
-    <button class="btn" onclick="stopTunnel()">⬛ STOP TUNNEL</button>
-    <button class="btn" onclick="refreshData()">⟳ REFRESH</button>
-    <button class="btn" onclick="forceAnalysis()">🧠 FORCE ANALYSE</button>
-    <button class="btn red" onclick="confirmPurge()">🚨 PURGE (KILL)</button>
+    <button class="btn" onclick="refreshData()">REFRESH</button>
+    <button class="btn" onclick="forceAnalysis()">FORCE ANALYSE</button>
+    <button class="btn" onclick="rebuildMem()">REBUILD MEMORY</button>
+    <button class="btn red" onclick="if(confirm('PURGE TOTALE?'))fetch('/api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'purge'})})">PURGE</button>
   </div>
 
-  <footer>S25 LUMIÈRE COCKPIT v1.0 // AKASH CENTOS // CLAUDE BUILD // {{ now }}</footer>
+  <footer>S25 LUMIERE COCKPIT v2.0 // AlienStef + Akash // {{ now }}</footer>
 </div>
-
 <script>
-// Auto-refresh toutes les 30s
-let refreshTimer = setInterval(refreshData, 30000);
+setInterval(()=>{document.getElementById('clock').textContent=new Date().toLocaleString('fr-CA')},1000);
 
-function updateClock() {
-  document.getElementById('clock').textContent = new Date().toLocaleString('fr-CA');
+async function refreshData(){
+  try{
+    const mesh=await(await fetch('/api/mesh/status')).json();
+    const m=mesh.mesh||{};
+    document.getElementById('mesh-count').textContent=m.online+'/'+m.total_agents;
+    document.getElementById('mesh-detail').textContent=m.online+' online, '+m.offline+' standby';
+    const ag=m.agents||{};
+    const grid=document.getElementById('agents-grid');
+    grid.innerHTML='';
+    for(const[n,i]of Object.entries(ag).sort()){
+      const s=i.status||'?';
+      const d=s==='online'?'on':s==='standby'?'standby':'off';
+      const t=i.last_seen?i.last_seen.substring(11,19):'--';
+      grid.innerHTML+='<div class="ag '+d+'"><div class="ag-name">'+n+'</div><div><span class="dot '+d+'"></span><span class="ag-info">'+s+' '+t+'</span></div></div>';
+    }
+  }catch(e){console.error(e)}
+  try{
+    const st=await(await fetch('/api/status')).json();
+    const a=st.arkon5_action||'HOLD';
+    const ae=document.getElementById('arkon-action');
+    ae.textContent=a;ae.className='card-value '+(a==='BUY'?'green':a==='SELL'?'red':'orange');
+    document.getElementById('arkon-conf').textContent='Conf: '+(st.arkon5_conf||'--')+'%';
+    const te=document.getElementById('tunnel-status');
+    te.textContent=st.tunnel_active?'ACTIF':'--';te.className='card-value '+(st.tunnel_active?'green':'orange');
+    if(st.ram_used)document.getElementById('sys-info').textContent=st.ram_used;
+    if(st.disk_pct)document.getElementById('sys-detail').textContent='Disk: '+st.disk_pct;
+  }catch(e){}
 }
-setInterval(updateClock, 1000);
-updateClock();
 
-async function refreshData() {
-  try {
-    const r = await fetch('/api/status');
-    const data = await r.json();
-
-    // Arkon action
-    const action = data.arkon5_action || 'HOLD';
-    const actionEl = document.getElementById('arkon-action');
-    actionEl.textContent = action;
-    actionEl.className = 'card-value ' + (action === 'BUY' ? 'green' : action === 'SELL' ? 'red' : 'orange');
-
-    document.getElementById('arkon-conf').textContent = 'Confiance: ' + (data.arkon5_conf || '--') + '%';
-    document.getElementById('pipeline-status').textContent = (data.pipeline_status || '--').substring(0, 20);
-    document.getElementById('hashrate').textContent = (data.hashrate || '--') + ' TH/s';
-    document.getElementById('temp').textContent = 'Temp: ' + (data.temp || '--') + '°C';
-    document.getElementById('comet-intel').textContent = data.comet_intel || '--';
-
-    const tunnelEl = document.getElementById('tunnel-status');
-    tunnelEl.textContent = data.tunnel_active ? '🟢 ACTIF' : '🔴 INACTIF';
-    tunnelEl.className = 'card-value ' + (data.tunnel_active ? 'green' : 'red');
-
-  } catch(e) {
-    console.error('Refresh error:', e);
+async function sendJ(){
+  const inp=document.getElementById('j-in');
+  const msg=inp.value.trim();if(!msg)return;inp.value='';
+  const box=document.getElementById('j-msgs');
+  box.innerHTML+='<div class="m u">'+msg.replace(/</g,'&lt;')+'</div>';
+  box.scrollTop=box.scrollHeight;
+  box.innerHTML+='<div class="m a" id="j-typing">...</div>';
+  try{
+    const r=await fetch('/api/jarvis',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:msg})});
+    const d=await r.json();
+    document.getElementById('j-typing').remove();
+    box.innerHTML+='<div class="m a">'+((d.reply||d.error||'...').replace(/</g,'&lt;'))+'</div>';
+  }catch(e){
+    document.getElementById('j-typing').remove();
+    box.innerHTML+='<div class="m a" style="color:#ff4444">Erreur: '+e.message+'</div>';
   }
+  box.scrollTop=box.scrollHeight;
 }
 
-async function startTunnel() {
-  await fetch('/api/action', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({action: 'start_tunnel'}) });
-  refreshData();
-}
-async function stopTunnel() {
-  await fetch('/api/action', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({action: 'stop_tunnel'}) });
-  refreshData();
-}
-async function forceAnalysis() {
-  await fetch('/api/action', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({action: 'force_analysis'}) });
-  alert('Analyse ARKON-5 déclenchée!');
-}
-function confirmPurge() {
-  if (confirm('⚠️ CONFIRMER LA PURGE TOTALE S25? Cette action coupe toutes les opérations critiques.')) {
-    fetch('/api/action', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({action: 'purge'}) });
-    alert('🚨 PURGE EXÉCUTÉE');
-  }
-}
-refreshData();
+async function forceAnalysis(){await fetch('/api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'force_analysis'})});refreshData()}
+async function rebuildMem(){await fetch('/api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'rebuild_memory'})});alert('Memory rebuild triggered')}
+
+refreshData();setInterval(refreshData,30000);
 </script>
 </body>
 </html>'''
@@ -586,12 +506,15 @@ Reponds en 2-3 phrases max, direct et actionnable."""
 
 def _load_agents_state() -> dict:
     """Charge agents_state.json depuis disque."""
+    state = {}
     try:
         if AGENTS_STATE_FILE.exists():
-            return json.loads(AGENTS_STATE_FILE.read_text(encoding="utf-8"))
+            state = json.loads(AGENTS_STATE_FILE.read_text(encoding="utf-8"))
     except Exception:
         pass
-    return {}
+    state.setdefault("agents", {})
+    state.setdefault("pipeline", {})
+    return state
 
 def _save_agents_state(state: dict):
     """Sauvegarde agents_state.json sur disque."""
@@ -646,7 +569,8 @@ def api_memory_state_post():
 
     state = _load_agents_state()
 
-    if agent and agent in state.get("agents", {}):
+    if agent:
+        state["agents"].setdefault(agent, {"status": "unknown", "registered_at": datetime.now(timezone.utc).isoformat()})
         state["agents"][agent].update(updates)
         state["agents"][agent]["last_seen"] = datetime.now(timezone.utc).isoformat()
 
@@ -655,7 +579,7 @@ def api_memory_state_post():
 
     _save_agents_state(state)
 
-    return jsonify({"ok": True, "agent": agent, "state": state["agents"].get(agent, {})})
+    return jsonify({"ok": True, "agent": agent, "state": state.get("agents", {}).get(agent, {})})
 
 
 @app.route('/api/memory/ping', methods=['POST'])
@@ -675,6 +599,105 @@ def api_memory_ping():
         return jsonify({"ok": True, "agent": agent, "ts": datetime.now(timezone.utc).isoformat()})
 
     return jsonify({"ok": False, "error": f"Agent {agent} inconnu"}), 404
+
+
+
+# ── Routes manquantes (mesh, missions, intel) ──────────────────────
+
+@app.route('/api/mesh/status', methods=['GET'])
+def api_mesh_status():
+    """Status du mesh d'agents — agrège agents_state."""
+    state = _load_agents_state()
+    agents = state.get("agents", {})
+    online  = sum(1 for a in agents.values() if a.get("status") == "online")
+    total   = len(agents)
+    return jsonify({
+        "ok": True,
+        "mesh": {
+            "total_agents": total,
+            "online": online,
+            "offline": total - online,
+            "agents": {k: {"status": v.get("status", "unknown"), "last_seen": v.get("last_seen")} for k, v in agents.items()},
+        }
+    })
+
+
+@app.route('/api/missions', methods=['GET'])
+def api_missions():
+    """Liste des missions actives depuis pipeline state."""
+    state = _load_agents_state()
+    pipeline = state.get("pipeline", {})
+    missions = pipeline.get("missions", [])
+    return jsonify({"ok": True, "missions": missions, "count": len(missions)})
+
+
+@app.route('/api/intel', methods=['POST'])
+def api_intel():
+    """Reçoit un rapport intel d'un agent (COMET, ARKON, etc.)."""
+    if not _trinity_auth():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+
+    body = request.get_json(silent=True) or {}
+    agent  = body.get("agent", "UNKNOWN").upper()
+    report = body.get("report", "")
+    level  = body.get("level", "info")
+
+    state = _load_agents_state()
+    intel_log = state.setdefault("intel", [])
+    intel_log.append({
+        "agent": agent,
+        "report": report,
+        "level": level,
+        "ts": datetime.now(timezone.utc).isoformat(),
+    })
+    # Keep last 100 entries
+    state["intel"] = intel_log[-100:]
+    _save_agents_state(state)
+
+    return jsonify({"ok": True, "agent": agent, "received": True})
+
+
+
+
+@app.route('/api/jarvis', methods=['POST'])
+def api_jarvis():
+    """Proxy chat vers Jarvis (OpenJarvis) via Bras-Alien."""
+    body = request.get_json(silent=True) or {}
+    message = body.get("message", "")
+    if not message:
+        return jsonify({"ok": False, "error": "No message"}), 400
+
+    system_prompt = (
+        "Tu es Jarvis, assistant IA du systeme S25 Lumiere. "
+        "Tu connais les agents: MERLIN (orchestrateur), COMET (watchman), "
+        "ARKON-5 (trading signals), KIMI (DEX sniper), TRINITY (voice/proxy), "
+        "GEMINI_OPS (health checks), ORACLE, ONCHAIN_GUARDIAN, etc. "
+        "Tu tournes sur AlienStef (RTX 3060, Qwen 14b). "
+        "Reponds en francais, sois concis et utile."
+    )
+
+    try:
+        resp = requests.post(
+            "http://localhost:3002/v1/chat/completions",
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": "Bearer s25-jarvis-internal-key",
+            },
+            json={
+                "model": "qwen2.5-coder:14b",
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": message},
+                ],
+                "max_tokens": 500,
+            },
+            timeout=60,
+        )
+        data = resp.json()
+        reply = data.get("choices", [{}])[0].get("message", {}).get("content", "...")
+        return jsonify({"ok": True, "reply": reply})
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 502
 
 if __name__ == '__main__':
     port = int(os.getenv("PORT", "7777"))
