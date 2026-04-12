@@ -39,9 +39,17 @@ def main() -> int:
     value = access_secret(client, args.project_id, args.secret_id, version=args.version)
 
     if args.format == "raw":
+        import sys as _sys
+        if not _sys.stdout.isatty():
+            print("ERROR: raw output refused — stdout is not a terminal", file=_sys.stderr)
+            return 1
         print(value)
         return 0
     if args.format == "env":
+        import sys as _sys
+        if not _sys.stdout.isatty():
+            print("ERROR: env output refused — stdout is not a terminal", file=_sys.stderr)
+            return 1
         print(f"S25_MASTER_SEED={value}")
         return 0
 

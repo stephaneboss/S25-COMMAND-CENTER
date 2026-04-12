@@ -106,8 +106,15 @@ def main() -> int:
         return 0
 
     if args.command == "export":
+        import sys as _sys
+        if not _sys.stdout.isatty():
+            print("ERROR: export refused — stdout is not a terminal (pipe/redirect detected)", file=_sys.stderr)
+            print("Use 'set' to inject individual keys, or pipe through a secure process.", file=_sys.stderr)
+            return 1
         for key, value in vault.export_env_map(include_optional=args.include_optional).items():
-            print(f"{key}={value}")
+            masked = value[:3] + "***" + value[-3:] if len(value) > 8 else "****"
+            print(f"{key}={masked}")
+        print("\n# Secrets are masked. Use 'manage_secrets.py status <KEY>' for full values.", file=_sys.stderr)
         return 0
 
     if args.command == "bundle-status":

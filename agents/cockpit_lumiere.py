@@ -20,14 +20,14 @@ SHARED_MEMORY_FILE = MEMORY_DIR / "SHARED_MEMORY.md"
 AGENTS_STATE_FILE  = MEMORY_DIR / "agents_state.json"
 
 app = Flask(__name__)
-app.secret_key = os.getenv("SECRET_KEY", "s25_lumiere_secret_x100")
+app.secret_key = vault_get("SECRET_KEY", os.urandom(32).hex())
 
 HA_URL          = os.getenv("HA_URL", "http://homeassistant.local:8123")
 HA_TOKEN        = vault_get("HA_TOKEN", os.getenv("HA_TOKEN", "")) or ""
 GEMINI_API_KEY  = vault_get("GEMINI_API_KEY", os.getenv("GEMINI_API_KEY", "")) or ""
 GEMINI_MODEL    = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
 S25_SECRET      = vault_get("S25_SHARED_SECRET", os.getenv("S25_SHARED_SECRET", "")) or ""
-MASTER_WALLET_ADDRESS = os.getenv("MASTER_WALLET_ADDRESS", "akash1mw0trq8xgmdyqqjn482r9pfr05hfw06rzq2u9v")
+MASTER_WALLET_ADDRESS = os.getenv("MASTER_WALLET_ADDRESS", "")
 APP_BUILD_SHA   = os.getenv("APP_BUILD_SHA", "dev")
 ALLOW_PUBLIC_ACTIONS = os.getenv("ALLOW_PUBLIC_ACTIONS", "true").lower() in {"1", "true", "yes", "on"}
 PUBLIC_RUNTIME_BASE = os.getenv("PUBLIC_RUNTIME_BASE", "https://s25.smajor.org")

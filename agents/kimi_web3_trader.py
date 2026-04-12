@@ -34,8 +34,13 @@ logging.basicConfig(
 logger = logging.getLogger("kimi.web3")
 
 # ─── Config ───────────────────────────────────────────────────────────────────
-WALLET_MNEMONIC  = os.environ.get("WALLET_MNEMONIC", "")
-WALLET_ADDRESS   = os.environ.get("WALLET_ADDRESS", "akash1mw0trq8xgmdyqqjn482r9pfr05hfw06rzq2u9v")
+try:
+    from security.vault import vault_get
+except ImportError:
+    vault_get = lambda key, default=None: os.environ.get(key, default)
+
+WALLET_MNEMONIC  = vault_get("OSMOSIS_MNEMONIC", os.environ.get("WALLET_MNEMONIC", ""))
+WALLET_ADDRESS   = os.environ.get("WALLET_ADDRESS", "")
 TRADE_SIZE_USD   = float(os.environ.get("TRADE_SIZE_USD", "5"))
 MAX_TRADE_USD    = float(os.environ.get("MAX_TRADE_USD", "10"))   # hard cap per trade
 MIN_RESERVE_USD  = float(os.environ.get("MIN_RESERVE_USD", "2"))  # keep 2$ untouched for gas

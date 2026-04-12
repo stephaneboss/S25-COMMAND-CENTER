@@ -8,7 +8,11 @@ from playwright.sync_api import sync_playwright
 import os, base64, time
 
 app = Flask(__name__)
-SECRET = os.environ.get('S25_SECRET', 's25sandbox2026')
+try:
+    from security.vault import vault_get
+    SECRET = vault_get('S25_SHARED_SECRET', os.environ.get('S25_SECRET', ''))
+except ImportError:
+    SECRET = os.environ.get('S25_SECRET', '')
 
 def auth(req):
     return (req.headers.get('X-S25-Secret') == SECRET or
@@ -23,7 +27,7 @@ def task():
     """
     Exécute une tâche browser.
     Body: {
-        "secret": "s25sandbox2026",
+        "secret": "<S25_SHARED_SECRET>",
         "url": "https://tradingview.com/...",
         "actions": [
             {"type": "navigate", "url": "..."},
