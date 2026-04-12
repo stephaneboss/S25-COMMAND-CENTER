@@ -1866,6 +1866,152 @@ def api_pipeline_dryrun():
     })
 
 
+# ════════════════════════════════════════════════════════════════
+# CONTROL LINK — Claude ↔ Trinity validated action chain
+# Actions are: proposed → queued → validated → executed
+# ════════════════════════════════════════════════════════════════
+
+@app.route('/api/control/propose', methods=['POST'])
+def api_control_propose():
+    """
+    Propose an action for validation. Returns a canonical action_id.
+    Body: {source, action_type, params, reason}
+    action_type: "config_change" | "agent_restart" | "signal_inject" | "pipeline_mode" | "deploy" | "custom"
+    """
+    if not _trinity_auth():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+
+    body = request.get_json(silent=True) or {}
+    action_id = f"ctrl_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
+
+    proposal = {
+        "action_id": action_id,
+        "source": body.get("source", "UNKNOWN"),
+        "action_type": body.get("action_type", "custom"),
+        "params": body.get("params", {}),
+        "reason": body.get("reason", "")[:500],
+        "status": "proposed",
+        "proposed_at": _utcnow_iso(),
+        "validated_at": None,
+        "executed_at": None,
+        "result": None,
+    }
+
+    state = _load_agents_state()
+    state.setdefault("control_queue", []).append(proposal)
+    # Keep max 50 actions in history
+    state["control_queue"] = state["control_queue"][-50:]
+    _save_agents_state(state)
+
+    return jsonify({"ok": True, "action_id": action_id, "proposal": proposal})
+
+
+@app.route('/api/control/validate', methods=['POST'])
+def api_control_validate():
+    """
+    Validate a proposed action. Only validated actions can be executed.
+    Body: {action_id, validator}
+    """
+    if not _trinity_auth():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+
+    body = request.get_json(silent=True) or {}
+    action_id = body.get("action_id", "")
+    validator = body.get("validator", "OPERATOR")
+
+    state = _load_agents_state()
+    queue = state.get("control_queue", [])
+
+    for item in queue:
+        if item["action_id"] == action_id and item["status"] == "proposed":
+            item["status"] = "validated"
+            item["validated_at"] = _utcnow_iso()
+            item["validated_by"] = validator
+            _save_agents_state(state)
+            return jsonify({"ok": True, "action_id": action_id, "status": "validated"})
+
+    return jsonify({"ok": False, "error": f"Action {action_id} not found or not in proposed state"}), 404
+
+
+@app.route('/api/control/execute', methods=['POST'])
+def api_control_execute():
+    """
+    Execute a validated action. Returns the result.
+    Body: {action_id}
+    """
+    if not _trinity_auth():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+
+    body = request.get_json(silent=True) or {}
+    action_id = body.get("action_id", "")
+
+    state = _load_agents_state()
+    queue = state.get("control_queue", [])
+    target = None
+
+    for item in queue:
+        if item["action_id"] == action_id and item["status"] == "validated":
+            target = item
+            break
+
+    if not target:
+        return jsonify({"ok": False, "error": f"Action {action_id} not validated or not found"}), 404
+
+    result = {"executed": False, "detail": "unknown action_type"}
+    atype = target["action_type"]
+    params = target.get("params", {})
+
+    if atype == "pipeline_mode":
+        pipeline = state.get("pipeline", {})
+        if "mode" in params:
+            pipeline["mode"] = params["mode"]
+        if "threat_level" in params:
+            pipeline["threat_level"] = params["threat_level"]
+        if "kill_switch" in params:
+            pipeline["kill_switch"] = params["kill_switch"]
+        state["pipeline"] = pipeline
+        result = {"executed": True, "detail": f"pipeline updated: {params}"}
+
+    elif atype == "signal_inject":
+        result = {"executed": True, "detail": "use /api/signal endpoint directly"}
+
+    elif atype == "config_change":
+        key = params.get("key", "")
+        value = params.get("value")
+        if key and value is not None:
+            state.setdefault("runtime_config", {})[key] = value
+            result = {"executed": True, "detail": f"config {key}={value}"}
+
+    elif atype == "agent_restart":
+        agent_name = params.get("agent", "")
+        result = {"executed": True, "detail": f"restart signal queued for {agent_name} (manual action required)"}
+
+    target["status"] = "executed"
+    target["executed_at"] = _utcnow_iso()
+    target["result"] = result
+
+    _record_comet_intel(
+        state,
+        summary=f"CONTROL: {atype} executed by {target.get('source','?')} — {result.get('detail','')}",
+        level="INFO",
+        source="CONTROL_LINK",
+    )
+    _save_agents_state(state)
+
+    return jsonify({"ok": True, "action_id": action_id, "result": result})
+
+
+@app.route('/api/control/queue', methods=['GET'])
+def api_control_queue():
+    """View the control action queue with status filtering."""
+    status_filter = request.args.get("status")
+    state = _load_agents_state()
+    queue = state.get("control_queue", [])
+    if status_filter:
+        queue = [q for q in queue if q["status"] == status_filter]
+    return jsonify({"ok": True, "queue": queue, "count": len(queue)})
+
+
 if __name__ == '__main__':
     port = int(os.getenv("PORT", "7777"))
     app.run(host='0.0.0.0', port=port, debug=False)
