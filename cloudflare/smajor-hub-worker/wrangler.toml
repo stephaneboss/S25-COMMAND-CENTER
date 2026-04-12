@@ -10,13 +10,13 @@ routes = [
   { pattern = "api.smajor.org", custom_domain = true }
 ]
 
-
 [vars]
 PUBLIC_APP_URL = "https://app.smajor.org"
 PUBLIC_API_URL = "https://api.smajor.org"
 PUBLIC_S25_URL = "https://s25.smajor.org"
 PUBLIC_MERLIN_URL = "https://merlin.smajor.org"
-# Akash cockpit LIVE — DSEQ 26270769 (provider.team-michel.com:31554) — updated 2026-04-06 v4 LIVE
-DIRECT_RUNTIME_URL = "http://provider.team-michel.com:31554"
+# Akash cockpit LIVE — DSEQ 26034859 (provider.jjozzietech.com.au) — redeployed 2026-03-21
+DIRECT_RUNTIME_URL = "http://pljfe3r2bh859ela04v9vrrh5s.ingress.jjozzietech.com.au"
 MASTER_WALLET_ADDRESS = "akash1mw0trq8xgmdyqqjn482r9pfr05hfw06rzq2u9v"
 MASTER_WALLET_LABEL = "Wallet creator"
+# S25_WEBHOOK_PRIVATE_KEY — moved to Cloudflare secrets (wrangler secret put S25_WEBHOOK_PRIVATE_KEY)

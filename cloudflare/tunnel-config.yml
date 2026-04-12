@@ -1,0 +1,50 @@
+# ============================================================
+# S25 LUMIERE - Cloudflare Named Tunnel Configuration
+# ============================================================
+# Setup (une seule fois):
+#   cloudflared tunnel login
+#   cloudflared tunnel create s25-tunnel
+#   cloudflared tunnel route dns s25-tunnel s25.smajor.org
+#   cloudflared tunnel route dns s25-tunnel api.smajor.org
+#   cloudflared tunnel route dns s25-tunnel merlin.smajor.org
+#   cloudflared tunnel route dns s25-tunnel ollama.smajor.org
+#
+# Run:
+#   cloudflared tunnel --config cloudflare/tunnel-config.yml run s25-tunnel
+#
+# Service systemd:
+#   sudo cloudflared service install --config /chemin/vers/tunnel-config.yml
+# ============================================================
+
+# Remplacer par l'ID du tunnel apres "cloudflared tunnel create"
+tunnel: TUNNEL_ID_ICI
+credentials-file: /home/alienstef/.cloudflared/TUNNEL_ID_ICI.json
+
+ingress:
+  # S25 Cockpit principal
+  - hostname: s25.smajor.org
+    service: http://localhost:7777
+    originRequest:
+      connectTimeout: 10s
+      noTLSVerify: true
+
+  # API Gateway S25
+  - hostname: api.smajor.org
+    service: http://localhost:7777
+    originRequest:
+      connectTimeout: 10s
+
+  # Merlin MCP Bridge
+  - hostname: merlin.smajor.org
+    service: http://localhost:8000
+    originRequest:
+      connectTimeout: 30s
+
+  # AlienStef Ollama (inference locale a distance)
+  - hostname: ollama.smajor.org
+    service: http://10.0.0.97:11434
+    originRequest:
+      connectTimeout: 15s
+
+  # Catch-all
+  - service: http_status:404
