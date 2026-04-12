@@ -1,11 +1,11 @@
 # TRINITY - S25 Lumiere Commander
 
-## Infra actuelle (2026-03-20)
-- **Cockpit LIVE**: http://provider.team-michel.com:31554 (DSEQ 26270769)
-- **s25.smajor.org**: DSEQ 25883220 — actuellement DOWN, à redéployer
-- **Tunnel Kimi**: https://finally-his-true-charlie.trycloudflare.com (peut changer au redémarrage)
-- **MERLIN**: AlienStef local — http://10.0.0.97:3000 (Open WebUI + qwen2.5-coder:14b)
-- **HA**: http://10.0.0.136:8123 (local réseau)
+## Infra actuelle
+- **Cockpit LIVE**: https://s25.smajor.org (Cloudflare proxy — PRIMARY)
+- **API**: https://api.smajor.org
+- **Tunnel Kimi**: dynamique (trycloudflare — change au redémarrage)
+- **MERLIN**: AlienStef local (Open WebUI + qwen2.5-coder:14b)
+- **HA**: réseau local
 - **Wallet S25**: ~$50 total (spot $35 + futures $14)
 - **Pipeline validé**: E2E DRY_RUN OK 2026-03-20 — Kimi→proxy:9191→HA→Gemini DONE
 

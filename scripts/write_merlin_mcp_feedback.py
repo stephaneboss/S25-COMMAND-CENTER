@@ -5,12 +5,13 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import os
 
 from mcp import ClientSession
 from mcp.client.streamable_http import streamablehttp_client
 
 
-DEFAULT_ENDPOINT = "https://da0m4r4tu5ctn0ja9r2t9c2vho.ingress.akashprovid.com/mcp"
+DEFAULT_ENDPOINT = os.getenv("GEMINI_MCP_ENDPOINT", "https://merlin.smajor.org/mcp")
 
 
 def build_parser() -> argparse.ArgumentParser:

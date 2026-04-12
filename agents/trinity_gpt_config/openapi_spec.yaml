@@ -1,14 +1,12 @@
 openapi: 3.1.0
 info:
   title: S25 Lumiere - Trinity Bridge API
-  description: "OpenAPI TRINITY vers cockpit S25. Serveur stable: https://s25.smajor.org (Cloudflare proxy — toujours valide). Cockpit direct: http://provider.team-michel.com:31554 (DSEQ 26270769 — actif)."
-  version: 2.7.0
+  description: "OpenAPI TRINITY vers cockpit S25. Serveur stable: https://s25.smajor.org (Cloudflare proxy — toujours valide)."
+  version: 2.7.1
 
 servers:
   - url: https://s25.smajor.org
     description: S25 Cockpit — domaine stable Cloudflare (PRIMARY — utiliser toujours celui-ci)
-  - url: http://provider.team-michel.com:31554
-    description: S25 Cockpit direct Akash (DSEQ 26270769 — provider.team-michel.com — actif)
 
 components:
   schemas:

@@ -24,13 +24,9 @@ agents:
     min_akt_balance: 2.0         # AKT — warn below this level
     critical_akt_balance: 0.5   # AKT — critical, recharge immediately
     auto_notify_ha: true
-    deployments:
-      - dseq: "25708774"
-        label: "s25-phoenix"
-        priority: 1              # Most important (GPU node)
-      - dseq: "25817341"
-        label: "s25-secondary"
-        priority: 2
+    # DSEQs are set via TREASURY_DEPLOYMENTS env var (comma-separated)
+    # Example: TREASURY_DEPLOYMENTS=25708774,25817341
+    deployments: "${TREASURY_DEPLOYMENTS}"
     swap:
       enabled: false             # Manual swaps for now (enable when ready)
       dex: "osmosis"

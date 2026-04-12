@@ -17,7 +17,7 @@
 
 - platform: rest
   name: s25_ollama_health
-  resource: "http://10.0.0.97:11434/api/tags"
+  resource: !secret s25_ollama_url_tags
   scan_interval: 600
   timeout: 10
   value_template: >-

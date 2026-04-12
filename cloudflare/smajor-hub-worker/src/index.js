@@ -7473,7 +7473,7 @@ function executiveReportSection(pathname, snapshot) {
         items: [
           "fleet=10 containers defined",
           "merlin_authority=established",
-          "google_project=gen-lang-client-0046423999",
+          "google_project=${GOOGLE_CLOUD_PROJECT}",
           "next=create Secret Manager values",
         ],
       },
@@ -10739,9 +10739,9 @@ export default {
             source: 'tradingview',
           };
           // Sauvegarder dans le cockpit
-          const S25_COCKPIT_URL = env.DIRECT_RUNTIME_URL || 'http://provider.team-michel.com:31554';
+          const S25_COCKPIT_URL = env.DIRECT_RUNTIME_URL || '';
           try {
-            const stateResp = await fetch(`${S25_COCKPIT_URL}/api/memory/state`, { headers: { 'X-S25-Secret': 'REDACTED_SECRET' } });
+            const stateResp = await fetch(`${S25_COCKPIT_URL}/api/memory/state`, { headers: { 'X-S25-Secret': env.S25_SHARED_SECRET || '' } });
             const stateData = await stateResp.json();
             const signals = stateData?.state?.agents?.ARKON?.s25_signals || [];
             const updated = [signal, ...signals].slice(0, 500);
@@ -10759,7 +10759,7 @@ export default {
     }
 
     // S25 Cockpit proxy — forward s25.smajor.org and api.smajor.org to Akash cockpit
-    const S25_COCKPIT = env.DIRECT_RUNTIME_URL || 'http://provider.team-michel.com:31554';
+    const S25_COCKPIT = env.DIRECT_RUNTIME_URL || '';
 
     // CORS preflight helper for cockpit proxies
     const cockpitCorsHeaders = {
@@ -11754,7 +11754,7 @@ body{background:#fff;color:#111;font-family:"Inter",sans-serif;padding:0;margin:
         // ────────────────────────────────────────────────────────────────────
         // PERSIST: Save to ARKON signal queue
         // ────────────────────────────────────────────────────────────────────
-        const S25_COCKPIT = env.DIRECT_RUNTIME_URL || 'http://provider.team-michel.com:31554';
+        const S25_COCKPIT = env.DIRECT_RUNTIME_URL || '';
         const stateResp = await fetch(`${S25_COCKPIT}/api/memory/state`, {
           headers: { 'X-S25-Secret': env.S25_SHARED_SECRET || 'REDACTED_SECRET' }
         });
