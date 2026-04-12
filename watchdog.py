@@ -33,6 +33,8 @@ MAX_RETRIES    = int(os.getenv("MAX_RETRIES", "3"))
 AKASH_COCKPIT_URL = os.getenv("AKASH_COCKPIT_URL", "https://api.smajor.org")
 ALIENSTEF_URL     = os.getenv("ALIENSTEF_URL", "http://localhost:11434")
 MERLIN_URL        = os.getenv("MERLIN_URL", "https://merlin.smajor.org")
+# AlienStef is the designated primary node — Akash is optional fallback
+PRIMARY_NODE      = os.getenv("S25_PRIMARY_NODE", "alienstef")
 
 STATUS_FILE   = "/tmp/s25_watchdog_status.json"
 FAILOVER_FILE = "/tmp/s25_failover_state.json"
@@ -104,26 +106,42 @@ def check_merlin():
         return False
 
 def update_failover_state(akash_ok, alien_ok):
-    """Met à jour l'état de failover Akash → AlienStef"""
+    """Met à jour l'état de failover. AlienStef est le primary node par défaut."""
+    is_alienstef_primary = PRIMARY_NODE == "alienstef"
     state = {
         "timestamp": datetime.utcnow().isoformat(),
         "akash_cockpit": akash_ok,
         "alienstef": alien_ok,
-        "failover_active": not akash_ok and alien_ok,
-        "primary_endpoint": AKASH_COCKPIT_URL if akash_ok else ALIENSTEF_URL.replace(":11434", ":7777")
+        "primary_node": PRIMARY_NODE,
+        "failover_active": False,
+        "primary_endpoint": "http://localhost:7777"
     }
+
+    if is_alienstef_primary:
+        # AlienStef IS the primary — Akash down is just informational, not an alert
+        state["failover_active"] = False
+        if not alien_ok:
+            log.error("PRIMARY NODE (AlienStef) is DOWN!")
+            notify_ha("PRIMARY NODE AlienStef est DOWN!", "S25 ALERTE CRITIQUE")
+        if akash_ok:
+            log.info("Akash fallback available")
+    else:
+        # Legacy mode: Akash primary, AlienStef fallback
+        state["failover_active"] = not akash_ok and alien_ok
+        state["primary_endpoint"] = AKASH_COCKPIT_URL if akash_ok else "http://localhost:7777"
+        if state["failover_active"]:
+            log.warning("FAILOVER ACTIF: Akash down, AlienStef primaire")
+            notify_ha("FAILOVER: Cockpit Akash down, AlienStef est le primaire", "S25 Failover")
+
     try:
         with open(FAILOVER_FILE, "w") as f:
             json.dump(state, f, indent=2)
-        if state["failover_active"]:
-            log.warning("⚠️ FAILOVER ACTIF: Akash down, AlienStef primaire")
-            notify_ha("FAILOVER: Cockpit Akash down, AlienStef est le primaire", "🔄 S25 Failover")
     except:
         pass
 
 def check_disk():
     """Vérifie l'espace disque"""
-    result = subprocess.run(["df", "-h", "/config"], capture_output=True, text=True)
+    result = subprocess.run(["df", "-h", "/"], capture_output=True, text=True)
     lines = result.stdout.strip().split('\n')
     if len(lines) >= 2:
         parts = lines[1].split()

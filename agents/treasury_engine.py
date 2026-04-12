@@ -211,7 +211,8 @@ def run_treasury_sentinel(deployments: list = None):
     This sentinel monitors and notifies HA when action needed.
     For fully automated swaps, deploy on Akash CentOS with wallet key.
     """
-    deployments = deployments or ["25708774", "25817341"]
+    env_dseqs = os.getenv("TREASURY_DEPLOYMENTS", "").strip()
+    deployments = deployments or ([d.strip() for d in env_dseqs.split(",") if d.strip()] if env_dseqs else [])
     log.info("S25 Treasury Sentinel starting...")
     while True:
         try:
@@ -240,7 +241,8 @@ def run_treasury_sentinel(deployments: list = None):
 if __name__ == "__main__":
     import sys
     if "--status" in sys.argv:
-        deployments = ["25708774", "25817341"]
+        env_dseqs = os.getenv("TREASURY_DEPLOYMENTS", "").strip()
+        deployments = [d.strip() for d in env_dseqs.split(",") if d.strip()] if env_dseqs else []
         status = get_treasury_status(deployments)
         print(json.dumps(status, indent=2))
         if status["wallet"]["atom_balance"] > 0:
