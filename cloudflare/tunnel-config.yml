@@ -42,7 +42,7 @@ ingress:
 
   # AlienStef Ollama (inference locale a distance)
   - hostname: ollama.smajor.org
-    service: http://10.0.0.97:11434
+    service: http://localhost:11434
     originRequest:
       connectTimeout: 15s
 

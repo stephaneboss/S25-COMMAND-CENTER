@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { CommandCenterSnapshot } from "@/lib/s25-api";
 
-const COCKPIT_URL = process.env.S25_COCKPIT_URL || "http://provider.team-michel.com:31554";
+const COCKPIT_URL = process.env.S25_COCKPIT_URL || "https://s25.smajor.org";
 const CACHE_TTL_MS = 30_000; // 30 seconds
 
 // Simple in-memory cache (per server process)

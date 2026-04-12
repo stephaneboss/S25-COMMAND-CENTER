@@ -57,7 +57,7 @@
             - service: persistent_notification.create
               data:
                 title: "S25 AlienStef DOWN"
-                message: "Ollama sur AlienStef (10.0.0.97:11434) ne repond pas. Fallback local indisponible."
+                message: "Ollama sur AlienStef ne repond pas. Fallback local indisponible."
                 notification_id: s25_ollama_down
 
 # --- Merlin MCP (toutes les 10 min) ---
@@ -104,11 +104,11 @@
     - event: s25_failover_to_alien
       event_data:
         reason: "Cockpit Akash down >15min, AlienStef disponible"
-        primary: "http://10.0.0.97:7777"
+        primary: !secret s25_alienstef_cockpit
     - service: persistent_notification.create
       data:
         title: "S25 FAILOVER ACTIF"
-        message: "Cockpit Akash down depuis 15+ min. Basculement automatique vers AlienStef (10.0.0.97). Verifier le deploiement Akash."
+        message: "Cockpit Akash down depuis 15+ min. Basculement automatique vers AlienStef. Verifier le deploiement Akash."
         notification_id: s25_failover_active
     - service: input_text.set_value
       target:

@@ -84,6 +84,11 @@ data/
 portfolio_data/
 memory/gemini_memory_index.json
 
+# ─── Runtime state (contains live endpoints, IPs, DSEQs) ─────────────
+memory/agents_state.json
+memory/SHARED_MEMORY.md
+configs/alienstef_local.yaml
+
 # ─── Node.js ─────────────────────────────────────────────────────────
 node_modules/
 .next/
