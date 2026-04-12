@@ -344,7 +344,7 @@ const AKASH_DEPLOYMENT_MODEL = [
     label: "s25-cockpit-primary",
     role: "cpu_runtime",
     provider: "provider.cap-test-compute.com",
-    probe_url: env.AKASH_COCKPIT_ORIGIN ? `${env.AKASH_COCKPIT_ORIGIN}/api/version` : "https://s25.smajor.org/api/version",
+    probe_url: "https://s25.smajor.org/api/version",
     surface: "cockpit",
   },
   {
