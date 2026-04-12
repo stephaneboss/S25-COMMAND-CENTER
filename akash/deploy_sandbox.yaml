@@ -19,7 +19,7 @@ services:
       - GEMINI_API_KEY=
       - MEMORY_DIR=/app/memory
       - PORT=7777
-      - S25_SHARED_SECRET=REDACTED_SECRET
+      - S25_SHARED_SECRET=${S25_SHARED_SECRET}
       - RUN_ORACLE_AGENT=true
       - RUN_ONCHAIN_GUARDIAN=true
       - RUN_MERLIN_MCP_BRIDGE=true
@@ -35,7 +35,7 @@ services:
       - ORACLE_SYMBOLS=BTC,ETH,AKT,ATOM
       - ONCHAIN_POLL_SECONDS=420
       - ONCHAIN_TOKEN_LIST=
-      - COCKPIT_URL=http://uoqlngdqqlc29fhg8l78qt80d8.ingress.akashprovid.com
+      - COCKPIT_URL=http://provider.team-michel.com:31554
       - QUEUE_DB_PATH=/data/kimi_signal_queue.db
 
 profiles:

@@ -29,7 +29,13 @@ AKASH_ENDPOINT = os.getenv("AKASH_ENDPOINT", "http://localhost:5050")
 CHECK_INTERVAL = int(os.getenv("CHECK_INTERVAL", "60"))   # secondes
 MAX_RETRIES    = int(os.getenv("MAX_RETRIES", "3"))
 
-STATUS_FILE = "/tmp/s25_watchdog_status.json"
+# Nouveaux endpoints a surveiller
+AKASH_COCKPIT_URL = os.getenv("AKASH_COCKPIT_URL", "https://api.smajor.org")
+ALIENSTEF_URL     = os.getenv("ALIENSTEF_URL", "http://10.0.0.97:11434")
+MERLIN_URL        = os.getenv("MERLIN_URL", "https://merlin.smajor.org")
+
+STATUS_FILE   = "/tmp/s25_watchdog_status.json"
+FAILOVER_FILE = "/tmp/s25_failover_state.json"
 
 # ─────────────────────────────────────────────────────
 # CHECKS
@@ -69,6 +75,51 @@ def check_akash_api():
         return r.status_code == 200
     except:
         return False
+
+def check_akash_cockpit():
+    """Vérifie si le cockpit Akash répond via Cloudflare"""
+    try:
+        r = requests.get(f"{AKASH_COCKPIT_URL}/health", timeout=10)
+        return r.status_code == 200
+    except Exception as e:
+        log.error(f"Akash cockpit check failed: {e}")
+        return False
+
+def check_alienstef():
+    """Vérifie si le node local AlienStef Ollama est actif"""
+    try:
+        r = requests.get(f"{ALIENSTEF_URL}/api/tags", timeout=10)
+        return r.status_code == 200
+    except Exception as e:
+        log.error(f"AlienStef check failed: {e}")
+        return False
+
+def check_merlin():
+    """Vérifie si Merlin MCP bridge répond"""
+    try:
+        r = requests.get(f"{MERLIN_URL}/health", timeout=15)
+        return r.status_code == 200
+    except Exception as e:
+        log.error(f"Merlin check failed: {e}")
+        return False
+
+def update_failover_state(akash_ok, alien_ok):
+    """Met à jour l'état de failover Akash → AlienStef"""
+    state = {
+        "timestamp": datetime.utcnow().isoformat(),
+        "akash_cockpit": akash_ok,
+        "alienstef": alien_ok,
+        "failover_active": not akash_ok and alien_ok,
+        "primary_endpoint": AKASH_COCKPIT_URL if akash_ok else "http://10.0.0.97:7777"
+    }
+    try:
+        with open(FAILOVER_FILE, "w") as f:
+            json.dump(state, f, indent=2)
+        if state["failover_active"]:
+            log.warning("⚠️ FAILOVER ACTIF: Akash down, AlienStef primaire")
+            notify_ha("FAILOVER: Cockpit Akash down, AlienStef est le primaire", "🔄 S25 Failover")
+    except:
+        pass
 
 def check_disk():
     """Vérifie l'espace disque"""
@@ -208,6 +259,33 @@ def run():
                 if repaired:
                     status["repairs"].append("proxy")
 
+        # CHECK AKASH COCKPIT
+        akash_ok = check_akash_cockpit()
+        status["checks"]["akash_cockpit"] = akash_ok
+        if akash_ok:
+            log.info("✅ Akash Cockpit: OK")
+        else:
+            log.warning("⚠️ Akash Cockpit DOWN")
+
+        # CHECK ALIENSTEF
+        alien_ok = check_alienstef()
+        status["checks"]["alienstef"] = alien_ok
+        if alien_ok:
+            log.info("✅ AlienStef: OK")
+        else:
+            log.warning("⚠️ AlienStef DOWN")
+
+        # CHECK MERLIN
+        merlin_ok = check_merlin()
+        status["checks"]["merlin"] = merlin_ok
+        if merlin_ok:
+            log.info("✅ Merlin MCP: OK")
+        else:
+            log.warning("⚠️ Merlin MCP DOWN")
+
+        # FAILOVER STATE
+        update_failover_state(akash_ok, alien_ok)
+
         # CHECK DISK
         disk_ok, disk_pct = check_disk()
         status["checks"]["disk_pct"] = disk_pct
@@ -218,7 +296,7 @@ def run():
         # SAVE STATUS
         save_status(status)
 
-        log.info(f"Status: HA={ha_ok} Tunnel={tunnel_ok} Proxy={proxy_ok} Disk={disk_pct}%")
+        log.info(f"Status: HA={ha_ok} Tunnel={tunnel_ok} Proxy={proxy_ok} Akash={akash_ok} Alien={alien_ok} Merlin={merlin_ok} Disk={disk_pct}%")
         time.sleep(CHECK_INTERVAL)
 
 if __name__ == "__main__":

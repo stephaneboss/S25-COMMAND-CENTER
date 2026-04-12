@@ -7,8 +7,7 @@ routes = [
 ]
 
 [vars]
-ORIGIN_BASE = "http://provider.team-michel.com:31554"
-ORIGIN_HOST_HEADER = "provider.team-michel.com"
+ORIGIN_BASE = "http://pljfe3r2bh859ela04v9vrrh5s.ingress.jjozzietech.com.au"
+ORIGIN_HOST_HEADER = "pljfe3r2bh859ela04v9vrrh5s.ingress.jjozzietech.com.au"
 PROXY_TIMEOUT_MS = "30000"
 PROXY_RETRIES = "0"
-# Updated 2026-04-06 — Deployment #26270769 provider.team-michel.com:31554

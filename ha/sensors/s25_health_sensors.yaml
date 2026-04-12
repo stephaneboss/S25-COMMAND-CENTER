@@ -1,0 +1,42 @@
+# ============================================================
+# S25 LUMIERE - Health Check REST Sensors
+# Polling automatique de tous les services critiques
+# ============================================================
+
+- platform: rest
+  name: s25_cockpit_health
+  resource: "https://api.smajor.org/health"
+  scan_interval: 300
+  timeout: 10
+  value_template: >-
+    {% if value is defined and value | length > 0 %}
+      ok
+    {% else %}
+      down
+    {% endif %}
+
+- platform: rest
+  name: s25_ollama_health
+  resource: "http://10.0.0.97:11434/api/tags"
+  scan_interval: 600
+  timeout: 10
+  value_template: >-
+    {% if value_json is defined and value_json.models is defined %}
+      ok
+    {% else %}
+      down
+    {% endif %}
+  json_attributes:
+    - models
+
+- platform: rest
+  name: s25_merlin_health
+  resource: "https://merlin.smajor.org/health"
+  scan_interval: 600
+  timeout: 15
+  value_template: >-
+    {% if value is defined and value | length > 0 %}
+      ok
+    {% else %}
+      down
+    {% endif %}
