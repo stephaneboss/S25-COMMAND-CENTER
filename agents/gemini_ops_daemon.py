@@ -20,7 +20,7 @@ GEMINI_API_KEY = vault_get("GEMINI_API_KEY", os.getenv("GEMINI_API_KEY", "")) or
 GEMINI_MODEL = os.getenv("GEMINI_INTERACTION_MODEL", "gemini-2.5-flash")
 GEMINI_MCP_ENDPOINT = os.getenv(
     "GEMINI_MCP_ENDPOINT",
-    os.getenv("MERLIN_MCP_PUBLIC_URL", "https://merlin.smajor.org/mcp"),
+    os.getenv("MERLIN_MCP_PUBLIC_URL", "https://da0m4r4tu5ctn0ja9r2t9c2vho.ingress.akashprovid.com/mcp"),
 )
 POLL_SECONDS = int(os.getenv("GEMINI_OPS_POLL_SECONDS", "600"))
 ENABLE_MEMORY_REBUILD = os.getenv("RUN_GEMINI_MEMORY_REBUILD", "false").lower() in {"1", "true", "yes", "on"}

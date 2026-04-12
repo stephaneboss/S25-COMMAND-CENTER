@@ -8,7 +8,7 @@
 #   HA_TOKEN      -> Long-lived token HA (Profil -> Tokens)
 #   GEMINI_API_KEY -> Cle Gemini Flash (aistudio.google.com)
 #   S25_SHARED_SECRET -> Secret TRINITY auth (meme valeur dans wrangler)
-#   HA_URL        -> LAN IP ou nabu.casa si Akash
+#   HA_URL        -> http://10.0.0.136:8123 (LAN) OU nabu.casa si Akash
 # ============================================================
 ---
 version: "2.0"
@@ -23,7 +23,7 @@ services:
           - global: true
     env:
       # HA local LAN preferee (nabu.casa echoue depuis Akash)
-      - HA_URL=${HA_URL}
+      - HA_URL=${HA_URL:-http://10.0.0.136:8123}
       # REQUIS: setter via GitHub Secrets -> TRINITY_HA_TOKEN
       - HA_TOKEN=${HA_TOKEN}
       # REQUIS: setter via GitHub Secrets -> GEMINI_API_KEY_MERLIN
@@ -37,7 +37,7 @@ services:
       # Endpoint auto-detected from Akash ingress or override via COCKPIT_ENDPOINT secret
       - COCKPIT_URL=${COCKPIT_ENDPOINT}
       - QUEUE_DB_PATH=/data/kimi_signal_queue.db
-      - OLLAMA_URL=${OLLAMA_URL:-http://localhost:11434}
+      - OLLAMA_URL=http://10.0.0.202:11434
       - OLLAMA_MODEL=llama3:latest
       - RUN_AGENT_LOOP=true
       - RUN_ORACLE_AGENT=true

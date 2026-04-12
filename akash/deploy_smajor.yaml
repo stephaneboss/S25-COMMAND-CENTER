@@ -11,7 +11,7 @@ services:
           - global: true
     env:
       - NODE_ENV=production
-      - S25_COCKPIT_URL=${COCKPIT_URL}
+      - S25_COCKPIT_URL=http://provider.team-michel.com:31554
     params:
       storage:
         data:

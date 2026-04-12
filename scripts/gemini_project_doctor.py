@@ -19,7 +19,7 @@ from security.vault import vault_get
 
 
 DEFAULT_MODEL = os.getenv("GEMINI_INTERACTION_MODEL", "gemini-2.5-flash")
-DEFAULT_MCP_ENDPOINT = os.getenv("GEMINI_MCP_ENDPOINT", "https://merlin.smajor.org/mcp")
+DEFAULT_MCP_ENDPOINT = "https://da0m4r4tu5ctn0ja9r2t9c2vho.ingress.akashprovid.com/mcp"
 GEMINI_API_KEY = vault_get("GEMINI_API_KEY", os.getenv("GEMINI_API_KEY", "")) or ""
 
 

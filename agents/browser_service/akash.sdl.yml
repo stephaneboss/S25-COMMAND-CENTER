@@ -10,7 +10,7 @@ services:
         to:
           - global: true
     env:
-      - S25_SECRET=REDACTED_SECRET
+      - S25_SECRET=s25sandbox2026
 
 profiles:
   compute:

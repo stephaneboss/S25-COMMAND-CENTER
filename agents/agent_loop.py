@@ -45,7 +45,7 @@ if not os.getenv("COCKPIT_URL"):
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL   = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
 GEMINI_URL     = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
-OLLAMA_URL     = os.getenv("OLLAMA_URL", "http://localhost:11434")
+OLLAMA_URL     = os.getenv("OLLAMA_URL", "http://10.0.0.202:11434")
 OLLAMA_MODEL   = os.getenv("OLLAMA_MODEL", "llama3:latest")
 # Fix #1 -- CoinGecko optional API key (demo key gratuit sur coingecko.com)
 COINGECKO_KEY  = os.getenv("COINGECKO_KEY", "")
@@ -87,7 +87,7 @@ def check_cockpit_health() -> bool:
         log.error(
             f"Cockpit INACCESSIBLE: {COCKPIT_URL} -- {e}\n"
             f"  Si tu tournes sur DELL-LINUX, set: COCKPIT_URL=<URL_AKASH_COCKPIT>\n"
-            f"  Exemple: COCKPIT_URL=https://s25.smajor.org"
+            f"  Exemple: COCKPIT_URL=http://provider.team-michel.com:31554"
         )
     return False
 
@@ -328,7 +328,7 @@ def merlin_analyze(prompt: str) -> str:
 
 
 def ollama_analyze(prompt: str) -> str:
-    """Fallback IA local -- Ollama (OLLAMA_URL env var).
+    """Fallback IA local -- Ollama sur DELL-LINUX (10.0.0.202:11434).
     Active automatiquement quand Gemini est offline ou GEMINI_API_KEY absent."""
     try:
         r = requests.post(

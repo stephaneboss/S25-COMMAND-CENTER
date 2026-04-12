@@ -13,7 +13,7 @@ const HOP_BY_HOP_HEADERS = new Set([
 const RETRYABLE_STATUS_CODES = new Set([502, 503, 504]);
 const ALLOWED_PATH_PREFIXES = ["/api/", "/health", "/favicon.ico", "/"];
 const BUSINESS_PREFIX = "/api/business";
-const MASTER_WALLET_ADDRESS = "REDACTED_WALLET_ADDRESS";
+const MASTER_WALLET_ADDRESS = "akash1mw0trq8xgmdyqqjn482r9pfr05hfw06rzq2u9v";
 
 const BUSINESS_REGISTRIES = {
   clients: {
@@ -344,7 +344,7 @@ const AKASH_DEPLOYMENT_MODEL = [
     label: "s25-cockpit-primary",
     role: "cpu_runtime",
     provider: "provider.cap-test-compute.com",
-    probe_url: env.AKASH_COCKPIT_ORIGIN ? `${env.AKASH_COCKPIT_ORIGIN}/api/version` : "https://s25.smajor.org/api/version",
+    probe_url: "http://fpog7pbvepbkrfae1529ics23k.ingress.cap-test-compute.com/api/version",
     surface: "cockpit",
   },
   {
@@ -891,7 +891,7 @@ async function deriveWalletCustodyRegistry(env, requestId) {
         connected,
         custody,
         custody_secret_ref: "gsm:s25-master-seed",
-        authority_principal: "serviceAccount:merlin-agent@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com",
+        authority_principal: "serviceAccount:merlin-agent@gen-lang-client-0046423999.iam.gserviceaccount.com",
         akt_balance: aktBalance,
         akt_price_usd: aktPriceUsd,
         akt_value_usd: aktValueUsd,
@@ -924,7 +924,7 @@ async function deriveVaultsTreasuryView(env, requestId) {
       akt_value_usd: wallet.akt_value_usd ?? null,
       authority_principal:
         wallet.authority_principal ||
-        "serviceAccount:merlin-agent@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com",
+        "serviceAccount:merlin-agent@gen-lang-client-0046423999.iam.gserviceaccount.com",
     },
     policies: [
       "policy_seed_gsm_only",

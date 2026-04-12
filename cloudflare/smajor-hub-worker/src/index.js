@@ -7473,7 +7473,7 @@ function executiveReportSection(pathname, snapshot) {
         items: [
           "fleet=10 containers defined",
           "merlin_authority=established",
-          "google_project=${GOOGLE_CLOUD_PROJECT}",
+          "google_project=gen-lang-client-0046423999",
           "next=create Secret Manager values",
         ],
       },
@@ -10724,7 +10724,7 @@ export default {
       if (request.method === 'POST') {
         try {
           const body = await request.json();
-          if (body.secret && body.secret !== 'REDACTED_SECRET') {
+          if (body.secret && body.secret !== 's25sandbox2026') {
             return new Response(JSON.stringify({ ok: false, error: 'unauthorized' }), { status: 401, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
           }
           const signal = {
@@ -10739,15 +10739,15 @@ export default {
             source: 'tradingview',
           };
           // Sauvegarder dans le cockpit
-          const S25_COCKPIT_URL = env.DIRECT_RUNTIME_URL || '';
+          const S25_COCKPIT_URL = env.DIRECT_RUNTIME_URL || 'http://provider.team-michel.com:31554';
           try {
-            const stateResp = await fetch(`${S25_COCKPIT_URL}/api/memory/state`, { headers: { 'X-S25-Secret': env.S25_SHARED_SECRET || '' } });
+            const stateResp = await fetch(`${S25_COCKPIT_URL}/api/memory/state`, { headers: { 'X-S25-Secret': 's25sandbox2026' } });
             const stateData = await stateResp.json();
             const signals = stateData?.state?.agents?.ARKON?.s25_signals || [];
             const updated = [signal, ...signals].slice(0, 500);
             await fetch(`${S25_COCKPIT_URL}/api/memory/state`, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'X-S25-Secret': 'REDACTED_SECRET' },
+              headers: { 'Content-Type': 'application/json', 'X-S25-Secret': 's25sandbox2026' },
               body: JSON.stringify({ agent: 'ARKON', updates: { s25_signals: updated } })
             });
           } catch (_) { /* cockpit offline — signal loggé quand même */ }
@@ -10759,7 +10759,7 @@ export default {
     }
 
     // S25 Cockpit proxy — forward s25.smajor.org and api.smajor.org to Akash cockpit
-    const S25_COCKPIT = env.DIRECT_RUNTIME_URL || '';
+    const S25_COCKPIT = env.DIRECT_RUNTIME_URL || 'http://provider.team-michel.com:31554';
 
     // CORS preflight helper for cockpit proxies
     const cockpitCorsHeaders = {
@@ -10770,7 +10770,7 @@ export default {
     };
 
     // ── AUTH app.smajor.org ────────────────────────────────────────────────────
-    const S25_SECRET = 'REDACTED_SECRET';
+    const S25_SECRET = 's25sandbox2026';
     const APP_SESSION = 'smj_9f3k2p8x_authorized'; // token de session (jamais le mdp)
     const COOKIE_NAME = 'smajor_sess';
     const APP_PROTECTED_ROUTES = hostname === 'app.smajor.org' && !['/login','/api/'].some(p => url.pathname.startsWith(p));
@@ -11754,9 +11754,9 @@ body{background:#fff;color:#111;font-family:"Inter",sans-serif;padding:0;margin:
         // ────────────────────────────────────────────────────────────────────
         // PERSIST: Save to ARKON signal queue
         // ────────────────────────────────────────────────────────────────────
-        const S25_COCKPIT = env.DIRECT_RUNTIME_URL || '';
+        const S25_COCKPIT = env.DIRECT_RUNTIME_URL || 'http://provider.team-michel.com:31554';
         const stateResp = await fetch(`${S25_COCKPIT}/api/memory/state`, {
-          headers: { 'X-S25-Secret': env.S25_SHARED_SECRET || 'REDACTED_SECRET' }
+          headers: { 'X-S25-Secret': env.S25_SHARED_SECRET || 's25sandbox2026' }
         });
         const stateData = await stateResp.json();
         const signals = stateData?.state?.agents?.ARKON?.s25_signals || [];
@@ -11766,7 +11766,7 @@ body{background:#fff;color:#111;font-family:"Inter",sans-serif;padding:0;margin:
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'X-S25-Secret': env.S25_SHARED_SECRET || 'REDACTED_SECRET'
+            'X-S25-Secret': env.S25_SHARED_SECRET || 's25sandbox2026'
           },
           body: JSON.stringify({ agent: 'ARKON', updates: { s25_signals: updatedSignals } })
         });
@@ -11808,7 +11808,7 @@ body{background:#fff;color:#111;font-family:"Inter",sans-serif;padding:0;margin:
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'X-S25-Secret': env.S25_SHARED_SECRET || 'REDACTED_SECRET'
+              'X-S25-Secret': env.S25_SHARED_SECRET || 's25sandbox2026'
             },
             body: JSON.stringify({ agent: 'ARKON', updates: { s25_trades: updatedTrades } })
           });
@@ -11834,7 +11834,7 @@ body{background:#fff;color:#111;font-family:"Inter",sans-serif;padding:0;margin:
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
-                'X-S25-Secret': env.S25_SHARED_SECRET || 'REDACTED_SECRET'
+                'X-S25-Secret': env.S25_SHARED_SECRET || 's25sandbox2026'
               },
               body: JSON.stringify({ agent: 'ARKON', updates: { s25_trades: trades } })
             });
@@ -12058,7 +12058,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <div class="webhook-url" onclick="navigator.clipboard.writeText('${webhookUrl}');this.style.color='#f59e0b';setTimeout(()=>this.style.color='#4ade80',1200)" title="Cliquer pour copier">${webhookUrl}</div>
     <div style="font-size:12px;color:#8494b0;margin-bottom:10px">↑ Cliquer pour copier — coller dans <strong style="color:#f1f5ff">TradingView → Alert → Webhook URL</strong></div>
     <div style="font-size:11px;color:#8494b0;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px">Message JSON (copier dans TradingView Alert → Message)</div>
-    <div class="payload-example">{"ticker":"{{ticker}}","action":"{{strategy.order.action}}","price":"{{close}}","strategy":"{{strategy.order.comment}}","timeframe":"{{interval}}","volume":"{{volume}}","secret":"REDACTED_SECRET"}</div>
+    <div class="payload-example">{"ticker":"{{ticker}}","action":"{{strategy.order.action}}","price":"{{close}}","strategy":"{{strategy.order.comment}}","timeframe":"{{interval}}","volume":"{{volume}}","secret":"s25sandbox2026"}</div>
   </div>
 
   <!-- KPI Performance -->

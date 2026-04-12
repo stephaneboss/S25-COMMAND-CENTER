@@ -31,7 +31,7 @@ MAX_RETRIES    = int(os.getenv("MAX_RETRIES", "3"))
 
 # Nouveaux endpoints a surveiller
 AKASH_COCKPIT_URL = os.getenv("AKASH_COCKPIT_URL", "https://api.smajor.org")
-ALIENSTEF_URL     = os.getenv("ALIENSTEF_URL", "http://localhost:11434")
+ALIENSTEF_URL     = os.getenv("ALIENSTEF_URL", "http://10.0.0.97:11434")
 MERLIN_URL        = os.getenv("MERLIN_URL", "https://merlin.smajor.org")
 
 STATUS_FILE   = "/tmp/s25_watchdog_status.json"
@@ -110,7 +110,7 @@ def update_failover_state(akash_ok, alien_ok):
         "akash_cockpit": akash_ok,
         "alienstef": alien_ok,
         "failover_active": not akash_ok and alien_ok,
-        "primary_endpoint": AKASH_COCKPIT_URL if akash_ok else ALIENSTEF_URL.replace(":11434", ":7777")
+        "primary_endpoint": AKASH_COCKPIT_URL if akash_ok else "http://10.0.0.97:7777"
     }
     try:
         with open(FAILOVER_FILE, "w") as f:

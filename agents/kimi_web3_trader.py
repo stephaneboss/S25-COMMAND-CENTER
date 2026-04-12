@@ -35,7 +35,7 @@ logger = logging.getLogger("kimi.web3")
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 WALLET_MNEMONIC  = os.environ.get("WALLET_MNEMONIC", "")
-WALLET_ADDRESS   = os.environ.get("WALLET_ADDRESS", "REDACTED_WALLET_ADDRESS")
+WALLET_ADDRESS   = os.environ.get("WALLET_ADDRESS", "akash1mw0trq8xgmdyqqjn482r9pfr05hfw06rzq2u9v")
 TRADE_SIZE_USD   = float(os.environ.get("TRADE_SIZE_USD", "5"))
 MAX_TRADE_USD    = float(os.environ.get("MAX_TRADE_USD", "10"))   # hard cap per trade
 MIN_RESERVE_USD  = float(os.environ.get("MIN_RESERVE_USD", "2"))  # keep 2$ untouched for gas

@@ -36,7 +36,7 @@ async with aiohttp.ClientSession() as session:
 ```python
 S25_CONFIG = {
     "ha_url": os.getenv("HA_URL", "http://172.30.32.1:8123"),
-    "ollama_url": os.getenv("OLLAMA_URL", "http://localhost:11434"),
+    "ollama_url": os.getenv("OLLAMA_URL", "http://10.0.0.202:11434"),
     "dry_run": os.getenv("DRY_RUN", "true").lower() == "true",
     "mexc_live": os.getenv("MEXC_LIVE_MODE", "false").lower() == "true",
 }
