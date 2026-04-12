@@ -7,7 +7,7 @@
 # ============================================================
 
 from flask import Flask, render_template_string, jsonify, request
-import os, json, requests, subprocess
+import os, json, requests, subprocess, uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from security.vault import vault_get
@@ -602,16 +602,103 @@ def api_memory_ping():
     return jsonify({"ok": False, "error": f"Agent {agent} inconnu"}), 404
 
 
+# ═══════════════════════════════════════════════════════════════
+#  HELPER FUNCTIONS — missions, intel, mesh
+# ═══════════════════════════════════════════════════════════════
 
-# ── Routes manquantes (mesh, missions, intel) ──────────────────────
+def _utcnow_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _ensure_missions(state: dict) -> dict:
+    """Ensure state has missions structure."""
+    state.setdefault("missions", {"active": [], "history": []})
+    return state
+
+
+def _ensure_intel(state: dict) -> dict:
+    """Ensure state has intel/comet_feed structure."""
+    state.setdefault("intel", {})
+    state["intel"].setdefault("comet_feed", [])
+    return state
+
+
+def _record_comet_intel(state: dict, summary: str, level: str = "INFO", source: str = "TRINITY") -> dict:
+    """Persist COMET-style intel into shared memory for cross-agent consumption."""
+    _ensure_intel(state)
+    entry = {
+        "ts": _utcnow_iso(),
+        "source": source,
+        "level": level,
+        "summary": summary,
+    }
+    feed = state["intel"]["comet_feed"]
+    feed.insert(0, entry)
+    state["intel"]["comet_feed"] = feed[:50]
+    return entry
+
+
+def _mission_payload(body: dict) -> dict:
+    """Normalize mission payload stored in shared runtime memory."""
+    mission_id = body.get("mission_id") or f"mission-{uuid.uuid4().hex[:10]}"
+    target = body.get("target", "COMET")
+    task_type = body.get("task_type", "infra_monitoring")
+    intent = body.get("intent", "").strip()
+    now = _utcnow_iso()
+
+    return {
+        "mission_id": mission_id,
+        "created_at": now,
+        "updated_at": now,
+        "created_by": body.get("created_by", "TRINITY"),
+        "target": target,
+        "task_type": task_type,
+        "priority": body.get("priority", "normal"),
+        "status": body.get("status", "queued"),
+        "intent": intent,
+        "context": body.get("context", {}),
+        "result": body.get("result"),
+    }
+
+
+def _upsert_mission(state: dict, mission: dict) -> dict:
+    """Insert or replace a mission in active queue."""
+    _ensure_missions(state)
+    missions = state["missions"]["active"]
+    for index, current in enumerate(missions):
+        if current.get("mission_id") == mission["mission_id"]:
+            missions[index] = mission
+            break
+    else:
+        missions.insert(0, mission)
+    return mission
+
+
+def _archive_mission(state: dict, mission: dict):
+    """Move completed mission from active queue to history."""
+    _ensure_missions(state)
+    state["missions"]["active"] = [
+        item for item in state["missions"]["active"]
+        if item.get("mission_id") != mission.get("mission_id")
+    ]
+    history = state["missions"]["history"]
+    history.insert(0, mission)
+    state["missions"]["history"] = history[:50]
+
+
+# ═══════════════════════════════════════════════════════════════
+#  MESH, MISSIONS, INTEL, SIGNAL, ROUTER ROUTES
+# ═══════════════════════════════════════════════════════════════
 
 @app.route('/api/mesh/status', methods=['GET'])
 def api_mesh_status():
-    """Status du mesh d'agents — agrège agents_state."""
+    """Vue unifiee du reseau d'agents, du pipeline et des missions."""
     state = _load_agents_state()
+    _ensure_missions(state)
+    _ensure_intel(state)
     agents = state.get("agents", {})
-    online  = sum(1 for a in agents.values() if a.get("status") == "online")
-    total   = len(agents)
+    online = sum(1 for a in agents.values() if a.get("status") == "online")
+    total = len(agents)
     return jsonify({
         "ok": True,
         "mesh": {
@@ -619,40 +706,238 @@ def api_mesh_status():
             "online": online,
             "offline": total - online,
             "agents": {k: {"status": v.get("status", "unknown"), "last_seen": v.get("last_seen")} for k, v in agents.items()},
-        }
+            "missions_active": len(state["missions"]["active"]),
+            "intel_entries": len(state["intel"].get("comet_feed", [])),
+        },
+        "pipeline": state.get("pipeline", {}),
     })
 
 
 @app.route('/api/missions', methods=['GET'])
-def api_missions():
-    """Liste des missions actives depuis pipeline state."""
+def api_missions_get():
+    """Liste les missions actives et l'historique recent."""
     state = _load_agents_state()
-    pipeline = state.get("pipeline", {})
-    missions = pipeline.get("missions", [])
-    return jsonify({"ok": True, "missions": missions, "count": len(missions)})
+    _ensure_missions(state)
+    return jsonify({
+        "ok": True,
+        "active": state["missions"]["active"],
+        "history": state["missions"]["history"][:10],
+    })
 
 
-@app.route('/api/intel', methods=['POST'])
-def api_intel():
-    """Reçoit un rapport intel d'un agent (COMET, ARKON, etc.)."""
+@app.route('/api/missions', methods=['POST'])
+def api_missions_post():
+    """Cree une mission multi-agent persistante pour COMET, MERLIN, ARKON ou KIMI."""
     if not _trinity_auth():
         return jsonify({"ok": False, "error": "Unauthorized"}), 401
 
     body = request.get_json(silent=True) or {}
-    agent  = body.get("agent", "UNKNOWN").upper()
-    report = body.get("report", "")
-    level  = body.get("level", "info")
+    state = _load_agents_state()
+    _ensure_missions(state)
+    _ensure_intel(state)
+    mission = _mission_payload(body)
+    _upsert_mission(state, mission)
+
+    target = mission["target"]
+    state["agents"].setdefault(target, {})
+    state["agents"][target]["last_task"] = mission["intent"]
+    state["agents"][target]["last_seen"] = _utcnow_iso()
+    _record_comet_intel(
+        state,
+        summary=f"Mission queued for {target}: {mission['intent']}",
+        level="INFO",
+        source=mission["created_by"],
+    )
+    _save_agents_state(state)
+
+    return jsonify({"ok": True, "mission": mission})
+
+
+@app.route('/api/missions/update', methods=['POST'])
+def api_missions_update():
+    """Met a jour le statut d'une mission et l'archive si terminee."""
+    if not _trinity_auth():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+
+    body = request.get_json(silent=True) or {}
+    mission_id = body.get("mission_id", "")
+    state = _load_agents_state()
+    _ensure_missions(state)
+    _ensure_intel(state)
+    missions = state["missions"]["active"]
+    mission = next((item for item in missions if item.get("mission_id") == mission_id), None)
+
+    if not mission:
+        return jsonify({"ok": False, "error": f"Mission {mission_id} inconnue"}), 404
+
+    mission["status"] = body.get("status", mission.get("status", "queued"))
+    mission["updated_at"] = _utcnow_iso()
+    mission["result"] = body.get("result", mission.get("result"))
+    mission["context"] = {**mission.get("context", {}), **body.get("context", {})}
+
+    actor = body.get("actor", mission.get("target", "TRINITY"))
+    if actor in state.get("agents", {}):
+        state["agents"][actor]["last_seen"] = _utcnow_iso()
+        state["agents"][actor]["last_task"] = mission.get("intent")
+
+    if mission["status"] in {"done", "completed", "failed", "cancelled"}:
+        _archive_mission(state, mission)
+
+    _record_comet_intel(
+        state,
+        summary=f"Mission {mission_id} -> {mission['status']}",
+        level="INFO" if mission["status"] in {"done", "completed"} else "WARNING",
+        source=actor,
+    )
+    _save_agents_state(state)
+
+    return jsonify({"ok": True, "mission": mission})
+
+
+@app.route('/api/comet/feed', methods=['GET'])
+def api_comet_feed():
+    """Retourne le feed COMET/intel conserve en memoire partagee."""
+    if not _trinity_auth():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
 
     state = _load_agents_state()
-    intel_log = state.setdefault("intel", [])
-    intel_log.append({
-        "agent": agent,
-        "report": report,
-        "level": level,
-        "ts": datetime.now(timezone.utc).isoformat(),
+    _ensure_intel(state)
+    feed = state["intel"].get("comet_feed", [])
+    n = int(request.args.get("n", 20))
+    return jsonify({"ok": True, "feed": feed[:n], "count": len(feed)})
+
+
+@app.route('/api/router/report', methods=['GET'])
+def api_router_report():
+    """Rapport simplifie du routage — pas de GOUV4 dans le cockpit root."""
+    state = _load_agents_state()
+    agents = state.get("agents", {})
+    available = {k: v.get("status", "unknown") for k, v in agents.items()}
+    return jsonify({"ok": True, "router": "basic", "agents": available})
+
+
+@app.route('/api/router/route', methods=['POST'])
+def api_router_route():
+    """Recommande un agent pour un type de tache (routing simplifie)."""
+    if not _trinity_auth():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+
+    TASK_AGENTS = {
+        "trading_analysis": "ARKON",
+        "market_news": "COMET",
+        "code_generation": "MERLIN",
+        "strategy_planning": "MERLIN",
+        "infra_monitoring": "COMET",
+        "automation_yaml": "MERLIN",
+        "fallback": "MERLIN",
+    }
+    body = request.get_json(silent=True) or {}
+    task_type = body.get("task_type", "fallback")
+    chosen = TASK_AGENTS.get(task_type, "MERLIN")
+    return jsonify({"ok": True, "task_type": task_type, "recommended_agent": chosen})
+
+
+@app.route('/api/signal', methods=['POST'])
+def api_signal():
+    """
+    Reception d'un signal de trading multi-source.
+    Poids par source: TRINITY=0.80, MERLIN=0.70, KIMI=0.65, ORACLE=0.60, AGENT_LOOP/ONCHAIN=0.55, COMET=0.50
+    Formule: effective_confidence = (confidence * weight) + consensus_bonus
+    Seuil arkon_pass: effective_confidence >= 0.60
+    """
+    SOURCE_WEIGHTS = {
+        "TRINITY": 0.80, "MERLIN": 0.70, "KIMI": 0.65,
+        "ORACLE": 0.60, "AGENT_LOOP": 0.55, "ONCHAIN": 0.55, "COMET": 0.50,
+    }
+
+    body = request.get_json(silent=True) or {}
+    action = body.get("action", "HOLD").upper()
+    symbol = body.get("symbol", "BTC/USDT")
+    confidence = float(body.get("confidence", 0.5))
+    price = float(body.get("price", 0.0))
+    reason = body.get("reason", "")[:300]
+    source = body.get("source", "AGENT")
+
+    state = _load_agents_state()
+    _ensure_intel(state)
+    pipeline = state.get("pipeline", {})
+    ts = _utcnow_iso()
+
+    weight = SOURCE_WEIGHTS.get(source.upper(), 0.55)
+    weighted_confidence = round(confidence * weight, 4)
+
+    # Consensus: meme symbole + meme action, source differente
+    signals_buffer = pipeline.get("signals_buffer", [])
+    signals_buffer = [s for s in signals_buffer if s.get("ts", "1970") >= ts[:10]]
+    consensus_sources = [
+        s for s in signals_buffer
+        if s.get("symbol") == symbol
+        and s.get("action") == action
+        and s.get("source", "").upper() != source.upper()
+    ]
+    consensus = len(consensus_sources) >= 1
+    consensus_bonus = 0.15 if consensus else 0.0
+    effective_confidence = round(weighted_confidence + consensus_bonus, 4)
+
+    kill_switch = pipeline.get("kill_switch", False)
+    threat_level = pipeline.get("threat_level", "T0")
+    mode = pipeline.get("mode", "dry_run")
+
+    arkon_pass = effective_confidence >= 0.60
+    risk_pass = arkon_pass and not kill_switch and threat_level in ("T0", "T1")
+    verdict = ("EXECUTE" if mode == "authorized" else "SIMULATE_EXECUTE") if risk_pass else "NO_TRADE"
+
+    signals_buffer.append({"symbol": symbol, "action": action, "source": source, "confidence": confidence, "ts": ts})
+    pipeline["signals_buffer"] = signals_buffer[-20:]
+    pipeline["last_signal"] = {
+        "symbol": symbol, "action": action, "confidence": confidence,
+        "weight": weight, "weighted_confidence": weighted_confidence,
+        "consensus": consensus, "consensus_bonus": consensus_bonus,
+        "effective_confidence": effective_confidence,
+        "price": price, "reason": reason, "source": source,
+        "verdict": verdict, "ts": ts,
+    }
+    state["pipeline"] = pipeline
+
+    agent_key = source.upper()
+    if agent_key in state.get("agents", {}):
+        state["agents"][agent_key]["last_seen"] = ts
+
+    _record_comet_intel(
+        state,
+        summary=f"Signal {source}: {symbol} {action} conf={confidence:.2f} w={weight} eff={effective_confidence:.2f} -> {verdict}",
+        level="INFO" if verdict != "NO_TRADE" else "WARNING",
+        source=source,
+    )
+    _save_agents_state(state)
+
+    return jsonify({
+        "ok": True, "mode": mode, "symbol": symbol, "action": action, "verdict": verdict,
+        "pipeline": {
+            "kill_switch": kill_switch, "threat_level": threat_level,
+            "confidence": confidence, "weight": weight,
+            "weighted_confidence": weighted_confidence, "consensus": consensus,
+            "effective_confidence": effective_confidence,
+            "arkon_pass": arkon_pass, "risk_pass": risk_pass,
+        },
+        "ts": ts,
     })
-    # Keep last 100 entries
-    state["intel"] = intel_log[-100:]
+
+
+@app.route('/api/intel', methods=['POST'])
+def api_intel():
+    """Recoit un rapport intel d'un agent (COMET, ARKON, etc.)."""
+    if not _trinity_auth():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+
+    body = request.get_json(silent=True) or {}
+    agent = body.get("agent", "UNKNOWN").upper()
+    report = body.get("report", "")
+    level = body.get("level", "info")
+
+    state = _load_agents_state()
+    _ensure_intel(state)
+    _record_comet_intel(state, summary=report, level=level.upper(), source=agent)
     _save_agents_state(state)
 
     return jsonify({"ok": True, "agent": agent, "received": True})

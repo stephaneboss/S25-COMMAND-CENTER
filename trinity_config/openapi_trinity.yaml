@@ -1,64 +1,624 @@
 openapi: 3.1.0
 info:
-  title: S25 Lumiere - TRINITY Bridge
+  title: S25 Lumiere - Trinity Bridge API
   description: >
-    Interface entre TRINITY GPT et le reseau S25 Lumiere.
-    Permet a Stef de parler a GPT qui dispatch au reseau de trading.
-  version: 2.0.0
+    OpenAPI TRINITY vers cockpit S25 Lumiere.
+    Serveur stable: https://s25.smajor.org (Cloudflare proxy — toujours valide).
+    Runtime: AlienStef (Ubuntu 24.04, RTX 3060, Qwen 14b) — PRIMARY NODE.
+    Authentification: header X-S25-Secret requis sur les endpoints proteges.
+  version: 3.0.0
 
 servers:
   - url: https://s25.smajor.org
-    description: S25 Lumiere sovereign runtime
+    description: S25 Cockpit — domaine stable Cloudflare (PRIMARY — utiliser toujours celui-ci)
+
+components:
+  securitySchemes:
+    S25Secret:
+      type: apiKey
+      in: header
+      name: X-S25-Secret
+      description: Secret partage S25 pour les endpoints proteges
+
+  schemas:
+    TrinityRequest:
+      type: object
+      required: [intent, action]
+      properties:
+        intent:
+          type: string
+          description: Intention courte ou commande de Stef.
+          examples: ["Status S25", "Analyse BTC pour aujourd'hui", "Signal BTC BUY"]
+        action:
+          type: string
+          enum: [query, status, analyze, signal, mission, route]
+          description: Type de routage demande au bridge TRINITY.
+        data:
+          type: object
+          description: Payload optionnel pour les signaux ou parametres additionnels.
+          additionalProperties: true
+
+    MissionRequest:
+      type: object
+      required: [created_by, target, task_type, intent]
+      properties:
+        created_by:
+          type: string
+          enum: [TRINITY, ARKON, MERLIN, COMET, KIMI, ORACLE, ONCHAIN_GUARDIAN]
+        target:
+          type: string
+          enum: [TRINITY, ARKON, MERLIN, COMET, KIMI, ORACLE, ONCHAIN_GUARDIAN]
+        task_type:
+          type: string
+          enum: [trading_analysis, market_news, code_generation, strategy_planning, infra_monitoring, automation_yaml, fallback]
+        intent:
+          type: string
+        priority:
+          type: string
+          enum: [low, normal, high, critical]
+        context:
+          type: object
+          additionalProperties: true
+
+    MissionUpdateRequest:
+      type: object
+      required: [mission_id, status]
+      properties:
+        mission_id:
+          type: string
+        status:
+          type: string
+          enum: [queued, active, completed, failed, cancelled, done]
+        actor:
+          type: string
+          enum: [TRINITY, ARKON, MERLIN, COMET, KIMI, ORACLE, ONCHAIN_GUARDIAN]
+        result:
+          type: object
+          additionalProperties: true
+        context:
+          type: object
+          additionalProperties: true
+
+    RouterRequest:
+      type: object
+      required: [task_type]
+      properties:
+        task_type:
+          type: string
+          enum: [trading_analysis, market_news, code_generation, strategy_planning, infra_monitoring, automation_yaml, fallback]
+
+    AgentHeartbeat:
+      type: object
+      required: [agent]
+      properties:
+        agent:
+          type: string
+          enum: [TRINITY, ARKON, MERLIN, COMET, KIMI, ORACLE, ONCHAIN_GUARDIAN]
+        note:
+          type: string
+          description: Note courte de contexte de session.
+
+    AgentStateUpdate:
+      type: object
+      required: [agent]
+      properties:
+        agent:
+          type: string
+          enum: [TRINITY, ARKON, MERLIN, COMET, KIMI, ORACLE, ONCHAIN_GUARDIAN]
+        updates:
+          type: object
+          additionalProperties: true
+        pipeline:
+          type: object
+          additionalProperties: true
+        market:
+          type: object
+          additionalProperties: true
+        intel:
+          type: object
+          additionalProperties: true
+
+    ControlProposal:
+      type: object
+      required: [source, action_type]
+      properties:
+        source:
+          type: string
+          description: Qui propose l'action (TRINITY, CLAUDE, OPERATOR)
+          examples: ["TRINITY", "CLAUDE", "OPERATOR"]
+        action_type:
+          type: string
+          enum: [pipeline_mode, config_change, agent_restart, custom]
+          description: Type d'action a executer
+        params:
+          type: object
+          description: Parametres de l'action
+          additionalProperties: true
+        reason:
+          type: string
+          description: Justification de l'action (max 500 chars)
+
+    ControlValidate:
+      type: object
+      required: [action_id]
+      properties:
+        action_id:
+          type: string
+          description: ID de l'action a valider (format ctrl_YYYYMMDD_HHMMSS_xxxxxx)
+        validator:
+          type: string
+          description: Qui valide (OPERATOR, TRINITY, CLAUDE)
+          default: OPERATOR
+
+    ControlExecute:
+      type: object
+      required: [action_id]
+      properties:
+        action_id:
+          type: string
+          description: ID de l'action validee a executer
+
+    IntelReport:
+      type: object
+      required: [agent, report]
+      properties:
+        agent:
+          type: string
+          enum: [TRINITY, ARKON, MERLIN, COMET, KIMI, ORACLE, ONCHAIN_GUARDIAN]
+          description: Agent source du rapport
+        report:
+          type: string
+          description: Contenu du rapport intel
+        level:
+          type: string
+          enum: [info, warning, critical]
+          default: info
+
+    SignalRequest:
+      type: object
+      required: [action, symbol]
+      properties:
+        action:
+          type: string
+          enum: [BUY, SELL, HOLD]
+        symbol:
+          type: string
+          description: Symbole de l'actif (BTC, ETH, AKT, etc.)
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+          default: 0.7
+        price:
+          type: number
+        reason:
+          type: string
+        source:
+          type: string
+          enum: [TRINITY, MERLIN, KIMI, ORACLE, AGENT_LOOP, ONCHAIN, COMET]
+
+    JarvisChat:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+          description: Message a envoyer a Jarvis (Qwen 14b local)
+
+    SystemAction:
+      type: object
+      required: [action]
+      properties:
+        action:
+          type: string
+          enum: [start_tunnel, stop_tunnel, force_analysis, purge]
+          description: Action systeme a executer
 
 paths:
-  /api/vocal/status:
+  # ── Public / No Auth ──────────────────────────────────
+  /api/version:
     get:
-      operationId: trinityPing
-      summary: Verifier que le reseau S25 est en ligne
-      description: Healthcheck - retourne le status TRINITY et HA
+      operationId: getVersion
+      summary: Version runtime du cockpit deploye
       responses:
         "200":
-          description: Systeme en ligne
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  ok:
-                    type: boolean
-                  trinity:
-                    type: string
-                  ha_token:
-                    type: boolean
-                  ts:
-                    type: string
+          description: Version active, build SHA, status secret
 
-  /api/vocal/say:
+  /api/status:
+    get:
+      operationId: getSystemStatus
+      summary: Etat live du systeme S25 (pipeline, agents, HA)
+      responses:
+        "200":
+          description: Etat courant complet
+
+  /health:
+    get:
+      operationId: healthCheck
+      summary: Health check simple du cockpit
+      responses:
+        "200":
+          description: Cockpit en vie
+
+  /api/trinity/ping:
+    get:
+      operationId: trinityPing
+      summary: Ping public du bridge TRINITY
+      responses:
+        "200":
+          description: Bridge disponible
+
+  /api/watchdog:
+    get:
+      operationId: getWatchdog
+      summary: Statut du watchdog self-healing (HA, tunnel, proxy, Akash, AlienStef, Merlin, disk)
+      responses:
+        "200":
+          description: Dernier etat watchdog
+
+  /api/mesh/status:
+    get:
+      operationId: getMeshStatus
+      summary: Etat complet du mesh multi-agent et quotas GOUV4
+      responses:
+        "200":
+          description: Vue unifiee des agents, missions et routage
+
+  /api/missions:
+    get:
+      operationId: getMissions
+      summary: Lister les missions actives et l historique recent
+      responses:
+        "200":
+          description: Missions actives et archivees
+
+  /api/router/report:
+    get:
+      operationId: getRouterReport
+      summary: Rapport quotas/routage GOUV4
+      security:
+        - S25Secret: []
+      responses:
+        "200":
+          description: Rapport GOUV4 complet
+        "401":
+          description: Unauthorized
+
+  /api/comet/feed:
+    get:
+      operationId: getCometFeed
+      summary: Feed intel COMET conserve en memoire
+      description: Retourne les N derniers rapports intel du feed COMET. Param ?n=20 pour limiter.
+      parameters:
+        - name: "n"
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+      security:
+        - S25Secret: []
+      responses:
+        "200":
+          description: Feed COMET
+        "401":
+          description: Unauthorized
+
+  # ── Authenticated (X-S25-Secret) ──────────────────────
+  /api/trinity:
     post:
       operationId: trinityDispatch
-      summary: Envoyer un message vocal via Home Assistant TTS
+      summary: Endpoint principal de TRINITY pour status, analyse, query et signal
       description: >
-        Prononce un message via le TTS de Home Assistant.
+        Utiliser cet endpoint pour les demandes libres, briefings, analyses marche et signaux de trading.
+        Requiert X-S25-Secret.
+      x-openai-isConsequential: false
+      security:
+        - S25Secret: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - message
-              properties:
-                message:
-                  type: string
-                  description: Message a prononcer via TTS
-                language:
-                  type: string
-                  default: fr-CA
-                urgent:
-                  type: boolean
-                  default: false
+              $ref: "#/components/schemas/TrinityRequest"
+            examples:
+              statusRequest:
+                summary: Briefing de statut
+                value:
+                  intent: "Briefing complet S25"
+                  action: "status"
+              analyzeRequest:
+                summary: Analyse marche
+                value:
+                  intent: "Analyse BTC pour un swing trade"
+                  action: "analyze"
+              signalRequest:
+                summary: Signal manuel
+                value:
+                  intent: "Signal BTC BUY"
+                  action: "signal"
+                  data:
+                    trade_action: "BUY"
+                    symbol: "BTC"
+                    confidence: 0.82
+              missionRequest:
+                summary: Mission COMET
+                value:
+                  intent: "Mission COMET: surveille Akash et tunnel KIMI"
+                  action: "mission"
+                  data:
+                    target: "COMET"
+                    task_type: "infra_monitoring"
+                    priority: "high"
       responses:
         "200":
-          description: Message envoye avec succes
+          description: Reponse du bridge TRINITY
         "401":
-          description: Cle API invalide X-S25-Key
+          description: Unauthorized — X-S25-Secret manquant ou invalide
+
+  /api/memory:
+    get:
+      operationId: getSharedMemory
+      summary: "[BOOT] Lire la memoire partagee S25"
+      description: Appeler au debut de chaque session TRINITY apres le heartbeat. Requiert X-S25-Secret.
+      security:
+        - S25Secret: []
+      responses:
+        "200":
+          description: Memoire complete
+        "401":
+          description: Unauthorized
+
+  /api/memory/state:
+    get:
+      operationId: getAgentsState
+      summary: Etat runtime leger des agents
+      security:
+        - S25Secret: []
+      responses:
+        "200":
+          description: Etat agents
+        "401":
+          description: Unauthorized
+    post:
+      operationId: updateAgentState
+      summary: Mettre a jour l etat de TRINITY
+      description: Permet a TRINITY d'enregistrer son dernier intent et son contexte runtime.
+      x-openai-isConsequential: false
+      security:
+        - S25Secret: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentStateUpdate"
+      responses:
+        "200":
+          description: Etat mis a jour
+        "401":
+          description: Unauthorized
+
+  /api/memory/ping:
+    post:
+      operationId: agentHeartbeat
+      summary: "[BOOT] Heartbeat de presence"
+      description: Appeler en premier au debut de chaque session TRINITY. Requiert X-S25-Secret.
+      x-openai-isConsequential: false
+      security:
+        - S25Secret: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentHeartbeat"
+      responses:
+        "200":
+          description: Heartbeat recu
+        "401":
+          description: Unauthorized
+
+  /api/intel:
+    post:
+      operationId: submitIntel
+      summary: Soumettre un rapport intel d'agent (COMET, ARKON, TRINITY, etc.)
+      description: Enregistre le rapport dans la memoire partagee. Requiert X-S25-Secret.
+      x-openai-isConsequential: false
+      security:
+        - S25Secret: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IntelReport"
+      responses:
+        "200":
+          description: Rapport enregistre
+        "401":
+          description: Unauthorized
+
+  /api/missions:
+    post:
+      operationId: createMission
+      summary: Creer une mission multi-agent persistante
+      description: Missionner COMET, MERLIN, ARKON, KIMI ou ORACLE sur une tache.
+      x-openai-isConsequential: false
+      security:
+        - S25Secret: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MissionRequest"
+      responses:
+        "200":
+          description: Mission creee
+        "401":
+          description: Unauthorized
+
+  /api/missions/update:
+    post:
+      operationId: updateMission
+      summary: Mettre a jour ou clore une mission
+      x-openai-isConsequential: false
+      security:
+        - S25Secret: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MissionUpdateRequest"
+      responses:
+        "200":
+          description: Mission mise a jour
+        "404":
+          description: Mission inconnue
+
+  /api/signal:
+    post:
+      operationId: submitSignal
+      summary: Injecter un signal de trading multi-source
+      description: >
+        Multi-source confidence weighting + consensus bonus.
+        Poids par source: TRINITY=0.80, MERLIN=0.70, KIMI=0.65, ORACLE=0.60.
+        Seuil arkon_pass: effective_confidence >= 0.60.
+      x-openai-isConsequential: true
+      security:
+        - S25Secret: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignalRequest"
+      responses:
+        "200":
+          description: Signal traite avec verdict
+        "401":
+          description: Unauthorized
+
+  /api/router/route:
+    post:
+      operationId: routeTask
+      summary: Choisir l'agent optimal pour un type de tache via GOUV4
+      security:
+        - S25Secret: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RouterRequest"
+      responses:
+        "200":
+          description: Agent recommande avec rapport quotas
+        "401":
+          description: Unauthorized
+
+  /api/jarvis:
+    post:
+      operationId: chatJarvis
+      summary: Chat avec Jarvis (Qwen 14b local via AlienStef)
+      description: >
+        Proxy vers le modele local Qwen 2.5 Coder 14b sur AlienStef.
+        Utile pour du code, des analyses, ou des questions techniques.
+      x-openai-isConsequential: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JarvisChat"
+      responses:
+        "200":
+          description: Reponse de Jarvis
+        "400":
+          description: Message vide
+        "502":
+          description: Jarvis indisponible
+
+  /api/action:
+    post:
+      operationId: executeSystemAction
+      summary: Executer une action systeme (tunnel, analyse, purge)
+      description: >
+        Actions directes sur l'infra S25. ATTENTION: purge active le kill switch.
+      x-openai-isConsequential: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SystemAction"
+      responses:
+        "200":
+          description: Action executee
+
+  # ── Control Link (propose → validate → execute) ──────
+  /api/control/propose:
+    post:
+      operationId: controlPropose
+      summary: Proposer une action pour validation (Control Link)
+      x-openai-isConsequential: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ControlProposal"
+      responses:
+        "200":
+          description: Proposition creee avec action_id
+
+  /api/control/validate:
+    post:
+      operationId: controlValidate
+      summary: Valider une action proposee (Control Link etape 2)
+      x-openai-isConsequential: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ControlValidate"
+      responses:
+        "200":
+          description: Action validee
+        "404":
+          description: Action non trouvee
+
+  /api/control/execute:
+    post:
+      operationId: controlExecute
+      summary: Executer une action validee (Control Link etape 3)
+      x-openai-isConsequential: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ControlExecute"
+      responses:
+        "200":
+          description: Action executee
+        "404":
+          description: Action non validee
+
+  /api/control/queue:
+    get:
+      operationId: controlQueue
+      summary: Voir la queue des actions Control Link
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [proposed, validated, executed]
+      responses:
+        "200":
+          description: Queue des actions
