@@ -38,20 +38,5 @@ services:
       retries: 3
       start_period: 30s
 
-  # ── Auto-deploy: pulls new :main image every 5min ──────────
-  watchtower:
-    image: containrrr/watchtower
-    restart: unless-stopped
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - /root/.docker/config.json:/config.json:ro
-    environment:
-      WATCHTOWER_POLL_INTERVAL: "300"
-      WATCHTOWER_CLEANUP: "true"
-      WATCHTOWER_INCLUDE_STOPPED: "false"
-      WATCHTOWER_LABEL_ENABLE: "false"
-      WATCHTOWER_NOTIFICATIONS: "slack"
-    command: s25-cockpit
-
 volumes:
   s25_memory:

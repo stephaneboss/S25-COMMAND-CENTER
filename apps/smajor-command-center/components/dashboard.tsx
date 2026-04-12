@@ -366,7 +366,7 @@ export function Dashboard({ snapshot: initialSnapshot }: DashboardProps) {
               </span>
             </div>
             <ul className="divide-y divide-gray-100">
-              {snapshot.agents.map((agent) => (
+              {(snapshot.agents ?? []).map((agent) => (
                 <li key={agent.name} className="flex items-center justify-between px-5 py-2.5">
                   <div className="flex items-center gap-2.5">
                     <span

@@ -4,13 +4,11 @@ info:
   description: "OpenAPI TRINITY vers cockpit S25. Serveur stable: https://s25.smajor.org (Cloudflare proxy — toujours valide). Cockpit direct: http://provider.team-michel.com:31554 (DSEQ 26270769 — actif)."
   version: 2.7.0
 
-
 servers:
   - url: https://s25.smajor.org
     description: S25 Cockpit — domaine stable Cloudflare (PRIMARY — utiliser toujours celui-ci)
   - url: http://provider.team-michel.com:31554
     description: S25 Cockpit direct Akash (DSEQ 26270769 — provider.team-michel.com — actif)
-
 
 components:
   schemas:
@@ -36,3 +34,299 @@ components:
       properties:
         created_by:
           type: string
+          enum: [TRINITY, ARKON, MERLIN, COMET, KIMI, ORACLE, ONCHAIN_GUARDIAN]
+        target:
+          type: string
+          enum: [TRINITY, ARKON, MERLIN, COMET, KIMI, ORACLE, ONCHAIN_GUARDIAN]
+        task_type:
+          type: string
+          enum: [trading_analysis, market_news, code_generation, strategy_planning, infra_monitoring, automation_yaml, fallback]
+        intent:
+          type: string
+        priority:
+          type: string
+          enum: [low, normal, high, critical]
+        context:
+          type: object
+          additionalProperties: true
+    MissionUpdateRequest:
+      type: object
+      required: [mission_id, status]
+      properties:
+        mission_id:
+          type: string
+        status:
+          type: string
+          enum: [queued, active, completed, failed, cancelled, done]
+        actor:
+          type: string
+          enum: [TRINITY, ARKON, MERLIN, COMET, KIMI, ORACLE, ONCHAIN_GUARDIAN]
+        result:
+          type: object
+          additionalProperties: true
+        context:
+          type: object
+          additionalProperties: true
+    RouterRequest:
+      type: object
+      required: [task_type]
+      properties:
+        task_type:
+          type: string
+          enum: [trading_analysis, market_news, code_generation, strategy_planning, infra_monitoring, automation_yaml, fallback]
+    AgentHeartbeat:
+      type: object
+      required: [agent]
+      properties:
+        agent:
+          type: string
+          enum: [TRINITY, ARKON, MERLIN, COMET, KIMI, ORACLE, ONCHAIN_GUARDIAN]
+        note:
+          type: string
+          description: Note courte de contexte de session.
+    AgentStateUpdate:
+      type: object
+      required: [agent]
+      properties:
+        agent:
+          type: string
+          enum: [TRINITY, ARKON, MERLIN, COMET, KIMI, ORACLE, ONCHAIN_GUARDIAN]
+        updates:
+          type: object
+          additionalProperties: true
+        pipeline:
+          type: object
+          additionalProperties: true
+        market:
+          type: object
+          additionalProperties: true
+        intel:
+          type: object
+          additionalProperties: true
+paths:
+  /api/version:
+    get:
+      operationId: getVersion
+      summary: Version runtime du cockpit deploye
+      responses:
+        "200":
+          description: Version active
+
+  /api/status:
+    get:
+      operationId: getSystemStatus
+      summary: Etat live du systeme S25
+      responses:
+        "200":
+          description: Etat courant
+
+  /api/trinity/ping:
+    get:
+      operationId: trinityPing
+      summary: Ping public du bridge TRINITY
+      responses:
+        "200":
+          description: Bridge disponible
+
+  /api/trinity:
+    post:
+      operationId: trinityDispatch
+      summary: Endpoint principal de TRINITY pour status, analyse, query et signal
+      description: Utiliser cet endpoint pour les demandes libres, briefings, analyses marche et signaux de trading.
+      x-openai-isConsequential: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TrinityRequest"
+            examples:
+              statusRequest:
+                summary: Briefing de statut
+                value:
+                  intent: "Briefing complet S25"
+                  action: "status"
+              analyzeRequest:
+                summary: Analyse marche
+                value:
+                  intent: "Analyse BTC pour un swing trade"
+                  action: "analyze"
+              signalRequest:
+                summary: Signal manuel
+                value:
+                  intent: "Signal BTC BUY"
+                  action: "signal"
+                  data:
+                    trade_action: "BUY"
+                    symbol: "BTC"
+                    confidence: 0.82
+              missionRequest:
+                summary: Mission COMET
+                value:
+                  intent: "Mission COMET: surveille Akash et tunnel KIMI"
+                  action: "mission"
+                  data:
+                    target: "COMET"
+                    task_type: "infra_monitoring"
+                    priority: "high"
+      responses:
+        "200":
+          description: Reponse du bridge TRINITY
+
+  /api/mesh/status:
+    get:
+      operationId: getMeshStatus
+      summary: Etat complet du mesh multi-agent et quotas GOUV4
+      responses:
+        "200":
+          description: Vue unifiee des agents, missions et routage
+
+  /api/router/report:
+    get:
+      operationId: getRouterReport
+      summary: Rapport complet du routeur GOUV4 et quotas disponibles
+      responses:
+        "200":
+          description: Etat des quotas et routage intelligent
+
+  /api/router/route:
+    post:
+      operationId: routeTask
+      summary: Choisir le meilleur agent pour une tache
+      x-openai-isConsequential: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RouterRequest"
+            examples:
+              routeInfra:
+                summary: Routage monitoring
+                value:
+                  task_type: "infra_monitoring"
+      responses:
+        "200":
+          description: Agent recommande par GOUV4
+
+  /api/missions:
+    get:
+      operationId: getMissions
+      summary: Lister les missions actives et l historique recent
+      responses:
+        "200":
+          description: Missions actives et archivees
+    post:
+      operationId: createMission
+      summary: Creer une mission persistante pour COMET, MERLIN, ARKON ou KIMI
+      x-openai-isConsequential: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MissionRequest"
+            examples:
+              cometMission:
+                summary: Mission monitoring COMET
+                value:
+                  created_by: "TRINITY"
+                  target: "COMET"
+                  task_type: "infra_monitoring"
+                  intent: "Diagnostiquer le tunnel KIMI et remonter un resume"
+                  priority: "high"
+      responses:
+        "200":
+          description: Mission creee
+
+  /api/missions/update:
+    post:
+      operationId: updateMission
+      summary: Mettre a jour ou clore une mission
+      x-openai-isConsequential: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MissionUpdateRequest"
+            examples:
+              completeMission:
+                summary: Clore une mission COMET
+                value:
+                  mission_id: "mission-abc123"
+                  status: "completed"
+                  actor: "COMET"
+                  result:
+                    summary: "Tunnel KIMI confirme offline"
+      responses:
+        "200":
+          description: Mission mise a jour
+
+  /api/comet/feed:
+    get:
+      operationId: getCometFeed
+      summary: Feed intel COMET conserve en memoire partagee
+      responses:
+        "200":
+          description: Feed intel recent
+
+  /api/memory:
+    get:
+      operationId: getSharedMemory
+      summary: "[BOOT] Lire la memoire partagee S25"
+      description: Appeler au debut de chaque session TRINITY apres le heartbeat.
+      responses:
+        "200":
+          description: Memoire complete
+
+  /api/memory/state:
+    get:
+      operationId: getAgentsState
+      summary: Etat runtime leger des agents
+      responses:
+        "200":
+          description: Etat agents
+    post:
+      operationId: updateAgentState
+      summary: Mettre a jour l etat de TRINITY
+      description: Permet a TRINITY d'enregistrer son dernier intent et son contexte runtime.
+      x-openai-isConsequential: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentStateUpdate"
+            examples:
+              trinityUpdate:
+                summary: Memoire session TRINITY
+                value:
+                  agent: "TRINITY"
+                  updates:
+                    last_intent: "Status S25"
+      responses:
+        "200":
+          description: Etat mis a jour
+
+  /api/memory/ping:
+    post:
+      operationId: agentHeartbeat
+      summary: "[BOOT] Heartbeat de presence"
+      description: Appeler en premier au debut de chaque session TRINITY.
+      x-openai-isConsequential: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentHeartbeat"
+            examples:
+              trinityBoot:
+                summary: Ouverture de session TRINITY
+                value:
+                  agent: "TRINITY"
+                  note: "session ouverte"
+      responses:
+        "200":
+          description: Heartbeat recu

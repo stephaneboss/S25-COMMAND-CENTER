@@ -10739,7 +10739,7 @@ export default {
             source: 'tradingview',
           };
           // Sauvegarder dans le cockpit
-          const S25_COCKPIT_URL = env.DIRECT_RUNTIME_URL || 'http://uoqlngdqqlc29fhg8l78qt80d8.ingress.akashprovid.com';
+          const S25_COCKPIT_URL = env.DIRECT_RUNTIME_URL || 'http://provider.team-michel.com:31554';
           try {
             const stateResp = await fetch(`${S25_COCKPIT_URL}/api/memory/state`, { headers: { 'X-S25-Secret': 's25sandbox2026' } });
             const stateData = await stateResp.json();
@@ -10759,7 +10759,7 @@ export default {
     }
 
     // S25 Cockpit proxy — forward s25.smajor.org and api.smajor.org to Akash cockpit
-    const S25_COCKPIT = env.DIRECT_RUNTIME_URL || 'http://uoqlngdqqlc29fhg8l78qt80d8.ingress.akashprovid.com';
+    const S25_COCKPIT = env.DIRECT_RUNTIME_URL || 'http://provider.team-michel.com:31554';
 
     // CORS preflight helper for cockpit proxies
     const cockpitCorsHeaders = {
@@ -11659,55 +11659,139 @@ body{background:#fff;color:#111;font-family:"Inter",sans-serif;padding:0;margin:
     }
 
     // POST /api/trade/signal — reçoit webhook TradingView (public, secret dans le body)
+    // ── GENERIC SIGNAL HANDLER ────────────────────────────────────────────────
+    // POST /api/trade/signal — accepts generic signal format from multiple sources
+    // Auth: Private key via header (Authorization: Bearer ${PRIVATE_KEY}) or X-S25-Private-Key header
     if (url.pathname === '/api/trade/signal' && request.method === 'POST') {
       try {
-        const body = await request.json();
-        // Valider le secret TradingView (à mettre dans le message TradingView)
-        if (body.secret && body.secret !== S25_SECRET) {
-          return jsonResponse({ ok: false, error: 'unauthorized' }, 401);
+        // ────────────────────────────────────────────────────────────────────
+        // AUTHENTICATION: Verify private key
+        // ────────────────────────────────────────────────────────────────────
+        const authHeader = request.headers.get('Authorization') || '';
+        const privateKeyHeader = request.headers.get('X-S25-Private-Key') || '';
+        const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+        const incomingKey = bearerToken || privateKeyHeader;
+        const expectedPrivateKey = env.S25_WEBHOOK_PRIVATE_KEY || 's25_webhook_pk_sandbox_2026';
+
+        if (!incomingKey || incomingKey !== expectedPrivateKey) {
+          return jsonResponse({ ok: false, error: 'Unauthorized — invalid or missing private key' }, 401);
         }
-        const rawAction = (body.action || body.side || '').toLowerCase();
-        const isEmergencyStop = rawAction === 'emergency_stop';
+
+        // ────────────────────────────────────────────────────────────────────
+        // PARSE: Accept generic JSON format
+        // ────────────────────────────────────────────────────────────────────
+        const body = await request.json();
+
+        // Generic signal format — supports multiple sources
+        const genericSignal = {
+          // Identification
+          source: body.source || 'unknown',           // 'tradingview', 'grid_bot', 'webhook', 'api', etc.
+          signal_type: body.signal_type || 'trade',  // 'trade', 'alert', 'test'
+          source_id: body.source_id || null,         // Optional: ID within source system
+
+          // Core trading fields (normalized)
+          ticker: body.ticker || body.symbol || body.instrument || null,
+          action: (body.action || body.side || body.type || '').toLowerCase(), // buy/sell/close/emergency_stop
+          price: body.price || body.close || body.entry || null,
+          qty: body.qty || body.quantity || body.size || null,
+
+          // Optional metadata
+          strategy: body.strategy || body.bot || body.comment || body.source || 'custom',
+          timeframe: body.timeframe || body.interval || body.tf || null,
+          level: body.level !== undefined ? body.level : null,     // Grid bot level
+          volume: body.volume || null,
+          volatility: body.volatility || null,
+
+          // Risk management
+          stop_loss: body.stop_loss || body.sl || null,
+          take_profit: body.take_profit || body.tp || null,
+          dd_percent: body.dd_percent || body.max_drawdown || null,
+
+          // Timestamp
+          timestamp: body.timestamp || new Date().toISOString(),
+
+          // Optional: custom metadata from caller
+          metadata: body.metadata || {},
+        };
+
+        // Validate minimum required fields
+        if (!genericSignal.ticker || !genericSignal.action) {
+          return jsonResponse({
+            ok: false,
+            error: 'Missing required fields: ticker and action'
+          }, 400);
+        }
+
+        // ────────────────────────────────────────────────────────────────────
+        // NORMALIZE: Convert to internal signal format for ARKON
+        // ────────────────────────────────────────────────────────────────────
+        const isEmergencyStop = genericSignal.action === 'emergency_stop';
         const signal = {
           id: `SIG-${Date.now()}`,
           received_at: new Date().toISOString(),
-          ticker: body.ticker || body.symbol || (body.bot ? 'BTCUSDT' : 'UNKNOWN'),
-          action: rawAction, // buy / sell / close / emergency_stop
-          price: body.price || body.close || null,
-          qty: body.qty || null,
-          level: body.level !== undefined ? body.level : null, // Grid Bot: niveau 0-5
-          strategy: body.strategy || body.bot || body.comment || 'TradingView',
-          timeframe: body.timeframe || body.interval || null,
-          volume: body.volume || null,
-          dd_percent: body.dd_percent || null, // Hard-stop drawdown
+          source: genericSignal.source,
+          source_id: genericSignal.source_id,
+          signal_type: genericSignal.signal_type,
+
+          ticker: genericSignal.ticker,
+          action: genericSignal.action,
+          price: genericSignal.price,
+          qty: genericSignal.qty,
+          level: genericSignal.level,
+          strategy: genericSignal.strategy,
+          timeframe: genericSignal.timeframe,
+          volume: genericSignal.volume,
+          volatility: genericSignal.volatility,
+
+          stop_loss: genericSignal.stop_loss,
+          take_profit: genericSignal.take_profit,
+          dd_percent: genericSignal.dd_percent,
+
           status: isEmergencyStop ? '🚨 EMERGENCY STOP' : 'reçu',
-          source: body.bot ? 'grid_bot' : 'tradingview',
+          metadata: genericSignal.metadata,
         };
-        // Sauvegarder dans le cockpit
-        const stateResp = await fetch(`${S25_COCKPIT}/api/memory/state`, { headers: { 'X-S25-Secret': S25_SECRET } });
+
+        // ────────────────────────────────────────────────────────────────────
+        // PERSIST: Save to ARKON signal queue
+        // ────────────────────────────────────────────────────────────────────
+        const S25_COCKPIT = env.DIRECT_RUNTIME_URL || 'http://provider.team-michel.com:31554';
+        const stateResp = await fetch(`${S25_COCKPIT}/api/memory/state`, {
+          headers: { 'X-S25-Secret': env.S25_SHARED_SECRET || 's25sandbox2026' }
+        });
         const stateData = await stateResp.json();
         const signals = stateData?.state?.agents?.ARKON?.s25_signals || [];
-        const updatedSignals = [signal, ...signals].slice(0, 500); // garder 500 derniers
+        const updatedSignals = [signal, ...signals].slice(0, 500); // Keep 500 most recent
+
         await fetch(`${S25_COCKPIT}/api/memory/state`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-S25-Secret': S25_SECRET },
+          headers: {
+            'Content-Type': 'application/json',
+            'X-S25-Secret': env.S25_SHARED_SECRET || 's25sandbox2026'
+          },
           body: JSON.stringify({ agent: 'ARKON', updates: { s25_signals: updatedSignals } })
         });
-        // Tentative exécution MEXC si action claire
+
+        // ────────────────────────────────────────────────────────────────────
+        // EXECUTE: Process trading action if applicable
+        // ────────────────────────────────────────────────────────────────────
         let execution = null;
-        if (['buy','sell'].includes(signal.action) && MEXC_API_KEY) {
-          const qty = 0.001; // quantité test — ajuster selon capital
+        const MEXC_API_KEY = env.MEXC_API_KEY;
+        const TRADE_DRY_RUN = env.TRADE_DRY_RUN !== 'false'; // Default to dry run for safety
+
+        if (['buy', 'sell'].includes(signal.action) && MEXC_API_KEY) {
+          const qty = genericSignal.qty || 0.001; // Use provided qty or test amount
           execution = await mexcOrder(signal.ticker, signal.action, qty);
           signal.status = execution.dry_run ? 'dry_run' : (execution.ok ? 'exécuté' : 'rejeté');
           signal.execution = execution;
         }
 
-        // ── TRACKER P&L automatique ──────────────────────────────────────────
+        // ────────────────────────────────────────────────────────────────────
+        // TRACK: Automatic P&L tracking (existing logic)
+        // ────────────────────────────────────────────────────────────────────
         const trades = stateData?.state?.agents?.ARKON?.s25_trades || [];
         let tradeUpdate = null;
 
         if (signal.action === 'buy') {
-          // Nouvelle position ouverte
           tradeUpdate = {
             id: `TRD-${Date.now()}`,
             signal_id: signal.id,
@@ -11722,11 +11806,13 @@ body{background:#fff;color:#111;font-family:"Inter",sans-serif;padding:0;margin:
           const updatedTrades = [tradeUpdate, ...trades].slice(0, 200);
           await fetch(`${S25_COCKPIT}/api/memory/state`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-S25-Secret': S25_SECRET },
+            headers: {
+              'Content-Type': 'application/json',
+              'X-S25-Secret': env.S25_SHARED_SECRET || 's25sandbox2026'
+            },
             body: JSON.stringify({ agent: 'ARKON', updates: { s25_trades: updatedTrades } })
           });
-        } else if (['sell','close'].includes(signal.action)) {
-          // Fermer la dernière position ouverte sur ce ticker
+        } else if (['sell', 'close'].includes(signal.action)) {
           const openIdx = trades.findIndex(t => t.ticker === signal.ticker && t.status === 'ouvert');
           if (openIdx !== -1) {
             const exitPrice = parseFloat(signal.price) || 0;
@@ -11746,19 +11832,35 @@ body{background:#fff;color:#111;font-family:"Inter",sans-serif;padding:0;margin:
             };
             await fetch(`${S25_COCKPIT}/api/memory/state`, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'X-S25-Secret': S25_SECRET },
+              headers: {
+                'Content-Type': 'application/json',
+                'X-S25-Secret': env.S25_SHARED_SECRET || 's25sandbox2026'
+              },
               body: JSON.stringify({ agent: 'ARKON', updates: { s25_trades: trades } })
             });
             tradeUpdate = trades[openIdx];
           }
         }
 
-        return jsonResponse({ ok: true, signal_id: signal.id, received: signal.received_at, ticker: signal.ticker, action: signal.action, dry_run: TRADE_DRY_RUN, trade: tradeUpdate, execution });
+        // ────────────────────────────────────────────────────────────────────
+        // RESPOND: Return confirmation with full signal details
+        // ────────────────────────────────────────────────────────────────────
+        return jsonResponse({
+          ok: true,
+          signal_id: signal.id,
+          received_at: signal.received_at,
+          ticker: signal.ticker,
+          action: signal.action,
+          source: signal.source,
+          dry_run: TRADE_DRY_RUN,
+          trade: tradeUpdate,
+          execution,
+          metadata: signal.metadata
+        });
       } catch (err) {
-        return jsonResponse({ ok: false, error: 'Erreur serveur' }, 500);
+        return jsonResponse({ ok: false, error: 'Server error — ' + err.message }, 500);
       }
     }
-
     // GET /api/trade/performance — stats ARKON auto-ajustement
     if (url.pathname === '/api/trade/performance' && request.method === 'GET') {
       try {
