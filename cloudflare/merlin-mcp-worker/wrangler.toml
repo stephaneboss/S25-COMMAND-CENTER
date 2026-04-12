@@ -7,7 +7,8 @@ routes = [
 ]
 
 [vars]
-ORIGIN_BASE = "https://da0m4r4tu5ctn0ja9r2t9c2vho.ingress.akashprovid.com"
-ORIGIN_HOST_HEADER = "da0m4r4tu5ctn0ja9r2t9c2vho.ingress.akashprovid.com"
+# Set via `wrangler secret put ORIGIN_BASE` and `wrangler secret put ORIGIN_HOST_HEADER`
+ORIGIN_BASE = "${AKASH_COCKPIT_ORIGIN}"
+ORIGIN_HOST_HEADER = "${AKASH_COCKPIT_HOST}"
 PROXY_TIMEOUT_MS = "30000"
 PROXY_RETRIES = "0"

@@ -1,0 +1,106 @@
+# ============================================================
+# S25 LUMIERE - Unified Deployment (Cockpit + Merlin + Memory)
+# Consolide 3 deploys en 1 pour reduire les couts Akash
+# Economie: ~40% uAKT vs deploiements separes
+# ============================================================
+---
+version: "2.0"
+
+services:
+  s25-unified:
+    image: ghcr.io/stephaneboss/s25-command-center:main
+    expose:
+      - port: 7777
+        as: 80
+        to:
+          - global: true
+      - port: 8000
+        as: 8000
+        to:
+          - global: true
+    env:
+      # ── Home Assistant ─────────────────────────────────
+      - HA_URL=${HA_URL}
+      - HA_TOKEN=${HA_TOKEN}
+
+      # ── AI APIs ────────────────────────────────────────
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_MODEL=gemini-2.0-flash
+      - GEMINI_EMBED_MODEL=gemini-embedding-001
+
+      # ── Cockpit Settings ───────────────────────────────
+      - PORT=7777
+      - MEMORY_DIR=/app/memory
+      - S25_SHARED_SECRET=${S25_SHARED_SECRET}
+      - SECRET_KEY=${SECRET_KEY}
+      - COCKPIT_URL=${COCKPIT_ENDPOINT}
+      - BUILD=20260412-unified
+
+      # ── Agents: ALL enabled ────────────────────────────
+      - RUN_AGENT_LOOP=true
+      - RUN_ORACLE_AGENT=true
+      - RUN_ONCHAIN_GUARDIAN=true
+      - RUN_MERLIN_MCP_BRIDGE=true
+      - RUN_MERLIN_FEEDBACK_LOOP=true
+      - RUN_GEMINI_OPS_DAEMON=true
+      - RUN_TREASURY_AUTOPILOT=true
+      - RUN_GEMINI_MEMORY_REBUILD=false
+
+      # ── Poll Intervals ────────────────────────────────
+      - ORACLE_POLL_SECONDS=300
+      - ORACLE_SYMBOLS=BTC,ETH,AKT,ATOM
+      - ONCHAIN_POLL_SECONDS=420
+      - ONCHAIN_TOKEN_LIST=
+      - GEMINI_OPS_POLL_SECONDS=600
+      - TREASURY_POLL_SECONDS=900
+      - MERLIN_FEEDBACK_SECONDS=300
+
+      # ── MCP Bridge ────────────────────────────────────
+      - MERLIN_MCP_PORT=8000
+      - MERLIN_MCP_PATH=/mcp
+      - GEMINI_MCP_ENDPOINT=https://merlin.smajor.org/mcp
+
+      # ── Treasury ───────────────────────────────────────
+      - TREASURY_DEPLOYMENTS=${TREASURY_DEPLOYMENTS}
+      - TREASURY_AUTOMISSION=true
+
+      # ── Fallback local ─────────────────────────────────
+      - OLLAMA_URL=${OLLAMA_URL:-http://localhost:11434}
+      - OLLAMA_MODEL=qwen2.5-coder:14b
+
+      # ── Queue DB ───────────────────────────────────────
+      - QUEUE_DB_PATH=/app/memory/kimi_signal_queue.db
+
+    params:
+      storage:
+        memory:
+          mount: /app/memory
+          readOnly: false
+
+profiles:
+  compute:
+    s25-unified:
+      resources:
+        cpu:
+          units: 1
+        memory:
+          size: 1Gi
+        storage:
+          - size: 2Gi
+          - name: memory
+            size: 5Gi
+            attributes:
+              persistent: true
+              class: beta3
+  placement:
+    akash:
+      pricing:
+        s25-unified:
+          denom: uakt
+          amount: 200
+
+deployment:
+  s25-unified:
+    akash:
+      profile: s25-unified
+      count: 1

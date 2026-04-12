@@ -3,34 +3,72 @@ version: "2.0"
 
 services:
   s25-phoenix:
-    image: ubuntu:24.04
+    image: ghcr.io/stephaneboss/s25-command-center:main
     expose:
       - port: 7777
         as: 7777
         to:
           - global: true
-      - port: 8080
-        as: 8080
-        to:
-          - global: true
-      - port: 3117
-        as: 3117
-        to:
-          - global: true
-      - port: 9191
-        as: 9191
-        to:
-          - global: true
-      - port: 22
-        as: 22
-        to:
-          - global: true
     env:
-      - "DEBIAN_FRONTEND=noninteractive"
-    command:
-      - "/bin/bash"
-      - "-c"
-      - "apt-get update && apt-get install -y curl git python3 python3-pip nodejs npm wget && tail -f /dev/null"
+      # ─── Local Infrastructure Endpoints ───────────────────────────────
+      - "HA_URL=${HA_URL}"
+      - "HA_TOKEN=${HA_TOKEN}"
+      - "COCKPIT_URL=${COCKPIT_URL}"
+
+      # ─── AI APIs ──────────────────────────────────────────────────────
+      - "GEMINI_API_KEY=${GEMINI_API_KEY}"
+      - "OPENAI_API_KEY=${OPENAI_API_KEY}"
+      - "ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}"
+      - "PERPLEXITY_API_KEY=${PERPLEXITY_API_KEY}"
+      - "KIMI_API_KEY=${KIMI_API_KEY}"
+
+      # ─── Trading APIs ─────────────────────────────────────────────────
+      - "MEXC_API_KEY=${MEXC_API_KEY}"
+      - "MEXC_SECRET_KEY=${MEXC_SECRET_KEY}"
+
+      # ─── Akash Configuration ───────────────────────────────────────────
+      - "AKASH_ENDPOINT=http://localhost:5050"
+      - "AKASH_WALLET_ADDRESS=${AKASH_WALLET_ADDRESS}"
+
+      # ─── S25 Cockpit Settings ──────────────────────────────────────────
+      - "PORT=7777"
+      - "SECRET_KEY=${SECRET_KEY}"
+      - "S25_SHARED_SECRET=${S25_SHARED_SECRET}"
+      - "MEMORY_DIR=/app/memory"
+
+      # ─── Agent Daemon Settings ────────────────────────────────────────
+      - "RUN_ORACLE_AGENT=true"
+      - "RUN_ONCHAIN_GUARDIAN=true"
+      - "RUN_MERLIN_MCP_BRIDGE=true"
+      - "RUN_MERLIN_FEEDBACK_LOOP=true"
+      - "RUN_GEMINI_OPS_DAEMON=true"
+      - "RUN_TREASURY_AUTOPILOT=true"
+      - "RUN_GEMINI_MEMORY_REBUILD=false"
+
+      # ─── Agent Poll Intervals ────────────────────────────────────────
+      - "ORACLE_POLL_SECONDS=300"
+      - "ORACLE_SYMBOLS=BTC,ETH,AKT,ATOM"
+      - "ONCHAIN_POLL_SECONDS=420"
+      - "ONCHAIN_TOKEN_LIST="
+      - "GEMINI_OPS_POLL_SECONDS=600"
+      - "TREASURY_POLL_SECONDS=900"
+      - "MERLIN_FEEDBACK_SECONDS=300"
+
+      # ─── MCP & Memory Settings ────────────────────────────────────────
+      - "MERLIN_MCP_PORT=8000"
+      - "MERLIN_MCP_PATH=/mcp"
+      - "GEMINI_EMBED_MODEL=gemini-embedding-001"
+      - "GEMINI_MODEL=gemini-1.5-flash"
+
+      # ─── Treasury Deployments ────────────────────────────────────────
+      - "TREASURY_DEPLOYMENTS=25838342,25851041"
+      - "TREASURY_AUTOMISSION=true"
+
+    params:
+      storage:
+        memory:
+          mount: /app/memory
+          readOnly: false
 
 profiles:
   compute:
@@ -41,7 +79,12 @@ profiles:
         memory:
           size: 8Gi
         storage:
-          size: 100Gi
+          - size: 100Gi
+          - name: memory
+            size: 20Gi
+            attributes:
+              persistent: true
+              class: beta3
   placement:
     dcloud:
       pricing:

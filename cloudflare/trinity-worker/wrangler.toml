@@ -8,10 +8,17 @@ routes = [
 ]
 
 [vars]
-ORIGIN_BASE = "http://uoqlngdqqlc29fhg8l78qt80d8.ingress.akashprovid.com"
-ORIGIN_HOST_HEADER = "uoqlngdqqlc29fhg8l78qt80d8.ingress.akashprovid.com"
+# CRITICAL: ORIGIN_BASE must be kept in sync with Akash Trinity deployment
+# When Trinity endpoint changes, update both this value and the Akash deploy_cockpit.yaml COCKPIT_ENDPOINT
+# Current endpoint should match GitHub Actions deployed Trinity endpoint
+# CRITICAL: Set these via `wrangler secret put ORIGIN_BASE` and `wrangler secret put ORIGIN_HOST_HEADER`
+# Or override in .dev.vars for local dev
+ORIGIN_BASE = "${AKASH_COCKPIT_ORIGIN}"
+ORIGIN_HOST_HEADER = "${AKASH_COCKPIT_HOST}"
 PUBLIC_GATEWAY_URL = "https://api.smajor.org"
 PUBLIC_RUNTIME_URL = "https://s25.smajor.org"
 PROXY_TIMEOUT_MS = "15000"
 PROXY_RETRIES = "1"
-# Deployed Thu Mar 19 23:04:13     2026
+# S25_WEBHOOK_PRIVATE_KEY — moved to Cloudflare secrets (wrangler secret put S25_WEBHOOK_PRIVATE_KEY)
+# Updated: 2026-04-03 Trinity Endpoint Sync Phase 3B+ / Webhook Refactor
+# All Trinity requests proxied through this Cloudflare worker to Akash ingress endpoint

@@ -3,9 +3,9 @@
   "image": "ghcr.io/stephaneboss/s25-command-center:main",
   "cockpit_url": "https://s25.smajor.org",
   "public_mcp_url": "https://merlin.smajor.org/mcp",
-  "google_cloud_project": "gen-lang-client-0046423999",
-  "workspace_admin_email": "admin@merlin.ai",
-  "google_service_account_email": "replace-with-real-service-account@project.iam.gserviceaccount.com",
+  "google_cloud_project": "${GOOGLE_CLOUD_PROJECT}",
+  "workspace_admin_email": "${WORKSPACE_ADMIN_EMAIL}",
+  "google_service_account_email": "${GOOGLE_SERVICE_ACCOUNT_EMAIL}",
   "mirror_count": 10,
   "default_resources": {
     "cpu": "0.25",

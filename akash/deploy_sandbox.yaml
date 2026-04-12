@@ -14,12 +14,12 @@ services:
         to:
           - global: true
     env:
-      - HA_URL=http://10.0.0.136:8123
-      - HA_TOKEN=
-      - GEMINI_API_KEY=
+      - HA_URL=${HA_URL}
+      - HA_TOKEN=${HA_TOKEN}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
       - MEMORY_DIR=/app/memory
       - PORT=7777
-      - S25_SHARED_SECRET=s25sandbox2026
+      - S25_SHARED_SECRET=${S25_SHARED_SECRET}
       - RUN_ORACLE_AGENT=true
       - RUN_ONCHAIN_GUARDIAN=true
       - RUN_MERLIN_MCP_BRIDGE=true
@@ -29,13 +29,13 @@ services:
       - MERLIN_MCP_PATH=/mcp
       - MERLIN_FEEDBACK_SECONDS=300
       - TREASURY_POLL_SECONDS=900
-      - TREASURY_DEPLOYMENTS=25708774,25817341
+      - TREASURY_DEPLOYMENTS=${TREASURY_DEPLOYMENTS}
       - TREASURY_AUTOMISSION=true
       - ORACLE_POLL_SECONDS=300
       - ORACLE_SYMBOLS=BTC,ETH,AKT,ATOM
       - ONCHAIN_POLL_SECONDS=420
       - ONCHAIN_TOKEN_LIST=
-      - COCKPIT_URL=http://uoqlngdqqlc29fhg8l78qt80d8.ingress.akashprovid.com
+      - COCKPIT_URL=${COCKPIT_URL}
       - QUEUE_DB_PATH=/data/kimi_signal_queue.db
 
 profiles:

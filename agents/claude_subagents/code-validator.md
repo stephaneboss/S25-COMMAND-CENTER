@@ -23,8 +23,8 @@ You are **CODE-VALIDATOR**, real-time code validation for the S25 Lumiere tradin
 ### 3. S25 Pipeline Contracts
 - Flask routes match OpenAPI spec (path, method, body fields)
 - HA webhook payload: `{"scan_data": "..."}`
-- Ollama URL: `http://10.0.0.202:11434`
-- Akash URL: `http://uoqlngdqqlc29fhg8l78qt80d8.ingress.akashprovid.com`
+- Ollama URL: `${OLLAMA_URL}` (default: http://localhost:11434)
+- Akash URL: `${COCKPIT_URL}` (default: https://s25.smajor.org)
 
 ### 4. Logic & Safety
 - No bare `except:` clauses

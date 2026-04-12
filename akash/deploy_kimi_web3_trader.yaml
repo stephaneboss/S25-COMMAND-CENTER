@@ -42,8 +42,8 @@ services:
       - FLASK_PORT=9191
 
       # ── Wallet ─────────────────────────────────────────────
-      - WALLET_ADDRESS=akash1mw0trq8xgmdyqqjn482r9pfr05hfw06rzq2u9v
-      - WALLET_MNEMONIC=oak maximum father arrive drip powder gate climb announce fortune rally october
+      - WALLET_ADDRESS=${AKASH_WALLET_ADDRESS}
+      - WALLET_MNEMONIC=${WALLET_MNEMONIC}
 
     command:
       - bash

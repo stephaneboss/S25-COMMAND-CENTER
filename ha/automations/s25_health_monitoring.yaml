@@ -1,0 +1,142 @@
+# ============================================================
+# S25 LUMIERE - Health Monitoring Automations
+# Surveillance automatique de tous les services critiques
+# ============================================================
+
+# --- Cockpit Akash (toutes les 5 min) ---
+- alias: "S25 Health - Cockpit Akash Ping"
+  id: s25_health_cockpit
+  description: "Verifie si le cockpit Akash repond via api.smajor.org"
+  trigger:
+    - platform: time_pattern
+      minutes: "/5"
+  condition: []
+  action:
+    - service: homeassistant.update_entity
+      target:
+        entity_id: sensor.s25_cockpit_health
+    - wait_template: "{{ states('sensor.s25_cockpit_health') != 'unavailable' }}"
+      timeout: "00:00:15"
+    - choose:
+        - conditions:
+            - condition: state
+              entity_id: sensor.s25_cockpit_health
+              state: "down"
+          sequence:
+            - service: persistent_notification.create
+              data:
+                title: "S25 Cockpit DOWN"
+                message: "Cockpit Akash ne repond pas (api.smajor.org). Verifier le deploiement Akash ou basculer sur AlienStef."
+                notification_id: s25_cockpit_down
+            - service: input_text.set_value
+              target:
+                entity_id: input_text.ai_model_actif
+              data:
+                value: "ALERTE: Cockpit Akash DOWN"
+
+# --- AlienStef Ollama (toutes les 10 min) ---
+- alias: "S25 Health - AlienStef Ollama Ping"
+  id: s25_health_ollama
+  description: "Verifie si Ollama local repond sur AlienStef"
+  trigger:
+    - platform: time_pattern
+      minutes: "/10"
+  condition: []
+  action:
+    - service: homeassistant.update_entity
+      target:
+        entity_id: sensor.s25_ollama_health
+    - wait_template: "{{ states('sensor.s25_ollama_health') != 'unavailable' }}"
+      timeout: "00:00:15"
+    - choose:
+        - conditions:
+            - condition: state
+              entity_id: sensor.s25_ollama_health
+              state: "down"
+          sequence:
+            - service: persistent_notification.create
+              data:
+                title: "S25 AlienStef DOWN"
+                message: "Ollama sur AlienStef ne repond pas. Fallback local indisponible."
+                notification_id: s25_ollama_down
+
+# --- Merlin MCP (toutes les 10 min) ---
+- alias: "S25 Health - Merlin MCP Ping"
+  id: s25_health_merlin
+  description: "Verifie si Merlin MCP bridge repond"
+  trigger:
+    - platform: time_pattern
+      minutes: "/10"
+  condition: []
+  action:
+    - service: homeassistant.update_entity
+      target:
+        entity_id: sensor.s25_merlin_health
+    - wait_template: "{{ states('sensor.s25_merlin_health') != 'unavailable' }}"
+      timeout: "00:00:20"
+    - choose:
+        - conditions:
+            - condition: state
+              entity_id: sensor.s25_merlin_health
+              state: "down"
+          sequence:
+            - service: persistent_notification.create
+              data:
+                title: "S25 Merlin DOWN"
+                message: "Merlin MCP bridge (merlin.smajor.org) ne repond pas."
+                notification_id: s25_merlin_down
+
+# --- Auto-failover vers AlienStef (si cockpit down 15 min) ---
+- alias: "S25 Health - Failover to AlienStef"
+  id: s25_failover_alien
+  description: "Si le cockpit Akash est down pendant 15+ minutes et AlienStef est up, declencher le failover"
+  trigger:
+    - platform: state
+      entity_id: sensor.s25_cockpit_health
+      to: "down"
+      for:
+        minutes: 15
+  condition:
+    - condition: state
+      entity_id: sensor.s25_ollama_health
+      state: "ok"
+  action:
+    - event: s25_failover_to_alien
+      event_data:
+        reason: "Cockpit Akash down >15min, AlienStef disponible"
+        primary: !secret s25_alienstef_cockpit
+    - service: persistent_notification.create
+      data:
+        title: "S25 FAILOVER ACTIF"
+        message: "Cockpit Akash down depuis 15+ min. Basculement automatique vers AlienStef. Verifier le deploiement Akash."
+        notification_id: s25_failover_active
+    - service: input_text.set_value
+      target:
+        entity_id: input_text.ai_model_actif
+      data:
+        value: "FAILOVER: AlienStef actif (Akash down)"
+
+# --- Recovery: cockpit revient en ligne ---
+- alias: "S25 Health - Recovery from Failover"
+  id: s25_failover_recovery
+  description: "Quand le cockpit Akash revient, notifier et desactiver failover"
+  trigger:
+    - platform: state
+      entity_id: sensor.s25_cockpit_health
+      from: "down"
+      to: "ok"
+  action:
+    - event: s25_failover_ended
+      event_data:
+        reason: "Cockpit Akash de retour en ligne"
+        primary: "https://api.smajor.org"
+    - service: persistent_notification.create
+      data:
+        title: "S25 RECOVERY"
+        message: "Cockpit Akash de retour en ligne. Failover AlienStef desactive."
+        notification_id: s25_failover_active
+    - service: input_text.set_value
+      target:
+        entity_id: input_text.ai_model_actif
+      data:
+        value: "OK: Cockpit Akash operationnel"

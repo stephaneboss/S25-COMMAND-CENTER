@@ -4,7 +4,7 @@
 # IMPORTANT: Choisir le provider akashprovid.com pour HTTPS valide
 # (akashprovid.com = HTTPS auto avec cert Let's Encrypt valide)
 # Routes: /api/memory | /api/memory/state | /api/memory/ping
-# Secret: X-S25-Secret: s25sandbox2026
+# Secret: X-S25-Secret: see S25_SHARED_SECRET env var
 # ============================================================
 ---
 version: "2.0"
@@ -18,13 +18,13 @@ services:
         to:
           - global: true
     env:
-      - HA_URL=http://10.0.0.136:8123
-      - HA_TOKEN=
-      - GEMINI_API_KEY=
+      - HA_URL=${HA_URL}
+      - HA_TOKEN=${HA_TOKEN}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
       - MEMORY_DIR=/app/memory
       - PORT=7777
-      - S25_SHARED_SECRET=s25sandbox2026
-      - COCKPIT_URL=http://uoqlngdqqlc29fhg8l78qt80d8.ingress.akashprovid.com
+      - S25_SHARED_SECRET=${S25_SHARED_SECRET}
+      - COCKPIT_URL=${COCKPIT_URL}
       - QUEUE_DB_PATH=/data/kimi_signal_queue.db
 
 profiles:
