@@ -13,8 +13,8 @@ routes = [
 # Current endpoint should match GitHub Actions deployed Trinity endpoint
 # CRITICAL: Set these via `wrangler secret put ORIGIN_BASE` and `wrangler secret put ORIGIN_HOST_HEADER`
 # Or override in .dev.vars for local dev
-ORIGIN_BASE = "${AKASH_COCKPIT_ORIGIN}"
-ORIGIN_HOST_HEADER = "${AKASH_COCKPIT_HOST}"
+ORIGIN_BASE = "https://cockpit-alien.smajor.org"
+ORIGIN_HOST_HEADER = "cockpit-alien.smajor.org"
 PUBLIC_GATEWAY_URL = "https://api.smajor.org"
 PUBLIC_RUNTIME_URL = "https://s25.smajor.org"
 PROXY_TIMEOUT_MS = "15000"
