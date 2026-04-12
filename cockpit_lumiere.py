@@ -617,8 +617,12 @@ def _ensure_missions(state: dict) -> dict:
 
 
 def _ensure_intel(state: dict) -> dict:
-    """Ensure state has intel/comet_feed structure."""
-    state.setdefault("intel", {})
+    """Ensure state has intel/comet_feed structure. Migrates legacy list format."""
+    intel = state.get("intel")
+    if not isinstance(intel, dict):
+        # Legacy: intel was a flat list — migrate to dict with comet_feed
+        legacy_entries = intel if isinstance(intel, list) else []
+        state["intel"] = {"comet_feed": legacy_entries[-50:]}
     state["intel"].setdefault("comet_feed", [])
     return state
 
