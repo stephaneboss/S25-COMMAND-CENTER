@@ -700,6 +700,98 @@ def api_jarvis():
     except Exception as exc:
         return jsonify({"ok": False, "error": str(exc)}), 502
 
+# ════════════════════════════════════════════════════════════════
+# CONTROL LINK — Claude ↔ Trinity validated action chain
+# propose → validate → execute (canonical, auditable)
+# ════════════════════════════════════════════════════════════════
+import uuid
+
+@app.route('/api/control/propose', methods=['POST'])
+def api_control_propose():
+    body = request.get_json(silent=True) or {}
+    action_id = f"ctrl_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
+    proposal = {
+        "action_id": action_id,
+        "source": body.get("source", "UNKNOWN"),
+        "action_type": body.get("action_type", "custom"),
+        "params": body.get("params", {}),
+        "reason": body.get("reason", "")[:500],
+        "status": "proposed",
+        "proposed_at": datetime.now(timezone.utc).isoformat(),
+        "validated_at": None, "executed_at": None, "result": None,
+    }
+    state = _load_agents_state()
+    state.setdefault("control_queue", []).append(proposal)
+    state["control_queue"] = state["control_queue"][-50:]
+    _save_agents_state(state)
+    return jsonify({"ok": True, "action_id": action_id, "proposal": proposal})
+
+
+@app.route('/api/control/validate', methods=['POST'])
+def api_control_validate():
+    body = request.get_json(silent=True) or {}
+    action_id = body.get("action_id", "")
+    state = _load_agents_state()
+    for item in state.get("control_queue", []):
+        if item["action_id"] == action_id and item["status"] == "proposed":
+            item["status"] = "validated"
+            item["validated_at"] = datetime.now(timezone.utc).isoformat()
+            item["validated_by"] = body.get("validator", "OPERATOR")
+            _save_agents_state(state)
+            return jsonify({"ok": True, "action_id": action_id, "status": "validated"})
+    return jsonify({"ok": False, "error": f"Action {action_id} not found or not proposed"}), 404
+
+
+@app.route('/api/control/execute', methods=['POST'])
+def api_control_execute():
+    body = request.get_json(silent=True) or {}
+    action_id = body.get("action_id", "")
+    state = _load_agents_state()
+    target = None
+    for item in state.get("control_queue", []):
+        if item["action_id"] == action_id and item["status"] == "validated":
+            target = item
+            break
+    if not target:
+        return jsonify({"ok": False, "error": f"Action {action_id} not validated"}), 404
+
+    params = target.get("params", {})
+    result = {"executed": False}
+    atype = target["action_type"]
+
+    if atype == "pipeline_mode":
+        pipeline = state.setdefault("pipeline", {})
+        for k in ("mode", "threat_level", "kill_switch"):
+            if k in params:
+                pipeline[k] = params[k]
+        result = {"executed": True, "detail": f"pipeline: {params}"}
+    elif atype == "config_change":
+        key, value = params.get("key", ""), params.get("value")
+        if key and value is not None:
+            state.setdefault("runtime_config", {})[key] = value
+            result = {"executed": True, "detail": f"{key}={value}"}
+    elif atype == "agent_restart":
+        result = {"executed": True, "detail": f"restart queued for {params.get('agent','')}"}
+    else:
+        result = {"executed": True, "detail": f"custom action logged: {atype}"}
+
+    target["status"] = "executed"
+    target["executed_at"] = datetime.now(timezone.utc).isoformat()
+    target["result"] = result
+    _save_agents_state(state)
+    return jsonify({"ok": True, "action_id": action_id, "result": result})
+
+
+@app.route('/api/control/queue', methods=['GET'])
+def api_control_queue():
+    state = _load_agents_state()
+    queue = state.get("control_queue", [])
+    sf = request.args.get("status")
+    if sf:
+        queue = [q for q in queue if q["status"] == sf]
+    return jsonify({"ok": True, "queue": queue, "count": len(queue)})
+
+
 if __name__ == '__main__':
     port = int(os.getenv("PORT", "7777"))
     app.run(host='0.0.0.0', port=port, debug=False)
