@@ -87,7 +87,7 @@ def check_cockpit_health() -> bool:
         log.error(
             f"Cockpit INACCESSIBLE: {COCKPIT_URL} -- {e}\n"
             f"  Si tu tournes sur DELL-LINUX, set: COCKPIT_URL=<URL_AKASH_COCKPIT>\n"
-            f"  Exemple: COCKPIT_URL=http://uoqlngdqqlc29fhg8l78qt80d8.ingress.akashprovid.com"
+            f"  Exemple: COCKPIT_URL=http://provider.team-michel.com:31554"
         )
     return False
 

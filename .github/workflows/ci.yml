@@ -29,12 +29,10 @@ jobs:
 
       - name: Lint (flake8)
         run: |
-          flake8 agents/ s25_nexus_routes_v2.py --max-line-length=120 \
-            --ignore=E501,W503,E302,E303,E221,E241,W504,E401,E701,E128,E226,E305,E722,F401,F841,F811,F541,E251,E272,E702 \
-            --exclude=__pycache__ || true
-          flake8 agents/ s25_nexus_routes_v2.py --max-line-length=120 \
-            --ignore=E501,W503,E302,E303,E221,E241,W504,E401,E701,E128,E226,E305,E722,F401,F841,F811,F541,E251,E272,E702 \
-            --exclude=__pycache__ --select=E9,F4 2>&1 | grep -v "^$" || true
+          flake8 agents/ security/ monitoring/ \
+            --max-line-length=120 \
+            --ignore=E501,W503,E302,E303,E221,E241,W504,E401,E701,E128,E226 \
+            --exclude=__pycache__
           echo "✓ Lint passed"
 
       - name: Validate YAML configs

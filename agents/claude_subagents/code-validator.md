@@ -24,7 +24,7 @@ You are **CODE-VALIDATOR**, real-time code validation for the S25 Lumiere tradin
 - Flask routes match OpenAPI spec (path, method, body fields)
 - HA webhook payload: `{"scan_data": "..."}`
 - Ollama URL: `http://10.0.0.202:11434`
-- Akash URL: `http://uoqlngdqqlc29fhg8l78qt80d8.ingress.akashprovid.com`
+- Akash URL: `http://provider.team-michel.com:31554`
 
 ### 4. Logic & Safety
 - No bare `except:` clauses

@@ -297,55 +297,49 @@ def index():
 
 @app.route('/api/status')
 def api_status():
-    """S25 Status — Priority 3B: HA secondaire, non-bloquant.
-    Source de verite = S25 Runtime (memoire interne).
-    HA = visualisation/automation optionnelle.
-    """
-    mem_state = _load_agents_state()
-    pipeline = mem_state.get("pipeline", {})
-
+    """Retourne l'état du système S25 depuis HA"""
     status = {
         "timestamp": datetime.utcnow().isoformat(),
-        "arkon5_action": pipeline.get("arkon5_action", "HOLD"),
-        "arkon5_conf": pipeline.get("arkon5_conf", 0),
-        "pipeline_status": pipeline.get("status", "S25_RUNTIME"),
+        "arkon5_action": "HOLD",
+        "arkon5_conf": 0,
+        "pipeline_status": "INIT",
         "hashrate": "--",
         "temp": "--",
-        "comet_intel": pipeline.get("comet_intel", "S25 Runtime actif - HA secondaire"),
-        "tunnel_active": True,
-        "ha_status": "secondary",
-        "ha_warning": None,
+        "comet_intel": "En attente...",
+        "tunnel_active": False
     }
 
-    if HA_TOKEN:
-        try:
-            headers = {"Authorization": f"Bearer {HA_TOKEN}"}
-            test = requests.get(f"{HA_URL}/api/", headers=headers, timeout=2)
-            if test.status_code == 200:
-                entity_map = {
-                    "sensor.s25_arkon5_action": "arkon5_action",
-                    "sensor.s25_arkon5_conf": "arkon5_conf",
-                    "input_text.ai_model_actif": "pipeline_status",
-                    "sensor.antminer_hashrate": "hashrate",
-                    "sensor.antminer_temp": "temp",
-                    "input_text.s25_comet_intel": "comet_intel",
-                }
-                for entity, key in entity_map.items():
-                    try:
-                        r = requests.get(f"{HA_URL}/api/states/{entity}", headers=headers, timeout=2)
-                        if r.status_code == 200:
-                            status[key] = r.json().get("state", status[key])
-                    except Exception:
-                        pass
-                status["ha_status"] = "connected"
-                tunnel_active = _process_running("cloudflared")
-                if not tunnel_active:
-                    ci = status.get("comet_intel", "")
-                    tunnel_active = "ACTIF" in ci or "trycloudflare.com" in ci
-                status["tunnel_active"] = tunnel_active
-        except Exception as ha_err:
-            status["ha_status"] = "unreachable"
-            status["ha_warning"] = str(ha_err)[:120]
+    if not HA_TOKEN:
+        return jsonify(status)
+
+    try:
+        headers = {"Authorization": f"Bearer {HA_TOKEN}"}
+        entities = ["sensor.s25_arkon5_action", "sensor.s25_arkon5_conf",
+                    "input_text.ai_model_actif", "sensor.antminer_hashrate",
+                    "sensor.antminer_temp", "input_text.s25_comet_intel"]
+
+        for entity in entities:
+            r = requests.get(f"{HA_URL}/api/states/{entity}", headers=headers, timeout=5)
+            if r.status_code == 200:
+                state = r.json().get("state", "--")
+                if "arkon5_action" in entity: status["arkon5_action"] = state
+                elif "arkon5_conf" in entity: status["arkon5_conf"] = state
+                elif "ai_model_actif" in entity: status["pipeline_status"] = state
+                elif "antminer_hashrate" in entity: status["hashrate"] = state
+                elif "antminer_temp" in entity: status["temp"] = state
+                elif "comet_intel" in entity: status["comet_intel"] = state
+
+        # Check tunnel: try local process first (HA container), then fallback
+        # to comet_intel state (Akash container — cloudflared runs on HA side).
+        tunnel_active = _process_running("cloudflared")
+        if not tunnel_active:
+            ci = status.get("comet_intel", "")
+            if "ACTIF" in ci or "trycloudflare.com" in ci:
+                tunnel_active = True
+        status["tunnel_active"] = tunnel_active
+
+    except Exception as e:
+        status["error"] = str(e)
 
     return jsonify(status)
 
@@ -681,117 +675,6 @@ def api_memory_ping():
         return jsonify({"ok": True, "agent": agent, "ts": datetime.now(timezone.utc).isoformat()})
 
     return jsonify({"ok": False, "error": f"Agent {agent} inconnu"}), 404
-
-
-# ═══════════════════════════════════════════════════════════════
-# KIMI BRIDGE — Moonshot AI (kimi-k2.5) compatible OpenAI
-# ═══════════════════════════════════════════════════════════════
-KIMI_API_KEY  = os.getenv("KIMI_API_KEY", "")
-KIMI_MODEL    = os.getenv("KIMI_MODEL", "kimi-k2.5")
-KIMI_BASE_URL = os.getenv("KIMI_BASE_URL", "https://api.moonshot.ai/v1")
-
-def _kimi_query(prompt: str, system: str = "Tu es Kimi, agent Web3 Signal du reseau S25 Lumiere.") -> str:
-    """Appel direct Kimi (Moonshot AI) via API compatible OpenAI."""
-    if not KIMI_API_KEY:
-        return "KIMI OFFLINE: KIMI_API_KEY non configuree"
-    try:
-        r = requests.post(
-            f"{KIMI_BASE_URL}/chat/completions",
-            headers={"Authorization": f"Bearer {KIMI_API_KEY}", "Content-Type": "application/json"},
-            json={
-                "model": KIMI_MODEL,
-                "messages": [
-                    {"role": "system", "content": system},
-                    {"role": "user", "content": prompt}
-                ],
-                "max_tokens": 512,
-                "temperature": 0.7,
-            },
-            timeout=30,
-        )
-        if r.status_code == 200:
-            choices = r.json().get("choices", [])
-            if choices:
-                return choices[0]["message"]["content"].strip()
-        return f"Kimi error HTTP {r.status_code}: {r.text[:200]}"
-    except Exception as e:
-        return f"Kimi exception: {e}"
-
-@app.route('/api/kimi/ping', methods=['GET'])
-def kimi_ping():
-    """Healthcheck pour Kimi Bridge."""
-    return jsonify({
-        "ok": True,
-        "service": "S25 Lumiere — KIMI Bridge",
-        "version": "1.0.0",
-        "kimi": "online" if KIMI_API_KEY else "offline",
-        "model": KIMI_MODEL,
-    })
-
-@app.route('/api/kimi', methods=['POST'])
-def kimi_dispatch():
-    """
-    Endpoint Kimi Web3 Signal.
-    Body JSON:
-      intent : texte de la requete
-      action : "query" | "signal" | "analyze"
-    """
-    if not _trinity_auth():
-        return jsonify({"ok": False, "error": "Unauthorized"}), 401
-    body   = request.get_json(silent=True) or {}
-    intent = body.get("intent", "").strip()
-    action = body.get("action", "query").lower()
-    if action == "analyze":
-        snap   = _market_snapshot()
-        prices = snap.get("prices", {})
-        btc    = prices.get("bitcoin", {}).get("usd", 0)
-        eth    = prices.get("ethereum", {}).get("usd", 0)
-        fg     = snap.get("fear_greed", {})
-        prompt = f"""Tu es KIMI, analyste Web3 senior du reseau S25 Lumiere.
-Stef demande: "{intent}"
-Contexte marche: BTC ${btc:,.0f} | ETH ${eth:,.2f} | F&G {fg.get('value','?')}/100 ({fg.get('label','?')})
-Reponds en 2-3 phrases max, direct et actionnable."""
-        resp = _kimi_query(prompt)
-        return jsonify({"ok": True, "action": "analyze", "kimi_response": resp, "market": snap})
-    # default query
-    resp = _kimi_query(intent or "Donne-moi un update marche crypto.")
-    return jsonify({"ok": True, "action": "query", "intent": intent, "kimi_response": resp})
-
-# === KIMI INTEL DIRECT — Priority 1: sans tunnel Cloudflare ===
-# Avant: KIMI -> Cloudflare tunnel -> HA webhook -> S25
-# Apres: KIMI -> https://api.smajor.org/api/kimi/intel -> S25
-_kimi_intel_cache = []
-
-@app.route('/api/kimi/intel', methods=['POST'])
-def kimi_intel_push():
-    """KIMI signal direct - sans tunnel (Priority 1)."""
-    if not _trinity_auth():
-        return jsonify({"ok": False, "error": "Unauthorized"}), 401
-    body = request.get_json(silent=True) or {}
-    signal = {
-        "ts": datetime.now(timezone.utc).isoformat(),
-        "source": "KIMI_DIRECT",
-        "action": body.get("action", "HOLD").upper(),
-        "confidence": float(body.get("confidence", 0.5)),
-        "symbol": body.get("symbol", "BTC"),
-        "reason": body.get("reason", ""),
-    }
-    state = _load_agents_state()
-    state.setdefault("agents", {}).setdefault("KIMI", {}).update({
-        "last_seen": signal["ts"], "status": "online",
-        "last_signal": signal["action"], "last_confidence": signal["confidence"],
-    })
-    state.setdefault("pipeline", {})["kimi_last_signal"] = signal
-    _save_agents_state(state)
-    _kimi_intel_cache.append(signal)
-    if len(_kimi_intel_cache) > 50:
-        _kimi_intel_cache.pop(0)
-    return jsonify({"ok": True, "signal": signal, "mode": "direct_no_tunnel"})
-
-@app.route('/api/kimi/intel', methods=['GET'])
-def kimi_intel_get():
-    limit = int(request.args.get('limit', 10))
-    return jsonify({"ok": True, "signals": _kimi_intel_cache[-limit:], "count": len(_kimi_intel_cache), "mode": "direct_no_tunnel"})
 
 if __name__ == '__main__':
     port = int(os.getenv("PORT", "7777"))

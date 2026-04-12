@@ -1,0 +1,68 @@
+# ============================================================
+# S25 LUMIERE - Single Linux Container (Akash SDL)
+# Purpose: run full S25 stack in one container and simplify ops
+# ============================================================
+---
+version: "2.0"
+
+services:
+  s25-linux:
+    image: ghcr.io/stephaneboss/s25-command-center@sha256:f0b96704f4f0efb2191cd6b0f7e37b68e9c2e2d1e5e404c9098973d901745eb7
+    expose:
+      - port: 7777
+        as: 80
+        to:
+          - global: true
+      - port: 8000
+        as: 8000
+        to:
+          - global: true
+    env:
+      - S25_STACK_MODE=linux-full
+      - HA_URL=
+      - HA_TOKEN=
+      - GEMINI_API_KEY=
+      - MEMORY_DIR=/app/memory
+      - PORT=7777
+      - CHECK_INTERVAL=60
+      - S25_SHARED_SECRET=
+      - BUILD=20260323a
+      - RUN_ORACLE_AGENT=true
+      - RUN_ONCHAIN_GUARDIAN=true
+      - RUN_MERLIN_MCP_BRIDGE=true
+      - RUN_MERLIN_FEEDBACK_LOOP=true
+      - RUN_GEMINI_OPS_DAEMON=true
+      - RUN_TREASURY_AUTOPILOT=true
+      - RUN_BALANCE_SENTINEL=true
+      - RUN_TREASURY_ENGINE=true
+      - RUN_COMET_BRIDGE=true
+      - RUN_PROVIDER_WATCH=true
+      - RUN_AGENT_LOOP=true
+      - ORACLE_POLL_SECONDS=300
+      - ORACLE_SYMBOLS=BTC,ETH,AKT,ATOM
+      - ONCHAIN_POLL_SECONDS=420
+      - ONCHAIN_TOKEN_LIST=
+
+profiles:
+  compute:
+    s25-linux:
+      resources:
+        cpu:
+          units: 2.0
+        memory:
+          size: 4Gi
+        storage:
+          size: 5Gi
+
+  placement:
+    akash:
+      pricing:
+        s25-linux:
+          denom: uakt
+          amount: 350
+
+deployment:
+  s25-linux:
+    akash:
+      profile: s25-linux
+      count: 1

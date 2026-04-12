@@ -1,43 +1,17 @@
 # ═══════════════════════════════════════════════════════════════════
-# S25 Lumière — Agent Configuration [UPDATED v3.1]
-# Trinity Optimization Build
+# S25 Lumière — Agent Configuration
 # ═══════════════════════════════════════════════════════════════════
 # All runtime config for agents goes here.
 # Secrets go ONLY in .env or environment variables — NEVER here.
 # ═══════════════════════════════════════════════════════════════════
 
 commander:
-  version: "3.1"
-  # PRIORITÉ 3: Direct HA endpoint (replaces tunnel dependency)
-  ha_url: "https://ha.smajor.org"  # Cloudflare Zero Trust endpoint — 100% remote
-  ha_fallback: "http://homeassistant.local:8123"  # Local fallback (LAN only)
+  version: "1.0.0"
+  ha_url: "http://homeassistant.local:8123"  # or 172.30.32.1:8123 from Akash
   circuit_breaker:
     max_errors: 3
     cooldown_seconds: 30
   signal_queue_size: 1000
-
-# ─── Agent Endpoints (PRIORITÉ 1 & 2) ────────────────────────────
-
-endpoints:
-  # PRIORITÉ 1: Direct KIMI API endpoint (no Cloudflare tunnel)
-  kimi:
-    primary: "https://api.smajor.org/api/agents/kimi/intel"
-    legacy_tunnel: ""  # DEPRECATED — tunnel removed
-    mode: "direct"
-    timeout: 15
-
-  # PRIORITÉ 2: MERLIN on Akash v3 (cloud-stable)
-  merlin:
-    primary: "https://merlin.smajor.org"  # Public stable endpoint
-    akash_internal: "http://merlin-deployment.akash:8000"  # Akash internal
-    mode: "cloud-first"
-    timeout: 20
-
-  # Central S25 API
-  s25_api:
-    primary: "https://api.smajor.org"
-    backup: "https://s25-api.akash:8080"
-    timeout: 15
 
 # ─── Individual Agent Config ────────────────────────────────────────
 
@@ -115,13 +89,9 @@ agents:
     default_order_type: "LIMIT"  # LIMIT or MARKET
     default_size_pct: 5.0        # % of portfolio per trade
 
-  # ── COMET Watchdog: System health & auto-restart [BONUS OPTIMIZATION] ──────
-  comet_watchdog:
+  # ── Watchdog: System health & auto-restart ───────────────────────
+  watchdog:
     enabled: true
-    # BONUS: Increased COMET weight for better consensus (0.5 → 0.65)
-    weight: 0.65                 # OPTIMIZED from 0.5
-    consensus_mode: true         # BONUS: Activate real multi-agent consensus
-    consensus_threshold: 2       # Min agents agreeing before action
     check_interval: 60           # Every minute
     restart_on_error: true
     max_restarts: 3
@@ -129,16 +99,6 @@ agents:
       - "treasury_engine"
       - "balance_sentinel"
       - "arkon_signal"
-      - "merlin_orchestrator"
-
-  # ── MERLIN Orchestrator: Central command (Akash v3 cloud-deployed) ────
-  merlin_orchestrator:
-    enabled: true
-    endpoint: "https://merlin.smajor.org"
-    mode: "cloud-stable"
-    version: "v3"
-    redundancy: "akash-fallback"
-    check_interval: 120
 
 # ─── Monitoring ──────────────────────────────────────────────────────
 
@@ -159,14 +119,3 @@ logging:
   max_size_mb: 50
   backups: 3
   audit_file: "/tmp/s25_audit.jsonl"
-
-# ─── TRINITY Integration ──────────────────────────────────────────────
-
-trinity:
-  enabled: true
-  version: "v4"
-  endpoint: "https://trinity-s25-proxy.trinitys25steph.workers.dev"
-  api_status_path: "/api/status"
-  command_center: "s25.smajor.org"
-  autonomy_target: "ZERO_LOCAL_DEPENDENCIES"
-  optimization_level: "max"
