@@ -2293,6 +2293,63 @@ def v1_model_detail(model_id):
     return jsonify({"id": model_id, "object": "model", "created": 1700000000, "owned_by": "s25-local"})
 
 
+@app.route('/api/ha/agent', methods=['POST'])
+def api_ha_agent():
+    """Process a prompt via local AI and push response to HA sensors.
+    Called by HA automation when input_text.s25_agent_prompt changes.
+    Also callable as a webhook from HA."""
+    body = request.get_json(silent=True) or {}
+    prompt = body.get("prompt", body.get("text", ""))
+
+    if not prompt:
+        # Try to read from HA sensor directly
+        if ha_bridge.connected:
+            state = ha_bridge.get_state("input_text.s25_agent_prompt")
+            if state:
+                prompt = state.get("state", "")
+
+    if not prompt or len(prompt) < 3:
+        return jsonify({"ok": False, "error": "No prompt provided"}), 400
+
+    # Update HA: processing
+    ha_bridge.push_sensor("sensor.s25_local_agent_status", "processing", {
+        "friendly_name": "S25 Agent Local Status",
+        "prompt": prompt[:100],
+        "icon": "mdi:brain",
+    })
+
+    # Call local conversation agent
+    result = handle_chat_completion(
+        {"model": "s25-lumiere", "messages": [{"role": "user", "content": prompt}], "max_tokens": 500},
+        ha_bridge=ha_bridge,
+        load_state_fn=_load_agents_state,
+    )
+
+    reply = result.get("choices", [{}])[0].get("message", {}).get("content", "Erreur")
+
+    # Push response to HA
+    ha_bridge.push_sensor("input_text.s25_agent_response", reply[:255], {
+        "friendly_name": "S25 Agent Response",
+        "full_response": reply,
+        "model": "s25-lumiere",
+        "icon": "mdi:robot",
+    })
+    ha_bridge.push_sensor("sensor.s25_local_agent_status", "ready", {
+        "friendly_name": "S25 Agent Local Status",
+        "last_prompt": prompt[:100],
+        "last_reply_length": len(reply),
+        "icon": "mdi:brain",
+    })
+
+    return jsonify({"ok": True, "reply": reply, "model": "s25-lumiere"})
+
+
+@app.route('/webhook/s25_agent', methods=['POST'])
+def webhook_s25_agent():
+    """Webhook endpoint for HA to call the local agent."""
+    return api_ha_agent()
+
+
 if __name__ == '__main__':
     port = int(os.getenv("PORT", "7777"))
     app.run(host='0.0.0.0', port=port, debug=False)
