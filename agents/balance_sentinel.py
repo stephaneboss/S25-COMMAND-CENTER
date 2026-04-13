@@ -14,6 +14,7 @@ from datetime import datetime
 from dotenv import load_dotenv
 
 load_dotenv()
+from agents.ha_bridge import ha as ha_bridge
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(message)s')
 log = logging.getLogger("SENTINEL")
 
@@ -77,18 +78,8 @@ def get_cosmos_balance(lcd: str, address: str, denom: str, decimals: int) -> flo
     return 0.0
 
 def update_ha_entity(entity_id: str, state: str, attributes: dict = None):
-    """Update HA entity state"""
-    if not HA_TOKEN:
-        return
-    try:
-        requests.post(
-            f"{HA_URL}/api/states/{entity_id}",
-            headers={"Authorization": f"Bearer {HA_TOKEN}", "Content-Type": "application/json"},
-            json={"state": state, "attributes": attributes or {}},
-            timeout=5
-        )
-    except Exception as e:
-        log.error(f"HA update error: {e}")
+    """Update HA entity state via ha_bridge."""
+    ha_bridge.push_sensor(entity_id, state, attributes)
 
 def run_balance_sentinel():
     """Monitor all wallets and push to HA"""

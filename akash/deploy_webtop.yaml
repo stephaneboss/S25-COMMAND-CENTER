@@ -1,0 +1,64 @@
+# ============================================================
+# S25 WEBTOP - Full Linux Desktop on Akash (browser-accessible)
+# Image: linuxserver/webtop (Ubuntu XFCE + KasmVNC)
+# Access: https://<akash-url>/ → full desktop in browser
+# Credentials: steph / Zz2244668800
+# ============================================================
+---
+version: "2.0"
+
+services:
+  s25-webtop:
+    image: lscr.io/linuxserver/webtop:ubuntu-xfce
+    expose:
+      - port: 3000
+        as: 80
+        to:
+          - global: true
+      - port: 3001
+        as: 3001
+        to:
+          - global: true
+    env:
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/Montreal
+      - CUSTOM_USER=steph
+      - PASSWORD=Zz2244668800
+      - SUBFOLDER=/
+      - TITLE=S25-WEBTOP
+      - DOCKER_MODS=linuxserver/mods:universal-package-install
+      - INSTALL_PACKAGES=htop|curl|wget|git|nano|tmux|python3|python3-pip|net-tools|openssh-client|jq
+    params:
+      storage:
+        data:
+          mount: /config
+          readOnly: false
+
+profiles:
+  compute:
+    s25-webtop:
+      resources:
+        cpu:
+          units: 2
+        memory:
+          size: 4Gi
+        storage:
+          - size: 8Gi
+          - name: data
+            size: 10Gi
+            attributes:
+              persistent: true
+              class: beta3
+  placement:
+    dcloud:
+      pricing:
+        s25-webtop:
+          denom: uakt
+          amount: 5000
+
+deployment:
+  s25-webtop:
+    dcloud:
+      profile: s25-webtop
+      count: 1

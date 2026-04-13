@@ -22,6 +22,7 @@ import requests
 
 from agents.cockpit_client import CockpitClient
 from security.vault import vault_get
+from agents.ha_bridge import ha as ha_bridge
 
 
 logger = logging.getLogger("s25.comet")
@@ -115,55 +116,23 @@ def push_threat_to_cockpit(level: int, reason: str = "") -> bool:
 
 
 def push_intel_to_ha(payload: Dict[str, Any]) -> bool:
-    if not HA_TOKEN:
-        return False
-    try:
-        summary = f"[{payload['level']}] {payload['summary']}"[:255]
-        response = requests.post(
-            f"{HA_URL}/api/states/{HA_ENTITY_INTEL}",
-            headers={
-                "Authorization": f"Bearer {HA_TOKEN}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "state": summary,
-                "attributes": {
-                    "source": payload.get("source", "comet"),
-                    "level": payload.get("level", "INFO"),
-                    "data": json.dumps(payload.get("data", {}))[:255],
-                    "ts": payload.get("ts", ""),
-                    "friendly_name": "COMET Intel Feed",
-                },
-            },
-            timeout=5,
-        )
-        return response.status_code in (200, 201)
-    except Exception as exc:
-        logger.error("HA push failed: %s", exc)
-        return False
+    summary = f"[{payload['level']}] {payload['summary']}"[:255]
+    return ha_bridge.push_sensor(HA_ENTITY_INTEL, summary, {
+        "source": payload.get("source", "comet"),
+        "level": payload.get("level", "INFO"),
+        "data": json.dumps(payload.get("data", {}))[:255],
+        "ts": payload.get("ts", ""),
+        "friendly_name": "COMET Intel Feed",
+    })
 
 
 def push_threat_to_ha(level: int) -> bool:
-    if not HA_TOKEN:
-        return False
+    level = max(0, min(int(level), 3))
     level_map = {0: "T0", 1: "T1", 2: "T2", 3: "T3"}
-    try:
-        response = requests.post(
-            f"{HA_URL}/api/services/input_select/select_option",
-            headers={
-                "Authorization": f"Bearer {HA_TOKEN}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "entity_id": HA_ENTITY_THREAT,
-                "option": level_map.get(level, "T0"),
-            },
-            timeout=5,
-        )
-        return response.status_code == 200
-    except Exception as exc:
-        logger.error("HA threat update failed: %s", exc)
-        return False
+    return ha_bridge.call_service("input_select", "select_option", {
+        "entity_id": HA_ENTITY_THREAT,
+        "option": level_map.get(level, "T0"),
+    })
 
 
 def get_system_status() -> Optional[Dict[str, Any]]:
