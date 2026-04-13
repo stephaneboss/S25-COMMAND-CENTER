@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from security.vault import vault_get
 from agents.ha_bridge import ha as ha_bridge
+from agents.s25_conversation_agent import handle_chat_completion, list_models as list_agent_models
 
 MEMORY_DIR = Path(os.getenv("MEMORY_DIR", "/app/memory"))
 MEMORY_DIR.mkdir(parents=True, exist_ok=True)
@@ -2256,6 +2257,40 @@ def api_wallets():
     """Aggregated wallet status from HA sensors."""
     wallets = ha_bridge.get_wallet_status()
     return jsonify({"ok": True, "wallets": wallets})
+
+
+# -- OpenAI-Compatible API for HA Conversation Agent -------------------------
+
+AGENT_API_KEYS = {"s25-local-agent-key", "s25-jarvis-internal-key"}
+
+
+def _agent_auth() -> bool:
+    auth = request.headers.get("Authorization", "")
+    if auth.startswith("Bearer "):
+        return auth[7:] in AGENT_API_KEYS or (S25_SECRET and auth[7:] == S25_SECRET)
+    return False
+
+
+@app.route('/v1/chat/completions', methods=['POST'])
+def v1_chat_completions():
+    """OpenAI-compatible chat completions — HA conversation agent endpoint."""
+    if not _agent_auth():
+        return jsonify({"error": {"message": "Invalid API key", "type": "auth_error"}}), 401
+    body = request.get_json(silent=True) or {}
+    result = handle_chat_completion(body, ha_bridge=ha_bridge, load_state_fn=_load_agents_state)
+    return jsonify(result)
+
+
+@app.route('/v1/models', methods=['GET'])
+def v1_models():
+    """OpenAI-compatible models list."""
+    return jsonify(list_agent_models())
+
+
+@app.route('/v1/models/<model_id>', methods=['GET'])
+def v1_model_detail(model_id):
+    """OpenAI-compatible model detail."""
+    return jsonify({"id": model_id, "object": "model", "created": 1700000000, "owned_by": "s25-local"})
 
 
 if __name__ == '__main__':
