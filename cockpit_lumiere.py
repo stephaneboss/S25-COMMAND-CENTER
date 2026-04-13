@@ -915,8 +915,16 @@ def api_signal():
     )
     _save_agents_state(state)
 
+    # Push signal to Home Assistant (sensors + MEXC execution)
+    ha_result = None
+    try:
+        ha_result = _ha_push_signal(action, symbol, confidence, effective_confidence, price, reason, verdict, source)
+    except Exception as _ha_err:
+        ha_result = {"ok": False, "error": str(_ha_err)}
+
     return jsonify({
         "ok": True, "mode": mode, "symbol": symbol, "action": action, "verdict": verdict,
+        "ha_bridge": ha_result,
         "pipeline": {
             "kill_switch": kill_switch, "threat_level": threat_level,
             "confidence": confidence, "weight": weight,
@@ -1297,6 +1305,13 @@ def webhook_tradingview():
     )
     _save_agents_state(state)
 
+    # Push TradingView signal to Home Assistant
+    ha_result = None
+    try:
+        ha_result = _ha_push_signal(normalized_action, symbol, confidence, effective_confidence, price, reason, verdict, "TRADINGVIEW")
+    except Exception as _ha_err:
+        ha_result = {"ok": False, "error": str(_ha_err)}
+
     dex_result = None
     if verdict == "EXECUTE" and normalized_action in ("BUY", "SELL"):
         try:
@@ -1447,6 +1462,267 @@ def api_trading_overview():
         overview["dex"]["uniswap_arb"] = {"error": str(e)}
 
     return jsonify({"ok": True, "trading": overview})
+
+
+
+
+# ═══════════════════════════════════════════════════════════════
+#  S25 LUMIERE — HA Trading Bridge
+#  Pushes signals to Home Assistant sensors + triggers execution
+#  Injected into cockpit_lumiere.py
+# ═══════════════════════════════════════════════════════════════
+
+
+def _ha_push_signal(action, symbol, confidence, effective_confidence, price, reason, verdict, source):
+    """Push trading signal to Home Assistant sensors and trigger execution."""
+    if not HA_URL or not HA_TOKEN:
+        return {"ok": False, "error": "HA not configured"}
+
+    headers = {"Authorization": f"Bearer {HA_TOKEN}", "Content-Type": "application/json"}
+    results = {}
+
+    try:
+        # 1. Push ARKON-5 action sensor (triggers HA automations)
+        requests.post(f"{HA_URL}/api/states/sensor.s25_arkon5_action", headers=headers, json={
+            "state": action,
+            "attributes": {
+                "friendly_name": "S25 ARKON-5 Action",
+                "symbol": symbol, "source": source, "verdict": verdict,
+                "icon": "mdi:robot",
+            }
+        }, timeout=5)
+        results["arkon5_action"] = action
+
+        # 2. Push ARKON-5 confidence sensor
+        conf_pct = int(effective_confidence * 100)
+        requests.post(f"{HA_URL}/api/states/sensor.s25_arkon5_conf", headers=headers, json={
+            "state": str(conf_pct),
+            "attributes": {
+                "friendly_name": "S25 ARKON-5 Confidence",
+                "unit_of_measurement": "%",
+                "raw_confidence": confidence,
+                "effective_confidence": effective_confidence,
+                "icon": "mdi:gauge",
+            }
+        }, timeout=5)
+        results["arkon5_conf"] = conf_pct
+
+        # 3. Push price + reason sensors
+        requests.post(f"{HA_URL}/api/states/sensor.s25_arkon5_tp", headers=headers, json={
+            "state": str(price),
+            "attributes": {"friendly_name": "S25 ARKON-5 Target Price", "unit_of_measurement": "USD"}
+        }, timeout=5)
+
+        requests.post(f"{HA_URL}/api/states/sensor.s25_arkon5_sl", headers=headers, json={
+            "state": str(round(price * 0.97, 2)),
+            "attributes": {"friendly_name": "S25 ARKON-5 Stop Loss", "unit_of_measurement": "USD"}
+        }, timeout=5)
+
+        requests.post(f"{HA_URL}/api/states/sensor.s25_arkon5_reason", headers=headers, json={
+            "state": reason[:255],
+            "attributes": {"friendly_name": "S25 ARKON-5 Reason", "source": source}
+        }, timeout=5)
+
+        # 4. Update pipeline status sensor
+        requests.post(f"{HA_URL}/api/states/sensor.s25_pipeline_status", headers=headers, json={
+            "state": verdict,
+            "attributes": {
+                "friendly_name": "S25 Pipeline Status",
+                "action": action, "symbol": symbol,
+                "confidence": confidence,
+                "effective_confidence": effective_confidence,
+                "source": source, "price": price,
+                "mode": "authorized",
+                "updated_by": "cockpit_pipeline",
+            }
+        }, timeout=5)
+        results["pipeline_status"] = verdict
+
+        # 5. Update last signal sensor
+        requests.post(f"{HA_URL}/api/states/sensor.s25_trinity_signal", headers=headers, json={
+            "state": action,
+            "attributes": {
+                "friendly_name": "S25 Trinity Signal",
+                "intent": f"{action} {symbol} — eff={effective_confidence:.2f} via {source}",
+                "source": source,
+                "ts": datetime.now(timezone.utc).isoformat(),
+            }
+        }, timeout=5)
+
+        # 6. If EXECUTE verdict, trigger MEXC shell commands
+        if verdict == "EXECUTE":
+            base_asset = symbol.split("/")[0] if "/" in symbol else symbol
+            base_lower = base_asset.lower()
+
+            # Determine which shell_command to call
+            if action == "BUY" and base_lower in ("btc", "doge", "xrp"):
+                svc = f"shell_command.spot_buy_{base_lower}"
+                requests.post(f"{HA_URL}/api/services/shell_command/spot_buy_{base_lower}",
+                              headers=headers, json={}, timeout=10)
+                results["mexc_executed"] = f"spot_buy_{base_lower}"
+            elif action == "SELL" and base_lower in ("btc", "doge", "xrp"):
+                svc = f"shell_command.spot_sell_{base_lower}"
+                requests.post(f"{HA_URL}/api/services/shell_command/spot_sell_{base_lower}",
+                              headers=headers, json={}, timeout=10)
+                results["mexc_executed"] = f"spot_sell_{base_lower}"
+            elif action == "BUY":
+                requests.post(f"{HA_URL}/api/services/shell_command/trade_spot_buy",
+                              headers=headers, json={}, timeout=10)
+                results["mexc_executed"] = "trade_spot_buy"
+            elif action == "SELL":
+                requests.post(f"{HA_URL}/api/services/shell_command/trade_spot_sell",
+                              headers=headers, json={}, timeout=10)
+                results["mexc_executed"] = "trade_spot_sell"
+
+            # Send notification
+            requests.post(f"{HA_URL}/api/services/shell_command/notify_trade",
+                          headers=headers, json={}, timeout=5)
+
+            # Update trading agent status
+            requests.post(f"{HA_URL}/api/services/input_text/set_value",
+                          headers=headers, json={
+                              "entity_id": "input_text.agent_trading_status",
+                              "value": f"EXECUTING_{action}_{base_asset}"
+                          }, timeout=5)
+            results["trading_status"] = f"EXECUTING_{action}_{base_asset}"
+
+        # 7. Send mobile notification for any signal
+        try:
+            emoji = {"BUY": "📈", "SELL": "📉", "HOLD": "⏸️"}.get(action, "🔔")
+            requests.post(f"{HA_URL}/api/services/notify/mobile_app_s_25",
+                          headers=headers, json={
+                              "title": f"{emoji} S25 {action} {symbol}",
+                              "message": f"Conf: {int(effective_confidence*100)}% | {verdict} | {source}\n{reason[:100]}",
+                              "data": {"tag": "s25_signal", "importance": "high" if verdict == "EXECUTE" else "default"}
+                          }, timeout=5)
+            results["notification"] = "sent"
+        except Exception:
+            results["notification"] = "failed"
+
+        results["ok"] = True
+        return results
+
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+def _ha_wake_agents():
+    """Wake up all standby agents in HA."""
+    if not HA_URL or not HA_TOKEN:
+        return {"ok": False, "error": "HA not configured"}
+
+    headers = {"Authorization": f"Bearer {HA_TOKEN}", "Content-Type": "application/json"}
+    agents = ["analyste", "coordinateur", "devops", "recherche", "conversation", "trading"]
+    woken = []
+
+    for agent in agents:
+        try:
+            # Set agent status to active
+            entity = f"input_text.agent_{agent}_status"
+            requests.post(f"{HA_URL}/api/services/input_text/set_value",
+                          headers=headers, json={
+                              "entity_id": entity,
+                              "value": "active"
+                          }, timeout=5)
+
+            # Also update the sensor
+            requests.post(f"{HA_URL}/api/states/sensor.agent_{agent}", headers=headers, json={
+                "state": "active",
+                "attributes": {
+                    "friendly_name": f"Agent {agent.capitalize()}",
+                    "activated_by": "cockpit_pipeline",
+                    "activated_at": datetime.now(timezone.utc).isoformat(),
+                }
+            }, timeout=5)
+            woken.append(agent)
+        except Exception as e:
+            pass
+
+    # Enable multi-agent system + trading
+    try:
+        requests.post(f"{HA_URL}/api/services/input_boolean/turn_on",
+                      headers=headers, json={"entity_id": "input_boolean.mexc_trading_enabled"}, timeout=5)
+        woken.append("mexc_trading_enabled")
+    except Exception:
+        pass
+
+    return {"ok": True, "woken": woken, "count": len(woken)}
+
+
+# ═══════════════════════════════════════════════════════════════
+#  GET /api/ha/agents/wake — Wake all standby agents
+# ═══════════════════════════════════════════════════════════════
+
+@app.route('/api/ha/agents/wake', methods=['POST'])
+def api_ha_wake_agents():
+    """Wake up all standby HA agents."""
+    result = _ha_wake_agents()
+
+    state = _load_agents_state()
+    _ensure_intel(state)
+    _record_comet_intel(state,
+        summary=f"HA AGENTS WOKEN: {', '.join(result.get('woken', []))}",
+        level="INFO", source="HA_BRIDGE")
+    _save_agents_state(state)
+
+    return jsonify(result)
+
+
+# ═══════════════════════════════════════════════════════════════
+#  GET /api/ha/status — Full HA trading status
+# ═══════════════════════════════════════════════════════════════
+
+@app.route('/api/ha/status', methods=['GET'])
+def api_ha_status():
+    """Return full HA trading status — agents, balances, prices."""
+    if not HA_URL or not HA_TOKEN:
+        return jsonify({"ok": False, "error": "HA not configured"})
+
+    headers = {"Authorization": f"Bearer {HA_TOKEN}"}
+    try:
+        resp = requests.get(f"{HA_URL}/api/states", headers=headers, timeout=10)
+        states = resp.json()
+
+        ha_status = {
+            "agents": {},
+            "mexc": {},
+            "prices": {},
+            "controls": {},
+            "notifications": {},
+        }
+
+        for s in states:
+            e = s.get("entity_id", "")
+            st = s.get("state", "")
+            attrs = s.get("attributes", {})
+
+            # Agents
+            if e.startswith("sensor.agent_") or e.startswith("input_text.agent_"):
+                name = e.split("agent_")[-1].replace("_status", "")
+                ha_status["agents"][name] = st
+
+            # MEXC
+            if "mexc" in e and "sensor." in e:
+                key = e.replace("sensor.", "")
+                ha_status["mexc"][key] = st
+
+            # Balances
+            if e.startswith("input_number.mexc_"):
+                key = e.replace("input_number.", "")
+                ha_status["mexc"][key] = st
+
+            # Prices
+            if "price" in e and "sensor." in e:
+                ha_status["prices"][attrs.get("friendly_name", e)] = st
+
+            # Controls
+            if e.startswith("input_boolean."):
+                ha_status["controls"][e.replace("input_boolean.", "")] = st
+
+        return jsonify({"ok": True, "ha": ha_status})
+
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
 
 
 if __name__ == '__main__':
