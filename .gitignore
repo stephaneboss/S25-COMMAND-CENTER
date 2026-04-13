@@ -93,3 +93,5 @@ configs/alienstef_local.yaml
 node_modules/
 .next/
 package-lock.json
+*.bak
+*.pre_*_bak

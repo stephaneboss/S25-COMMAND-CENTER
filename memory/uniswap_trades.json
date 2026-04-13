@@ -1,0 +1,14 @@
+[
+  {
+    "ts": "2026-04-13T03:37:07.837307+00:00",
+    "token_in": "USDC",
+    "token_out": "WETH",
+    "amount_usd": 50.0,
+    "reason": "TradingView: EMA Cross on 4h",
+    "source": "TRADINGVIEW",
+    "mode": "dry_run",
+    "chain": "arbitrum",
+    "status": "DRY_RUN",
+    "message": "Would swap $50.0 USDC -> WETH"
+  }
+]

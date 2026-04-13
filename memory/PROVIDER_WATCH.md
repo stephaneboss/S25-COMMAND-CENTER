@@ -1,6 +1,6 @@
 # Provider Watch Snapshot
 
-- Generated at: `2026-03-10T17:06:18.172103+00:00`
+- Generated at: `2026-04-13T05:08:36.081321+00:00`
 - Global status: `partial`
 
 ## Current official-source checks
@@ -21,7 +21,7 @@
 
 ### Anthropic
 
-- `release_notes` [Claude Developer Platform](https://docs.anthropic.com/en/release-notes/api) [ok]
+- `release_notes` [Claude Platform](https://docs.anthropic.com/en/release-notes/api) [ok]
   S25 note: Watch compatibility features, model lifecycle, and code/backend primitives.
 
 ### Perplexity
