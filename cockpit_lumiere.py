@@ -49,168 +49,482 @@ HTML = '''<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>S25 LUMIERE - COCKPIT</title>
+<title>S25 LUMIERE - COMMAND CENTER</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:radial-gradient(ellipse at top,#0d1b2a 0%,#0a0a0f 100%);color:#e0e6ff;font-family:'Courier New',monospace;min-height:100vh;overflow-x:hidden}
 .scanlines{position:fixed;top:0;left:0;width:100%;height:100%;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,255,200,.015) 2px,rgba(0,255,200,.015) 4px);pointer-events:none;z-index:1}
-.container{max-width:1400px;margin:0 auto;padding:15px;position:relative;z-index:2}
-.header{text-align:center;margin-bottom:20px}
-.header h1{font-size:2.2rem;color:#00ffcc;text-shadow:0 0 20px #00ffcc,0 0 40px #00ffcc;animation:pulse 2s ease-in-out infinite;letter-spacing:.3em}
+.wrap{max-width:1600px;margin:0 auto;padding:10px;position:relative;z-index:2}
+
+/* Header */
+.hdr{text-align:center;margin-bottom:12px}
+.hdr h1{font-size:2rem;color:#00ffcc;text-shadow:0 0 20px #00ffcc,0 0 40px #00ffcc;animation:pulse 2s ease-in-out infinite;letter-spacing:.3em}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.8}}
-.subtitle{color:#4fc3f7;font-size:.85rem;letter-spacing:.2em;margin-top:4px}
-.timestamp{color:#546e7a;font-size:.7rem;margin-top:4px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:15px}
-.card{background:rgba(0,255,200,.05);border:1px solid rgba(0,255,200,.2);border-radius:10px;padding:14px;transition:all .3s;position:relative;overflow:hidden}
-.card:hover{border-color:rgba(0,255,200,.5);box-shadow:0 0 20px rgba(0,255,200,.1)}
-.card::before{content:'';position:absolute;top:0;left:-100%;width:100%;height:2px;background:linear-gradient(90deg,transparent,#00ffcc,transparent);animation:scan 3s linear infinite}
-@keyframes scan{to{left:200%}}
-.card-title{color:#00ffcc;font-size:.72rem;letter-spacing:.15em;margin-bottom:6px}
-.card-value{font-size:1.5rem;font-weight:bold;color:#fff}
-.green{color:#00ff88;text-shadow:0 0 10px #00ff88}.red{color:#ff4444;text-shadow:0 0 10px #ff4444}.orange{color:#ff9800;text-shadow:0 0 10px #ff9800}.blue{color:#4fc3f7;text-shadow:0 0 10px #4fc3f7}
-.card-sub{color:#546e7a;font-size:.68rem;margin-top:3px}
-.dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:5px}
-.dot.on{background:#00ff88;box-shadow:0 0 6px #00ff88}.dot.standby{background:#ff9800;box-shadow:0 0 6px #ff9800}.dot.off{background:#ff4444;box-shadow:0 0 6px #ff4444}
-.section{color:#4fc3f7;font-size:.82rem;letter-spacing:.2em;margin:15px 0 8px;border-bottom:1px solid rgba(79,195,247,.2);padding-bottom:4px}
-.svc-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
-.svc-link{padding:7px 14px;border:1px solid rgba(0,255,200,.3);background:rgba(0,255,200,.08);color:#00ffcc;border-radius:6px;text-decoration:none;font-family:'Courier New',monospace;font-size:.72rem;letter-spacing:.1em;transition:all .2s}
-.svc-link:hover{background:rgba(0,255,200,.2);box-shadow:0 0 12px rgba(0,255,200,.2)}
-.agents-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:12px}
-.ag{background:rgba(79,195,247,.05);border:1px solid rgba(79,195,247,.15);border-radius:7px;padding:10px;text-align:center;transition:all .2s}
-.ag:hover{border-color:rgba(79,195,247,.4);transform:translateY(-1px)}
-.ag.on{border-color:rgba(0,255,136,.3)}.ag.standby{border-color:rgba(255,152,0,.2)}
-.ag-name{color:#4fc3f7;font-size:.75rem;letter-spacing:.08em;margin-bottom:4px}
-.ag-info{font-size:.65rem;color:#546e7a}
-.two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-@media(max-width:768px){.two-col{grid-template-columns:1fr}}
-.intel-box{background:rgba(0,0,0,.4);border:1px solid rgba(0,255,200,.15);border-radius:8px;padding:10px;font-size:.72rem;color:#80cbc4;height:280px;overflow-y:auto;white-space:pre-wrap;font-family:'Courier New',monospace}
-.jarvis-box{background:rgba(0,0,0,.5);border:1px solid rgba(79,195,247,.3);border-radius:10px;padding:12px;display:flex;flex-direction:column;height:280px}
-.j-msgs{flex:1;overflow-y:auto;margin-bottom:8px;font-size:.78rem;line-height:1.4}
-.j-msgs .m{margin-bottom:6px;padding:5px 9px;border-radius:6px;max-width:85%;word-wrap:break-word}
-.m.u{background:rgba(0,255,200,.1);color:#00ffcc;margin-left:auto}
-.m.a{background:rgba(79,195,247,.1);color:#e0e6ff}
-.j-in{display:flex;gap:6px}
-.j-in input{flex:1;padding:7px 10px;background:rgba(255,255,255,.05);border:1px solid rgba(79,195,247,.3);border-radius:6px;color:#e0e6ff;font-family:'Courier New',monospace;font-size:.78rem;outline:none}
-.j-in input:focus{border-color:#4fc3f7}
-.j-in button{padding:7px 14px;background:rgba(79,195,247,.2);border:1px solid rgba(79,195,247,.4);border-radius:6px;color:#4fc3f7;cursor:pointer;font-family:'Courier New',monospace;font-size:.78rem}
-.controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
-.btn{padding:7px 14px;border:1px solid rgba(0,255,200,.4);background:rgba(0,255,200,.1);color:#00ffcc;border-radius:6px;cursor:pointer;font-family:'Courier New',monospace;font-size:.72rem;letter-spacing:.1em;transition:all .2s}
-.btn:hover{background:rgba(0,255,200,.2);box-shadow:0 0 12px rgba(0,255,200,.2)}
-.btn.red{border-color:rgba(255,68,68,.4);background:rgba(255,68,68,.1);color:#ff4444}
-footer{text-align:center;color:#263238;font-size:.6rem;margin-top:15px;letter-spacing:.15em}
-.typing{display:inline-block;width:12px;animation:typingAnim .8s steps(3) infinite}
-@keyframes typingAnim{0%{content:'.'} 33%{content:'..'} 66%{content:'...'}}
+.hdr .sub{color:#4fc3f7;font-size:.75rem;letter-spacing:.2em;margin-top:2px}
+.hdr .clock{color:#888;font-size:.7rem;margin-top:4px}
+
+/* SSE indicator */
+.sse-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-left:8px;vertical-align:middle;transition:all .3s}
+.sse-dot.on{background:#00ff88;box-shadow:0 0 6px #00ff88}
+.sse-dot.off{background:#ff4444;box-shadow:0 0 6px #ff4444}
+
+/* Links bar */
+.links{text-align:center;margin-bottom:12px;display:flex;flex-wrap:wrap;justify-content:center;gap:6px}
+.links a{color:#4fc3f7;text-decoration:none;font-size:.65rem;padding:3px 8px;border:1px solid rgba(79,195,247,.2);border-radius:3px;transition:all .2s}
+.links a:hover{background:rgba(79,195,247,.1);border-color:#4fc3f7}
+
+/* 6-panel grid */
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px}
+@media(max-width:900px){.grid{grid-template-columns:1fr}}
+
+/* Panel base */
+.panel{background:rgba(13,27,42,.85);border:1px solid rgba(0,255,204,.15);border-radius:6px;padding:10px;min-height:280px;display:flex;flex-direction:column;transition:border-color .3s}
+.panel:hover{border-color:rgba(0,255,204,.4)}
+.panel-title{font-size:.7rem;color:#00ffcc;letter-spacing:.15em;margin-bottom:8px;text-transform:uppercase;display:flex;justify-content:space-between;align-items:center}
+.panel-title .badge{font-size:.6rem;padding:1px 6px;border-radius:3px;background:rgba(0,255,136,.15);color:#00ff88}
+
+/* Agent dots */
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:4px;vertical-align:middle}
+.dot.on{background:#00ff88;box-shadow:0 0 4px #00ff88}
+.dot.standby{background:#ff9800;box-shadow:0 0 4px #ff9800}
+.dot.off{background:#ff4444;box-shadow:0 0 4px #ff4444}
+
+/* Agent grid */
+.ag-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:4px;flex:1;overflow-y:auto}
+.ag{background:rgba(0,0,0,.3);border:1px solid rgba(0,255,136,.1);border-radius:4px;padding:5px 6px;font-size:.6rem;transition:border-color .3s}
+.ag.on{border-color:rgba(0,255,136,.3)}
+.ag.standby{border-color:rgba(255,152,0,.2)}
+.ag .name{color:#4fc3f7;font-weight:bold;font-size:.65rem}
+.ag .seen{color:#555;font-size:.55rem;margin-top:1px}
+
+/* Signal panel */
+.signal-action{font-size:2.5rem;font-weight:bold;text-align:center;margin:8px 0;letter-spacing:.1em}
+.signal-action.BUY{color:#00ff88;text-shadow:0 0 20px rgba(0,255,136,.5)}
+.signal-action.SELL{color:#ff4444;text-shadow:0 0 20px rgba(255,68,68,.5)}
+.signal-action.HOLD{color:#ff9800;text-shadow:0 0 20px rgba(255,152,0,.5)}
+
+/* Confidence gauge */
+.gauge{width:100%;height:18px;background:rgba(0,0,0,.4);border-radius:9px;overflow:hidden;margin:6px 0}
+.gauge-fill{height:100%;border-radius:9px;transition:width .5s ease,background .5s;display:flex;align-items:center;justify-content:center;font-size:.6rem;font-weight:bold;color:#000}
+.gauge-fill.high{background:linear-gradient(90deg,#00cc66,#00ff88)}
+.gauge-fill.mid{background:linear-gradient(90deg,#ff9800,#ffb74d)}
+.gauge-fill.low{background:linear-gradient(90deg,#ff4444,#ff6666)}
+
+/* Signal meta */
+.sig-meta{font-size:.6rem;color:#888;line-height:1.6}
+.sig-meta span{color:#4fc3f7}
+.sig-verdict{text-align:center;font-size:.75rem;padding:3px 8px;border-radius:3px;margin:4px 0;font-weight:bold}
+.sig-verdict.EXECUTE{background:rgba(0,255,136,.15);color:#00ff88;border:1px solid rgba(0,255,136,.3)}
+.sig-verdict.NO_TRADE{background:rgba(255,152,0,.1);color:#ff9800;border:1px solid rgba(255,152,0,.2)}
+
+/* Agent team cards */
+.team-grid{display:flex;flex-direction:column;gap:4px;flex:1;overflow-y:auto}
+.team-card{display:flex;align-items:center;gap:8px;background:rgba(0,0,0,.3);border:1px solid rgba(79,195,247,.1);border-radius:4px;padding:6px 8px;transition:border-color .3s}
+.team-card:hover{border-color:rgba(79,195,247,.4)}
+.team-icon{font-size:1.1rem}
+.team-info{flex:1}
+.team-name{font-size:.65rem;color:#4fc3f7;font-weight:bold}
+.team-role{font-size:.55rem;color:#888}
+.team-status{font-size:.55rem;color:#555}
+
+/* Intel feed */
+.intel-feed{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:2px;max-height:250px}
+.intel-item{font-size:.58rem;padding:3px 6px;border-left:2px solid #4fc3f7;background:rgba(0,0,0,.2);line-height:1.4}
+.intel-item.INFO{border-color:#00ffcc}
+.intel-item.WARNING{border-color:#ff9800}
+.intel-item.ERROR{border-color:#ff4444}
+.intel-item.CRITICAL{border-color:#ff0000;background:rgba(255,0,0,.05)}
+.intel-src{color:#4fc3f7;font-weight:bold;font-size:.55rem}
+.intel-time{color:#555;font-size:.5rem;float:right}
+
+/* Control queue */
+.ctrl-queue{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:4px}
+.ctrl-item{background:rgba(0,0,0,.3);border-radius:4px;padding:6px;font-size:.6rem;border-left:3px solid #ff9800}
+.ctrl-item.proposed{border-color:#ff9800}
+.ctrl-item.validated{border-color:#4fc3f7}
+.ctrl-item.executed{border-color:#00ff88}
+.ctrl-type{font-weight:bold;color:#4fc3f7}
+.ctrl-btns{display:flex;gap:4px;margin-top:4px}
+
+/* Jarvis chat */
+.j-msgs{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:3px;max-height:220px;padding:4px}
+.j-msg{font-size:.6rem;padding:4px 6px;border-radius:4px;line-height:1.4;max-width:90%}
+.j-msg.user{background:rgba(79,195,247,.1);align-self:flex-end;border:1px solid rgba(79,195,247,.2)}
+.j-msg.ai{background:rgba(0,255,204,.05);align-self:flex-start;border:1px solid rgba(0,255,204,.1)}
+.j-input{display:flex;gap:4px;margin-top:6px}
+.j-input input{flex:1;background:rgba(0,0,0,.4);border:1px solid rgba(79,195,247,.2);color:#e0e6ff;padding:6px 8px;border-radius:4px;font-family:inherit;font-size:.65rem;outline:none}
+.j-input input:focus{border-color:#4fc3f7}
+.j-input input::placeholder{color:#555}
+
+/* Buttons */
+.btn{padding:4px 10px;border:1px solid rgba(0,255,204,.3);background:rgba(0,255,204,.05);color:#00ffcc;border-radius:3px;cursor:pointer;font-family:inherit;font-size:.6rem;transition:all .2s}
+.btn:hover{background:rgba(0,255,204,.15);border-color:#00ffcc}
+.btn.danger{border-color:rgba(255,68,68,.3);color:#ff4444;background:rgba(255,68,68,.05)}
+.btn.danger:hover{background:rgba(255,68,68,.15)}
+.btn.primary{border-color:rgba(79,195,247,.3);color:#4fc3f7;background:rgba(79,195,247,.05)}
+.btn.sm{padding:2px 6px;font-size:.55rem}
+
+/* Footer */
+.foot{text-align:center;color:#333;font-size:.55rem;margin-top:8px;letter-spacing:.1em}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(0,255,204,.2);border-radius:2px}
+::-webkit-scrollbar-thumb:hover{background:rgba(0,255,204,.4)}
 </style>
 </head>
 <body>
 <div class="scanlines"></div>
-<div class="container">
-  <div class="header">
-    <h1>S25 LUMIERE</h1>
-    <div class="subtitle">COMMAND CENTER // AlienStef Node</div>
-    <div class="timestamp" id="clock">--</div>
-  </div>
+<div class="wrap">
 
-  <div class="section">SERVICES</div>
-  <div class="svc-bar">
-    <a class="svc-link" href="https://alien.smajor.org" target="_blank">Open WebUI</a>
-    <a class="svc-link" href="https://jarvis.smajor.org/docs" target="_blank">Jarvis API</a>
-    <a class="svc-link" href="https://api-alien.smajor.org" target="_blank">Bras-Alien</a>
-    <a class="svc-link" href="https://cockpit-alien.smajor.org" target="_blank">Cockpit</a>
-    <a class="svc-link" href="https://s25.smajor.org" target="_blank">Akash</a>
-    <a class="svc-link" href="https://app.smajor.org" target="_blank">Admin</a>
-    <a class="svc-link" href="https://smajor.org" target="_blank">smajor.org</a>
-  </div>
-
-  <div class="grid" id="status-grid">
-    <div class="card"><div class="card-title">MESH AGENTS</div><div class="card-value green" id="mesh-count">--</div><div class="card-sub" id="mesh-detail">loading...</div></div>
-    <div class="card"><div class="card-title">BRAS-ALIEN</div><div class="card-value blue" id="fleet-count">--</div><div class="card-sub" id="fleet-detail">--</div></div>
-    <div class="card"><div class="card-title">OLLAMA</div><div class="card-value green" id="ollama-status">--</div><div class="card-sub" id="ollama-models">--</div></div>
-    <div class="card"><div class="card-title">ARKON-5</div><div class="card-value orange" id="arkon-action">HOLD</div><div class="card-sub" id="arkon-conf">--</div></div>
-    <div class="card"><div class="card-title">TUNNEL CF</div><div class="card-value" id="tunnel-status">--</div><div class="card-sub">s25-alien</div></div>
-    <div class="card"><div class="card-title">SYSTEM</div><div class="card-value blue" id="sys-info">--</div><div class="card-sub" id="sys-detail">--</div></div>
-  </div>
-
-  <div class="section">AGENT MESH</div>
-  <div class="agents-grid" id="agents-grid"><div class="ag"><div class="ag-name">Loading...</div></div></div>
-
-  <div class="section">JARVIS + INTEL</div>
-  <div class="two-col">
-    <div class="jarvis-box">
-      <div class="j-msgs" id="j-msgs"><div class="m a">Jarvis S25 pret. Pose ta question.</div></div>
-      <div class="j-in"><input type="text" id="j-in" placeholder="Parle a Jarvis..." onkeydown="if(event.key==='Enter')sendJ()"><button onclick="sendJ()">SEND</button></div>
-    </div>
-    <div class="intel-box" id="intel-log">En attente...</div>
-  </div>
-
-  <div class="section">CONTROLS</div>
-  <div class="controls">
-    <button class="btn" onclick="refreshData()">REFRESH</button>
-    <button class="btn" onclick="forceAnalysis()">FORCE ANALYSE</button>
-    <button class="btn" onclick="rebuildMem()">REBUILD MEMORY</button>
-    <button class="btn red" onclick="if(confirm('PURGE TOTALE?'))fetch('/api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'purge'})})">PURGE</button>
-  </div>
-
-  <footer>S25 LUMIERE COCKPIT v2.0 // AlienStef + Akash // {{ now }}</footer>
+<!-- HEADER -->
+<div class="hdr">
+  <h1>S25 LUMIERE</h1>
+  <div class="sub">COMMAND CENTER // AlienStef Node <span class="sse-dot off" id="sse-dot" title="SSE"></span></div>
+  <div class="clock" id="clock"></div>
 </div>
+
+<!-- LINKS -->
+<div class="links">
+  <a href="https://alien.smajor.org" target="_blank">Open WebUI</a>
+  <a href="https://jarvis.smajor.org/docs" target="_blank">Jarvis API</a>
+  <a href="https://api-alien.smajor.org" target="_blank">Bras-Alien</a>
+  <a href="https://cockpit-alien.smajor.org" target="_blank">Cockpit</a>
+  <a href="https://smajor.org" target="_blank">smajor.org</a>
+  <a href="https://app.smajor.org" target="_blank">Admin</a>
+  <a href="/api/trading/overview" target="_blank">Trading API</a>
+  <a href="/api/ha/status" target="_blank">HA Status</a>
+</div>
+
+<!-- 6-PANEL GRID -->
+<div class="grid">
+
+  <!-- P1: MESH COMMAND -->
+  <div class="panel" id="p-mesh">
+    <div class="panel-title">MESH COMMAND <span class="badge" id="mesh-count">--/--</span></div>
+    <div class="ag-grid" id="mesh-agents"></div>
+    <div style="margin-top:6px;display:flex;gap:4px">
+      <button class="btn sm" onclick="wakeAgents()">WAKE ALL</button>
+      <button class="btn sm primary" onclick="refreshAll()">REFRESH</button>
+      <span id="missions-count" style="color:#888;font-size:.55rem;line-height:2"></span>
+    </div>
+  </div>
+
+  <!-- P2: SIGNAL PIPELINE -->
+  <div class="panel" id="p-signal">
+    <div class="panel-title">SIGNAL PIPELINE <span class="badge" id="sig-mode">--</span></div>
+    <div class="signal-action HOLD" id="sig-action">--</div>
+    <div class="gauge"><div class="gauge-fill mid" id="sig-gauge" style="width:0%">0%</div></div>
+    <div class="sig-verdict NO_TRADE" id="sig-verdict">WAITING</div>
+    <div class="sig-meta">
+      Symbol: <span id="sig-symbol">--</span> | Price: <span id="sig-price">--</span><br>
+      Source: <span id="sig-source">--</span> | Consensus: <span id="sig-consensus">--</span><br>
+      Weight: <span id="sig-weight">--</span> | Effective: <span id="sig-eff">--</span>
+    </div>
+    <div style="margin-top:auto;display:flex;gap:4px">
+      <button class="btn danger sm" onclick="toggleKill()">KILL SWITCH</button>
+      <span id="kill-status" style="color:#00ff88;font-size:.55rem;line-height:2">OFF</span>
+    </div>
+  </div>
+
+  <!-- P3: AGENT TEAM -->
+  <div class="panel" id="p-team">
+    <div class="panel-title">AGENT TEAM <span class="badge" id="team-count">0 active</span></div>
+    <div class="team-grid" id="team-grid">
+      <div class="team-card"><span class="team-icon">C</span><div class="team-info"><div class="team-name">Claude / ARKON</div><div class="team-role">Trading Analysis + Code</div><div class="team-status" id="t-arkon">--</div></div><span class="dot off" id="td-arkon"></span></div>
+      <div class="team-card"><span class="team-icon">G</span><div class="team-info"><div class="team-name">GPT / TRINITY</div><div class="team-role">Strategy Planning</div><div class="team-status" id="t-trinity">--</div></div><span class="dot off" id="td-trinity"></span></div>
+      <div class="team-card"><span class="team-icon">P</span><div class="team-info"><div class="team-name">Perplexity / COMET</div><div class="team-role">Market Research</div><div class="team-status" id="t-comet">--</div></div><span class="dot off" id="td-comet"></span></div>
+      <div class="team-card"><span class="team-icon">M</span><div class="team-info"><div class="team-name">Gemini / MERLIN</div><div class="team-role">Risk Assessment</div><div class="team-status" id="t-merlin">--</div></div><span class="dot off" id="td-merlin"></span></div>
+      <div class="team-card"><span class="team-icon">K</span><div class="team-info"><div class="team-name">Kimi / KIMI</div><div class="team-role">DEX Sniper</div><div class="team-status" id="t-kimi">--</div></div><span class="dot off" id="td-kimi"></span></div>
+      <div class="team-card"><span class="team-icon">O</span><div class="team-info"><div class="team-name">Oracle / ORACLE</div><div class="team-role">Price Feed</div><div class="team-status" id="t-oracle">--</div></div><span class="dot off" id="td-oracle"></span></div>
+    </div>
+  </div>
+
+  <!-- P4: INTEL FEED -->
+  <div class="panel" id="p-intel">
+    <div class="panel-title">INTEL FEED <span class="badge" id="intel-count">0</span></div>
+    <div class="intel-feed" id="intel-feed"></div>
+  </div>
+
+  <!-- P5: CONTROL LINK -->
+  <div class="panel" id="p-control">
+    <div class="panel-title">CONTROL LINK <span class="badge" id="ctrl-count">0 pending</span></div>
+    <div class="ctrl-queue" id="ctrl-queue"></div>
+    <div style="margin-top:auto;display:flex;gap:4px;flex-wrap:wrap">
+      <button class="btn sm primary" onclick="dispatchTask('market_research','Analyze current market conditions')">Research</button>
+      <button class="btn sm primary" onclick="dispatchTask('risk_assessment','Evaluate portfolio risk')">Risk</button>
+      <button class="btn sm primary" onclick="dispatchTask('trading_analysis','Generate trading signal')">Analyze</button>
+      <button class="btn sm" onclick="dispatchTask('infra_monitoring','System health check')">Infra</button>
+    </div>
+  </div>
+
+  <!-- P6: JARVIS CHAT -->
+  <div class="panel" id="p-jarvis">
+    <div class="panel-title">JARVIS <span style="font-size:.55rem;color:#555">slash: /status /signal /dispatch /wake /kill</span></div>
+    <div class="j-msgs" id="j-msgs"></div>
+    <div class="j-input">
+      <input id="j-in" placeholder="Message ou /commande..." onkeydown="if(event.key==='Enter')sendJ()">
+      <button class="btn sm" onclick="sendJ()">SEND</button>
+    </div>
+  </div>
+
+</div><!-- grid -->
+
+<div class="foot">S25 LUMIERE v3.0 // AlienStef + Cloudflare + Home Assistant // <span id="uptime">--</span></div>
+</div><!-- wrap -->
+
 <script>
-setInterval(()=>{document.getElementById('clock').textContent=new Date().toLocaleString('fr-CA')},1000);
+const SECRET = '';
+const headers = {'Content-Type':'application/json'};
 
-async function refreshData(){
-  try{
-    const mesh=await(await fetch('/api/mesh/status')).json();
-    const m=mesh.mesh||{};
-    document.getElementById('mesh-count').textContent=m.online+'/'+m.total_agents;
-    document.getElementById('mesh-detail').textContent=m.online+' online, '+m.offline+' standby';
-    const ag=m.agents||{};
-    const grid=document.getElementById('agents-grid');
-    grid.innerHTML='';
-    for(const[n,i]of Object.entries(ag).sort()){
-      const s=i.status||'?';
-      const d=s==='online'?'on':s==='standby'?'standby':'off';
-      const t=i.last_seen?i.last_seen.substring(11,19):'--';
-      grid.innerHTML+='<div class="ag '+d+'"><div class="ag-name">'+n+'</div><div><span class="dot '+d+'"></span><span class="ag-info">'+s+' '+t+'</span></div></div>';
-    }
-  }catch(e){console.error(e)}
-  try{
-    const st=await(await fetch('/api/status')).json();
-    const a=st.arkon5_action||'HOLD';
-    const ae=document.getElementById('arkon-action');
-    ae.textContent=a;ae.className='card-value '+(a==='BUY'?'green':a==='SELL'?'red':'orange');
-    document.getElementById('arkon-conf').textContent='Conf: '+(st.arkon5_conf||'--')+'%';
-    const te=document.getElementById('tunnel-status');
-    te.textContent=st.tunnel_active?'ACTIF':'--';te.className='card-value '+(st.tunnel_active?'green':'orange');
-    if(st.ram_used)document.getElementById('sys-info').textContent=st.ram_used;
-    if(st.disk_pct)document.getElementById('sys-detail').textContent='Disk: '+st.disk_pct;
-  }catch(e){}
+// === SSE ===
+let sse = null;
+function connectSSE() {
+  if (sse) sse.close();
+  sse = new EventSource('/api/stream');
+  sse.onopen = () => { document.getElementById('sse-dot').className = 'sse-dot on'; };
+  sse.onerror = () => { document.getElementById('sse-dot').className = 'sse-dot off'; };
+  sse.addEventListener('mesh_update', e => { const d = JSON.parse(e.data); updateMesh(d); });
+  sse.addEventListener('signal', e => { const d = JSON.parse(e.data); updateSignal(d); });
+  sse.addEventListener('intel', e => { const d = JSON.parse(e.data); addIntel(d); });
+  sse.addEventListener('control_update', e => { const d = JSON.parse(e.data); updateControl(d); });
+  sse.addEventListener('heartbeat', e => {});
+  sse.onmessage = e => {};
 }
 
-async function sendJ(){
-  const inp=document.getElementById('j-in');
-  const msg=inp.value.trim();if(!msg)return;inp.value='';
-  const box=document.getElementById('j-msgs');
-  box.innerHTML+='<div class="m u">'+msg.replace(/</g,'&lt;')+'</div>';
-  box.scrollTop=box.scrollHeight;
-  box.innerHTML+='<div class="m a" id="j-typing">...</div>';
-  try{
-    const r=await fetch('/api/jarvis',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:msg})});
-    const d=await r.json();
-    document.getElementById('j-typing').remove();
-    box.innerHTML+='<div class="m a">'+((d.reply||d.error||'...').replace(/</g,'&lt;'))+'</div>';
-  }catch(e){
-    document.getElementById('j-typing').remove();
-    box.innerHTML+='<div class="m a" style="color:#ff4444">Erreur: '+e.message+'</div>';
+// === CLOCK ===
+setInterval(() => {
+  const now = new Date();
+  document.getElementById('clock').textContent = now.toLocaleDateString('fr-CA') + ' ' + now.toLocaleTimeString('fr-CA');
+}, 1000);
+
+// === MESH ===
+function updateMesh(data) {
+  const mesh = data.mesh || data;
+  const agents = mesh.agents || {};
+  const el = document.getElementById('mesh-agents');
+  document.getElementById('mesh-count').textContent = (mesh.online||0) + '/' + (mesh.total_agents||Object.keys(agents).length);
+  document.getElementById('missions-count').textContent = (mesh.missions_active||0) + ' missions';
+  let html = '';
+  for (const [name, info] of Object.entries(agents).sort()) {
+    const st = info.status || 'off';
+    const cls = st === 'online' ? 'on' : st === 'standby' ? 'standby' : 'off';
+    const seen = info.last_seen ? timeAgo(info.last_seen) : '--';
+    html += '<div class="ag '+cls+'"><span class="dot '+cls+'"></span><span class="name">'+name+'</span><div class="seen">'+seen+'</div></div>';
   }
-  box.scrollTop=box.scrollHeight;
+  el.innerHTML = html;
+  // Update team dots
+  const teamMap = {ARKON: 'arkon', 'ARKON-5': 'arkon', TRINITY: 'trinity', COMET: 'comet', MERLIN: 'merlin', KIMI: 'kimi', ORACLE: 'oracle'};
+  let activeCount = 0;
+  for (const [agent, id] of Object.entries(teamMap)) {
+    const a = agents[agent];
+    const dot = document.getElementById('td-'+id);
+    const txt = document.getElementById('t-'+id);
+    if (a && dot) {
+      const st = a.status || 'off';
+      dot.className = 'dot ' + (st==='online'?'on':st==='standby'?'standby':'off');
+      txt.textContent = st + ' | ' + (a.last_seen ? timeAgo(a.last_seen) : '--');
+      if (st === 'online') activeCount++;
+    }
+  }
+  document.getElementById('team-count').textContent = activeCount + ' active';
 }
 
-async function forceAnalysis(){await fetch('/api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'force_analysis'})});refreshData()}
-async function rebuildMem(){await fetch('/api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'rebuild_memory'})});alert('Memory rebuild triggered')}
+// === SIGNAL ===
+function updateSignal(data) {
+  const sig = data.last_signal || data;
+  const action = sig.action || 'HOLD';
+  const el = document.getElementById('sig-action');
+  el.textContent = action;
+  el.className = 'signal-action ' + action;
 
-refreshData();setInterval(refreshData,30000);
+  const eff = sig.effective_confidence || 0;
+  const pct = Math.round(eff * 100);
+  const gauge = document.getElementById('sig-gauge');
+  gauge.style.width = pct + '%';
+  gauge.textContent = pct + '%';
+  gauge.className = 'gauge-fill ' + (pct >= 65 ? 'high' : pct >= 45 ? 'mid' : 'low');
+
+  const verdict = sig.verdict || 'NO_TRADE';
+  const vEl = document.getElementById('sig-verdict');
+  vEl.textContent = verdict;
+  vEl.className = 'sig-verdict ' + (verdict.includes('EXECUTE') ? 'EXECUTE' : 'NO_TRADE');
+
+  document.getElementById('sig-symbol').textContent = sig.symbol || '--';
+  document.getElementById('sig-price').textContent = sig.price ? '$'+Number(sig.price).toLocaleString() : '--';
+  document.getElementById('sig-source').textContent = sig.source || '--';
+  document.getElementById('sig-consensus').textContent = sig.consensus ? 'YES' : 'NO';
+  document.getElementById('sig-weight').textContent = sig.weight || '--';
+  document.getElementById('sig-eff').textContent = eff ? eff.toFixed(3) : '--';
+  document.getElementById('sig-mode').textContent = data.mode || sig.mode || '--';
+}
+
+// === INTEL ===
+function addIntel(item) {
+  const feed = document.getElementById('intel-feed');
+  const level = item.level || 'INFO';
+  const div = document.createElement('div');
+  div.className = 'intel-item ' + level;
+  const ts = item.ts ? item.ts.substring(11, 19) : '';
+  div.innerHTML = '<span class="intel-src">' + (item.source||'') + '</span> <span class="intel-time">' + ts + '</span><br>' + (item.summary||item.message||'');
+  feed.insertBefore(div, feed.firstChild);
+  while (feed.children.length > 50) feed.removeChild(feed.lastChild);
+  document.getElementById('intel-count').textContent = feed.children.length;
+}
+
+// === CONTROL ===
+function updateControl(data) {
+  const queue = data.queue || data.proposals || [];
+  const el = document.getElementById('ctrl-queue');
+  const pending = queue.filter(i => i.status === 'proposed').length;
+  document.getElementById('ctrl-count').textContent = pending + ' pending';
+  let html = '';
+  for (const item of queue.slice(-10).reverse()) {
+    const cls = item.status || 'proposed';
+    html += '<div class="ctrl-item '+cls+'">';
+    html += '<span class="ctrl-type">' + (item.action_type||item.type||'task') + '</span> ';
+    html += '<span style="color:#888">' + (item.source||'') + '</span><br>';
+    html += (item.reason||item.description||'').substring(0, 120);
+    if (cls === 'proposed') {
+      html += '<div class="ctrl-btns"><button class="btn sm" onclick="validateCtrl(\''+item.action_id+'\')">Validate</button><button class="btn sm primary" onclick="executeCtrl(\''+item.action_id+'\')">Execute</button></div>';
+    }
+    html += '</div>';
+  }
+  el.innerHTML = html || '<div style="color:#555;font-size:.6rem;text-align:center;padding:20px">No pending proposals</div>';
+}
+
+// === JARVIS ===
+const jMsgs = [];
+function sendJ() {
+  const input = document.getElementById('j-in');
+  const msg = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+
+  // Slash commands
+  if (msg.startsWith('/')) {
+    handleSlash(msg);
+    return;
+  }
+
+  addJMsg('user', msg);
+  fetch('/api/jarvis', {method:'POST', headers, body:JSON.stringify({message:msg})})
+    .then(r=>r.json())
+    .then(d=>{ addJMsg('ai', d.reply || d.response || JSON.stringify(d)); })
+    .catch(e=>{ addJMsg('ai', 'Error: '+e.message); });
+}
+
+function addJMsg(role, text) {
+  const el = document.getElementById('j-msgs');
+  const div = document.createElement('div');
+  div.className = 'j-msg ' + role;
+  div.textContent = text;
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+}
+
+async function handleSlash(cmd) {
+  const parts = cmd.split(/\s+/);
+  const slash = parts[0].toLowerCase();
+  addJMsg('user', cmd);
+
+  if (slash === '/status') {
+    const r = await fetch('/api/mesh/status').then(r=>r.json());
+    addJMsg('ai', 'Mesh: '+r.mesh.online+'/'+r.mesh.total_agents+' | Missions: '+r.mesh.missions_active+' | Intel: '+r.mesh.intel_entries);
+  } else if (slash === '/overview') {
+    const r = await fetch('/api/trading/overview').then(r=>r.json());
+    const t = r.trading;
+    addJMsg('ai', 'Pipeline: '+t.pipeline.mode+' | Kill: '+(t.pipeline.kill_switch?'ON':'OFF')+' | MEXC: '+(t.cex.mexc.configured?'OK':'NO')+' | DEX: '+(t.dex.uniswap_arb?.web3_connected?'OK':'NO'));
+  } else if (slash === '/wake') {
+    const r = await fetch('/api/ha/agents/wake',{method:'POST',headers}).then(r=>r.json());
+    addJMsg('ai', 'Woken: '+r.woken.join(', '));
+  } else if (slash === '/signal' && parts.length >= 3) {
+    const body = {action:parts[1],symbol:parts[2],confidence:parseFloat(parts[3]||'0.7'),source:'JARVIS'};
+    const r = await fetch('/api/signal',{method:'POST',headers,body:JSON.stringify(body)}).then(r=>r.json());
+    addJMsg('ai', r.verdict+' | eff='+r.pipeline.effective_confidence);
+  } else if (slash === '/kill') {
+    addJMsg('ai', 'Kill switch toggled (use HA for safety)');
+  } else if (slash === '/dispatch' && parts.length >= 2) {
+    const task = parts[1];
+    const intent = parts.slice(2).join(' ') || task;
+    const r = await fetch('/api/orchestrator/dispatch',{method:'POST',headers,body:JSON.stringify({task_type:task,intent:intent})}).then(r=>r.json());
+    addJMsg('ai', 'Dispatched to: '+(r.agent||'--')+' | Status: '+(r.status||'queued'));
+  } else if (slash === '/ha') {
+    const r = await fetch('/api/ha/status').then(r=>r.json());
+    const agents = Object.entries(r.ha.agents).filter(([k,v])=>v==='active').map(([k])=>k);
+    addJMsg('ai', 'HA Agents active: '+agents.join(', ')+' | Kill: '+r.ha.controls.s25_kill_switch);
+  } else {
+    addJMsg('ai', 'Commands: /status /overview /wake /signal ACTION SYMBOL CONF /dispatch TYPE INTENT /ha /kill');
+  }
+}
+
+// === ACTIONS ===
+async function wakeAgents() {
+  const r = await fetch('/api/ha/agents/wake',{method:'POST',headers}).then(r=>r.json());
+  addJMsg('ai', 'Agents woken: ' + (r.woken||[]).join(', '));
+  refreshAll();
+}
+
+async function toggleKill() {
+  addJMsg('ai', 'Kill switch — use HA dashboard for safety toggle');
+}
+
+async function dispatchTask(type, intent) {
+  const r = await fetch('/api/orchestrator/dispatch',{method:'POST',headers,body:JSON.stringify({task_type:type,intent:intent})}).then(r=>r.json());
+  addJMsg('ai', 'Dispatched '+type+' -> '+(r.agent||'queued'));
+  refreshAll();
+}
+
+async function validateCtrl(id) {
+  await fetch('/api/control/validate',{method:'POST',headers,body:JSON.stringify({action_id:id})});
+  refreshAll();
+}
+
+async function executeCtrl(id) {
+  await fetch('/api/control/execute',{method:'POST',headers,body:JSON.stringify({action_id:id})});
+  refreshAll();
+}
+
+// === REFRESH ===
+async function refreshAll() {
+  try {
+    const [mesh, overview, intel, ctrl] = await Promise.all([
+      fetch('/api/mesh/status').then(r=>r.json()),
+      fetch('/api/trading/overview').then(r=>r.json()),
+      fetch('/api/intel?n=30').then(r=>r.json()),
+      fetch('/api/control/queue').then(r=>r.json()),
+    ]);
+    updateMesh(mesh);
+    if (overview.trading) {
+      updateSignal({...overview.trading.pipeline, last_signal: overview.trading.pipeline.last_signal});
+    }
+    if (intel.feed) {
+      document.getElementById('intel-feed').innerHTML = '';
+      intel.feed.slice(0, 30).reverse().forEach(i => addIntel(i));
+    }
+    updateControl(ctrl);
+  } catch(e) { console.error('Refresh error:', e); }
+}
+
+// === UTILS ===
+function timeAgo(iso) {
+  const diff = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (diff < 60) return Math.round(diff) + 's';
+  if (diff < 3600) return Math.round(diff/60) + 'm';
+  if (diff < 86400) return Math.round(diff/3600) + 'h';
+  return Math.round(diff/86400) + 'd';
+}
+
+// === INIT ===
+connectSSE();
+refreshAll();
+setInterval(refreshAll, 60000);
 </script>
 </body>
-</html>'''
+</html>
+
+'''
 
 @app.route('/')
 def index():
@@ -521,6 +835,20 @@ def _save_agents_state(state: dict):
     """Sauvegarde agents_state.json sur disque."""
     state.setdefault("_meta", {})["updated_at"] = datetime.now(timezone.utc).isoformat()
     AGENTS_STATE_FILE.write_text(json.dumps(state, indent=2, ensure_ascii=False), encoding="utf-8")
+    # SSE: broadcast state changes to connected dashboards
+    try:
+        agents = state.get("agents", {})
+        _broadcast("mesh_update", {"mesh": {
+            "agents": {k: {"status": v.get("status"), "last_seen": v.get("last_seen")} for k, v in agents.items()},
+            "online": sum(1 for a in agents.values() if a.get("status") == "online"),
+            "total_agents": len(agents),
+            "missions_active": len(state.get("missions", {}).get("active", [])),
+        }})
+        ls = state.get("pipeline", {}).get("last_signal")
+        if ls:
+            _broadcast("signal", {**ls, "mode": state.get("pipeline", {}).get("mode", "dry_run")})
+    except Exception:
+        pass
 
 
 @app.route('/api/memory', methods=['GET'])
@@ -639,6 +967,11 @@ def _record_comet_intel(state: dict, summary: str, level: str = "INFO", source: 
     feed = state["intel"]["comet_feed"]
     feed.insert(0, entry)
     state["intel"]["comet_feed"] = feed[:50]
+    # SSE: broadcast intel entry to connected dashboards
+    try:
+        _broadcast("intel", entry)
+    except Exception:
+        pass
     return entry
 
 
@@ -1723,6 +2056,279 @@ def api_ha_status():
 
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)})
+
+
+
+
+# ═══════════════════════════════════════════════════════════════
+#  S25 LUMIERE — SSE Live Stream + Orchestrator Dispatch
+#  Phase 1 + 3 + 4 of the Unified Control Center plan
+#  Inject into cockpit_lumiere.py before __main__
+# ═══════════════════════════════════════════════════════════════
+
+import queue
+import threading
+
+# ── SSE Infrastructure ──────────────────────────────────────
+
+_sse_clients = []
+_sse_lock = threading.Lock()
+
+
+def _broadcast(event_type, data):
+    """Push an SSE event to all connected clients."""
+    msg = json.dumps(data) if not isinstance(data, str) else data
+    dead = []
+    with _sse_lock:
+        for q in _sse_clients:
+            try:
+                q.put_nowait((event_type, msg))
+            except Exception:
+                dead.append(q)
+        for q in dead:
+            _sse_clients.remove(q)
+
+
+@app.route('/api/stream')
+def api_stream():
+    """SSE endpoint — real-time events for the dashboard."""
+    def generate():
+        q = queue.Queue(maxsize=100)
+        with _sse_lock:
+            _sse_clients.append(q)
+        try:
+            # Send initial state
+            yield f"event: heartbeat\ndata: {json.dumps({'ts': _utcnow_iso()})}\n\n"
+            while True:
+                try:
+                    event_type, data = q.get(timeout=15)
+                    yield f"event: {event_type}\ndata: {data}\n\n"
+                except queue.Empty:
+                    yield f"event: heartbeat\ndata: {json.dumps({'ts': _utcnow_iso()})}\n\n"
+        except GeneratorExit:
+            pass
+        finally:
+            with _sse_lock:
+                if q in _sse_clients:
+                    _sse_clients.remove(q)
+
+    from flask import Response
+    return Response(generate(), mimetype='text/event-stream',
+                    headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no',
+                             'Connection': 'keep-alive'})
+
+
+# ── Orchestrator Dispatch ───────────────────────────────────
+
+ORCHESTRATOR_ROUTES = {
+    "trading_analysis": {"agent": "ARKON-5", "model": "Claude", "priority": "high"},
+    "market_research": {"agent": "COMET", "model": "Perplexity", "priority": "medium"},
+    "risk_assessment": {"agent": "MERLIN", "model": "Gemini", "priority": "high"},
+    "strategy_planning": {"agent": "TRINITY", "model": "GPT", "priority": "medium"},
+    "code_generation": {"agent": "ARKON-5", "model": "Claude", "priority": "low"},
+    "infra_monitoring": {"agent": "WATCHDOG", "model": "internal", "priority": "low"},
+    "dex_analysis": {"agent": "KIMI", "model": "Kimi", "priority": "medium"},
+    "price_oracle": {"agent": "ORACLE", "model": "internal", "priority": "high"},
+}
+
+
+@app.route('/api/orchestrator/dispatch', methods=['POST'])
+def api_orchestrator_dispatch():
+    """Route a task to the best available agent."""
+    body = request.get_json(silent=True) or {}
+    task_type = body.get("task_type", "trading_analysis")
+    intent = body.get("intent", "")
+    priority = body.get("priority", "")
+    auto_validate = body.get("auto_validate", False)
+
+    route = ORCHESTRATOR_ROUTES.get(task_type, ORCHESTRATOR_ROUTES["trading_analysis"])
+    agent = route["agent"]
+    model = route["model"]
+    if not priority:
+        priority = route["priority"]
+
+    ts = _utcnow_iso()
+    state = _load_agents_state()
+    _ensure_missions(state)
+
+    # Check if target agent is online
+    agent_info = state.get("agents", {}).get(agent, {})
+    agent_online = agent_info.get("status") == "online"
+
+    # Create mission
+    mission_id = str(uuid.uuid4())[:8]
+    mission = {
+        "id": mission_id,
+        "task_type": task_type,
+        "intent": intent,
+        "agent": agent,
+        "model": model,
+        "priority": priority,
+        "status": "dispatched" if agent_online else "queued",
+        "auto_validate": auto_validate,
+        "created_at": ts,
+    }
+
+    state["missions"]["active"].append(mission)
+
+    # Create control proposal
+    proposals = state.get("control_queue", [])
+    proposal = {
+        "action_id": mission_id,
+        "action_type": task_type,
+        "source": "ORCHESTRATOR",
+        "reason": intent,
+        "agent": agent,
+        "status": "validated" if auto_validate else "proposed",
+        "ts": ts,
+    }
+    proposals.append(proposal)
+    state["control_queue"] = proposals[-30:]
+
+    _record_comet_intel(state,
+        summary=f"DISPATCH: {task_type} -> {agent} ({model}) | {intent[:80]}",
+        level="INFO", source="ORCHESTRATOR")
+
+    _save_agents_state(state)
+
+    # Broadcast SSE events
+    _broadcast("control_update", {"queue": state.get("control_queue", [])})
+
+    return jsonify({
+        "ok": True,
+        "mission_id": mission_id,
+        "agent": agent,
+        "model": model,
+        "status": mission["status"],
+        "agent_online": agent_online,
+    })
+
+
+@app.route('/api/orchestrator/build_loop', methods=['POST'])
+def api_orchestrator_build_loop():
+    """Start an autonomous build loop — decompose goal into agent tasks."""
+    body = request.get_json(silent=True) or {}
+    goal = body.get("goal", "")
+    if not goal:
+        return jsonify({"ok": False, "error": "goal required"}), 400
+
+    ts = _utcnow_iso()
+    state = _load_agents_state()
+    _ensure_missions(state)
+
+    # Decompose into standard sub-tasks
+    subtasks = [
+        {"type": "market_research", "intent": f"Research context for: {goal}"},
+        {"type": "risk_assessment", "intent": f"Assess risks of: {goal}"},
+        {"type": "strategy_planning", "intent": f"Plan strategy for: {goal}"},
+        {"type": "trading_analysis", "intent": f"Analyze and decide: {goal}"},
+    ]
+
+    loop_id = str(uuid.uuid4())[:8]
+    missions = []
+    for i, task in enumerate(subtasks):
+        route = ORCHESTRATOR_ROUTES.get(task["type"], {})
+        mission = {
+            "id": f"{loop_id}-{i}",
+            "loop_id": loop_id,
+            "step": i + 1,
+            "total_steps": len(subtasks),
+            "task_type": task["type"],
+            "intent": task["intent"],
+            "agent": route.get("agent", "MERLIN"),
+            "model": route.get("model", "Gemini"),
+            "status": "queued" if i > 0 else "dispatched",
+            "created_at": ts,
+        }
+        missions.append(mission)
+        state["missions"]["active"].append(mission)
+
+    _record_comet_intel(state,
+        summary=f"BUILD LOOP: {goal[:80]} | {len(subtasks)} steps | loop={loop_id}",
+        level="INFO", source="ORCHESTRATOR")
+
+    _save_agents_state(state)
+    _broadcast("control_update", {"queue": state.get("control_queue", [])})
+
+    return jsonify({
+        "ok": True,
+        "loop_id": loop_id,
+        "goal": goal,
+        "steps": len(subtasks),
+        "missions": missions,
+    })
+
+
+# ── Auto-Configuration ─────────────────────────────────────
+
+AUTOCONFIG_WHITELIST = {
+    "pipeline.mode": ["dry_run", "authorized"],
+    "pipeline.threat_level": ["T0", "T1", "T2", "T3"],
+    "pipeline.kill_switch": [True, False],
+    "agent.activate": None,
+    "agent.deactivate": None,
+}
+
+
+@app.route('/api/autoconfig/apply', methods=['POST'])
+def api_autoconfig_apply():
+    """Apply a configuration change proposed by an agent."""
+    if not _trinity_auth():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+
+    body = request.get_json(silent=True) or {}
+    changes = body.get("changes", [])
+    source = body.get("source", "AGENT")
+    reason = body.get("reason", "auto-configuration")
+    results = []
+
+    state = _load_agents_state()
+    pipeline = state.get("pipeline", {})
+
+    for change in changes:
+        key = change.get("key", "")
+        value = change.get("value")
+
+        if key not in AUTOCONFIG_WHITELIST:
+            results.append({"key": key, "status": "rejected", "reason": "not whitelisted"})
+            continue
+
+        allowed = AUTOCONFIG_WHITELIST[key]
+        if allowed is not None and value not in allowed:
+            results.append({"key": key, "status": "rejected", "reason": f"value not allowed: {value}"})
+            continue
+
+        # Apply
+        if key == "pipeline.mode":
+            pipeline["mode"] = value
+        elif key == "pipeline.threat_level":
+            pipeline["threat_level"] = value
+        elif key == "pipeline.kill_switch":
+            pipeline["kill_switch"] = value
+        elif key == "agent.activate" and isinstance(value, str):
+            if value in state.get("agents", {}):
+                state["agents"][value]["status"] = "online"
+        elif key == "agent.deactivate" and isinstance(value, str):
+            if value in state.get("agents", {}):
+                state["agents"][value]["status"] = "standby"
+
+        results.append({"key": key, "value": value, "status": "applied"})
+
+    state["pipeline"] = pipeline
+    _record_comet_intel(state,
+        summary=f"AUTOCONFIG by {source}: {len(results)} changes | {reason[:80]}",
+        level="INFO", source="AUTOCONFIG")
+    _save_agents_state(state)
+
+    _broadcast("mesh_update", {"mesh": {
+        "agents": {k: {"status": v.get("status"), "last_seen": v.get("last_seen")}
+                   for k, v in state.get("agents", {}).items()},
+        "online": sum(1 for a in state.get("agents", {}).values() if a.get("status") == "online"),
+        "total_agents": len(state.get("agents", {})),
+        "missions_active": len(state["missions"]["active"]),
+    }})
+
+    return jsonify({"ok": True, "results": results, "source": source})
 
 
 if __name__ == '__main__':
