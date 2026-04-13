@@ -7,19 +7,20 @@
 # ============================================================
 
 from flask import Flask, render_template_string, jsonify, request
-import os, json, requests, subprocess, uuid
+import os, json, time, requests, subprocess, uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from security.vault import vault_get
 from agents.ha_bridge import ha as ha_bridge
 from agents.s25_conversation_agent import handle_chat_completion, list_models as list_agent_models, push_mesh_to_ha
 
-MEMORY_DIR = Path(os.getenv("MEMORY_DIR", "/app/memory"))
+MEMORY_DIR = Path(os.getenv("MEMORY_DIR", os.path.expanduser("~/S25-COMMAND-CENTER/memory")))
 MEMORY_DIR.mkdir(parents=True, exist_ok=True)
 SHARED_MEMORY_FILE = MEMORY_DIR / "SHARED_MEMORY.md"
 AGENTS_STATE_FILE  = MEMORY_DIR / "agents_state.json"
 
 app = Flask(__name__)
+_START_TIME = time.time()
 app.secret_key = vault_get("SECRET_KEY", os.urandom(32).hex())
 
 HA_URL          = os.getenv("HA_URL", "http://homeassistant.local:8123")
@@ -2355,6 +2356,145 @@ def api_mesh_heartbeat():
     """Push full mesh + market data to HA sensors. Called by cron or manually."""
     result = push_mesh_to_ha(ha_bridge, _load_agents_state)
     return jsonify(result)
+
+
+@app.route('/api/market/live', methods=['GET'])
+def api_market_live():
+    """Aggregated live market data — prices, fear&greed, trending, global."""
+    from agents.ninja_routes import (
+        get_prices, get_fear_greed, get_trending,
+        get_global_market,
+    )
+    result = {"timestamp": datetime.utcnow().isoformat(), "source": "ninja_free"}
+
+    try:
+        coins = ["bitcoin", "ethereum", "dogecoin", "solana", "cosmos", "akash-network",
+                 "chainlink", "uniswap", "aave", "maker"]
+        prices = get_prices(coins)
+        result["prices"] = {}
+        for coin, data in (prices or {}).items():
+            result["prices"][coin] = {
+                "usd": data.get("usd", 0),
+                "change_24h": round(data.get("usd_24h_change", 0), 2),
+            }
+    except Exception as e:
+        result["prices_error"] = str(e)
+
+    try:
+        fg = get_fear_greed(7)
+        if fg:
+            result["fear_greed"] = {
+                "current": {"value": int(fg[0]["value"]), "label": fg[0]["label"]},
+                "history_7d": [{"value": int(d["value"]), "label": d["label"]} for d in fg],
+            }
+    except Exception as e:
+        result["fear_greed_error"] = str(e)
+
+    try:
+        trending = get_trending()
+        if trending:
+            result["trending"] = [
+                {"name": t["name"], "symbol": t["symbol"], "rank": t.get("market_cap_rank")}
+                for t in trending[:10]
+            ]
+    except Exception as e:
+        result["trending_error"] = str(e)
+
+    try:
+        gm = get_global_market()
+        if gm:
+            result["global"] = {
+                "total_market_cap_usd": round(gm.get("total_market_cap_usd", 0)),
+                "total_volume_24h_usd": round(gm.get("total_volume_24h_usd", 0)),
+                "btc_dominance": round(gm.get("btc_dominance", 0), 2),
+                "eth_dominance": round(gm.get("eth_dominance", 0), 2),
+                "active_cryptocurrencies": gm.get("active_cryptocurrencies", 0),
+            }
+    except Exception as e:
+        result["global_error"] = str(e)
+
+    return jsonify(result)
+
+
+@app.route('/api/system/health', methods=['GET'])
+def api_system_health():
+    """Full system health — all services, agents, connectivity."""
+    import subprocess
+    health = {
+        "timestamp": datetime.utcnow().isoformat(),
+        "cockpit": {"status": "online", "pid": os.getpid(), "uptime_s": int(time.time() - _START_TIME)},
+    }
+
+    # HA connectivity
+    try:
+        r = ha_bridge.ping()
+        health["ha"] = {"connected": r.get("ok", False), "url": "10.0.0.136:8123"}
+    except Exception:
+        health["ha"] = {"connected": False}
+
+    # Ollama
+    try:
+        r = requests.get("http://localhost:11434/api/tags", timeout=3)
+        models = [m["name"] for m in r.json().get("models", [])]
+        health["ollama"] = {"status": "online", "models": models}
+    except Exception:
+        health["ollama"] = {"status": "offline"}
+
+    # Docker containers
+    try:
+        out = subprocess.check_output(
+            ["docker", "ps", "--format", "{{.Names}}:{{.Status}}"],
+            timeout=5, text=True
+        )
+        health["docker"] = {
+            line.split(":")[0]: line.split(":", 1)[1]
+            for line in out.strip().split("\n") if ":" in line
+        }
+    except Exception:
+        health["docker"] = {"error": "cannot check"}
+
+    # Agents
+    state = _load_agents_state()
+    agents = state.get("agents", {})
+    online = [k for k, v in agents.items() if v.get("status") == "online"]
+    health["agents"] = {"online": len(online), "total": len(agents), "list": online}
+
+    # Cloudflare tunnels
+    try:
+        out = subprocess.check_output(
+            ["pgrep", "-f", "cloudflared"],
+            timeout=3, text=True
+        )
+        health["cloudflare"] = {"tunnels": "running", "pids": out.strip().split("\n")}
+    except Exception:
+        health["cloudflare"] = {"tunnels": "not running"}
+
+    # Disk
+    try:
+        out = subprocess.check_output(["df", "-h", "/"], timeout=3, text=True)
+        line = out.strip().split("\n")[-1].split()
+        health["disk"] = {"total": line[1], "used": line[2], "avail": line[3], "pct": line[4]}
+    except Exception:
+        pass
+
+    # GPU
+    try:
+        out = subprocess.check_output(
+            ["nvidia-smi", "--query-gpu=temperature.gpu,memory.used,memory.total,utilization.gpu",
+             "--format=csv,noheader,nounits"],
+            timeout=5, text=True
+        )
+        parts = out.strip().split(", ")
+        health["gpu"] = {
+            "temp_c": int(parts[0]),
+            "vram_used_mb": int(parts[1]),
+            "vram_total_mb": int(parts[2]),
+            "utilization_pct": int(parts[3]),
+        }
+    except Exception:
+        health["gpu"] = {"status": "no nvidia-smi"}
+
+    return jsonify(health)
 
 
 if __name__ == '__main__':
