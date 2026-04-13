@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from security.vault import vault_get
 from agents.ha_bridge import ha as ha_bridge
-from agents.s25_conversation_agent import handle_chat_completion, list_models as list_agent_models
+from agents.s25_conversation_agent import handle_chat_completion, list_models as list_agent_models, push_mesh_to_ha
 
 MEMORY_DIR = Path(os.getenv("MEMORY_DIR", "/app/memory"))
 MEMORY_DIR.mkdir(parents=True, exist_ok=True)
@@ -2348,6 +2348,13 @@ def api_ha_agent():
 def webhook_s25_agent():
     """Webhook endpoint for HA to call the local agent."""
     return api_ha_agent()
+
+
+@app.route('/api/mesh/heartbeat', methods=['POST', 'GET'])
+def api_mesh_heartbeat():
+    """Push full mesh + market data to HA sensors. Called by cron or manually."""
+    result = push_mesh_to_ha(ha_bridge, _load_agents_state)
+    return jsonify(result)
 
 
 if __name__ == '__main__':

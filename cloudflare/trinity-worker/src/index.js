@@ -2629,6 +2629,7 @@ export default {
       return handleMeshGateway(requestId, env);
     }
 
+// MEXC API Proxy (routes through CF edge, non-CA IP)    if (incoming.pathname.startsWith("/api/mexc/")) {      const mexcResult = await handleMexcProxy(request, incoming.pathname, requestId, env);      if (mexcResult) return mexcResult;    }
     if (incoming.pathname === "/api/vault/mexc") {
       return handleVaultMexcGateway(requestId, env);
     }
@@ -2687,3 +2688,102 @@ export default {
     );
   },
 };
+
+
+// ── MEXC API Proxy — Routes MEXC calls through Cloudflare edge (non-CA IP) ──
+
+async function handleMexcProxy(request, pathname, requestId, env) {
+  const mexcBase = "https://api.mexc.com";
+  const apiKey = env.MEXC_API_KEY || "";
+  const apiSecret = env.MEXC_API_SECRET || "";
+
+  // GET /api/mexc/test — test if MEXC API key works from CF edge
+  if (pathname === "/api/mexc/test") {
+    const ts = Date.now().toString();
+    const params = "recvWindow=60000&timestamp=" + ts;
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+      "raw", encoder.encode(apiSecret),
+      { name: "HMAC", hash: "SHA-256" }, false, ["sign"]
+    );
+    const sig = await crypto.subtle.sign("HMAC", key, encoder.encode(params));
+    const sigHex = [...new Uint8Array(sig)].map(b => b.toString(16).padStart(2, "0")).join("");
+    
+    const url = mexcBase + "/api/v3/account?" + params + "&signature=" + sigHex;
+    try {
+      const r = await fetch(url, { headers: { "X-MEXC-APIKEY": apiKey } });
+      const data = await r.json();
+      const cfIP = request.headers.get("cf-connecting-ip") || "unknown";
+      const cfCountry = request.headers.get("cf-ipcountry") || "unknown";
+      
+      if (data.balances) {
+        const nonZero = data.balances.filter(b => parseFloat(b.free) > 0 || parseFloat(b.locked) > 0);
+        return jsonResponse({
+          ok: true, request_id: requestId,
+          service: "mexc_proxy", edge_ip: "cloudflare_edge",
+          cf_country: cfCountry, client_ip: cfIP,
+          status: "connected", balances: nonZero,
+          total_assets: nonZero.length,
+        });
+      }
+      return jsonResponse({
+        ok: false, request_id: requestId,
+        service: "mexc_proxy", edge_ip: "cloudflare_edge",
+        cf_country: cfCountry,
+        mexc_error: data, key_prefix: apiKey.substring(0, 6) + "****",
+      }, { status: 400 });
+    } catch (err) {
+      return jsonResponse({
+        ok: false, request_id: requestId,
+        error: "mexc_fetch_failed", detail: String(err),
+      }, { status: 502 });
+    }
+  }
+
+  // GET /api/mexc/ticker?symbol=DOGEUSDT — public price (no auth)
+  if (pathname === "/api/mexc/ticker") {
+    const url = new URL(request.url);
+    const symbol = url.searchParams.get("symbol") || "DOGEUSDT";
+    const r = await fetch(mexcBase + "/api/v3/ticker/24hr?symbol=" + symbol);
+    return new Response(r.body, { status: r.status, headers: copyResponseHeaders(r.headers, requestId) });
+  }
+
+  // POST /api/mexc/order — place order via CF edge (requires S25 secret)
+  if (pathname === "/api/mexc/order" && request.method === "POST") {
+    const secret = request.headers.get("x-s25-secret");
+    if (!secret || secret !== env.S25_SHARED_SECRET) {
+      return jsonResponse({ ok: false, error: "unauthorized" }, { status: 401 });
+    }
+    const body = await request.json();
+    const ts = Date.now().toString();
+    const orderParams = new URLSearchParams({
+      symbol: body.symbol || "DOGEUSDT",
+      side: body.side || "BUY",
+      type: body.type || "MARKET",
+      ...(body.quantity ? { quantity: body.quantity } : {}),
+      ...(body.quoteOrderQty ? { quoteOrderQty: body.quoteOrderQty } : {}),
+      recvWindow: "60000",
+      timestamp: ts,
+    });
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+      "raw", encoder.encode(apiSecret),
+      { name: "HMAC", hash: "SHA-256" }, false, ["sign"]
+    );
+    const sig = await crypto.subtle.sign("HMAC", key, encoder.encode(orderParams.toString()));
+    const sigHex = [...new Uint8Array(sig)].map(b => b.toString(16).padStart(2, "0")).join("");
+    orderParams.append("signature", sigHex);
+
+    const r = await fetch(mexcBase + "/api/v3/order?" + orderParams.toString(), {
+      method: "POST",
+      headers: { "X-MEXC-APIKEY": apiKey },
+    });
+    const data = await r.json();
+    return jsonResponse({
+      ok: r.status === 200, request_id: requestId,
+      service: "mexc_proxy_order", result: data,
+    }, { status: r.status });
+  }
+
+  return null;
+}
