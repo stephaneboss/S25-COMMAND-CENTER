@@ -6,7 +6,7 @@ info:
     Serveur stable: https://s25.smajor.org (Cloudflare proxy — toujours valide).
     Runtime: AlienStef (Ubuntu 24.04, RTX 3060, Qwen 14b) — PRIMARY NODE.
     Authentification: header X-S25-Secret requis sur les endpoints proteges.
-  version: 3.0.0
+  version: 3.1.0
 
 servers:
   - url: https://s25.smajor.org
@@ -134,12 +134,6 @@ components:
           type: object
           description: Parametres de l'action
           additionalProperties: true
-          examples:
-            - mode: "MULTI_SOURCE"
-              threat_level: "T0"
-            - key: "check_interval"
-              value: 120
-            - agent: "COMET"
         reason:
           type: string
           description: Justification de l'action (max 500 chars)
@@ -179,6 +173,29 @@ components:
           type: string
           enum: [info, warning, critical]
           default: info
+
+    SignalRequest:
+      type: object
+      required: [action, symbol]
+      properties:
+        action:
+          type: string
+          enum: [BUY, SELL, HOLD]
+        symbol:
+          type: string
+          description: Symbole de l'actif (BTC, ETH, AKT, etc.)
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+          default: 0.7
+        price:
+          type: number
+        reason:
+          type: string
+        source:
+          type: string
+          enum: [TRINITY, MERLIN, KIMI, ORACLE, AGENT_LOOP, ONCHAIN, COMET]
 
     JarvisChat:
       type: object
@@ -239,6 +256,54 @@ paths:
         "200":
           description: Dernier etat watchdog
 
+  /api/mesh/status:
+    get:
+      operationId: getMeshStatus
+      summary: Etat complet du mesh multi-agent et quotas GOUV4
+      responses:
+        "200":
+          description: Vue unifiee des agents, missions et routage
+
+  /api/missions:
+    get:
+      operationId: getMissions
+      summary: Lister les missions actives et l historique recent
+      responses:
+        "200":
+          description: Missions actives et archivees
+
+  /api/router/report:
+    get:
+      operationId: getRouterReport
+      summary: Rapport quotas/routage GOUV4
+      security:
+        - S25Secret: []
+      responses:
+        "200":
+          description: Rapport GOUV4 complet
+        "401":
+          description: Unauthorized
+
+  /api/comet/feed:
+    get:
+      operationId: getCometFeed
+      summary: Feed intel COMET conserve en memoire
+      description: Retourne les N derniers rapports intel du feed COMET. Param ?n=20 pour limiter.
+      parameters:
+        - name: "n"
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+      security:
+        - S25Secret: []
+      responses:
+        "200":
+          description: Feed COMET
+        "401":
+          description: Unauthorized
+
   # ── Authenticated (X-S25-Secret) ──────────────────────
   /api/trinity:
     post:
@@ -291,22 +356,6 @@ paths:
         "401":
           description: Unauthorized — X-S25-Secret manquant ou invalide
 
-  /api/mesh/status:
-    get:
-      operationId: getMeshStatus
-      summary: Etat complet du mesh multi-agent et quotas GOUV4
-      responses:
-        "200":
-          description: Vue unifiee des agents, missions et routage
-
-  /api/missions:
-    get:
-      operationId: getMissions
-      summary: Lister les missions actives et l historique recent
-      responses:
-        "200":
-          description: Missions actives et archivees
-
   /api/memory:
     get:
       operationId: getSharedMemory
@@ -344,13 +393,6 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/AgentStateUpdate"
-            examples:
-              trinityUpdate:
-                summary: Memoire session TRINITY
-                value:
-                  agent: "TRINITY"
-                  updates:
-                    last_intent: "Status S25"
       responses:
         "200":
           description: Etat mis a jour
@@ -371,12 +413,6 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/AgentHeartbeat"
-            examples:
-              trinityBoot:
-                summary: Ouverture de session TRINITY
-                value:
-                  agent: "TRINITY"
-                  note: "session ouverte"
       responses:
         "200":
           description: Heartbeat recu
@@ -384,6 +420,33 @@ paths:
           description: Unauthorized
 
   /api/intel:
+    get:
+      operationId: getIntelFeed
+      summary: Feed intel complet avec filtres
+      description: >
+        Retourne le feed intel (comet_feed) avec filtres optionnels.
+        Params: ?n=50 (nombre), ?level=WARNING, ?source=ORACLE
+      parameters:
+        - name: "n"
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 50
+        - name: level
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [INFO, WARNING, CRITICAL]
+        - name: source
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Feed intel filtre
     post:
       operationId: submitIntel
       summary: Soumettre un rapport intel d'agent (COMET, ARKON, TRINITY, etc.)
@@ -397,33 +460,119 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/IntelReport"
-            examples:
-              cometIntel:
-                summary: Rapport COMET
-                value:
-                  agent: "COMET"
-                  report: "Tunnel Kimi stable, latence 45ms, disk 62%"
-                  level: "info"
-              trinityIntel:
-                summary: Rapport TRINITY
-                value:
-                  agent: "TRINITY"
-                  report: "Session ouverte par Stef, briefing marche demande"
-                  level: "info"
       responses:
         "200":
           description: Rapport enregistre
         "401":
           description: Unauthorized
 
+  /api/missions:
+    post:
+      operationId: createMission
+      summary: Creer une mission multi-agent persistante
+      description: Missionner COMET, MERLIN, ARKON, KIMI ou ORACLE sur une tache.
+      x-openai-isConsequential: false
+      security:
+        - S25Secret: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MissionRequest"
+      responses:
+        "200":
+          description: Mission creee
+        "401":
+          description: Unauthorized
+
+  /api/missions/update:
+    post:
+      operationId: updateMission
+      summary: Mettre a jour ou clore une mission
+      x-openai-isConsequential: false
+      security:
+        - S25Secret: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MissionUpdateRequest"
+      responses:
+        "200":
+          description: Mission mise a jour
+        "404":
+          description: Mission inconnue
+
+  /api/wallet/status:
+    get:
+      operationId: getWalletStatus
+      summary: Balances wallet on-chain (AKT, ATOM) avec prix USD live
+      description: >
+        Retourne les soldes on-chain des wallets configures (Akash, Cosmos Hub)
+        avec prix CoinGecko et total USD. Base du treasury S25.
+      responses:
+        "200":
+          description: Balances wallet avec prix
+
+  /api/signal:
+    get:
+      operationId: getSignalHistory
+      summary: Historique des signaux trading et etat du pipeline
+      description: >
+        Retourne le dernier signal, le buffer des signaux recents, les poids
+        par source, le mode pipeline, kill switch et threat level.
+      responses:
+        "200":
+          description: Historique signaux et pipeline state
+    post:
+      operationId: submitSignal
+      summary: Injecter un signal de trading multi-source
+      description: >
+        Multi-source confidence weighting + consensus bonus.
+        Poids par source: TRINITY=0.80, MERLIN=0.70, KIMI=0.65, ORACLE=0.60.
+        Seuil arkon_pass: effective_confidence >= 0.60.
+      x-openai-isConsequential: true
+      security:
+        - S25Secret: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignalRequest"
+      responses:
+        "200":
+          description: Signal traite avec verdict
+        "401":
+          description: Unauthorized
+
+  /api/router/route:
+    post:
+      operationId: routeTask
+      summary: Choisir l'agent optimal pour un type de tache via GOUV4
+      security:
+        - S25Secret: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RouterRequest"
+      responses:
+        "200":
+          description: Agent recommande avec rapport quotas
+        "401":
+          description: Unauthorized
+
   /api/jarvis:
     post:
       operationId: chatJarvis
-      summary: Chat avec Jarvis (Qwen 14b local via Bras-Alien)
+      summary: Chat avec Jarvis (Qwen 14b local via AlienStef)
       description: >
         Proxy vers le modele local Qwen 2.5 Coder 14b sur AlienStef.
         Utile pour du code, des analyses, ou des questions techniques.
-        Pas de auth requise (interne).
       x-openai-isConsequential: false
       requestBody:
         required: true
@@ -431,15 +580,6 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/JarvisChat"
-            examples:
-              codeQuestion:
-                summary: Question technique
-                value:
-                  message: "Explique le pipeline MULTI_SOURCE du cockpit S25"
-              agentQuestion:
-                summary: Question agents
-                value:
-                  message: "Quel agent gere les signaux TradingView?"
       responses:
         "200":
           description: Reponse de Jarvis
@@ -461,15 +601,6 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/SystemAction"
-            examples:
-              startTunnel:
-                summary: Demarrer le tunnel Cloudflare
-                value:
-                  action: "start_tunnel"
-              forceAnalysis:
-                summary: Declencher une analyse ARKON-5
-                value:
-                  action: "force_analysis"
       responses:
         "200":
           description: Action executee
@@ -479,10 +610,6 @@ paths:
     post:
       operationId: controlPropose
       summary: Proposer une action pour validation (Control Link)
-      description: >
-        Premiere etape du workflow Control Link.
-        Cree une proposition d'action qui doit etre validee avant execution.
-        Retourne un action_id unique.
       x-openai-isConsequential: false
       requestBody:
         required: true
@@ -490,33 +617,6 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/ControlProposal"
-            examples:
-              pipelineChange:
-                summary: Changer le mode pipeline
-                value:
-                  source: "TRINITY"
-                  action_type: "pipeline_mode"
-                  params:
-                    mode: "MULTI_SOURCE"
-                    threat_level: "T0"
-                  reason: "Retour en mode normal apres resolution alerte"
-              configChange:
-                summary: Modifier une config runtime
-                value:
-                  source: "TRINITY"
-                  action_type: "config_change"
-                  params:
-                    key: "check_interval"
-                    value: 120
-                  reason: "Reduire la frequence de check watchdog"
-              restartAgent:
-                summary: Redemarrer un agent
-                value:
-                  source: "TRINITY"
-                  action_type: "agent_restart"
-                  params:
-                    agent: "COMET"
-                  reason: "COMET ne repond plus au heartbeat"
       responses:
         "200":
           description: Proposition creee avec action_id
@@ -525,8 +625,6 @@ paths:
     post:
       operationId: controlValidate
       summary: Valider une action proposee (Control Link etape 2)
-      description: >
-        Marque une proposition comme validee. Seules les actions validees peuvent etre executees.
       x-openai-isConsequential: false
       requestBody:
         required: true
@@ -534,28 +632,16 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/ControlValidate"
-            examples:
-              validateAction:
-                summary: Valider une action
-                value:
-                  action_id: "ctrl_20260412_143022_a1b2c3"
-                  validator: "OPERATOR"
       responses:
         "200":
           description: Action validee
         "404":
-          description: Action non trouvee ou pas en statut proposed
+          description: Action non trouvee
 
   /api/control/execute:
     post:
       operationId: controlExecute
       summary: Executer une action validee (Control Link etape 3)
-      description: >
-        Execute une action prealablement validee. Types supportes:
-        pipeline_mode (change mode/threat_level/kill_switch),
-        config_change (modifie runtime_config),
-        agent_restart (queue un restart),
-        custom (log seulement).
       x-openai-isConsequential: true
       requestBody:
         required: true
@@ -563,23 +649,16 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/ControlExecute"
-            examples:
-              executeAction:
-                summary: Executer une action validee
-                value:
-                  action_id: "ctrl_20260412_143022_a1b2c3"
       responses:
         "200":
-          description: Action executee avec resultat
+          description: Action executee
         "404":
-          description: Action non trouvee ou pas validee
+          description: Action non validee
 
   /api/control/queue:
     get:
       operationId: controlQueue
       summary: Voir la queue des actions Control Link
-      description: >
-        Liste les actions proposees/validees/executees. Filtrer par status avec ?status=proposed|validated|executed
       parameters:
         - name: status
           in: query
@@ -587,7 +666,6 @@ paths:
           schema:
             type: string
             enum: [proposed, validated, executed]
-          description: Filtrer par statut
       responses:
         "200":
-          description: Queue des actions avec compteur
+          description: Queue des actions

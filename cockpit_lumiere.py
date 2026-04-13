@@ -1081,6 +1081,129 @@ def api_control_queue():
     return jsonify({"ok": True, "queue": queue, "count": len(queue)})
 
 
+
+# ═══════════════════════════════════════════════════════════════
+#  WALLET STATUS — Treasury balances via on-chain queries
+# ═══════════════════════════════════════════════════════════════
+
+@app.route("/api/wallet/status", methods=["GET"])
+def api_wallet_status():
+    """Retourne les balances wallet on-chain (ATOM, AKT, Akash escrow)."""
+    AKASH_LCD = "https://rest.cosmos.directory/akash"
+    COSMOS_LCD = "https://rest.cosmos.directory/cosmoshub"
+    AKASH_WALLET = os.getenv("AKASH_WALLET_ADDRESS", "")
+
+    result = {
+        "ok": True,
+        "ts": _utcnow_iso(),
+        "wallets": {},
+        "prices": {},
+    }
+
+    # Prices
+    try:
+        r = requests.get(
+            "https://api.coingecko.com/api/v3/simple/price",
+            params={"ids": "akash-network,cosmos", "vs_currencies": "usd"},
+            timeout=10,
+        )
+        if r.status_code == 200:
+            data = r.json()
+            result["prices"]["AKT"] = data.get("akash-network", {}).get("usd", 0)
+            result["prices"]["ATOM"] = data.get("cosmos", {}).get("usd", 0)
+    except Exception:
+        pass
+
+    akt_price = result["prices"].get("AKT", 0)
+    atom_price = result["prices"].get("ATOM", 0)
+
+    # AKT balance
+    if AKASH_WALLET:
+        try:
+            r = requests.get(
+                f"{AKASH_LCD}/cosmos/bank/v1beta1/balances/{AKASH_WALLET}",
+                timeout=10,
+            )
+            if r.status_code == 200:
+                for b in r.json().get("balances", []):
+                    if b["denom"] in ("uakt", "uact"):
+                        amt = int(b["amount"]) / 1_000_000
+                        result["wallets"]["AKT"] = {
+                            "address": AKASH_WALLET,
+                            "balance": round(amt, 6),
+                            "usd": round(amt * akt_price, 2),
+                        }
+        except Exception:
+            pass
+
+    # ATOM balance (derive cosmos address from env if available)
+    cosmos_addr = os.getenv("COSMOS_WALLET_ADDRESS", "")
+    if cosmos_addr:
+        try:
+            r = requests.get(
+                f"{COSMOS_LCD}/cosmos/bank/v1beta1/balances/{cosmos_addr}",
+                timeout=10,
+            )
+            if r.status_code == 200:
+                for b in r.json().get("balances", []):
+                    if b["denom"] == "uatom":
+                        amt = int(b["amount"]) / 1_000_000
+                        result["wallets"]["ATOM"] = {
+                            "address": cosmos_addr,
+                            "balance": round(amt, 6),
+                            "usd": round(amt * atom_price, 2),
+                        }
+        except Exception:
+            pass
+
+    # Total USD
+    total_usd = sum(w.get("usd", 0) for w in result["wallets"].values())
+    result["total_usd"] = round(total_usd, 2)
+
+    return jsonify(result)
+
+
+# ═══════════════════════════════════════════════════════════════
+#  GET /api/signal — Read signal history from pipeline buffer
+# ═══════════════════════════════════════════════════════════════
+
+@app.route("/api/signal", methods=["GET"])
+def api_signal_get():
+    """Retourne l historique des signaux et le dernier signal du pipeline."""
+    state = _load_agents_state()
+    pipeline = state.get("pipeline", {})
+    return jsonify({
+        "ok": True,
+        "last_signal": pipeline.get("last_signal"),
+        "signals_buffer": pipeline.get("signals_buffer", []),
+        "source_weights": pipeline.get("source_weights", {}),
+        "mode": pipeline.get("mode", "dry_run"),
+        "kill_switch": pipeline.get("kill_switch", False),
+        "threat_level": pipeline.get("threat_level", "T0"),
+    })
+
+
+# ═══════════════════════════════════════════════════════════════
+#  GET /api/intel — Read intel/comet feed history
+# ═══════════════════════════════════════════════════════════════
+
+@app.route("/api/intel", methods=["GET"])
+def api_intel_get():
+    """Retourne le feed intel complet (comet_feed)."""
+    state = _load_agents_state()
+    _ensure_intel(state)
+    feed = state["intel"].get("comet_feed", [])
+    n = int(request.args.get("n", 50))
+    level = request.args.get("level", "").upper()
+    source = request.args.get("source", "").upper()
+    if level:
+        feed = [e for e in feed if e.get("level") == level]
+    if source:
+        feed = [e for e in feed if e.get("source") == source]
+    return jsonify({"ok": True, "feed": feed[:n], "count": len(feed)})
+
+
+
 if __name__ == '__main__':
     port = int(os.getenv("PORT", "7777"))
     app.run(host='0.0.0.0', port=port, debug=False)

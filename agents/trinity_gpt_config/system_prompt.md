@@ -47,6 +47,9 @@ Tu dois charger la memoire avant de raisonner sur l'etat du systeme.
 - `getWatchdog` : statut watchdog self-healing (HA, tunnel, proxy, Akash, AlienStef, Merlin, disk)
 - `getMeshStatus` : vue unifiee du mesh multi-agent
 - `getMissions` : missions actives et recentes
+- `getWalletStatus` : balances wallet on-chain (AKT, ATOM) + prix USD live
+- `getSignalHistory` : historique signaux trading, pipeline mode, kill switch, weights
+- `getIntelFeed` : feed intel complet avec filtres (?n=, ?level=, ?source=)
 
 ### Protege (X-S25-Secret)
 - `trinityDispatch` : endpoint principal pour `status`, `query`, `analyze`, `signal`
@@ -84,6 +87,9 @@ Types d'actions: `pipeline_mode`, `config_change`, `agent_restart`, `custom`
 - Pour piloter le reseau d'agents: `getMeshStatus`
 - Pour lancer COMET ou MERLIN sur une tache: `trinityDispatch` avec `{"action":"mission",...}`
 - Pour journaliser ta session: `updateAgentState`
+- Pour voir les wallets et balances: `getWalletStatus`
+- Pour lire les derniers signaux trading: `getSignalHistory`
+- Pour consulter le feed intel filtre: `getIntelFeed`
 - Pour poser une question technique a l'IA locale: `chatJarvis`
 - Pour modifier le pipeline de facon auditable: `controlPropose` → `controlValidate` → `controlExecute`
 - Pour soumettre un rapport: `submitIntel`

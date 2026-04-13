@@ -6,7 +6,7 @@ info:
     Serveur stable: https://s25.smajor.org (Cloudflare proxy — toujours valide).
     Runtime: AlienStef (Ubuntu 24.04, RTX 3060, Qwen 14b) — PRIMARY NODE.
     Authentification: header X-S25-Secret requis sur les endpoints proteges.
-  version: 3.0.0
+  version: 3.1.0
 
 servers:
   - url: https://s25.smajor.org
@@ -420,6 +420,33 @@ paths:
           description: Unauthorized
 
   /api/intel:
+    get:
+      operationId: getIntelFeed
+      summary: Feed intel complet avec filtres
+      description: >
+        Retourne le feed intel (comet_feed) avec filtres optionnels.
+        Params: ?n=50 (nombre), ?level=WARNING, ?source=ORACLE
+      parameters:
+        - name: "n"
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 50
+        - name: level
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [INFO, WARNING, CRITICAL]
+        - name: source
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Feed intel filtre
     post:
       operationId: submitIntel
       summary: Soumettre un rapport intel d'agent (COMET, ARKON, TRINITY, etc.)
@@ -478,7 +505,27 @@ paths:
         "404":
           description: Mission inconnue
 
+  /api/wallet/status:
+    get:
+      operationId: getWalletStatus
+      summary: Balances wallet on-chain (AKT, ATOM) avec prix USD live
+      description: >
+        Retourne les soldes on-chain des wallets configures (Akash, Cosmos Hub)
+        avec prix CoinGecko et total USD. Base du treasury S25.
+      responses:
+        "200":
+          description: Balances wallet avec prix
+
   /api/signal:
+    get:
+      operationId: getSignalHistory
+      summary: Historique des signaux trading et etat du pipeline
+      description: >
+        Retourne le dernier signal, le buffer des signaux recents, les poids
+        par source, le mode pipeline, kill switch et threat level.
+      responses:
+        "200":
+          description: Historique signaux et pipeline state
     post:
       operationId: submitSignal
       summary: Injecter un signal de trading multi-source
