@@ -1777,6 +1777,10 @@ def api_trading_overview():
                 "configured": bool(vault_get("MEXC_API_KEY", "")),
                 "mode": "dry_run",
             },
+            "crypto_com": {
+                "configured": bool(os.getenv("CDC_API_KEY", vault_get("CDC_API_KEY", ""))),
+                "mode": "dry_run",
+            },
         },
         "dex": {},
         "webhooks": {
@@ -1798,6 +1802,34 @@ def api_trading_overview():
 
 
 
+
+
+
+# ═══════════════════════════════════════════════════════════════
+#  Crypto.com Exchange endpoints
+# ═══════════════════════════════════════════════════════════════
+
+@app.route("/api/cdc/test", methods=["GET"])
+def api_cdc_test():
+    """Test Crypto.com Exchange API connection."""
+    try:
+        from agents.cryptocom_executor import CryptocomExecutor
+        exe = CryptocomExecutor({})
+        result = exe.test_connection()
+        return jsonify({"ok": result.get("connected", False), "exchange": "crypto.com", **result})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+@app.route("/api/cdc/balance", methods=["GET"])
+def api_cdc_balance():
+    """Get Crypto.com Exchange account balance."""
+    try:
+        from agents.cryptocom_executor import CryptocomExecutor
+        exe = CryptocomExecutor({})
+        result = exe.get_balance()
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
 
 # ═══════════════════════════════════════════════════════════════
 #  S25 LUMIERE — HA Trading Bridge
