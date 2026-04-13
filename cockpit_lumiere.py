@@ -1204,6 +1204,251 @@ def api_intel_get():
 
 
 
+
+
+# ═══════════════════════════════════════════════════════════════
+#  S25 LUMIERE — Trading Routes Extension
+#  Webhook receivers + DEX execution + Multi-chain status
+#  Injected into cockpit_lumiere.py before __main__
+# ═══════════════════════════════════════════════════════════════
+
+
+@app.route('/webhook/tradingview', methods=['POST'])
+def webhook_tradingview():
+    """
+    Receive TradingView alerts and inject into signal pipeline.
+    JSON: {ticker, action, price, passphrase, [interval, strategy, confidence]}
+    """
+    TV_PASSPHRASE = vault_get("TV_PASSPHRASE", os.getenv("TV_PASSPHRASE", ""))
+    body = request.get_json(force=True, silent=True) or {}
+
+    if TV_PASSPHRASE and body.get("passphrase") != TV_PASSPHRASE:
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
+
+    ticker = body.get("ticker", body.get("symbol", "")).upper()
+    action = body.get("action", body.get("order_action", "HOLD")).upper()
+    price = float(body.get("price", body.get("close", 0)))
+    interval = body.get("interval", "")
+    strategy = body.get("strategy", body.get("strategy_name", ""))
+    confidence = float(body.get("confidence", 0.75))
+
+    action_map = {"BUY": "BUY", "SELL": "SELL", "LONG": "BUY", "SHORT": "SELL",
+                  "STRONGBUY": "BUY", "STRONGSELL": "SELL", "EXIT": "SELL",
+                  "CLOSE": "SELL", "HOLD": "HOLD"}
+    normalized_action = action_map.get(action, "HOLD")
+
+    symbol = ticker
+    for quote in ["USDT", "USDC", "USD", "BUSD"]:
+        if ticker.endswith(quote) and "/" not in ticker:
+            symbol = ticker[:-len(quote)] + "/" + quote
+            break
+
+    reason = f"TradingView: {strategy} on {interval}" if strategy else f"TradingView {action} alert"
+
+    ts = datetime.now(timezone.utc).isoformat()
+    state = _load_agents_state()
+    _ensure_intel(state)
+    pipeline = state.get("pipeline", {})
+
+    TV_WEIGHTS = {
+        "TRINITY": 0.80, "TRADINGVIEW": 0.85, "MERLIN": 0.70, "KIMI": 0.65,
+        "ORACLE": 0.60, "AGENT_LOOP": 0.55, "ONCHAIN": 0.55, "COMET": 0.50,
+    }
+    weight = TV_WEIGHTS.get("TRADINGVIEW", 0.85)
+    weighted_confidence = round(confidence * weight, 4)
+
+    signals_buffer = pipeline.get("signals_buffer", [])
+    signals_buffer = [s for s in signals_buffer if s.get("ts", "1970") >= ts[:10]]
+    consensus_sources = [
+        s for s in signals_buffer
+        if s.get("symbol") == symbol and s.get("action") == normalized_action
+        and s.get("source", "").upper() != "TRADINGVIEW"
+    ]
+    consensus = len(consensus_sources) >= 1
+    consensus_bonus = 0.15 if consensus else 0.0
+    effective_confidence = round(weighted_confidence + consensus_bonus, 4)
+
+    kill_switch = pipeline.get("kill_switch", False)
+    threat_level = pipeline.get("threat_level", "T0")
+    mode = pipeline.get("mode", "dry_run")
+
+    arkon_pass = effective_confidence >= 0.60
+    risk_pass = arkon_pass and not kill_switch and threat_level in ("T0", "T1")
+    verdict = ("EXECUTE" if mode == "authorized" else "SIMULATE_EXECUTE") if risk_pass else "NO_TRADE"
+
+    signals_buffer.append({"symbol": symbol, "action": normalized_action, "source": "TRADINGVIEW",
+                          "confidence": confidence, "ts": ts, "strategy": strategy, "interval": interval})
+    pipeline["signals_buffer"] = signals_buffer[-20:]
+    pipeline["last_signal"] = {
+        "symbol": symbol, "action": normalized_action, "confidence": confidence,
+        "weight": weight, "weighted_confidence": weighted_confidence,
+        "consensus": consensus, "consensus_bonus": consensus_bonus,
+        "effective_confidence": effective_confidence,
+        "price": price, "reason": reason, "source": "TRADINGVIEW",
+        "verdict": verdict, "ts": ts,
+    }
+    state["pipeline"] = pipeline
+
+    _record_comet_intel(
+        state,
+        summary=f"TRADINGVIEW: {symbol} {normalized_action} @{price} conf={confidence:.2f} eff={effective_confidence:.2f} -> {verdict}",
+        level="INFO" if verdict != "NO_TRADE" else "WARNING",
+        source="TRADINGVIEW",
+    )
+    _save_agents_state(state)
+
+    dex_result = None
+    if verdict == "EXECUTE" and normalized_action in ("BUY", "SELL"):
+        try:
+            from agents.uniswap_executor import get_executor
+            exe = get_executor()
+            token_in = "USDC" if normalized_action == "BUY" else "WETH"
+            token_out = "WETH" if normalized_action == "BUY" else "USDC"
+            dex_result = exe.execute_swap(token_in, token_out, exe.max_trade_usd,
+                                         reason=reason, source="TRADINGVIEW")
+        except Exception as e:
+            dex_result = {"error": str(e)}
+
+    return jsonify({
+        "ok": True, "source": "TRADINGVIEW", "symbol": symbol,
+        "action": normalized_action, "price": price, "verdict": verdict,
+        "pipeline": {
+            "confidence": confidence, "weight": weight,
+            "weighted_confidence": weighted_confidence,
+            "consensus": consensus, "effective_confidence": effective_confidence,
+            "arkon_pass": arkon_pass, "risk_pass": risk_pass,
+            "mode": mode, "kill_switch": kill_switch,
+        },
+        "dex_execution": dex_result,
+        "ts": ts,
+    })
+
+
+# ═══════════════════════════════════════════════════════════════
+#  POST /api/dex/swap — Direct DEX swap execution
+# ═══════════════════════════════════════════════════════════════
+
+@app.route('/api/dex/swap', methods=['POST'])
+def api_dex_swap():
+    """Execute a DEX swap via Uniswap V3 on Arbitrum."""
+    if not _trinity_auth():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+
+    body = request.get_json(silent=True) or {}
+    token_in = body.get("token_in", "USDC")
+    token_out = body.get("token_out", "WETH")
+    amount_usd = float(body.get("amount_usd", 0))
+    reason = body.get("reason", "manual swap")
+
+    try:
+        from agents.uniswap_executor import get_executor
+        exe = get_executor()
+        result = exe.execute_swap(token_in, token_out, amount_usd, reason=reason, source="COCKPIT")
+
+        state = _load_agents_state()
+        _ensure_intel(state)
+        _record_comet_intel(state,
+            summary=f"DEX SWAP: ${amount_usd} {token_in}->{token_out} [{result.get('status')}]",
+            level="INFO", source="DEX_EXECUTOR")
+        _save_agents_state(state)
+
+        return jsonify({"ok": True, "swap": result})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+# ═══════════════════════════════════════════════════════════════
+#  GET /api/dex/status — DEX executor status + wallet
+# ═══════════════════════════════════════════════════════════════
+
+@app.route('/api/dex/status', methods=['GET'])
+def api_dex_status():
+    """Uniswap executor status, wallet balance, trade count."""
+    try:
+        from agents.uniswap_executor import get_executor
+        exe = get_executor()
+        return jsonify({"ok": True, "dex": exe.get_status()})
+    except Exception as e:
+        return jsonify({"ok": True, "dex": {"mode": "not_loaded", "error": str(e)}})
+
+
+# ═══════════════════════════════════════════════════════════════
+#  GET /api/dex/price — Uniswap price quote
+# ═══════════════════════════════════════════════════════════════
+
+@app.route('/api/dex/price', methods=['GET'])
+def api_dex_price():
+    """Get price quote from Uniswap V3."""
+    token_in = request.args.get("token_in", "WETH")
+    token_out = request.args.get("token_out", "USDC")
+    try:
+        from agents.uniswap_executor import get_executor
+        exe = get_executor()
+        return jsonify({"ok": True, "price": exe.get_price(token_in, token_out)})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+# ═══════════════════════════════════════════════════════════════
+#  GET /api/dex/trades — Trade ledger history
+# ═══════════════════════════════════════════════════════════════
+
+@app.route('/api/dex/trades', methods=['GET'])
+def api_dex_trades():
+    """DEX trade history from ledger."""
+    try:
+        from agents.uniswap_executor import get_executor
+        exe = get_executor()
+        ledger = exe._load_ledger()
+        n = int(request.args.get("n", 50))
+        return jsonify({"ok": True, "trades": ledger[-n:], "total": len(ledger)})
+    except Exception as e:
+        return jsonify({"ok": True, "trades": [], "error": str(e)})
+
+
+# ═══════════════════════════════════════════════════════════════
+#  GET /api/trading/overview — Unified multi-chain trading dashboard
+# ═══════════════════════════════════════════════════════════════
+
+@app.route('/api/trading/overview', methods=['GET'])
+def api_trading_overview():
+    """Full trading system overview: pipeline + CEX + DEX + wallets."""
+    state = _load_agents_state()
+    pipeline = state.get("pipeline", {})
+
+    overview = {
+        "pipeline": {
+            "mode": pipeline.get("mode", "dry_run"),
+            "kill_switch": pipeline.get("kill_switch", False),
+            "threat_level": pipeline.get("threat_level", "T0"),
+            "last_signal": pipeline.get("last_signal", {}),
+            "signals_buffer_count": len(pipeline.get("signals_buffer", [])),
+        },
+        "cex": {
+            "mexc": {
+                "configured": bool(vault_get("MEXC_API_KEY", "")),
+                "mode": "dry_run",
+            },
+        },
+        "dex": {},
+        "webhooks": {
+            "tradingview": {
+                "endpoint": "/webhook/tradingview",
+                "configured": bool(vault_get("TV_PASSPHRASE", os.getenv("TV_PASSPHRASE", ""))),
+                "external_url": "https://cockpit-alien.smajor.org/webhook/tradingview",
+            },
+        },
+    }
+
+    try:
+        from agents.uniswap_executor import get_executor
+        overview["dex"]["uniswap_arb"] = get_executor().get_status()
+    except Exception as e:
+        overview["dex"]["uniswap_arb"] = {"error": str(e)}
+
+    return jsonify({"ok": True, "trading": overview})
+
+
 if __name__ == '__main__':
     port = int(os.getenv("PORT", "7777"))
     app.run(host='0.0.0.0', port=port, debug=False)
