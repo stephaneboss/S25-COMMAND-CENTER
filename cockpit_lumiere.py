@@ -2497,6 +2497,144 @@ def api_system_health():
     return jsonify(health)
 
 
+
+
+# ════ ALERTS ENGINE INJECTION ════
+# Intelligent rule-based alerts — evaluates market + infra metrics,
+# dispatches to intel feed, HA notifications, and trading signals.
+
+def _alerts_collect_metrics() -> dict:
+    """Build metrics snapshot via threaded self-HTTP calls."""
+    base = "http://localhost:" + str(os.environ.get("PORT", "7777"))
+    try:
+        market = requests.get(base + "/api/market/live", timeout=15).json()
+    except Exception:
+        market = {}
+    try:
+        health = requests.get(base + "/api/system/health", timeout=15).json()
+    except Exception:
+        health = {}
+
+    metrics = {}
+    # Market
+    metrics["prices"] = market.get("prices", {})
+    if market.get("fear_greed"):
+        metrics["fear_greed"] = market["fear_greed"]
+    metrics["global"] = market.get("global", {})
+    # Health
+    for key in ("ha", "ollama", "docker", "agents", "cloudflare", "disk", "gpu", "cockpit"):
+        if key in health:
+            metrics[key] = health[key]
+    return metrics
+
+
+def _alerts_get_nested(d, path, default=None):
+    cur = d
+    for p in path.split("."):
+        if not isinstance(cur, dict):
+            return default
+        cur = cur.get(p)
+        if cur is None:
+            return default
+    return cur
+
+
+def _alerts_dispatch(rule: dict, metrics: dict) -> dict:
+    """Execute a firing rule's actions and return a per-action result map."""
+    result = {"rule": rule["id"], "dispatched": [], "errors": []}
+    actions = rule.get("actions", [])
+    sev = rule.get("severity", "info").upper()
+    body_msg = f"[{sev}] {rule['name']}: {rule['description']}"
+
+    # intel → comet feed
+    if "intel" in actions:
+        try:
+            state = _load_agents_state()
+            _ensure_intel(state)
+            _record_comet_intel(state, summary=body_msg, level=sev, source="ALERTS")
+            _save_agents_state(state)
+            result["dispatched"].append("intel")
+        except Exception as e:
+            result["errors"].append(f"intel: {e}")
+
+    # ha_notify → mobile push
+    if "ha_notify" in actions:
+        try:
+            ok = ha_bridge.notify(
+                message=rule["description"],
+                title=f"S25 Alert — {rule['name']}",
+                tag=f"s25_alert_{rule['id']}",
+                importance="high" if sev == "CRITICAL" else "default",
+            )
+            result["dispatched"].append(f"ha_notify:{bool(ok)}")
+        except Exception as e:
+            result["errors"].append(f"ha_notify: {e}")
+
+    # signal → /api/signal via test_client (weighted, consensus-aware)
+    if "signal" in actions and rule.get("signal_payload"):
+        try:
+            payload = dict(rule["signal_payload"])
+            btc_price = _alerts_get_nested(metrics, "prices.bitcoin.usd", 0) or 0
+            eth_price = _alerts_get_nested(metrics, "prices.ethereum.usd", 0) or 0
+            doge_price = _alerts_get_nested(metrics, "prices.dogecoin.usd", 0) or 0
+            sym = payload.get("symbol", "")
+            if sym.startswith("BTC"):
+                payload["price"] = float(btc_price)
+            elif sym.startswith("ETH"):
+                payload["price"] = float(eth_price)
+            elif sym.startswith("DOGE"):
+                payload["price"] = float(doge_price)
+            base = "http://localhost:" + str(os.environ.get("PORT", "7777"))
+            resp = requests.post(base + "/api/signal", json=payload, timeout=10)
+            result["dispatched"].append(f"signal:{resp.status_code}")
+        except Exception as e:
+            result["errors"].append(f"signal: {e}")
+
+    return result
+
+
+@app.route('/api/alerts/rules', methods=['GET'])
+def api_alerts_rules():
+    try:
+        from agents.alert_rules import list_rules as _ls
+    except Exception as e:
+        return jsonify({"ok": False, "error": f"alert_rules import failed: {e}"}), 500
+    rules = _ls()
+    return jsonify({"ok": True, "rules": rules, "count": len(rules)})
+
+
+@app.route('/api/alerts/state', methods=['GET'])
+def api_alerts_state():
+    try:
+        from agents.alert_rules import get_state as _gs
+    except Exception as e:
+        return jsonify({"ok": False, "error": f"alert_rules import failed: {e}"}), 500
+    return jsonify({"ok": True, "state": _gs()})
+
+
+@app.route('/api/alerts/evaluate', methods=['POST', 'GET'])
+def api_alerts_evaluate():
+    """Run the rule engine against live metrics and dispatch firing rules."""
+    try:
+        from agents.alert_rules import evaluate_all as _eval
+    except Exception as e:
+        return jsonify({"ok": False, "error": f"alert_rules import failed: {e}"}), 500
+
+    metrics = _alerts_collect_metrics()
+    result = _eval(metrics)
+
+    dispatched = []
+    for rule in result.get("firing", []):
+        dispatched.append(_alerts_dispatch(rule, metrics))
+    result["dispatched"] = dispatched
+    if request.args.get("debug"):
+        result["_metrics_snapshot"] = metrics
+    result["ok"] = True
+    return jsonify(result)
+
+# ════ END ALERTS ENGINE INJECTION ════
+
+
 if __name__ == '__main__':
     port = int(os.getenv("PORT", "7777"))
     app.run(host='0.0.0.0', port=port, debug=False)

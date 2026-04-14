@@ -13,10 +13,63 @@ log = logging.getLogger('ninja_routes')
 
 # --- COINGECKO ---
 
+# ── Simple TTL cache (avoids CoinGecko rate limits) ────────────
+import time as _time
+_CACHE: dict = {}
+_TTL_DEFAULT = 60
+
+def _cache_get(key: str, ttl: int = _TTL_DEFAULT):
+    v = _CACHE.get(key)
+    if not v:
+        return None
+    ts, data = v
+    if (_time.time() - ts) > ttl:
+        return None
+    return data
+
+def _cache_set(key: str, data) -> None:
+    _CACHE[key] = (_time.time(), data)
+
+
+# Map CoinGecko ids to Binance symbols for fallback
+_BINANCE_MAP = {
+    'bitcoin': 'BTCUSDT', 'ethereum': 'ETHUSDT', 'solana': 'SOLUSDT',
+    'dogecoin': 'DOGEUSDT', 'cosmos': 'ATOMUSDT', 'akash-network': 'AKTUSDT',
+    'chainlink': 'LINKUSDT', 'uniswap': 'UNIUSDT', 'aave': 'AAVEUSDT',
+    'maker': 'MKRUSDT', 'injective-protocol': 'INJUSDT',
+}
+
+def _binance_fallback(symbols: list) -> dict:
+    """Fallback to Binance public 24hr ticker (no rate limit for public)."""
+    out = {}
+    try:
+        r = requests.get('https://api.binance.com/api/v3/ticker/24hr', timeout=8)
+        if r.status_code != 200:
+            return out
+        by_sym = {t['symbol']: t for t in r.json()}
+        for cg_id in symbols:
+            bs = _BINANCE_MAP.get(cg_id)
+            if not bs or bs not in by_sym:
+                continue
+            t = by_sym[bs]
+            out[cg_id] = {
+                'usd': float(t['lastPrice']),
+                'usd_24h_change': float(t['priceChangePercent']),
+                'usd_24h_vol': float(t['quoteVolume']),
+            }
+    except Exception as e:
+        log.warning(f'Binance fallback error: {e}')
+    return out
+
 def get_prices(symbols: list = None) -> dict:
-    """Prix spot en USD -- CoinGecko gratuit."""
+    """Prix spot en USD avec cache TTL 60s + CoinGecko puis Binance fallback."""
     if symbols is None:
         symbols = ['bitcoin', 'ethereum', 'solana', 'injective-protocol']
+    key = 'prices:' + ','.join(sorted(symbols))
+    cached = _cache_get(key)
+    if cached:
+        return cached
+    # 1. Try CoinGecko
     try:
         r = requests.get(
             'https://api.coingecko.com/api/v3/simple/price',
@@ -30,10 +83,19 @@ def get_prices(symbols: list = None) -> dict:
             timeout=10,
         )
         if r.status_code == 200:
-            return r.json()
+            data = r.json()
+            if data:
+                _cache_set(key, data)
+                return data
+        else:
+            log.warning(f'CoinGecko HTTP {r.status_code}, falling back to Binance')
     except Exception as e:
-        log.warning(f'CoinGecko prices error: {e}')
-    return {}
+        log.warning(f'CoinGecko prices error: {e}, falling back to Binance')
+    # 2. Binance fallback
+    data = _binance_fallback(symbols)
+    if data:
+        _cache_set(key, data)
+    return data
 
 
 def get_trending() -> list:

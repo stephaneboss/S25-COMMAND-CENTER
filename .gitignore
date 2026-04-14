@@ -95,3 +95,4 @@ node_modules/
 package-lock.json
 *.bak
 *.pre_*_bak
+memory/alert_state.json
