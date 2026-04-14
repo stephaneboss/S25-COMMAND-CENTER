@@ -14,20 +14,27 @@ Owner:
 But:
 - sortir le coeur S25 du laptop
 
-Etat:
-- endpoint Worker stable en place
-- cockpit Akash public courant present: `25883220`
-- cockpit Akash principal historique conserve: `25838342`
-- cockpit Akash secondaire conserve: `25822281`
-- cockpit Akash secondaire v2 cree: `25882621`
-- module `merlin-mesh` officiel live: `25878071`
-- module GPU conserve: `25708774`
+Etat (audit 2026-04-14, Claude Opus 4.6):
+- DSEQ historiques **TOUS FERMES** (expiration escrow):
+  - `25883220` public -> closed
+  - `25838342` prod -> closed
+  - `25882621` v2 -> closed
+  - `25878071` merlin-mesh -> closed (container `da0m4r4tu5...ingress.akashprovid.com` retourne 404)
+  - `25708774` GPU -> closed
+- DSEQ reels actifs (6 deployments, 5 leases ouverts):
+  - `25822281` (provider akash1v4m...yykk) -> lease-status 404, provider mort, a fermer
+  - `26028154` (jjozzietech) -> `s25-cockpit` LIVE mais pointe sur HA URL `nabu.casa` expiree (ghost)
+  - `26034859` (jjozzietech) -> doublon ghost de 26028154
+  - `26128127` (antonaccimattia) -> `service-1` 502 Bad Gateway, a fermer
+  - `26129577` (akash15fq) -> deployment active mais lease CLOSED, a cleaner
+  - `26270769` (team-michel:31554 TCP) -> **S25 Lumiere Cockpit v2.0 LIVE**, build_sha 290ab31, HA connected, MERLIN online, GOUV4 alive. C'est le NOUVEAU public Akash de facto.
+- MERLIN MCP restaure via cockpit reverse-proxy `cockpit-alien.smajor.org/mcp` (commit `a3b1465`) en attendant redeploy Akash proprement.
 
 Next:
-- garder la separation prod / sandbox sans multiplier les faux builds
-- garder `25883220` comme public tant qu'il reste sain
-- verifier `mesh/status`
-- nettoyer les dependances HA qui ne doivent pas redevenir le point de verite
+- fermer proprement les 5 DSEQ morts/ghosts pour recuperer l escrow (~1.2 AKT total)
+- wirer `s25.smajor.org` worker sur `http://provider.team-michel.com:31554` OR redeployer un cockpit HTTPS-ingress propre
+- rebuilder image docker `ghcr.io/stephaneboss/s25-command-center:main` (HEAD a3b1465) et redeployer merlin-mesh + cockpit via un SDL propre
+- wrangler secret put ORIGIN_BASE sur workers `merlin-s25-proxy` + `trinity-s25-proxy` (requiert CLOUDFLARE_API_TOKEN)
 
 ### WS2 - GPT / TRINITY
 
