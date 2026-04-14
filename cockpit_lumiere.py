@@ -1792,6 +1792,62 @@ def api_dex_trades():
 
 
 # ═══════════════════════════════════════════════════════════════
+#  POST /api/treasury/autorefuel — ATOM->AKT swap + ghost cleanup
+# ═══════════════════════════════════════════════════════════════
+
+@app.route('/api/treasury/autorefuel', methods=['POST', 'GET'])
+def api_treasury_autorefuel():
+    """Run the treasury autorefuel orchestrator (ATOM->AKT + akash cleanup).
+
+    Query/JSON params:
+      dry_run       1 to plan only (default 1 for GET, 0 for POST)
+      atom_amount   ATOM to swap if refuel triggered (default 1.0)
+      min_uakt      threshold below which to refuel (default 1500000)
+      no_swap       1 to skip swap step
+      no_cleanup    1 to skip cleanup step
+    """
+    import subprocess as _sp
+    params = request.get_json(silent=True) or {}
+    if request.args:
+        params = {**params, **request.args.to_dict()}
+    default_dry = "0" if request.method == "POST" else "1"
+    env = {
+        **os.environ,
+        "DRY_RUN": str(params.get("dry_run", default_dry)),
+        "REFUEL_ATOM": str(params.get("atom_amount", "1.0")),
+        "MIN_UAKT": str(params.get("min_uakt", "1500000")),
+        "NO_SWAP": str(params.get("no_swap", "0")),
+        "NO_CLEANUP": str(params.get("no_cleanup", "0")),
+    }
+    script = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "tools", "treasury_autorefuel.py",
+    )
+    try:
+        proc = _sp.run(
+            ["python3", script],
+            env=env, capture_output=True, text=True, timeout=900,
+        )
+        return jsonify({
+            "ok": proc.returncode == 0,
+            "rc": proc.returncode,
+            "stdout": proc.stdout[-8000:],
+            "stderr": proc.stderr[-2000:],
+            "params": {
+                "dry_run": env["DRY_RUN"],
+                "atom_amount": env["REFUEL_ATOM"],
+                "min_uakt": env["MIN_UAKT"],
+                "no_swap": env["NO_SWAP"],
+                "no_cleanup": env["NO_CLEANUP"],
+            },
+        }), 200 if proc.returncode == 0 else 500
+    except _sp.TimeoutExpired:
+        return jsonify({"ok": False, "error": "timeout after 900s"}), 504
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+# ═══════════════════════════════════════════════════════════════
 #  GET /api/trading/overview — Unified multi-chain trading dashboard
 # ═══════════════════════════════════════════════════════════════
 
