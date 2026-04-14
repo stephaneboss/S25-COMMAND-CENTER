@@ -850,6 +850,44 @@ def _save_agents_state(state: dict):
         pass
 
 
+@app.route('/mcp', methods=['GET', 'POST', 'OPTIONS'])
+@app.route('/mcp/<path:subpath>', methods=['GET', 'POST', 'OPTIONS'])
+def mcp_proxy(subpath=''):
+    """Reverse-proxy /mcp* to local merlin_mcp_bridge on 127.0.0.1:8000.
+
+    Keeps merlin.smajor.org/mcp live via cockpit-alien.smajor.org tunnel
+    until Akash merlin-mesh is redeployed.
+    """
+    from flask import Response
+    target = 'http://127.0.0.1:8000/mcp'
+    if subpath:
+        target += '/' + subpath
+    qs = request.query_string.decode() if request.query_string else ''
+    if qs:
+        target += '?' + qs
+    excluded = {'host', 'connection', 'content-length'}
+    fwd_headers = {k: v for k, v in request.headers.items() if k.lower() not in excluded}
+    try:
+        upstream = requests.request(
+            method=request.method,
+            url=target,
+            headers=fwd_headers,
+            data=request.get_data() if request.method not in ('GET', 'HEAD') else None,
+            stream=True,
+            timeout=60,
+            allow_redirects=False,
+        )
+    except Exception as e:
+        return jsonify({'ok': False, 'error': 'merlin_unreachable', 'detail': str(e)}), 502
+    drop = {'connection', 'transfer-encoding', 'content-encoding', 'content-length'}
+    resp_headers = [(k, v) for k, v in upstream.headers.items() if k.lower() not in drop]
+    def generate():
+        for chunk in upstream.iter_content(chunk_size=4096):
+            if chunk:
+                yield chunk
+    return Response(generate(), status=upstream.status_code, headers=resp_headers)
+
+
 @app.route('/api/memory', methods=['GET'])
 def api_memory_get():
     """Retourne le contexte partagé complet (SHARED_MEMORY.md + agents_state.json)."""
