@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>S25 Terminal · Live Trading · smajor.org</title>
+<style>
+:root{
+  --bg:#0a0e14;--panel:#0f141b;--panel2:#131a23;--border:#1a2330;
+  --text:#e0e6ed;--dim:#6c7a89;--muted:#404a57;
+  --accent:#00d4aa;--green:#00d4aa;--red:#ff4757;--warn:#ffa502;--info:#3742fa
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{
+  background:var(--bg);color:var(--text);
+  font:13px/1.4 -apple-system,BlinkMacSystemFont,'SF Pro Display',Inter,system-ui,sans-serif;
+}
+.grid{
+  display:grid;
+  grid-template-columns:230px 1fr 320px;
+  grid-template-rows:54px 1fr 220px;
+  height:100vh;gap:1px;background:var(--border)
+}
+header{
+  grid-column:1/-1;background:var(--panel);
+  display:flex;align-items:center;padding:0 18px;gap:22px
+}
+header .logo{
+  font-weight:800;font-size:15px;letter-spacing:1.2px;
+  color:var(--accent);text-shadow:0 0 20px rgba(0,212,170,.4)
+}
+header .sep{width:1px;height:26px;background:var(--border)}
+header .metric{
+  display:flex;flex-direction:column;font-size:9px;
+  color:var(--dim);text-transform:uppercase;letter-spacing:.8px
+}
+header .metric strong{
+  font-size:13px;color:var(--text);text-transform:none;
+  letter-spacing:0;margin-top:2px;font-family:'SF Mono',Menlo,monospace
+}
+header .spacer{flex:1}
+header .clock{font-family:'SF Mono',Menlo,monospace;font-size:13px;color:var(--dim)}
+header .pulse{
+  width:8px;height:8px;border-radius:50%;background:var(--accent);
+  box-shadow:0 0 8px var(--accent);animation:pulse 2s infinite
+}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+.panel{background:var(--panel);overflow:auto}
+.panel::-webkit-scrollbar{width:6px;height:6px}
+.panel::-webkit-scrollbar-track{background:transparent}
+.panel::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+.panel-title{
+  padding:11px 16px;font-size:9px;text-transform:uppercase;
+  letter-spacing:1px;color:var(--dim);
+  border-bottom:1px solid var(--border);
+  position:sticky;top:0;background:var(--panel);z-index:1;
+  display:flex;justify-content:space-between;align-items:center
+}
+
+/* Watchlist */
+.watchlist .asset{
+  padding:12px 16px;cursor:pointer;
+  border-bottom:1px solid var(--border);
+  display:flex;justify-content:space-between;align-items:center;
+  transition:background .15s,border-left-color .15s;
+  border-left:2px solid transparent
+}
+.watchlist .asset:hover{background:var(--panel2)}
+.watchlist .asset.active{background:#16202c;border-left-color:var(--accent)}
+.watchlist .asset .sym{font-weight:700;font-size:13px;letter-spacing:.3px}
+.watchlist .asset .price{font-family:'SF Mono',Menlo,monospace;font-size:12px;text-align:right}
+.watchlist .asset .chg{font-size:10px;font-family:'SF Mono',Menlo,monospace;margin-top:2px}
+
+/* Chart */
+.chart-wrap{position:relative;background:#0f141b}
+#tv_chart{position:absolute;inset:0}
+
+/* Signals */
+.signals{display:flex;flex-direction:column}
+.signals .feed{flex:1;overflow:auto}
+.signals .entry{padding:10px 16px;border-bottom:1px solid var(--border);font-size:11px}
+.signals .entry .ts{color:var(--muted);font-size:9px;margin-bottom:3px;font-family:'SF Mono',Menlo,monospace}
+.signals .entry .src{
+  display:inline-block;padding:2px 7px;border-radius:3px;
+  font-size:9px;font-weight:700;margin-right:7px;
+  text-transform:uppercase;letter-spacing:.4px
+}
+.signals .src.ALERTS{background:rgba(0,212,170,.15);color:var(--accent)}
+.signals .src.ARKON{background:rgba(255,165,2,.15);color:var(--warn)}
+.signals .src.KIMI{background:rgba(55,66,250,.15);color:#5a67ff}
+.signals .src.TRINITY{background:rgba(255,71,87,.15);color:var(--red)}
+.signals .src.COMET{background:rgba(108,122,137,.2);color:var(--dim)}
+.signals .src.ORACLE{background:rgba(0,212,170,.1);color:#00b894}
+.signals .src.MERLIN{background:rgba(138,43,226,.18);color:#b088ff}
+.signals .src.TREASURY{background:rgba(255,215,0,.15);color:#ffd700}
+.signals .src.UNKNOWN{background:rgba(108,122,137,.15);color:var(--muted)}
+.signals .entry .msg{color:var(--text);line-height:1.45}
+
+/* Positions row */
+.positions{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--border)}
+.card{background:var(--panel);padding:14px 18px;overflow:auto}
+.card h3{
+  font-size:9px;text-transform:uppercase;letter-spacing:1px;
+  color:var(--dim);margin-bottom:12px;display:flex;align-items:center;gap:6px
+}
+.card h3::before{content:'';width:3px;height:10px;background:var(--accent);border-radius:2px}
+.card .row{
+  display:flex;justify-content:space-between;padding:5px 0;
+  font-size:12px;border-bottom:1px solid var(--panel2)
+}
+.card .row .label{color:var(--dim)}
+.card .row .val{font-family:'SF Mono',Menlo,monospace}
+.up{color:var(--green)}.dn{color:var(--red)}.flat{color:var(--dim)}
+
+.fg-gauge{
+  display:inline-block;padding:3px 10px;border-radius:12px;
+  font-weight:700;font-size:11px;font-family:'SF Mono',Menlo,monospace
+}
+.fg-gauge.fear{background:rgba(255,71,87,.15);color:var(--red)}
+.fg-gauge.neutral{background:rgba(108,122,137,.15);color:var(--dim)}
+.fg-gauge.greed{background:rgba(0,212,170,.15);color:var(--accent)}
+
+.kill{
+  padding:3px 9px;border-radius:4px;font-size:10px;
+  font-weight:700;text-transform:uppercase;letter-spacing:.5px
+}
+.kill.ok{background:rgba(0,212,170,.15);color:var(--accent)}
+.kill.danger{background:rgba(255,71,87,.2);color:var(--red)}
+.kill.warn{background:rgba(255,165,2,.15);color:var(--warn)}
+
+.empty{color:var(--muted);font-size:11px;padding:12px 0;text-align:center}
+</style>
+</head>
+<body>
+<div class="grid">
+  <header>
+    <div class="logo">S25 TERMINAL</div>
+    <div class="pulse"></div>
+    <div class="sep"></div>
+    <div class="metric">F&amp;G <strong id="fg">--</strong></div>
+    <div class="metric">MESH <strong id="mesh">--</strong></div>
+    <div class="metric">MODE <strong id="mode">--</strong></div>
+    <div class="metric">KILL <strong id="kill">--</strong></div>
+    <div class="metric">BTC <strong id="btc-hdr">--</strong></div>
+    <div class="spacer"></div>
+    <div class="clock" id="clock">--:--:--</div>
+  </header>
+
+  <div class="panel watchlist">
+    <div class="panel-title">Watchlist <span id="watchlist-count" style="color:var(--muted)">--</span></div>
+    <div id="watchlist"></div>
+  </div>
+
+  <div class="panel chart-wrap">
+    <div id="tv_chart"></div>
+  </div>
+
+  <div class="panel signals">
+    <div class="panel-title">Intel & Signaux <span id="feed-count" style="color:var(--muted)">--</span></div>
+    <div class="feed" id="feed"></div>
+  </div>
+
+  <div class="positions">
+    <div class="card">
+      <h3>Pipeline</h3>
+      <div id="pipeline-card"><div class="empty">Chargement…</div></div>
+    </div>
+    <div class="card">
+      <h3>ARKON · Dernier Signal</h3>
+      <div id="arkon-card"><div class="empty">Chargement…</div></div>
+    </div>
+    <div class="card">
+      <h3>DEX · Wallet</h3>
+      <div id="dex-card"><div class="empty">Chargement…</div></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://s3.tradingview.com/tv.js"></script>
+<script>
+const WATCH = [
+  {id:'bitcoin',     sym:'BTC',  tv:'BINANCE:BTCUSDT'},
+  {id:'ethereum',    sym:'ETH',  tv:'BINANCE:ETHUSDT'},
+  {id:'dogecoin',    sym:'DOGE', tv:'BINANCE:DOGEUSDT'},
+  {id:'solana',      sym:'SOL',  tv:'BINANCE:SOLUSDT'},
+  {id:'chainlink',   sym:'LINK', tv:'BINANCE:LINKUSDT'},
+  {id:'uniswap',     sym:'UNI',  tv:'BINANCE:UNIUSDT'},
+  {id:'aave',        sym:'AAVE', tv:'BINANCE:AAVEUSDT'},
+  {id:'cosmos',      sym:'ATOM', tv:'BINANCE:ATOMUSDT'},
+  {id:'akash-network',sym:'AKT', tv:'BINANCE:AKTUSDT'},
+  {id:'maker',       sym:'MKR',  tv:'BINANCE:MKRUSDT'},
+];
+
+let activeSymbol = 'BINANCE:BTCUSDT';
+
+function initTV(sym){
+  const el = document.getElementById('tv_chart');
+  el.innerHTML = '';
+  new TradingView.widget({
+    container_id: 'tv_chart',
+    symbol: sym,
+    interval: '60',
+    theme: 'dark',
+    style: '1',
+    autosize: true,
+    timezone: 'America/New_York',
+    toolbar_bg: '#0f141b',
+    enable_publishing: false,
+    hide_side_toolbar: false,
+    allow_symbol_change: true,
+    studies: ['RSI@tv-basicstudies','MACD@tv-basicstudies','Volume@tv-basicstudies'],
+    locale: 'fr',
+    withdateranges: true,
+    details: false,
+    backgroundColor: 'rgba(15, 20, 27, 1)',
+    gridColor: 'rgba(26, 35, 48, 1)',
+  });
+}
+
+function fmt(n, d){
+  if (n === null || n === undefined || isNaN(n)) return '--';
+  if (Math.abs(n) >= 1000) return Number(n.toFixed(d||2)).toLocaleString('en-US');
+  if (Math.abs(n) < 0.01 && n !== 0) return Number(n).toFixed(6);
+  return Number(n.toFixed(d||2)).toString();
+}
+
+function renderWatchlist(prices){
+  const el = document.getElementById('watchlist');
+  let rendered = 0;
+  el.innerHTML = WATCH.map(w => {
+    const p = prices[w.id];
+    if (!p) return '';
+    rendered++;
+    const price = p.usd || 0;
+    const chg = p.change_24h || 0;
+    const cls = chg >= 0 ? 'up' : 'dn';
+    const sign = chg >= 0 ? '+' : '';
+    const active = w.tv === activeSymbol ? 'active' : '';
+    return `<div class="asset ${active}" data-tv="${w.tv}">
+      <div>
+        <div class="sym">${w.sym}</div>
+        <div class="chg ${cls}">${sign}${chg.toFixed(2)}%</div>
+      </div>
+      <div class="price">$${fmt(price, price < 1 ? 6 : 2)}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('watchlist-count').textContent = rendered;
+  el.querySelectorAll('.asset').forEach(a => a.onclick = () => {
+    activeSymbol = a.dataset.tv;
+    document.querySelectorAll('.asset').forEach(x => x.classList.remove('active'));
+    a.classList.add('active');
+    initTV(activeSymbol);
+  });
+  // Update BTC header
+  if (prices.bitcoin) {
+    const btc = prices.bitcoin;
+    const cls = btc.change_24h >= 0 ? 'up' : 'dn';
+    document.getElementById('btc-hdr').innerHTML = `$${fmt(btc.usd,0)} <span class="${cls}">${btc.change_24h>=0?'+':''}${btc.change_24h.toFixed(2)}%</span>`;
+  }
+}
+
+function renderFeed(intel){
+  const el = document.getElementById('feed');
+  if (!intel || !intel.length) {
+    el.innerHTML = '<div class="entry"><div class="msg empty">(no intel yet)</div></div>';
+    document.getElementById('feed-count').textContent = '0';
+    return;
+  }
+  document.getElementById('feed-count').textContent = intel.length;
+  el.innerHTML = intel.slice(0, 40).map(e => {
+    const src = (e.source || 'UNKNOWN').toUpperCase();
+    let ts = '';
+    try { ts = e.ts ? new Date(e.ts).toLocaleTimeString('fr-CA') : ''; } catch(_){}
+    const msg = (e.summary || '').replace(/</g,'&lt;').slice(0,140);
+    return `<div class="entry">
+      <div class="ts">${ts}</div>
+      <div><span class="src ${src}">${src}</span>${msg}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderHeader(d){
+  const fg = d.fear_greed && d.fear_greed.current ? d.fear_greed.current.value : null;
+  const fgLabel = d.fear_greed && d.fear_greed.current ? d.fear_greed.current.label : '';
+  const fgEl = document.getElementById('fg');
+  if (fg !== null && fg !== undefined) {
+    let cls = 'neutral';
+    if (fg < 30) cls = 'fear';
+    else if (fg > 70) cls = 'greed';
+    fgEl.innerHTML = `<span class="fg-gauge ${cls}">${fg} · ${fgLabel}</span>`;
+  }
+  document.getElementById('mesh').textContent = `${d.mesh && d.mesh.online || 0}/${d.mesh && d.mesh.total || 14}`;
+  document.getElementById('mode').textContent = (d.pipeline && d.pipeline.mode) || '--';
+  const kill = d.pipeline && d.pipeline.kill_switch;
+  const killEl = document.getElementById('kill');
+  killEl.innerHTML = kill ? '<span class="kill danger">ACTIVE</span>' : '<span class="kill ok">OK</span>';
+}
+
+function renderPipeline(d){
+  const p = d.pipeline || {};
+  const html = `
+    <div class="row"><span class="label">Mode</span><span class="val">${p.mode || '--'}</span></div>
+    <div class="row"><span class="label">Verdict</span><span class="val">${p.verdict || '--'}</span></div>
+    <div class="row"><span class="label">Threat</span><span class="val">${p.threat_level || '--'}</span></div>
+    <div class="row"><span class="label">Kill switch</span><span class="val ${p.kill_switch?'dn':'up'}">${p.kill_switch ? 'ACTIVE' : 'off'}</span></div>
+    <div class="row"><span class="label">Signals buffer</span><span class="val">${(p.signals_buffer||[]).length}</span></div>
+  `;
+  document.getElementById('pipeline-card').innerHTML = html;
+}
+
+function renderArkon(d){
+  const sig = (d.pipeline && d.pipeline.last_signal) || {};
+  const el = document.getElementById('arkon-card');
+  if (!sig.action) {
+    el.innerHTML = '<div class="empty">(no signal)</div>';
+    return;
+  }
+  const actionCls = sig.action === 'BUY' ? 'up' : sig.action === 'SELL' ? 'dn' : 'flat';
+  const conf = Math.round((sig.effective_confidence || sig.confidence || 0) * 100);
+  el.innerHTML = `
+    <div class="row"><span class="label">Action</span><span class="val ${actionCls}">${sig.action} ${sig.symbol || ''}</span></div>
+    <div class="row"><span class="label">Confidence</span><span class="val">${conf}%</span></div>
+    <div class="row"><span class="label">Price</span><span class="val">$${fmt(sig.price, 2)}</span></div>
+    <div class="row"><span class="label">Verdict</span><span class="val">${sig.verdict || '--'}</span></div>
+    <div class="row"><span class="label">Source</span><span class="val">${sig.source || '--'}</span></div>
+  `;
+}
+
+function renderDex(d){
+  const dex = d.dex || {};
+  const wallet = d.wallet || {};
+  const el = document.getElementById('dex-card');
+  const parts = [];
+  if (dex.mode) parts.push(`<div class="row"><span class="label">DEX mode</span><span class="val">${dex.mode}</span></div>`);
+  if (dex.network) parts.push(`<div class="row"><span class="label">Network</span><span class="val">${dex.network}</span></div>`);
+  if (dex.last_trade) parts.push(`<div class="row"><span class="label">Last trade</span><span class="val">${dex.last_trade}</span></div>`);
+  Object.entries(wallet).slice(0,5).forEach(([k,v]) => {
+    parts.push(`<div class="row"><span class="label">${k}</span><span class="val">${v}</span></div>`);
+  });
+  if (!parts.length) parts.push('<div class="empty">(no DEX / wallet data)</div>');
+  el.innerHTML = parts.join('');
+}
+
+async function refresh(){
+  try {
+    const r = await fetch('/api/terminal/summary').then(r => r.json());
+    if (!r || !r.ok) return;
+    renderHeader(r);
+    renderWatchlist(r.prices || {});
+    renderFeed(r.intel || []);
+    renderPipeline(r);
+    renderArkon(r);
+    renderDex(r);
+  } catch (e) { console.error(e); }
+}
+
+function tickClock(){
+  const now = new Date();
+  const t = now.toLocaleTimeString('fr-CA', {hour12:false});
+  document.getElementById('clock').textContent = t + ' · Montréal';
+}
+
+initTV(activeSymbol);
+refresh();
+tickClock();
+setInterval(refresh, 10000);
+setInterval(tickClock, 1000);
+</script>
+</body>
+</html>

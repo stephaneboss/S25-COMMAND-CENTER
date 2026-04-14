@@ -2635,6 +2635,139 @@ def api_alerts_evaluate():
 # ════ END ALERTS ENGINE INJECTION ════
 
 
+
+
+# ════ TERMINAL UI INJECTION ════
+# MetaTrader-style terminal served on /terminal.
+# Frontend is a single self-contained HTML (static/terminal.html) that embeds
+# TradingView Advanced Chart widget and polls /api/terminal/summary every 10s.
+
+from flask import send_from_directory as _send_from_directory
+
+_TERMINAL_STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+
+
+@app.route('/terminal', methods=['GET'])
+def terminal_ui():
+    """Serve the MetaTrader-style terminal single-page app."""
+    try:
+        return _send_from_directory(_TERMINAL_STATIC_DIR, "terminal.html")
+    except Exception as e:
+        return jsonify({"ok": False, "error": f"terminal.html not found: {e}"}), 404
+
+
+def _terminal_local_base() -> str:
+    port = os.environ.get("PORT", "7777")
+    return f"http://127.0.0.1:{port}"
+
+
+@app.route('/api/terminal/summary', methods=['GET'])
+def api_terminal_summary():
+    """Aggregated payload for the terminal dashboard.
+
+    Single call returns everything the UI needs:
+        - market (prices + fear_greed + global)
+        - mesh (online/total/agents)
+        - pipeline (mode/verdict/threat/kill_switch/last_signal/buffer)
+        - intel (last N comet_feed entries, newest first)
+        - wallet (from /api/wallet/status)
+        - dex (from agents_state.dex or empty)
+    """
+    base = _terminal_local_base()
+
+    market = {}
+    try:
+        r = requests.get(base + "/api/market/live", timeout=10)
+        if r.ok:
+            market = r.json() or {}
+    except Exception as e:
+        market = {"error": str(e)}
+
+    wallet = {}
+    try:
+        r = requests.get(base + "/api/wallet/status", timeout=10)
+        if r.ok:
+            wallet = r.json() or {}
+    except Exception as e:
+        wallet = {"error": str(e)}
+
+    try:
+        state = _load_agents_state()
+    except Exception:
+        state = {}
+
+    # Mesh
+    agents = state.get("agents", {}) if isinstance(state, dict) else {}
+    mesh_total = len(agents) if isinstance(agents, dict) else 0
+    mesh_online = 0
+    if isinstance(agents, dict):
+        for _aid, _info in agents.items():
+            if isinstance(_info, dict) and _info.get("status") in ("online", "running", "ok"):
+                mesh_online += 1
+
+    # Pipeline
+    pipeline = state.get("pipeline", {}) if isinstance(state, dict) else {}
+    last_signal = None
+    try:
+        sig_buf = state.get("signals", {}).get("buffer", []) if isinstance(state, dict) else []
+        if sig_buf:
+            last_signal = sig_buf[-1]
+    except Exception:
+        last_signal = None
+
+    # Intel (newest first, last 30)
+    try:
+        feed = state.get("intel", {}).get("comet_feed", [])
+        intel = list(reversed(feed))[:30]
+    except Exception:
+        intel = []
+
+    # DEX
+    dex = state.get("dex", {}) if isinstance(state, dict) else {}
+
+    # Kill switch
+    kill_switch = False
+    try:
+        kill_switch = bool(state.get("kill_switch", {}).get("enabled", False))
+    except Exception:
+        kill_switch = False
+
+    # Mode / verdict / threat
+    mode = pipeline.get("mode") if isinstance(pipeline, dict) else None
+    verdict = pipeline.get("verdict") if isinstance(pipeline, dict) else None
+    threat = pipeline.get("threat_level") if isinstance(pipeline, dict) else None
+    if not mode:
+        mode = state.get("mode") if isinstance(state, dict) else None
+
+    return jsonify({
+        "ok": True,
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "market": {
+            "prices": market.get("prices", {}),
+            "fear_greed": market.get("fear_greed", {}),
+            "global": market.get("global", {}),
+        },
+        "mesh": {
+            "online": mesh_online,
+            "total": mesh_total,
+            "agents": agents if isinstance(agents, dict) else {},
+        },
+        "pipeline": {
+            "mode": mode,
+            "verdict": verdict,
+            "threat_level": threat,
+            "kill_switch": kill_switch,
+            "last_signal": last_signal,
+            "buffer_size": len(state.get("signals", {}).get("buffer", [])) if isinstance(state, dict) else 0,
+        },
+        "intel": intel,
+        "wallet": wallet,
+        "dex": dex,
+    })
+
+# ════ END TERMINAL UI INJECTION ════
+
+
 if __name__ == '__main__':
     port = int(os.getenv("PORT", "7777"))
     app.run(host='0.0.0.0', port=port, debug=False)
