@@ -173,7 +173,15 @@ def get_quote(amount_uatom: int) -> dict:
 
 def main() -> int:
     pk_hex = os.environ.get("PK", "").strip()
-    mnemonic = os.environ.get("WALLET_MNEMONIC", "").strip()
+    # --- creator-route: unified mnemonic lookup ---
+    try:
+        from security.wallet_creator import get_mnemonic as _s25_get_mnemonic
+        mnemonic = _s25_get_mnemonic(required=False) or ''
+    except Exception:
+        mnemonic = ''
+    # legacy fallback (keeps .env + ../.env scan) if creator returned empty
+    if not mnemonic:
+        mnemonic = os.environ.get("WALLET_MNEMONIC", "").strip()
 
     # Autoload from repo .env if neither is set in environment
     if not pk_hex and not mnemonic:

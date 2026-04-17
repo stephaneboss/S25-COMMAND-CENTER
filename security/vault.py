@@ -55,6 +55,8 @@ class S25Vault:
         "PERPLEXITY_API_KEY": "Perplexity API key",
         "KIMI_API_KEY": "Kimi API key",
         "S25_MASTER_SEED": "Wallet creator master seed phrase",
+        "WALLET_MNEMONIC": "BIP39 mnemonic for cosmos1/osmo1/akash1 signer (creator-route)",
+        "AKASH_MNEMONIC": "Alias for WALLET_MNEMONIC used by Akash tools",
         "TELEGRAM_BOT_TOKEN": "Telegram bot token",
         "TELEGRAM_CHAT_ID": "Telegram chat id",
         "OSMOSIS_MNEMONIC": "Osmosis wallet mnemonic",

@@ -83,21 +83,29 @@ class _RawProtoMsg:
 
 # ---------------------------------------------------------------------------
 def load_mnemonic() -> str:
-    mnemonic = os.environ.get("WALLET_MNEMONIC", "").strip()
-    if mnemonic:
-        return mnemonic
-    env_path = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-        ".env",
-    )
-    if os.path.isfile(env_path):
-        for line in open(env_path):
-            line = line.strip()
-            if line.startswith("WALLET_MNEMONIC="):
-                val = line.split("=", 1)[1].strip().strip('"').strip("'")
-                if val:
-                    return val
-    return ""
+    # --- creator-route: unified mnemonic lookup ---
+    try:
+        from security.wallet_creator import get_mnemonic as _s25_get_mnemonic
+        mnemonic = _s25_get_mnemonic(required=False) or ''
+    except Exception:
+        mnemonic = ''
+    # legacy fallback (keeps .env + ../.env scan) if creator returned empty
+    if not mnemonic:
+        mnemonic = os.environ.get("WALLET_MNEMONIC", "").strip()
+        if mnemonic:
+            return mnemonic
+        env_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            ".env",
+        )
+        if os.path.isfile(env_path):
+            for line in open(env_path):
+                line = line.strip()
+                if line.startswith("WALLET_MNEMONIC="):
+                    val = line.split("=", 1)[1].strip().strip('"').strip("'")
+                    if val:
+                        return val
+        return ""
 
 
 def http_json(url: str) -> dict:

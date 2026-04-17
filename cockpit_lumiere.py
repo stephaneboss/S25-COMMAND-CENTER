@@ -529,6 +529,26 @@ setInterval(refreshAll, 60000);
 
 '''
 
+
+def _ha_kill_switch_active(timeout: float = 2.0) -> bool:
+    """Read input_boolean.s25_kill_switch from HA. Returns True if ON."""
+    try:
+        ha_url = (vault_get("HA_URL", os.getenv("HA_URL", "http://homeassistant.local:8123")) or "").rstrip("/")
+        ha_token = vault_get("HA_TOKEN", os.getenv("HA_TOKEN", ""))
+        if not ha_token:
+            return False
+        r = requests.get(
+            f"{ha_url}/api/states/input_boolean.s25_kill_switch",
+            headers={"Authorization": f"Bearer {ha_token}"},
+            timeout=timeout,
+        )
+        if r.status_code == 200:
+            return r.json().get("state") == "on"
+    except Exception:
+        pass
+    return False
+
+
 @app.route('/')
 def index():
     return render_template_string(HTML, now=datetime.now().strftime('%Y-%m-%d'))
@@ -1253,7 +1273,7 @@ def api_signal():
     consensus_bonus = 0.15 if consensus else 0.0
     effective_confidence = round(weighted_confidence + consensus_bonus, 4)
 
-    kill_switch = pipeline.get("kill_switch", False)
+    kill_switch = pipeline.get("kill_switch", False) or _ha_kill_switch_active()
     threat_level = pipeline.get("threat_level", "T0")
     mode = pipeline.get("mode", "dry_run")
 
@@ -1463,6 +1483,21 @@ def api_control_queue():
 # ═══════════════════════════════════════════════════════════════
 #  WALLET STATUS — Treasury balances via on-chain queries
 # ═══════════════════════════════════════════════════════════════
+
+
+# ---------------------------------------------------------------------------
+# Creator-route: unified wallet mnemonic source status (safe, no value leak)
+# ---------------------------------------------------------------------------
+@app.route("/api/wallet/creator/status", methods=["GET"])
+def api_wallet_creator_status():
+    try:
+        from security.wallet_creator import status as _wc_status, _ALIASES
+        st = _wc_status()
+        st["aliases_checked"] = list(_ALIASES)
+        return jsonify({"ok": True, **st})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
 
 @app.route("/api/wallet/status", methods=["GET"])
 def api_wallet_status():
