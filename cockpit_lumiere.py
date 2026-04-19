@@ -1944,6 +1944,38 @@ def api_coinbase_preview():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
+@app.route('/api/coinbase/live-mode', methods=['GET', 'POST'])
+def api_coinbase_live_mode():
+    """Toggle LIVE trading flag for Coinbase executor.
+
+    GET  -> current state
+    POST {"enabled": true|false}  -> write the flag and return new state
+    """
+    try:
+        from agents.coinbase_executor import CoinbaseExecutor, get_executor
+        import pathlib
+        flag = pathlib.Path(CoinbaseExecutor.LIVE_FLAG_PATH)
+
+        if request.method == 'GET':
+            enabled = flag.exists() and flag.read_text().strip().lower() == 'on'
+            return jsonify({"ok": True, "enabled": enabled, "flag_path": str(flag)})
+
+        body = request.get_json(force=True, silent=True) or {}
+        new_state = bool(body.get('enabled', False))
+        result = CoinbaseExecutor.set_live_mode(new_state)
+        # Force the executor to re-read immediately (invalidate cache)
+        try:
+            exe = get_executor()
+            exe._ha_mode_ts = 0
+            exe.refresh_mode_from_ha()
+            result["executor_dry_run"] = exe.dry_run
+        except Exception:
+            pass
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
 @app.route('/api/coinbase/spot-prices', methods=['GET'])
 def api_coinbase_spot_prices():
     """Live spot prices for our whitelist."""

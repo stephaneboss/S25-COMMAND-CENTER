@@ -257,42 +257,60 @@ class CoinbaseExecutor(BaseAgent):
             return f"exceeds_max_per_trade: {usd_amount} > {self.max_usd_per_trade}"
         return None
 
-    def refresh_mode_from_ha(self, ttl: int = 30) -> bool:
-        """Read HA input_boolean.s25_coinbase_live_trading to flip dry_run at runtime.
+    LIVE_FLAG_PATH = os.path.expanduser("~/S25-COMMAND-CENTER/.coinbase_live.flag")
 
-        Returns the resolved live-mode boolean. Cached for `ttl` seconds to
-        avoid one HA call per order. Only flips to LIVE if keys are configured
-        AND enabled=True AND HA toggle is on. Kill-switch (different boolean)
-        is checked elsewhere.
+    def refresh_mode_from_ha(self, ttl: int = 30) -> bool:
+        """Read the local live-mode flag to flip dry_run at runtime.
+
+        A file at LIVE_FLAG_PATH acts as the single source of truth:
+          file contains "on" (first line)  -> LIVE (if keys present)
+          file absent OR content != "on"   -> DRY_RUN (safe)
+
+        We use a file flag instead of an HA input_boolean because state
+        pushed via /api/states/ is not persistent when an entity is not
+        registered by its domain. Cockpit's POST /api/coinbase/live-mode
+        toggles the file; HA can call that endpoint via a rest_command or
+        automation.
+
+        Cached for `ttl` seconds.
         """
         now = time.time()
         if hasattr(self, "_ha_mode_ts") and (now - self._ha_mode_ts) < ttl:
             return not self.dry_run
         self._ha_mode_ts = now
         try:
-            from security.vault import vault_get
-            url = (vault_get("HA_URL", os.getenv("HA_URL", "")) or "").rstrip("/")
-            token = vault_get("HA_TOKEN", os.getenv("HA_TOKEN", ""))
-            if not (url and token):
-                return not self.dry_run
-            import requests
-            r = requests.get(
-                f"{url}/api/states/input_boolean.s25_coinbase_live_trading",
-                headers={"Authorization": f"Bearer {token}"},
-                timeout=2,
-            )
-            ha_live = (r.status_code == 200 and r.json().get("state") == "on")
-            if ha_live and self._api_key and self.enabled:
+            import pathlib
+            flag_path = pathlib.Path(self.LIVE_FLAG_PATH)
+            flag_on = False
+            if flag_path.exists():
+                flag_on = flag_path.read_text().strip().lower() == "on"
+            if flag_on and self._api_key and self._api_secret:
                 if self.dry_run:
-                    logger.warning("HA toggle ON -> switching coinbase_executor to LIVE mode")
+                    logger.warning("live-flag ON + keys present -> switching to LIVE mode")
                 self.dry_run = False
             else:
                 if not self.dry_run:
-                    logger.info("HA toggle OFF or keys missing -> back to DRY_RUN")
+                    logger.info("live-flag OFF or keys missing -> back to DRY_RUN")
                 self.dry_run = True
         except Exception as e:
-            logger.warning("HA mode refresh failed, keeping current mode: %s", e)
+            logger.warning("mode refresh failed, keeping current mode: %s", e)
         return not self.dry_run
+
+    @classmethod
+    def set_live_mode(cls, enabled: bool) -> Dict[str, Any]:
+        """Write/remove the live-mode flag file. Used by /api/coinbase/live-mode."""
+        import pathlib
+        flag_path = pathlib.Path(cls.LIVE_FLAG_PATH)
+        try:
+            if enabled:
+                flag_path.write_text("on\n")
+                return {"ok": True, "enabled": True, "flag_path": str(flag_path)}
+            else:
+                if flag_path.exists():
+                    flag_path.unlink()
+                return {"ok": True, "enabled": False, "flag_path": str(flag_path)}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
 
     def place_market_order(
         self,
