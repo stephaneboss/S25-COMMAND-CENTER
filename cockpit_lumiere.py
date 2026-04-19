@@ -1746,6 +1746,7 @@ def webhook_tradingview():
             cex_result = {"error": str(_cbe)}
 
     return jsonify({
+        "cex_result": cex_result,
         "ok": True, "source": "TRADINGVIEW", "symbol": symbol,
         "action": normalized_action, "price": price, "verdict": verdict,
         "pipeline": {
