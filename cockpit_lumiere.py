@@ -2005,7 +2005,23 @@ def api_trading_overview():
     except Exception as e:
         overview["dex"]["uniswap_arb"] = {"error": str(e)}
 
-    return jsonify({"ok": True, "trading": overview})
+    
+    # Coinbase Advanced section (added 2026-04-19)
+    coinbase_block = None
+    try:
+        from agents.coinbase_executor import get_executor as _cb
+        _cbx = _cb()
+        _cbx.refresh_mode_from_ha()
+        coinbase_block = {
+            **_cbx.exec_status(),
+            'portfolio': _cbx.get_portfolio(),
+            'fee_tier': _cbx.get_fee_tier(),
+        }
+    except Exception as _cbe:
+        coinbase_block = {'error': str(_cbe)}
+
+    return jsonify({
+        "coinbase": coinbase_block,"ok": True, "trading": overview})
 
 
 

@@ -257,6 +257,43 @@ class CoinbaseExecutor(BaseAgent):
             return f"exceeds_max_per_trade: {usd_amount} > {self.max_usd_per_trade}"
         return None
 
+    def refresh_mode_from_ha(self, ttl: int = 30) -> bool:
+        """Read HA input_boolean.s25_coinbase_live_trading to flip dry_run at runtime.
+
+        Returns the resolved live-mode boolean. Cached for `ttl` seconds to
+        avoid one HA call per order. Only flips to LIVE if keys are configured
+        AND enabled=True AND HA toggle is on. Kill-switch (different boolean)
+        is checked elsewhere.
+        """
+        now = time.time()
+        if hasattr(self, "_ha_mode_ts") and (now - self._ha_mode_ts) < ttl:
+            return not self.dry_run
+        self._ha_mode_ts = now
+        try:
+            from security.vault import vault_get
+            url = (vault_get("HA_URL", os.getenv("HA_URL", "")) or "").rstrip("/")
+            token = vault_get("HA_TOKEN", os.getenv("HA_TOKEN", ""))
+            if not (url and token):
+                return not self.dry_run
+            import requests
+            r = requests.get(
+                f"{url}/api/states/input_boolean.s25_coinbase_live_trading",
+                headers={"Authorization": f"Bearer {token}"},
+                timeout=2,
+            )
+            ha_live = (r.status_code == 200 and r.json().get("state") == "on")
+            if ha_live and self._api_key and self.enabled:
+                if self.dry_run:
+                    logger.warning("HA toggle ON -> switching coinbase_executor to LIVE mode")
+                self.dry_run = False
+            else:
+                if not self.dry_run:
+                    logger.info("HA toggle OFF or keys missing -> back to DRY_RUN")
+                self.dry_run = True
+        except Exception as e:
+            logger.warning("HA mode refresh failed, keeping current mode: %s", e)
+        return not self.dry_run
+
     def place_market_order(
         self,
         product_id: str,
@@ -265,6 +302,7 @@ class CoinbaseExecutor(BaseAgent):
         reason: str = "",
         source: str = "manual",
     ) -> Dict[str, Any]:
+        self.refresh_mode_from_ha()
         ts = int(time.time())
         err = self._pre_flight(product_id, usd_amount, side)
         if err:
