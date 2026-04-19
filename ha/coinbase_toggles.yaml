@@ -1,0 +1,33 @@
+# S25 Lumiere — Coinbase HA rest_commands + automation
+# ======================================================
+# Add to configuration.yaml (or include via !include)
+# After reload, the 2 buttons in the dashboard card start working.
+
+rest_command:
+  s25_coinbase_live_on:
+    url: https://cockpit-alien.smajor.org/api/coinbase/live-mode
+    method: POST
+    content_type: application/json
+    payload: '{"enabled": true}'
+    timeout: 10
+
+  s25_coinbase_live_off:
+    url: https://cockpit-alien.smajor.org/api/coinbase/live-mode
+    method: POST
+    content_type: application/json
+    payload: '{"enabled": false}'
+    timeout: 10
+
+# Optional: automation that auto-flips to DRY_RUN if kill-switch is toggled ON
+automation:
+  - alias: "S25 Kill-switch forces Coinbase DRY_RUN"
+    trigger:
+      - platform: state
+        entity_id: input_boolean.s25_kill_switch
+        to: "on"
+    action:
+      - service: rest_command.s25_coinbase_live_off
+      - service: persistent_notification.create
+        data:
+          title: "S25 Kill-switch activated"
+          message: "Coinbase executor flipped to DRY_RUN as a safety override"

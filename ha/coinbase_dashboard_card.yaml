@@ -1,0 +1,74 @@
+# S25 Lumiere — Coinbase Dashboard Card
+# =======================================
+# Ready-to-paste Lovelace card. To install:
+#   HA sidebar -> Overview -> 3-dots menu -> Edit dashboard
+#   -> + Add Card -> Manual -> paste below, save.
+
+type: vertical-stack
+cards:
+  - type: markdown
+    content: >
+      ## 💰 S25 Coinbase
+      Mode: **{{ states('sensor.s25_coinbase_mode') }}**
+      · Keys: **{{ 'OK' if is_state('binary_sensor.s25_coinbase_keys_configured','on') else 'MISSING' }}**
+      · API: **{{ 'healthy' if is_state('binary_sensor.s25_coinbase_api_healthy','on') else 'down' }}**
+
+  - type: glance
+    title: Portfolio
+    columns: 3
+    entities:
+      - entity: sensor.s25_coinbase_total_usd
+        name: Total USD
+      - entity: sensor.s25_coinbase_total_cad_fiat
+        name: CAD Fiat
+      - entity: sensor.s25_coinbase_coin_count
+        name: Coins
+
+  - type: glance
+    title: Spot Prices (live, 60s refresh)
+    columns: 5
+    entities:
+      - entity: sensor.s25_btc_spot
+        name: BTC
+      - entity: sensor.s25_eth_spot
+        name: ETH
+      - entity: sensor.s25_sol_spot
+        name: SOL
+      - entity: sensor.s25_atom_spot
+        name: ATOM
+      - entity: sensor.s25_akt_spot
+        name: AKT
+
+  - type: entities
+    title: Trading state
+    entities:
+      - entity: sensor.s25_coinbase_mode
+        name: Executor Mode
+        secondary_info: last-changed
+      - entity: sensor.s25_coinbase_dry_run_orders
+        name: Dry-run orders
+      - entity: sensor.s25_coinbase_live_orders
+        name: Live orders placed
+      - entity: sensor.s25_coinbase_maker_fee_bps
+        name: Maker fee
+      - entity: sensor.s25_coinbase_taker_fee_bps
+        name: Taker fee
+      - entity: input_boolean.s25_kill_switch
+        name: "🛑 Kill-switch (hard override)"
+
+  - type: horizontal-stack
+    cards:
+      - type: button
+        name: "🚀 LIVE trading"
+        icon: mdi:rocket-launch
+        tap_action:
+          action: call-service
+          service: rest_command.s25_coinbase_live_on
+        hold_action:
+          action: none
+      - type: button
+        name: "🛡️ DRY_RUN (safe)"
+        icon: mdi:shield-check
+        tap_action:
+          action: call-service
+          service: rest_command.s25_coinbase_live_off
