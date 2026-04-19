@@ -1,0 +1,73 @@
+# S25 Lumiere - Coinbase integration sensors for Home Assistant
+# Add to configuration.yaml (or include via !include)
+# Source: cockpit_lumiere.py via cockpit-alien.smajor.org
+
+rest:
+  - resource: https://cockpit-alien.smajor.org/api/coinbase/portfolio
+    scan_interval: 120
+    sensor:
+      - name: "S25 Coinbase Total USD"
+        unique_id: s25_coinbase_total_usd
+        value_template: "{{ value_json.total_usd | float(0) }}"
+        unit_of_measurement: "USD"
+        device_class: monetary
+      - name: "S25 Coinbase CAD Fiat"
+        unique_id: s25_coinbase_cad_fiat
+        value_template: "{{ value_json.total_cad_fiat | float(0) }}"
+        unit_of_measurement: "CAD"
+        device_class: monetary
+      - name: "S25 Coinbase Coin Count"
+        unique_id: s25_coinbase_coin_count
+        value_template: "{{ value_json.coin_count | int(0) }}"
+    binary_sensor:
+      - name: "S25 Coinbase API Healthy"
+        unique_id: s25_coinbase_api_healthy
+        value_template: "{{ value_json.ok | bool(false) }}"
+
+  - resource: https://cockpit-alien.smajor.org/api/coinbase/spot-prices
+    scan_interval: 60
+    sensor:
+      - name: "S25 BTC Spot"
+        unique_id: s25_btc_spot
+        value_template: "{{ value_json.prices['BTC-USD'] | float(0) }}"
+        unit_of_measurement: "USD"
+      - name: "S25 ETH Spot"
+        unique_id: s25_eth_spot
+        value_template: "{{ value_json.prices['ETH-USD'] | float(0) }}"
+        unit_of_measurement: "USD"
+      - name: "S25 AKT Spot"
+        unique_id: s25_akt_spot
+        value_template: "{{ value_json.prices['AKT-USD'] | float(0) }}"
+        unit_of_measurement: "USD"
+      - name: "S25 SOL Spot"
+        unique_id: s25_sol_spot
+        value_template: "{{ value_json.prices['SOL-USD'] | float(0) }}"
+        unit_of_measurement: "USD"
+      - name: "S25 ATOM Spot"
+        unique_id: s25_atom_spot
+        value_template: "{{ value_json.prices['ATOM-USD'] | float(0) }}"
+        unit_of_measurement: "USD"
+
+  - resource: https://cockpit-alien.smajor.org/api/trading/coinbase/status
+    scan_interval: 30
+    sensor:
+      - name: "S25 Coinbase Mode"
+        unique_id: s25_coinbase_mode
+        value_template: "{{ 'DRY_RUN' if value_json.dry_run else 'LIVE' }}"
+      - name: "S25 Coinbase Dry Run Orders"
+        unique_id: s25_coinbase_dry_run_orders
+        value_template: "{{ value_json.dry_run_orders | int(0) }}"
+      - name: "S25 Coinbase Live Orders"
+        unique_id: s25_coinbase_live_orders
+        value_template: "{{ value_json.orders_placed | int(0) }}"
+    binary_sensor:
+      - name: "S25 Coinbase Keys Configured"
+        unique_id: s25_coinbase_keys_configured
+        value_template: "{{ value_json.api_key_configured | bool(false) }}"
+
+# Input toggle to flip dry_run -> live from HA UI (wire server-side later)
+input_boolean:
+  s25_coinbase_live_trading:
+    name: S25 Coinbase Live Trading
+    icon: mdi:rocket-launch
+    initial: false

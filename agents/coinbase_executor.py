@@ -127,6 +127,125 @@ class CoinbaseExecutor(BaseAgent):
             logger.warning("price fetch failed for %s: %s", product_id, e)
             return None
 
+    # ─── Portfolio + fiat read side ─────────────────────────────────
+
+    def get_portfolio(self) -> Dict[str, Any]:
+        """Aggregate every account into a single portfolio snapshot with USD totals."""
+        c = self._get_client()
+        if c is None:
+            return {"ok": False, "error": "client_unavailable"}
+        try:
+            resp = c.get_accounts()
+            accounts = getattr(resp, "accounts", None)
+            if accounts is None and isinstance(resp, dict):
+                accounts = resp.get("accounts", [])
+            coins = []
+            total_usd = 0.0
+            total_cad = 0.0
+            for acc in accounts or []:
+                def _g(o, k):
+                    return o.get(k) if isinstance(o, dict) else getattr(o, k, None)
+                cur = _g(acc, "currency")
+                bal = _g(acc, "available_balance") or {}
+                val_s = _g(bal, "value") if bal else None
+                if not cur or not val_s:
+                    continue
+                val = float(val_s)
+                if val <= 0:
+                    continue
+                usd = val
+                if cur not in ("USD", "USDC", "USDT"):
+                    spot = self.get_product_price(f"{cur}-USD")
+                    usd = (val * spot) if spot else 0.0
+                if cur == "CAD":
+                    total_cad += val
+                    usd = val * 0.73  # rough USD conv
+                total_usd += usd
+                coins.append({
+                    "currency": cur,
+                    "amount": val,
+                    "usd_value": round(usd, 2),
+                })
+            coins.sort(key=lambda x: x["usd_value"], reverse=True)
+            return {
+                "ok": True,
+                "total_usd": round(total_usd, 2),
+                "total_cad_fiat": round(total_cad, 2),
+                "coin_count": len(coins),
+                "coins": coins,
+            }
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    def get_payment_methods(self) -> Dict[str, Any]:
+        """List connected fiat payment methods (Interac, EFT, PayPal, cards)."""
+        c = self._get_client()
+        if c is None:
+            return {"ok": False, "error": "client_unavailable"}
+        try:
+            resp = c.list_payment_methods()
+            methods_raw = getattr(resp, "payment_methods", None)
+            if methods_raw is None and isinstance(resp, dict):
+                methods_raw = resp.get("payment_methods", [])
+            methods = []
+            for m in methods_raw or []:
+                d = m if isinstance(m, dict) else getattr(m, "__dict__", {})
+                methods.append({
+                    "type": d.get("type"),
+                    "name": d.get("name"),
+                    "currency": d.get("currency"),
+                    "allow_buy": d.get("allow_buy"),
+                    "allow_sell": d.get("allow_sell"),
+                    "allow_deposit": d.get("allow_deposit"),
+                    "allow_withdraw": d.get("allow_withdraw"),
+                    "verified": d.get("verified"),
+                })
+            return {"ok": True, "count": len(methods), "methods": methods}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    def get_fee_tier(self) -> Dict[str, Any]:
+        c = self._get_client()
+        if c is None:
+            return {"ok": False, "error": "client_unavailable"}
+        try:
+            resp = c.get_transaction_summary()
+            d = resp if isinstance(resp, dict) else getattr(resp, "__dict__", {})
+            tier = d.get("fee_tier", {})
+            return {
+                "ok": True,
+                "tier_name": tier.get("pricing_tier"),
+                "maker_fee": tier.get("maker_fee_rate"),
+                "taker_fee": tier.get("taker_fee_rate"),
+                "total_volume_30d": d.get("total_volume"),
+                "total_fees_30d": d.get("total_fees"),
+            }
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    def preview_order(
+        self, product_id: str, side: str, usd_amount: float
+    ) -> Dict[str, Any]:
+        """Simulate a market order without placing it (SDK preview endpoint)."""
+        err = self._pre_flight(product_id, usd_amount, side)
+        if err:
+            return {"ok": False, "error": err}
+        c = self._get_client()
+        if c is None:
+            return {"ok": False, "error": "client_unavailable"}
+        try:
+            if side.upper() == "BUY":
+                resp = c.preview_market_order_buy(product_id=product_id, quote_size=f"{usd_amount:.2f}")
+            else:
+                price = self.get_product_price(product_id)
+                if not price:
+                    return {"ok": False, "error": "price_unavailable"}
+                resp = c.preview_market_order_sell(product_id=product_id, base_size=f"{usd_amount/price:.8f}")
+            d = resp if isinstance(resp, dict) else getattr(resp, "__dict__", {})
+            return {"ok": True, "preview": d}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
     def _pre_flight(self, product_id: str, usd_amount: float, side: str) -> Optional[str]:
         if product_id not in self.allowed_products:
             return f"product_not_allowed: {product_id}"

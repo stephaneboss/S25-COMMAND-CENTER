@@ -1903,6 +1903,59 @@ def api_treasury_autorefuel():
 #  GET /api/trading/overview — Unified multi-chain trading dashboard
 # ═══════════════════════════════════════════════════════════════
 
+
+@app.route('/api/coinbase/portfolio', methods=['GET'])
+def api_coinbase_portfolio():
+    try:
+        from agents.coinbase_executor import get_executor
+        return jsonify(get_executor().get_portfolio())
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route('/api/coinbase/payment-methods', methods=['GET'])
+def api_coinbase_payment_methods():
+    try:
+        from agents.coinbase_executor import get_executor
+        return jsonify(get_executor().get_payment_methods())
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route('/api/coinbase/fee-tier', methods=['GET'])
+def api_coinbase_fee_tier():
+    try:
+        from agents.coinbase_executor import get_executor
+        return jsonify(get_executor().get_fee_tier())
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route('/api/coinbase/preview', methods=['POST'])
+def api_coinbase_preview():
+    try:
+        body = request.get_json(force=True, silent=True) or {}
+        product_id = str(body.get("product_id", "BTC-USD")).upper()
+        side = str(body.get("side", "BUY")).upper()
+        usd_amount = float(body.get("usd_amount", 10.0))
+        from agents.coinbase_executor import get_executor
+        return jsonify(get_executor().preview_order(product_id, side, usd_amount))
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route('/api/coinbase/spot-prices', methods=['GET'])
+def api_coinbase_spot_prices():
+    """Live spot prices for our whitelist."""
+    try:
+        from agents.coinbase_executor import get_executor
+        exe = get_executor()
+        prices = {p: exe.get_product_price(p) for p in sorted(exe.allowed_products)}
+        return jsonify({"ok": True, "prices": prices, "ts": _utcnow_iso()})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
 @app.route('/api/trading/coinbase/status', methods=['GET'])
 def api_trading_coinbase_status():
     try:
