@@ -83,6 +83,12 @@ class CoinbaseExecutor(BaseAgent):
         if not (self._api_key and self._api_secret):
             return None
         try:
+            # Force IPv4 outbound: Coinbase IP whitelist typically only accepts IPv4
+            # and AlienStef's ISP routes api.coinbase.com via IPv6 by default.
+            import socket
+            import urllib3.util.connection as urllib3_cn
+            urllib3_cn.allowed_gai_family = lambda: socket.AF_INET
+
             from coinbase.rest import RESTClient
             self._client = RESTClient(api_key=self._api_key, api_secret=self._api_secret)
             return self._client
