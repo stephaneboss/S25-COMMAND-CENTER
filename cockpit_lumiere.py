@@ -1957,6 +1957,19 @@ def api_coinbase_live_mode():
         flag = pathlib.Path(CoinbaseExecutor.LIVE_FLAG_PATH)
 
         if request.method == 'GET':
+            # Support URL-triggered flips: /api/coinbase/live-mode?enabled=true|false
+            qp = request.args.get('enabled')
+            if qp is not None:
+                new_state = qp.strip().lower() in ('true', '1', 'yes', 'on')
+                result = CoinbaseExecutor.set_live_mode(new_state)
+                try:
+                    exe = get_executor()
+                    exe._ha_mode_ts = 0
+                    exe.refresh_mode_from_ha()
+                    result["executor_dry_run"] = exe.dry_run
+                except Exception:
+                    pass
+                return jsonify(result)
             enabled = flag.exists() and flag.read_text().strip().lower() == 'on'
             return jsonify({"ok": True, "enabled": enabled, "flag_path": str(flag)})
 
