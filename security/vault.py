@@ -47,6 +47,10 @@ class S25Vault:
     TRADING_KEYS: Dict[str, str] = {
         "MEXC_API_KEY": "MEXC exchange API key",
         "MEXC_SECRET_KEY": "MEXC exchange secret key",
+        "CBA_API_KEY": "Coinbase Advanced API key (View + Trade, no Transfer)",
+        "CBA_API_SECRET": "Coinbase Advanced API secret / EC private key",
+        "CDC_API_KEY": "Crypto.com exchange API key",
+        "CDC_API_SECRET": "Crypto.com exchange API secret",
     }
 
     OPTIONAL_KEYS: Dict[str, str] = {

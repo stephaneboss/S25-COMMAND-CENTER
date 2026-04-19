@@ -1729,6 +1729,22 @@ def webhook_tradingview():
         except Exception as e:
             dex_result = {"error": str(e)}
 
+    # --- Coinbase Advanced branch (dry-run safe, gated by HA kill-switch already checked) ---
+    cex_result = None
+    if verdict == "EXECUTE" and normalized_action in ("BUY", "SELL"):
+        try:
+            from agents.coinbase_executor import get_executor as _cb_get
+            cbx = _cb_get()
+            cex_result = cbx.execute_signal({
+                "action": normalized_action,
+                "symbol": symbol,
+                "source": "TRADINGVIEW",
+                "reason": reason,
+                "usd_amount": cbx.max_usd_per_trade,
+            })
+        except Exception as _cbe:
+            cex_result = {"error": str(_cbe)}
+
     return jsonify({
         "ok": True, "source": "TRADINGVIEW", "symbol": symbol,
         "action": normalized_action, "price": price, "verdict": verdict,
@@ -1885,6 +1901,15 @@ def api_treasury_autorefuel():
 # ═══════════════════════════════════════════════════════════════
 #  GET /api/trading/overview — Unified multi-chain trading dashboard
 # ═══════════════════════════════════════════════════════════════
+
+@app.route('/api/trading/coinbase/status', methods=['GET'])
+def api_trading_coinbase_status():
+    try:
+        from agents.coinbase_executor import get_executor
+        return jsonify({"ok": True, **get_executor().exec_status()})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
 
 @app.route('/api/trading/overview', methods=['GET'])
 def api_trading_overview():
