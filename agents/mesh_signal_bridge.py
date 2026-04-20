@@ -84,10 +84,47 @@ def load_buffer() -> List[Dict]:
         return []
     try:
         data = json.loads(STATE_IN.read_text())
-        return (data.get("pipeline", {}) or {}).get("signals_buffer", []) or []
+        buf = list((data.get("pipeline", {}) or {}).get("signals_buffer", []) or [])
+        # Inject the live ARKON5 state as a signal if not already in buffer.
+        # ARKON5 publishes action/conf into /api/status but not into signals_buffer,
+        # so we synthesize a signal entry for the bridge.
+        arkon_sig = _load_arkon_status(data)
+        if arkon_sig:
+            buf.append(arkon_sig)
+        return buf
     except Exception as e:
         logger.warning("state read failed: %s", e)
         return []
+
+
+def _load_arkon_status(agents_state: Dict) -> Optional[Dict]:
+    """Read ARKON5 from /api/status (cockpit). Returns a synthetic signal or None."""
+    try:
+        r = requests.get(f"{COCKPIT}/api/status", timeout=5)
+        if r.status_code != 200:
+            return None
+        d = r.json()
+        action = str(d.get("arkon5_action", "")).upper()
+        conf_s = str(d.get("arkon5_conf", "") or "0")
+        try:
+            conf = float(conf_s) / 100.0 if float(conf_s) > 1 else float(conf_s)
+        except Exception:
+            return None
+        if action not in ("BUY", "SELL") or conf < 0.60:
+            return None
+        ts = d.get("timestamp") or datetime.now(timezone.utc).isoformat()
+        return {
+            "ts": ts,
+            "source": "ARKON5",
+            "symbol": "BTC/USD",  # ARKON5 targets BTC by convention
+            "action": action,
+            "confidence": round(conf, 3),
+            "price": 0,
+            "synthetic": True,
+        }
+    except Exception as e:
+        logger.warning("ARKON5 status read failed: %s", e)
+        return None
 
 
 def normalize_symbol(sym: str) -> Optional[str]:
