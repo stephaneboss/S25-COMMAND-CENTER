@@ -1,7 +1,7 @@
 {
   "rsi_dip": {
     "enabled": true,
-    "usd_size": 2.0,
+    "usd_size": 8.0,
     "last_signal_ts": null,
     "last_signal_symbol": null,
     "total_signals": 0,
@@ -43,7 +43,7 @@
   },
   "bollinger_bounce": {
     "enabled": true,
-    "usd_size": 3.0,
+    "usd_size": 6.0,
     "symbols": [
       "ATOM-USD",
       "BTC-USD",
@@ -54,7 +54,7 @@
     "total_signals": 0
   },
   "stoch_rsi_bounce": {
-    "enabled": true,
+    "enabled": false,
     "usd_size": 3.0,
     "symbols": [
       "DOGE-USD"
