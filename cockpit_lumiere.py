@@ -1944,6 +1944,67 @@ def api_coinbase_preview():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
+@app.route('/api/trading/positions', methods=['GET'])
+def api_trading_positions():
+    """Open positions + realized P&L snapshot."""
+    try:
+        from agents.position_tracker import compute_positions
+        from agents.coinbase_executor import get_executor
+        exe = get_executor()
+        result = compute_positions(spot_fn=exe.get_product_price)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route('/api/trading/pnl', methods=['GET'])
+def api_trading_pnl():
+    """Condensed P&L dashboard endpoint."""
+    try:
+        from agents.position_tracker import compute_positions
+        from agents.coinbase_executor import get_executor
+        exe = get_executor()
+        r = compute_positions(spot_fn=exe.get_product_price)
+        return jsonify({
+            "ok": True,
+            "realized_pnl_total": r.get("realized_pnl_total", 0),
+            "unrealized_pnl_total": r.get("unrealized_pnl_total", 0),
+            "total_pnl": r.get("total_pnl", 0),
+            "win_rate_pct": r.get("win_rate_pct"),
+            "realized_trades_count": r.get("realized_pnl_count", 0),
+            "open_position_count": r.get("open_position_count", 0),
+            "avg_win_usd": r.get("avg_win_usd"),
+            "avg_loss_usd": r.get("avg_loss_usd"),
+        })
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route('/api/trading/trade-log', methods=['GET'])
+def api_trading_trade_log():
+    """Return the last N trades from the append-only JSONL log."""
+    try:
+        from agents.position_tracker import last_trades
+        n = int(request.args.get('n', 20))
+        return jsonify({"ok": True, "trades": last_trades(n=n)})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route('/api/trading/backfill-fills', methods=['POST'])
+def api_trading_backfill_fills():
+    """Refresh avg_price/fee from Coinbase for trades that were submitted
+    before we knew their fill state."""
+    try:
+        from agents.position_tracker import backfill_fills
+        from agents.coinbase_executor import get_executor
+        exe = get_executor()
+        updated = backfill_fills(exe._get_order_info)
+        return jsonify({"ok": True, "updated": updated})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
 @app.route('/api/coinbase/live-mode', methods=['GET', 'POST'])
 def api_coinbase_live_mode():
     """Toggle LIVE trading flag for Coinbase executor.

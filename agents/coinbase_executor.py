@@ -36,6 +36,9 @@ class CoinbaseExecutor(BaseAgent):
     ALLOWED_PRODUCTS = {"BTC-USD", "ETH-USD", "AKT-USD", "SOL-USD", "ATOM-USD", "DOGE-USD"}
     MAX_USD_PER_TRADE_DEFAULT = 50.0
     MAX_OPEN_ORDERS = 5
+    # Auto bracket: after every successful BUY, place an OCO with SL+TP.
+    DEFAULT_SL_PCT = 3.0   # stop-loss  -3% below entry
+    DEFAULT_TP_PCT = 6.0   # take-profit +6% above entry (1:2 R/R)
 
     def __init__(self, config: Dict = None, commander=None):
         super().__init__("coinbase_executor", "1.0.0", config)
@@ -47,6 +50,9 @@ class CoinbaseExecutor(BaseAgent):
         self.max_usd_per_trade = float(cfg.get("max_usd_per_trade", self.MAX_USD_PER_TRADE_DEFAULT))
         self.default_order_type = cfg.get("default_order_type", "MARKET").upper()
         self.allowed_products = set(cfg.get("allowed_products", self.ALLOWED_PRODUCTS))
+        self.auto_bracket = bool(cfg.get("auto_bracket", True))
+        self.sl_pct = float(cfg.get("sl_pct", self.DEFAULT_SL_PCT))
+        self.tp_pct = float(cfg.get("tp_pct", self.DEFAULT_TP_PCT))
 
         self._api_key: str = ""
         self._api_secret: str = ""
@@ -429,11 +435,50 @@ class CoinbaseExecutor(BaseAgent):
             logger.error("market order failed: %s", e)
             return {"ok": False, "error": str(e), "ts": ts, "order": order_record}
 
+    def place_bracket_sell(self, product_id: str, base_size: float, entry_price: float,
+                            source: str = "auto_bracket") -> Dict[str, Any]:
+        """Place an OCO bracket SELL: stop-loss + take-profit after a successful BUY.
+
+        Uses Coinbase trigger_bracket_order_gtc_sell which is a native OCO.
+        Never fires in dry_run. Never called unless auto_bracket is on.
+        """
+        from uuid import uuid4
+        if self.dry_run:
+            return {"ok": True, "skipped": "dry_run"}
+        c = self._get_client()
+        if c is None:
+            return {"ok": False, "error": "client_unavailable"}
+        try:
+            sl_price = round(entry_price * (1 - self.sl_pct / 100.0), 8)
+            tp_price = round(entry_price * (1 + self.tp_pct / 100.0), 8)
+            # Quantize base_size to product precision
+            qty_str = self._quantize_base_size(product_id, float(base_size))
+            client_order_id = f"s25-br-{uuid4().hex[:12]}"
+            resp = c.trigger_bracket_order_gtc_sell(
+                client_order_id=client_order_id,
+                product_id=product_id,
+                base_size=qty_str,
+                limit_price=f"{tp_price:.8f}",
+                stop_trigger_price=f"{sl_price:.8f}",
+            )
+            raw = resp if isinstance(resp, dict) else getattr(resp, "__dict__", {})
+            success = raw.get("success", False)
+            logger.info("bracket placed %s qty=%s TP=%.6f SL=%.6f ok=%s", product_id, qty_str, tp_price, sl_price, success)
+            return {
+                "ok": bool(success),
+                "client_order_id": client_order_id,
+                "order_id": (raw.get("success_response") or {}).get("order_id") if isinstance(raw.get("success_response"), dict) else None,
+                "qty": qty_str,
+                "tp_price": tp_price,
+                "sl_price": sl_price,
+            }
+        except Exception as e:
+            logger.error("bracket failed: %s", e)
+            return {"ok": False, "error": str(e)}
+
     def execute_signal(self, signal: Dict[str, Any]) -> Dict[str, Any]:
-        # `self.enabled` was the legacy gate before the HA file-flag existed.
-        # Now the single source of truth is `self.dry_run` (set by
-        # refresh_mode_from_ha). place_market_order calls refresh itself
-        # and handles both modes cleanly.
+        # Legacy enabled gate removed. dry_run (set by refresh_mode_from_ha) is
+        # the single source of truth.
         action = str(signal.get("action", "")).upper()
         symbol = str(signal.get("symbol", "")).upper()
         if "/" in symbol:
@@ -445,13 +490,77 @@ class CoinbaseExecutor(BaseAgent):
         if action not in ("BUY", "SELL"):
             return {"ok": False, "error": f"non_actionable: {action}"}
 
-        return self.place_market_order(
+        result = self.place_market_order(
             product_id=symbol,
             side=action,
             usd_amount=float(signal.get("usd_amount", self.max_usd_per_trade)),
             reason=signal.get("reason", ""),
             source=signal.get("source", "webhook"),
         )
+
+        # Record in position tracker (append JSONL)
+        try:
+            from agents.position_tracker import record_from_order_result
+            record_from_order_result(result, signal)
+        except Exception as _te:
+            logger.warning("position_tracker record failed: %s", _te)
+
+        # Auto bracket (SL + TP) after a successful live BUY
+        if (
+            self.auto_bracket
+            and result.get("ok")
+            and not self.dry_run
+            and action == "BUY"
+            and (result.get("order") or {}).get("success")
+        ):
+            order = result["order"]
+            # Need base_size (qty filled). First try submitted, then look up the order.
+            qty = None
+            try:
+                if order.get("base_size_submitted"):
+                    qty = float(order["base_size_submitted"])
+                else:
+                    oid = order.get("order_id")
+                    if oid:
+                        info = self._get_order_info(oid)
+                        if info and info.get("filled_size"):
+                            qty = float(info["filled_size"])
+            except Exception:
+                qty = None
+
+            if qty and qty > 0:
+                entry_price = self.get_product_price(symbol)
+                if entry_price:
+                    bracket = self.place_bracket_sell(symbol, qty, entry_price, source="auto_bracket")
+                    result["bracket"] = bracket
+            else:
+                result["bracket"] = {"ok": False, "error": "no_base_size_resolved"}
+
+        return result
+
+    def _get_order_info(self, order_id: str) -> Optional[Dict[str, Any]]:
+        """Look up an order's filled state on Coinbase. Used by bracket + backfill."""
+        c = self._get_client()
+        if c is None:
+            return None
+        try:
+            r = c.get_order(order_id)
+            d = r if isinstance(r, dict) else getattr(r, "__dict__", {})
+            order = d.get("order")
+            if order is None:
+                return None
+            od = order if isinstance(order, dict) else getattr(order, "__dict__", {})
+            return {
+                "status": od.get("status"),
+                "filled_size": od.get("filled_size"),
+                "filled_value": od.get("filled_value"),
+                "total_fees": od.get("total_fees"),
+                "avg_filled_price": od.get("average_filled_price"),
+                "raw": od,
+            }
+        except Exception as e:
+            logger.warning("get_order %s failed: %s", order_id, e)
+            return None
 
     def exec_status(self) -> Dict[str, Any]:
         return {

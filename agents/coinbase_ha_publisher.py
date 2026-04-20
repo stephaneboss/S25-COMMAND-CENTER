@@ -2,13 +2,14 @@
 """
 S25 Coinbase HA Publisher
 =========================
-Polls the Coinbase executor (portfolio + prices + executor state) and pushes
-them to Home Assistant as entity states via the HA REST API.
+Polls the cockpit's Coinbase endpoints (portfolio + prices + exec status)
+and pushes each field to Home Assistant as an entity state via the HA
+REST API.
 
-Why push (not pull): editing HA's configuration.yaml requires filesystem
-access to the HA host (denied here). POSTing to /api/states/<entity_id>
-creates or updates entities on the fly — they become visible in HA without
-any yaml edit.
+Why we hit the cockpit (not the SDK directly): cron's environment has no
+DBus session, so gnome-keyring reads fail — but the cockpit runs as a
+user-level systemd service with DBus access, so it successfully reads
+the keyring on behalf of cron.
 
 Entities produced:
   sensor.s25_coinbase_total_usd
@@ -22,10 +23,6 @@ Entities produced:
   sensor.s25_coinbase_live_orders
   binary_sensor.s25_coinbase_api_healthy
   binary_sensor.s25_coinbase_keys_configured
-
-Run modes:
-  python3 -m agents.coinbase_ha_publisher           # one-shot publish then exit
-  python3 -m agents.coinbase_ha_publisher --loop 60 # publish every 60s forever
 """
 from __future__ import annotations
 
@@ -34,116 +31,171 @@ import logging
 import os
 import sys
 import time
+from pathlib import Path
 from typing import Any, Dict, Optional
 
 import requests
 
 logger = logging.getLogger("s25.coinbase_ha_publisher")
 
+COCKPIT = os.getenv("S25_COCKPIT_URL", "http://localhost:7777")
+
+
+def _env_file_get(key: str) -> Optional[str]:
+    """Read a value from ../.env when keyring is unavailable (cron env)."""
+    env_path = Path(__file__).resolve().parent.parent / ".env"
+    if not env_path.exists():
+        return None
+    try:
+        for line in env_path.read_text().splitlines():
+            if line.strip().startswith(f"{key}="):
+                return line.split("=", 1)[1].strip().strip('"').strip("'")
+    except Exception:
+        return None
+    return None
+
 
 def _ha_config():
-    from security.vault import vault_get
-    url = (vault_get("HA_URL", os.getenv("HA_URL", "")) or "").rstrip("/")
-    token = vault_get("HA_TOKEN", os.getenv("HA_TOKEN", ""))
+    url = os.getenv("HA_URL") or _env_file_get("HA_URL") or "http://10.0.0.136:8123"
+    token = os.getenv("HA_TOKEN") or _env_file_get("HA_TOKEN") or ""
     if not (url and token):
-        raise RuntimeError("HA_URL or HA_TOKEN missing — check vault")
-    return url, token
+        raise RuntimeError("HA_URL or HA_TOKEN missing from env + .env")
+    return url.rstrip("/"), token
 
 
 def _post_state(url: str, token: str, entity_id: str, state: Any, attrs: Optional[Dict] = None) -> bool:
-    payload = {"state": str(state), "attributes": attrs or {}}
     try:
         r = requests.post(
             f"{url}/api/states/{entity_id}",
             headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-            json=payload,
+            json={"state": str(state), "attributes": attrs or {}},
             timeout=6,
         )
-        if r.status_code in (200, 201):
-            return True
-        logger.warning("HA POST %s -> %s: %s", entity_id, r.status_code, r.text[:200])
-        return False
+        return r.status_code in (200, 201)
     except Exception as e:
         logger.warning("HA POST %s err: %s", entity_id, e)
         return False
 
 
+def _cockpit_get(path: str, timeout: float = 6.0) -> Dict[str, Any]:
+    try:
+        r = requests.get(f"{COCKPIT}{path}", timeout=timeout)
+        if r.status_code == 200:
+            return r.json()
+        return {"ok": False, "error": f"http_{r.status_code}"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
 def collect_and_publish() -> Dict[str, Any]:
-    """Snapshot + push. Returns a summary of pushed entities."""
-    from agents.coinbase_executor import get_executor
-
     url, token = _ha_config()
-    exe = get_executor()
 
-    portfolio = exe.get_portfolio()
-    fee_tier = exe.get_fee_tier()
-    exec_status = exe.exec_status()
+    portfolio = _cockpit_get("/api/coinbase/portfolio")
+    fee_tier = _cockpit_get("/api/coinbase/fee-tier")
+    exec_status = _cockpit_get("/api/trading/coinbase/status")
+    spot = _cockpit_get("/api/coinbase/spot-prices")
+    pnl = _cockpit_get("/api/trading/pnl")
 
     pushed = {}
 
     # Portfolio
-    total_usd = portfolio.get("total_usd", 0) if portfolio.get("ok") else 0
-    total_cad = portfolio.get("total_cad_fiat", 0) if portfolio.get("ok") else 0
-    coin_count = portfolio.get("coin_count", 0) if portfolio.get("ok") else 0
-    pushed["s25_coinbase_total_usd"] = _post_state(
-        url, token, "sensor.s25_coinbase_total_usd", total_usd,
+    ok_p = portfolio.get("ok", False)
+    pushed["sensor.s25_coinbase_total_usd"] = _post_state(
+        url, token, "sensor.s25_coinbase_total_usd",
+        portfolio.get("total_usd", 0) if ok_p else 0,
         {"unit_of_measurement": "USD", "friendly_name": "S25 Coinbase Total USD", "icon": "mdi:cash-multiple", "coins": portfolio.get("coins", [])},
     )
-    pushed["s25_coinbase_total_cad_fiat"] = _post_state(
-        url, token, "sensor.s25_coinbase_total_cad_fiat", total_cad,
+    pushed["sensor.s25_coinbase_total_cad_fiat"] = _post_state(
+        url, token, "sensor.s25_coinbase_total_cad_fiat",
+        portfolio.get("total_cad_fiat", 0) if ok_p else 0,
         {"unit_of_measurement": "CAD", "friendly_name": "S25 Coinbase CAD Fiat", "icon": "mdi:cash"},
     )
-    pushed["s25_coinbase_coin_count"] = _post_state(
-        url, token, "sensor.s25_coinbase_coin_count", coin_count,
+    pushed["sensor.s25_coinbase_coin_count"] = _post_state(
+        url, token, "sensor.s25_coinbase_coin_count",
+        portfolio.get("coin_count", 0) if ok_p else 0,
         {"friendly_name": "S25 Coinbase Coin Count", "icon": "mdi:currency-usd"},
     )
     pushed["binary_sensor.s25_coinbase_api_healthy"] = _post_state(
         url, token, "binary_sensor.s25_coinbase_api_healthy",
-        "on" if portfolio.get("ok") else "off",
+        "on" if ok_p else "off",
         {"friendly_name": "S25 Coinbase API Healthy", "device_class": "connectivity"},
     )
 
-    # Spot prices for each whitelisted product
-    for product in sorted(exe.allowed_products):
+    # Spot prices
+    prices = spot.get("prices", {}) if spot.get("ok") else {}
+    for product, price in prices.items():
         base = product.split("-")[0].lower()
-        price = exe.get_product_price(product)
-        entity = f"sensor.s25_{base}_spot"
-        pushed[entity] = _post_state(
-            url, token, entity, price if price else 0,
+        pushed[f"sensor.s25_{base}_spot"] = _post_state(
+            url, token, f"sensor.s25_{base}_spot", price if price else 0,
             {"unit_of_measurement": "USD", "friendly_name": f"S25 {base.upper()} Spot", "icon": "mdi:chart-line", "product_id": product},
         )
 
     # Fee tier
-    maker_bps = int(float(fee_tier.get("maker_fee") or 0) * 10000)
-    taker_bps = int(float(fee_tier.get("taker_fee") or 0) * 10000)
-    pushed["sensor.s25_coinbase_maker_fee_bps"] = _post_state(
-        url, token, "sensor.s25_coinbase_maker_fee_bps", maker_bps,
-        {"unit_of_measurement": "bps", "friendly_name": "S25 Coinbase Maker Fee", "tier": fee_tier.get("tier_name")},
-    )
-    pushed["sensor.s25_coinbase_taker_fee_bps"] = _post_state(
-        url, token, "sensor.s25_coinbase_taker_fee_bps", taker_bps,
-        {"unit_of_measurement": "bps", "friendly_name": "S25 Coinbase Taker Fee", "tier": fee_tier.get("tier_name")},
-    )
+    if fee_tier.get("ok"):
+        maker_bps = int(float(fee_tier.get("maker_fee") or 0) * 10000)
+        taker_bps = int(float(fee_tier.get("taker_fee") or 0) * 10000)
+        pushed["sensor.s25_coinbase_maker_fee_bps"] = _post_state(
+            url, token, "sensor.s25_coinbase_maker_fee_bps", maker_bps,
+            {"unit_of_measurement": "bps", "friendly_name": "S25 Coinbase Maker Fee", "tier": fee_tier.get("tier_name")},
+        )
+        pushed["sensor.s25_coinbase_taker_fee_bps"] = _post_state(
+            url, token, "sensor.s25_coinbase_taker_fee_bps", taker_bps,
+            {"unit_of_measurement": "bps", "friendly_name": "S25 Coinbase Taker Fee", "tier": fee_tier.get("tier_name")},
+        )
 
-    # Executor state
-    pushed["sensor.s25_coinbase_mode"] = _post_state(
-        url, token, "sensor.s25_coinbase_mode",
-        "DRY_RUN" if exec_status.get("dry_run") else "LIVE",
-        {"friendly_name": "S25 Coinbase Mode", "icon": "mdi:shield-check" if exec_status.get("dry_run") else "mdi:rocket-launch", "max_usd_per_trade": exec_status.get("max_usd_per_trade")},
-    )
-    pushed["sensor.s25_coinbase_dry_run_orders"] = _post_state(
-        url, token, "sensor.s25_coinbase_dry_run_orders", exec_status.get("dry_run_orders", 0),
-        {"friendly_name": "S25 Coinbase Dry-Run Orders", "icon": "mdi:counter"},
-    )
-    pushed["sensor.s25_coinbase_live_orders"] = _post_state(
-        url, token, "sensor.s25_coinbase_live_orders", exec_status.get("orders_placed", 0),
-        {"friendly_name": "S25 Coinbase Live Orders", "icon": "mdi:counter"},
-    )
-    pushed["binary_sensor.s25_coinbase_keys_configured"] = _post_state(
-        url, token, "binary_sensor.s25_coinbase_keys_configured",
-        "on" if exec_status.get("api_key_configured") else "off",
-        {"friendly_name": "S25 Coinbase Keys Configured", "device_class": "connectivity"},
-    )
+    # Exec status
+    if exec_status.get("ok"):
+        pushed["sensor.s25_coinbase_mode"] = _post_state(
+            url, token, "sensor.s25_coinbase_mode",
+            "DRY_RUN" if exec_status.get("dry_run") else "LIVE",
+            {"friendly_name": "S25 Coinbase Mode", "icon": "mdi:shield-check" if exec_status.get("dry_run") else "mdi:rocket-launch", "max_usd_per_trade": exec_status.get("max_usd_per_trade")},
+        )
+        pushed["sensor.s25_coinbase_dry_run_orders"] = _post_state(
+            url, token, "sensor.s25_coinbase_dry_run_orders", exec_status.get("dry_run_orders", 0),
+            {"friendly_name": "S25 Coinbase Dry-Run Orders", "icon": "mdi:counter"},
+        )
+        pushed["sensor.s25_coinbase_live_orders"] = _post_state(
+            url, token, "sensor.s25_coinbase_live_orders", exec_status.get("orders_placed", 0),
+            {"friendly_name": "S25 Coinbase Live Orders", "icon": "mdi:counter"},
+        )
+        pushed["binary_sensor.s25_coinbase_keys_configured"] = _post_state(
+            url, token, "binary_sensor.s25_coinbase_keys_configured",
+            "on" if exec_status.get("api_key_configured") else "off",
+            {"friendly_name": "S25 Coinbase Keys Configured", "device_class": "connectivity"},
+        )
+
+    # P&L sensors
+    if pnl.get("ok"):
+        pushed["sensor.s25_trading_total_pnl"] = _post_state(
+            url, token, "sensor.s25_trading_total_pnl",
+            round(float(pnl.get("total_pnl") or 0), 4),
+            {"unit_of_measurement": "USD", "friendly_name": "S25 Total P&L", "icon": "mdi:chart-line-variant",
+             "realized": pnl.get("realized_pnl_total"), "unrealized": pnl.get("unrealized_pnl_total")},
+        )
+        pushed["sensor.s25_trading_realized_pnl"] = _post_state(
+            url, token, "sensor.s25_trading_realized_pnl",
+            round(float(pnl.get("realized_pnl_total") or 0), 4),
+            {"unit_of_measurement": "USD", "friendly_name": "S25 Realized P&L", "icon": "mdi:cash-check"},
+        )
+        pushed["sensor.s25_trading_unrealized_pnl"] = _post_state(
+            url, token, "sensor.s25_trading_unrealized_pnl",
+            round(float(pnl.get("unrealized_pnl_total") or 0), 4),
+            {"unit_of_measurement": "USD", "friendly_name": "S25 Unrealized P&L", "icon": "mdi:chart-timeline-variant"},
+        )
+        wr = pnl.get("win_rate_pct")
+        pushed["sensor.s25_trading_win_rate"] = _post_state(
+            url, token, "sensor.s25_trading_win_rate",
+            wr if wr is not None else "unknown",
+            {"unit_of_measurement": "%", "friendly_name": "S25 Win Rate", "icon": "mdi:trophy",
+             "realized_trades": pnl.get("realized_trades_count"),
+             "avg_win_usd": pnl.get("avg_win_usd"),
+             "avg_loss_usd": pnl.get("avg_loss_usd")},
+        )
+        pushed["sensor.s25_trading_open_positions"] = _post_state(
+            url, token, "sensor.s25_trading_open_positions",
+            int(pnl.get("open_position_count") or 0),
+            {"friendly_name": "S25 Open Positions", "icon": "mdi:briefcase-variant"},
+        )
 
     ok_count = sum(1 for v in pushed.values() if v)
     logger.info("published %d/%d entities to HA", ok_count, len(pushed))
@@ -155,19 +207,15 @@ def main():
     parser.add_argument("--loop", type=int, default=0, help="Seconds between pushes, 0 = one-shot")
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args()
-
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO,
         format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
     )
-
     if args.loop <= 0:
-        result = collect_and_publish()
         import json
-        print(json.dumps(result, indent=2))
+        print(json.dumps(collect_and_publish(), indent=2))
         return 0
-
-    logger.info("looping every %ds (Ctrl-C to stop)", args.loop)
+    logger.info("looping every %ds", args.loop)
     while True:
         try:
             collect_and_publish()
