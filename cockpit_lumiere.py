@@ -1957,6 +1957,55 @@ def api_trading_positions():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
+@app.route('/api/trading/strategies', methods=['GET'])
+def api_trading_strategies():
+    """List all strategies with their enabled status + last signal info."""
+    try:
+        import strategies
+        reg = strategies.bootstrap()
+        return jsonify({"ok": True, "strategies": reg.snapshot()})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route('/api/trading/strategies/<name>/toggle', methods=['POST', 'GET'])
+def api_strategy_toggle(name):
+    """Enable/disable a strategy. POST {enabled:bool} or GET ?enabled=true|false"""
+    try:
+        import strategies
+        reg = strategies.bootstrap()
+        if request.method == 'GET':
+            qp = request.args.get('enabled')
+            if qp is None:
+                return jsonify({"ok": False, "error": "pass ?enabled=true|false"}), 400
+            new_state = qp.strip().lower() in ('true', '1', 'yes', 'on')
+        else:
+            body = request.get_json(force=True, silent=True) or {}
+            new_state = bool(body.get('enabled', False))
+        if not reg.toggle(name, new_state):
+            return jsonify({"ok": False, "error": f"unknown strategy: {name}"}), 404
+        return jsonify({"ok": True, "strategy": name, "enabled": new_state})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route('/api/trading/strategies/<name>/usd-size', methods=['POST'])
+def api_strategy_usd_size(name):
+    """Set per-strategy USD notional. POST {usd: float}"""
+    try:
+        import strategies
+        reg = strategies.bootstrap()
+        body = request.get_json(force=True, silent=True) or {}
+        usd = float(body.get('usd', 0))
+        if usd <= 0:
+            return jsonify({"ok": False, "error": "usd must be > 0"}), 400
+        if not reg.set_usd_size(name, usd):
+            return jsonify({"ok": False, "error": f"unknown strategy: {name}"}), 404
+        return jsonify({"ok": True, "strategy": name, "usd_size": usd})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
 @app.route('/api/trading/pnl', methods=['GET'])
 def api_trading_pnl():
     """Condensed P&L dashboard endpoint."""

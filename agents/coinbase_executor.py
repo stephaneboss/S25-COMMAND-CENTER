@@ -133,6 +133,45 @@ class CoinbaseExecutor(BaseAgent):
             logger.warning("price fetch failed for %s: %s", product_id, e)
             return None
 
+    _GRAN_SECONDS = {
+        "ONE_MINUTE": 60, "FIVE_MINUTE": 300, "FIFTEEN_MINUTE": 900,
+        "THIRTY_MINUTE": 1800, "ONE_HOUR": 3600, "TWO_HOUR": 7200,
+        "SIX_HOUR": 21600, "ONE_DAY": 86400,
+    }
+
+    def get_candles(self, product_id: str, granularity: str = "ONE_HOUR", limit: int = 50):
+        """Return a list of Candle objects (most recent last)."""
+        from strategies.base import Candle
+        c = self._get_client()
+        if c is None:
+            return []
+        secs = self._GRAN_SECONDS.get(granularity, 3600)
+        now = int(time.time())
+        start = now - (limit * secs)
+        try:
+            resp = c.get_public_candles(
+                product_id=product_id,
+                start=str(start),
+                end=str(now),
+                granularity=granularity,
+            )
+            d = resp if isinstance(resp, dict) else getattr(resp, "__dict__", {})
+            rows = d.get("candles") or []
+            candles = []
+            for row in rows:
+                r = row if isinstance(row, dict) else getattr(row, "__dict__", {})
+                candles.append(Candle(
+                    start=int(r.get("start", 0)) if r.get("start") else 0,
+                    open=float(r.get("open", 0)), high=float(r.get("high", 0)),
+                    low=float(r.get("low", 0)), close=float(r.get("close", 0)),
+                    volume=float(r.get("volume", 0)),
+                ))
+            candles.sort(key=lambda x: x.start)
+            return candles
+        except Exception as e:
+            logger.warning("candles fetch %s %s failed: %s", product_id, granularity, e)
+            return []
+
     _base_increment_cache: Dict[str, str] = {}
 
     def _get_base_increment(self, product_id: str) -> str:

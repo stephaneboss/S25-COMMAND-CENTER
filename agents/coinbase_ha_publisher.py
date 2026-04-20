@@ -95,6 +95,7 @@ def collect_and_publish() -> Dict[str, Any]:
     exec_status = _cockpit_get("/api/trading/coinbase/status")
     spot = _cockpit_get("/api/coinbase/spot-prices")
     pnl = _cockpit_get("/api/trading/pnl")
+    strat_data = _cockpit_get("/api/trading/strategies")
 
     pushed = {}
 
@@ -196,6 +197,33 @@ def collect_and_publish() -> Dict[str, Any]:
             int(pnl.get("open_position_count") or 0),
             {"friendly_name": "S25 Open Positions", "icon": "mdi:briefcase-variant"},
         )
+
+    # Strategies
+    if strat_data.get("ok"):
+        strategies = strat_data.get("strategies", [])
+        pushed["sensor.s25_strategies_total"] = _post_state(
+            url, token, "sensor.s25_strategies_total", len(strategies),
+            {"friendly_name": "S25 Strategies Total", "icon": "mdi:robot"},
+        )
+        pushed["sensor.s25_strategies_enabled"] = _post_state(
+            url, token, "sensor.s25_strategies_enabled",
+            sum(1 for s in strategies if s.get("enabled")),
+            {"friendly_name": "S25 Strategies Enabled", "icon": "mdi:robot-happy"},
+        )
+        for s in strategies:
+            ent = f"sensor.s25_strategy_{s['name']}"
+            pushed[ent] = _post_state(
+                url, token, ent,
+                "ON" if s.get("enabled") else "OFF",
+                {
+                    "friendly_name": f"Strategy {s['name']}",
+                    "description": s.get("description"),
+                    "usd_size": s.get("usd_size"),
+                    "total_signals": s.get("total_signals"),
+                    "last_signal_symbol": s.get("last_signal_symbol"),
+                    "last_signal_action": s.get("last_signal_action"),
+                },
+            )
 
     ok_count = sum(1 for v in pushed.values() if v)
     logger.info("published %d/%d entities to HA", ok_count, len(pushed))
