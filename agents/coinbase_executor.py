@@ -33,7 +33,7 @@ logger = logging.getLogger("s25.coinbase")
 class CoinbaseExecutor(BaseAgent):
     """Coinbase Advanced order executor, dry-run safe by default."""
 
-    ALLOWED_PRODUCTS = {"BTC-USD", "ETH-USD", "AKT-USD", "SOL-USD", "ATOM-USD"}
+    ALLOWED_PRODUCTS = {"BTC-USD", "ETH-USD", "AKT-USD", "SOL-USD", "ATOM-USD", "DOGE-USD"}
     MAX_USD_PER_TRADE_DEFAULT = 50.0
     MAX_OPEN_ORDERS = 5
 
@@ -126,6 +126,42 @@ class CoinbaseExecutor(BaseAgent):
         except Exception as e:
             logger.warning("price fetch failed for %s: %s", product_id, e)
             return None
+
+    _base_increment_cache: Dict[str, str] = {}
+
+    def _get_base_increment(self, product_id: str) -> str:
+        """Return Coinbase's base_increment for a product (e.g. '0.1' for DOGE).
+
+        Required so SELL orders submit base_size at the right precision —
+        otherwise we get PREVIEW_INVALID_SIZE_PRECISION.
+        """
+        if product_id in self._base_increment_cache:
+            return self._base_increment_cache[product_id]
+        c = self._get_client()
+        if c is None:
+            return "0.00000001"
+        try:
+            resp = c.get_product(product_id)
+            d = resp if isinstance(resp, dict) else getattr(resp, "__dict__", {})
+            inc = d.get("base_increment") or "0.00000001"
+            self._base_increment_cache[product_id] = str(inc)
+            return str(inc)
+        except Exception:
+            return "0.00000001"
+
+    def _quantize_base_size(self, product_id: str, raw_size: float) -> str:
+        """Round `raw_size` DOWN to the product's base_increment, returned as a string
+        formatted with the correct number of decimals."""
+        from decimal import Decimal, ROUND_DOWN
+        inc_s = self._get_base_increment(product_id)
+        inc = Decimal(inc_s)
+        q = (Decimal(str(raw_size)) / inc).to_integral_value(rounding=ROUND_DOWN) * inc
+        # Format using the increment's own decimal count
+        if "." in inc_s:
+            decimals = len(inc_s.split(".")[1].rstrip("0")) or 1
+        else:
+            decimals = 0
+        return f"{q:.{decimals}f}"
 
     # ─── Portfolio + fiat read side ─────────────────────────────────
 
@@ -240,7 +276,9 @@ class CoinbaseExecutor(BaseAgent):
                 price = self.get_product_price(product_id)
                 if not price:
                     return {"ok": False, "error": "price_unavailable"}
-                resp = c.preview_market_order_sell(product_id=product_id, base_size=f"{usd_amount/price:.8f}")
+                raw_size = usd_amount / price
+                base_size = self._quantize_base_size(product_id, raw_size)
+                resp = c.preview_market_order_sell(product_id=product_id, base_size=base_size)
             d = resp if isinstance(resp, dict) else getattr(resp, "__dict__", {})
             return {"ok": True, "preview": d}
         except Exception as e:
@@ -358,12 +396,14 @@ class CoinbaseExecutor(BaseAgent):
                 price = self.get_product_price(product_id)
                 if not price:
                     return {"ok": False, "error": "price_unavailable_for_sell_sizing"}
-                base_size = usd_amount / price
+                raw_size = usd_amount / price
+                base_size = self._quantize_base_size(product_id, raw_size)
                 resp = c.market_order_sell(
                     client_order_id=client_order_id,
                     product_id=product_id,
-                    base_size=f"{base_size:.8f}",
+                    base_size=base_size,
                 )
+                order_record["base_size_submitted"] = base_size
             success = getattr(resp, "success", resp.get("success") if isinstance(resp, dict) else False)
             order_record["client_order_id"] = client_order_id
             order_record["success"] = bool(success)
