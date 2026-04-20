@@ -584,17 +584,15 @@ class CoinbaseExecutor(BaseAgent):
         except Exception as _e:
             logger.warning("risk engine fallback (keeping fixed sizing): %s", _e)
 
-        # === Cap to available USD for BUY (prevents INSUFFICIENT_FUND spam) ===
-        if action == "BUY":
-            try:
-                port = self.get_portfolio()
-                if port.get("ok"):
-                    usd_row = next(
-                        (c for c in port.get("coins", []) if c.get("currency") == "USD"),
-                        None,
-                    )
+        # === Cap to available balance per side (prevents INSUFFICIENT_FUND spam) ===
+        try:
+            port = self.get_portfolio()
+            if port.get("ok"):
+                coins = port.get("coins", []) or []
+                if action == "BUY":
+                    # cap to available USD - $0.50 buffer
+                    usd_row = next((c for c in coins if c.get("currency") == "USD"), None)
                     available = float(usd_row.get("available", 0)) if usd_row else 0.0
-                    # Keep $0.50 as fee/slippage buffer
                     max_spend = max(0.0, available - 0.50)
                     if max_spend < 1.0:
                         return {
@@ -604,11 +602,29 @@ class CoinbaseExecutor(BaseAgent):
                             "requested_usd": usd_amount,
                         }
                     if usd_amount > max_spend:
-                        logger.info("capping BUY notional from $%.2f to $%.2f (USD cap)",
+                        logger.info("capping BUY notional $%.2f -> $%.2f (USD cap)",
                                     usd_amount, max_spend)
                         usd_amount = round(max_spend, 2)
-            except Exception as _ce:
-                logger.warning("USD cap check failed: %s", _ce)
+                elif action == "SELL":
+                    # cap to coin held * spot, leaving a tiny buffer
+                    base = symbol.split("-")[0]
+                    coin_row = next((c for c in coins if c.get("currency") == base), None)
+                    available_coin = float(coin_row.get("available", 0)) if coin_row else 0.0
+                    spot = self.get_product_price(symbol)
+                    max_usd = (available_coin * spot * 0.99) if spot else 0.0
+                    if max_usd < 1.0:
+                        return {
+                            "ok": False,
+                            "error": f"insufficient_{base}_for_sell: available={available_coin} (~${max_usd:.2f})",
+                            "available_coin": available_coin,
+                            "requested_usd": usd_amount,
+                        }
+                    if usd_amount > max_usd:
+                        logger.info("capping SELL notional $%.2f -> $%.2f (coin cap %s=%.8f)",
+                                    usd_amount, max_usd, base, available_coin)
+                        usd_amount = round(max_usd, 2)
+        except Exception as _ce:
+            logger.warning("balance cap check failed: %s", _ce)
 
         result = self.place_market_order(
             product_id=symbol,

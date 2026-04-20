@@ -1314,19 +1314,47 @@ def api_signal():
     except Exception as _ha_err:
         ha_result = {"ok": False, "error": str(_ha_err)}
 
-    # === Coinbase CEX execution (added Phase 7b) — fires on EXECUTE verdict ===
+    # === Coinbase CEX execution (Phase 7b) — fires on EXECUTE verdict ===
+    # Cooldown 5 min per (source, symbol, action) to prevent multi-daemon
+    # spam (oracle + merlin + commander all publish same ARKON5 signal
+    # every 1-2 min; without this, each one fires a Coinbase order).
     cex_result_from_api_signal = None
     if verdict == "EXECUTE" and action in ("BUY", "SELL"):
         try:
-            from agents.coinbase_executor import get_executor as _cb_get
-            _cbx = _cb_get()
-            cex_result_from_api_signal = _cbx.execute_signal({
-                "action": action,
-                "symbol": symbol,  # the executor normalizes BTC/USDT -> BTC-USD
-                "source": source,
-                "reason": reason or f"api_signal {source}",
-                # Let risk_engine decide the usd_amount based on portfolio+ATR
-            })
+            import json as _cbjson
+            from pathlib import Path as _cbPath
+            import time as _cbtime
+            _cb_cd_path = _cbPath("memory") / "api_signal_cex_cooldown.json"
+            _cb_cd_path.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                _cb_cd = _cbjson.loads(_cb_cd_path.read_text()) if _cb_cd_path.exists() else {}
+            except Exception:
+                _cb_cd = {}
+            _cb_key = f"{source}|{symbol}|{action}".upper()
+            _cb_now = _cbtime.time()
+            _cb_last = float(_cb_cd.get(_cb_key, 0))
+            COOLDOWN_SEC = 5 * 60
+            if _cb_now - _cb_last < COOLDOWN_SEC:
+                cex_result_from_api_signal = {
+                    "ok": False,
+                    "skipped": "cooldown",
+                    "key": _cb_key,
+                    "age_sec": int(_cb_now - _cb_last),
+                }
+            else:
+                _cb_cd[_cb_key] = _cb_now
+                # prune old keys
+                _cb_cd = {k: v for k, v in _cb_cd.items() if _cb_now - float(v) < 3600}
+                _cb_cd_path.write_text(_cbjson.dumps(_cb_cd, indent=2))
+
+                from agents.coinbase_executor import get_executor as _cb_get
+                _cbx = _cb_get()
+                cex_result_from_api_signal = _cbx.execute_signal({
+                    "action": action,
+                    "symbol": symbol,
+                    "source": source,
+                    "reason": reason or f"api_signal {source}",
+                })
         except Exception as _cbe:
             cex_result_from_api_signal = {"error": str(_cbe)}
 
