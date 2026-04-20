@@ -582,10 +582,55 @@ class CoinbaseExecutor(BaseAgent):
         if isinstance(result, dict):
             result["risk"] = {"sl_pct": adaptive_sl_pct, "tp_pct": adaptive_tp_pct, "notional": usd_amount}
 
+        # For LIVE orders: give Coinbase ~1s then enrich with fill info so
+        # the tracker + bracket have correct base_size / avg_price / fees.
+        if (result.get("ok") and not self.dry_run
+                and (result.get("order") or {}).get("success")):
+            order = result["order"]
+            oid = order.get("order_id")
+            if oid:
+                time.sleep(1.2)
+                info = self._get_order_info(oid)
+                if info:
+                    try:
+                        filled_size = float(info.get("filled_size") or 0)
+                        filled_value = float(info.get("filled_value") or 0)
+                        fees = float(info.get("total_fees") or 0)
+                        if filled_size > 0:
+                            order["base_size"] = filled_size
+                            order["base_size_submitted"] = filled_size
+                            order["filled_value"] = filled_value
+                            order["avg_price"] = filled_value / filled_size
+                            order["fee"] = fees
+                            order["filled_status"] = info.get("status")
+                    except Exception as _fe:
+                        logger.warning("fill enrichment failed: %s", _fe)
+
         # Record in position tracker (append JSONL)
         try:
-            from agents.position_tracker import record_from_order_result
-            record_from_order_result(result, signal)
+            from agents.position_tracker import record_from_order_result, TradeEntry, record_trade
+            order = result.get("order") or {}
+            # If we already have enriched fill info, record a complete entry
+            if order.get("avg_price") is not None and order.get("base_size") is not None:
+                entry = TradeEntry(
+                    ts=time.time(),
+                    trade_id=order.get("client_order_id", f"s25-{int(time.time())}"),
+                    order_id=order.get("order_id"),
+                    symbol=order.get("product_id", ""),
+                    side=order.get("side", ""),
+                    usd_amount=float(order.get("usd_amount", 0) or 0),
+                    base_size=float(order.get("base_size") or 0),
+                    avg_price=float(order.get("avg_price") or 0),
+                    fee=float(order.get("fee") or 0),
+                    mode=order.get("mode", "dry_run"),
+                    strategy=signal.get("strategy", signal.get("source", "")),
+                    source=signal.get("source", ""),
+                    success=bool(order.get("success", False)),
+                    notes=signal.get("reason", ""),
+                )
+                record_trade(entry)
+            else:
+                record_from_order_result(result, signal)
         except Exception as _te:
             logger.warning("position_tracker record failed: %s", _te)
 
@@ -598,25 +643,21 @@ class CoinbaseExecutor(BaseAgent):
             and (result.get("order") or {}).get("success")
         ):
             order = result["order"]
-            # Need base_size (qty filled). First try submitted, then look up the order.
             qty = None
             try:
-                if order.get("base_size_submitted"):
+                if order.get("base_size"):
+                    qty = float(order["base_size"])
+                elif order.get("base_size_submitted"):
                     qty = float(order["base_size_submitted"])
-                else:
-                    oid = order.get("order_id")
-                    if oid:
-                        info = self._get_order_info(oid)
-                        if info and info.get("filled_size"):
-                            qty = float(info["filled_size"])
             except Exception:
                 qty = None
 
             if qty and qty > 0:
-                entry_price = self.get_product_price(symbol)
+                # Prefer actual fill price; fallback to current spot
+                entry_price = order.get("avg_price") or self.get_product_price(symbol)
                 if entry_price:
                     bracket = self.place_bracket_sell(
-                        symbol, qty, entry_price, source="auto_bracket",
+                        symbol, qty, float(entry_price), source="auto_bracket",
                         sl_pct=adaptive_sl_pct, tp_pct=adaptive_tp_pct,
                     )
                     result["bracket"] = bracket
