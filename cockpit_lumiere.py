@@ -1240,8 +1240,10 @@ def api_signal():
     Seuil arkon_pass: effective_confidence >= 0.60
     """
     SOURCE_WEIGHTS = {
-        "TRINITY": 0.80, "MERLIN": 0.70, "KIMI": 0.65,
+        "TRINITY": 0.80, "TRADINGVIEW": 0.85, "MERLIN": 0.70, "KIMI": 0.65,
         "ORACLE": 0.60, "AGENT_LOOP": 0.55, "ONCHAIN": 0.55, "COMET": 0.50,
+        "ARKON5": 0.75, "ARKON": 0.75, "MESH_BRIDGE": 0.70, "AUTO_SCANNER": 0.70,
+        "TV_PINE": 0.80,
     }
 
     body = request.get_json(silent=True) or {}
@@ -1312,8 +1314,25 @@ def api_signal():
     except Exception as _ha_err:
         ha_result = {"ok": False, "error": str(_ha_err)}
 
+    # === Coinbase CEX execution (added Phase 7b) — fires on EXECUTE verdict ===
+    cex_result_from_api_signal = None
+    if verdict == "EXECUTE" and action in ("BUY", "SELL"):
+        try:
+            from agents.coinbase_executor import get_executor as _cb_get
+            _cbx = _cb_get()
+            cex_result_from_api_signal = _cbx.execute_signal({
+                "action": action,
+                "symbol": symbol,  # the executor normalizes BTC/USDT -> BTC-USD
+                "source": source,
+                "reason": reason or f"api_signal {source}",
+                # Let risk_engine decide the usd_amount based on portfolio+ATR
+            })
+        except Exception as _cbe:
+            cex_result_from_api_signal = {"error": str(_cbe)}
+
     return jsonify({
         "ok": True, "mode": mode, "symbol": symbol, "action": action, "verdict": verdict,
+        "cex_result": cex_result_from_api_signal,
         "ha_bridge": ha_result,
         "pipeline": {
             "kill_switch": kill_switch, "threat_level": threat_level,
