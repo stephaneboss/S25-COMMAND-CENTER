@@ -1626,6 +1626,117 @@ def api_intel_get():
 # ═══════════════════════════════════════════════════════════════
 
 
+@app.route('/webhook/tv_pine', methods=['POST'])
+def webhook_tv_pine():
+    """Polymorphic TradingView / Pine-script / legacy Kimi webhook receiver.
+
+    Accepts any of these body formats:
+      - Native TradingView alert: {"ticker":"BTCUSD","action":"buy","price":...}
+      - Pine strategy: {"strategy.order.action":"buy","strategy.order.contracts":0.01,
+                        "ticker":"{{ticker}}","close":"{{close}}"}
+      - Legacy Kimi: {"symbol":"BTC/USDT","side":"BUY","confidence":0.82,...}
+      - Merlin/Perplexity bridged: {"scan_data":{...}}
+      - Plain text body: "BUY BTCUSD" (parsed line)
+
+    Normalizes and forwards to the existing /webhook/tradingview pipeline
+    so risk/kill-switch/bracket/trailing all apply uniformly.
+    """
+    try:
+        raw = request.get_data(as_text=True) or ""
+        # Try JSON first
+        import json as _json
+        body = {}
+        try:
+            body = _json.loads(raw) if raw.strip().startswith(("{", "[")) else {}
+        except Exception:
+            body = {}
+
+        # Nested Kimi-style scan_data
+        if isinstance(body, dict) and isinstance(body.get("scan_data"), dict):
+            body = {**body, **body["scan_data"]}
+
+        # Extract fields with many aliases
+        ticker = (body.get("ticker") or body.get("symbol")
+                  or body.get("pair") or body.get("asset") or "").upper()
+        ticker = ticker.replace("/", "").replace("-", "")
+        # Accept Pine {{ticker}}
+        if ticker.startswith("{{") and ticker.endswith("}}"):
+            ticker = ""
+
+        action_raw = str(
+            body.get("action")
+            or body.get("side")
+            or body.get("order_action")
+            or body.get("strategy.order.action")
+            or ""
+        ).upper()
+        if action_raw in ("LONG", "BUY", "STRONGBUY"):
+            action = "BUY"
+        elif action_raw in ("SHORT", "SELL", "EXIT", "CLOSE", "STRONGSELL"):
+            action = "SELL"
+        elif action_raw == "HOLD":
+            action = "HOLD"
+        else:
+            action = ""
+
+        # Parse plain text if JSON failed
+        if not (ticker and action) and raw:
+            parts = raw.strip().upper().split()
+            if len(parts) >= 2:
+                for tok in parts:
+                    if tok in ("BUY", "SELL", "LONG", "SHORT"):
+                        action = "BUY" if tok in ("BUY", "LONG") else "SELL"
+                    elif "USD" in tok or "USDT" in tok:
+                        ticker = tok.replace("/", "").replace("-", "")
+
+        if not ticker or not action:
+            return jsonify({"ok": False, "error": "missing_ticker_or_action",
+                            "raw_received": raw[:300]}), 400
+
+        price = float(
+            body.get("price")
+            or body.get("close")
+            or body.get("entry")
+            or 0
+        )
+        confidence = float(body.get("confidence") or body.get("conf") or 0.75)
+        usd_amount = body.get("usd_amount") or body.get("quantity_usd") or body.get("size_usd")
+        strategy_name = str(
+            body.get("strategy")
+            or body.get("strategy.name")
+            or body.get("pine_name")
+            or "tv_pine_relay"
+        )
+        source = (body.get("source") or "TRADINGVIEW").upper()
+
+        # Forward to the canonical webhook with the proper passphrase so it's
+        # auth'd, and we reuse all the risk/execution plumbing.
+        tv_pp = vault_get("TV_PASSPHRASE", os.getenv("TV_PASSPHRASE", "")) or ""
+        forward_body = {
+            "ticker": ticker,
+            "action": action,
+            "price": price,
+            "confidence": confidence,
+            "strategy": f"[tv_pine] {strategy_name}",
+            "source": source,
+            "passphrase": tv_pp,
+        }
+        if usd_amount is not None:
+            try:
+                forward_body["usd_amount"] = float(usd_amount)
+            except Exception:
+                pass
+
+        # Call our own webhook (internal, no auth roundtrip)
+        import requests as _req
+        r = _req.post("http://localhost:7777/webhook/tradingview",
+                      json=forward_body, timeout=10)
+        out = r.json() if r.headers.get("Content-Type","").startswith("application/json") else {"raw": r.text[:500]}
+        return jsonify({"ok": True, "relayed": forward_body, "pipeline_response": out}), r.status_code
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
 @app.route('/webhook/tradingview', methods=['POST'])
 def webhook_tradingview():
     """
