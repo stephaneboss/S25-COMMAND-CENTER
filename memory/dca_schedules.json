@@ -1,0 +1,9 @@
+[
+  {
+    "name": "btc_daily",
+    "symbol": "BTC-USD",
+    "usd": 2.0,
+    "interval_hours": 24,
+    "enabled": true
+  }
+]

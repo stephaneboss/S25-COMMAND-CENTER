@@ -96,3 +96,7 @@ package-lock.json
 *.bak
 *.pre_*_bak
 memory/alert_state.json
+
+# S25 runtime state — never commit (secrets-adjacent + spam)
+.coinbase_live.flag
+.auto_scanner_cooldown.json
