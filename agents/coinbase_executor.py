@@ -211,7 +211,11 @@ class CoinbaseExecutor(BaseAgent):
     # ─── Portfolio + fiat read side ─────────────────────────────────
 
     def get_portfolio(self) -> Dict[str, Any]:
-        """Aggregate every account into a single portfolio snapshot with USD totals."""
+        """Aggregate every account into a single portfolio snapshot with USD totals.
+
+        Counts both `available_balance` and `hold` (funds reserved by open
+        orders) so the total matches what the Coinbase app displays.
+        """
         c = self._get_client()
         if c is None:
             return {"ok": False, "error": "client_unavailable"}
@@ -222,35 +226,46 @@ class CoinbaseExecutor(BaseAgent):
                 accounts = resp.get("accounts", [])
             coins = []
             total_usd = 0.0
+            total_hold_usd = 0.0
             total_cad = 0.0
             for acc in accounts or []:
                 def _g(o, k):
                     return o.get(k) if isinstance(o, dict) else getattr(o, k, None)
                 cur = _g(acc, "currency")
-                bal = _g(acc, "available_balance") or {}
-                val_s = _g(bal, "value") if bal else None
-                if not cur or not val_s:
+                bal_avail = _g(acc, "available_balance") or {}
+                bal_hold = _g(acc, "hold") or {}
+                try:
+                    avail = float(_g(bal_avail, "value") or 0)
+                    hold = float(_g(bal_hold, "value") or 0)
+                except Exception:
+                    avail = hold = 0.0
+                total_amt = avail + hold
+                if not cur or total_amt <= 0:
                     continue
-                val = float(val_s)
-                if val <= 0:
-                    continue
-                usd = val
-                if cur not in ("USD", "USDC", "USDT"):
+                if cur in ("USD", "USDC", "USDT"):
+                    usd = total_amt
+                elif cur == "CAD":
+                    total_cad += total_amt
+                    usd = total_amt * 0.73
+                else:
                     spot = self.get_product_price(f"{cur}-USD")
-                    usd = (val * spot) if spot else 0.0
-                if cur == "CAD":
-                    total_cad += val
-                    usd = val * 0.73  # rough USD conv
+                    usd = (total_amt * spot) if spot else 0.0
                 total_usd += usd
+                if hold > 0:
+                    total_hold_usd += (hold / total_amt) * usd if total_amt else 0
                 coins.append({
                     "currency": cur,
-                    "amount": val,
+                    "amount": total_amt,
+                    "available": avail,
+                    "hold": hold,
                     "usd_value": round(usd, 2),
                 })
             coins.sort(key=lambda x: x["usd_value"], reverse=True)
             return {
                 "ok": True,
                 "total_usd": round(total_usd, 2),
+                "available_usd": round(total_usd - total_hold_usd, 2),
+                "reserved_in_open_orders_usd": round(total_hold_usd, 2),
                 "total_cad_fiat": round(total_cad, 2),
                 "coin_count": len(coins),
                 "coins": coins,
