@@ -573,11 +573,9 @@ class CoinbaseExecutor(BaseAgent):
                 candles = self.get_candles(symbol, "ONE_HOUR", limit=30)
                 if candles:
                     adaptive_sl_pct = risk_engine.compute_adaptive_sl_pct(candles, cfg)
-                    # Keep same R/R ratio as config (TP = 2x SL by default)
                     rr = cfg.get("default_tp_pct", 6.0) / cfg.get("default_sl_pct", 3.0)
                     adaptive_tp_pct = adaptive_sl_pct * rr
             # Risk-based sizing only if signal didn't hardcode usd_amount
-            #  (if user explicitly passed usd_amount in webhook body → respect it)
             if "usd_amount" not in signal or signal.get("usd_amount") is None:
                 portfolio = self.get_portfolio_usd()
                 usd_amount = risk_engine.compute_notional(portfolio, adaptive_sl_pct, cfg)
@@ -585,6 +583,32 @@ class CoinbaseExecutor(BaseAgent):
                             portfolio, adaptive_sl_pct, usd_amount)
         except Exception as _e:
             logger.warning("risk engine fallback (keeping fixed sizing): %s", _e)
+
+        # === Cap to available USD for BUY (prevents INSUFFICIENT_FUND spam) ===
+        if action == "BUY":
+            try:
+                port = self.get_portfolio()
+                if port.get("ok"):
+                    usd_row = next(
+                        (c for c in port.get("coins", []) if c.get("currency") == "USD"),
+                        None,
+                    )
+                    available = float(usd_row.get("available", 0)) if usd_row else 0.0
+                    # Keep $0.50 as fee/slippage buffer
+                    max_spend = max(0.0, available - 0.50)
+                    if max_spend < 1.0:
+                        return {
+                            "ok": False,
+                            "error": f"insufficient_usd_for_buy: available=${available:.2f}",
+                            "available_usd": available,
+                            "requested_usd": usd_amount,
+                        }
+                    if usd_amount > max_spend:
+                        logger.info("capping BUY notional from $%.2f to $%.2f (USD cap)",
+                                    usd_amount, max_spend)
+                        usd_amount = round(max_spend, 2)
+            except Exception as _ce:
+                logger.warning("USD cap check failed: %s", _ce)
 
         result = self.place_market_order(
             product_id=symbol,
