@@ -1666,8 +1666,12 @@ def webhook_tradingview():
     TV_WEIGHTS = {
         "TRINITY": 0.80, "TRADINGVIEW": 0.85, "MERLIN": 0.70, "KIMI": 0.65,
         "ORACLE": 0.60, "AGENT_LOOP": 0.55, "ONCHAIN": 0.55, "COMET": 0.50,
+        "ARKON5": 0.75, "ARKON": 0.75, "MESH_BRIDGE": 0.70, "AUTO_SCANNER": 0.70,
     }
-    weight = TV_WEIGHTS.get("TRADINGVIEW", 0.85)
+    # Body can override source so mesh-driven signals (TRINITY, ARKON5, MERLIN, ...)
+    # keep their weight instead of being treated as plain TradingView alerts.
+    bridge_source = str(body.get("source", "") or "").upper() or "TRADINGVIEW"
+    weight = TV_WEIGHTS.get(bridge_source, 0.75)
     weighted_confidence = round(confidence * weight, 4)
 
     signals_buffer = pipeline.get("signals_buffer", [])
@@ -1689,7 +1693,7 @@ def webhook_tradingview():
     risk_pass = arkon_pass and not kill_switch and threat_level in ("T0", "T1")
     verdict = ("EXECUTE" if mode == "authorized" else "SIMULATE_EXECUTE") if risk_pass else "NO_TRADE"
 
-    signals_buffer.append({"symbol": symbol, "action": normalized_action, "source": "TRADINGVIEW",
+    signals_buffer.append({"symbol": symbol, "action": normalized_action, "source": bridge_source,
                           "confidence": confidence, "ts": ts, "strategy": strategy, "interval": interval})
     pipeline["signals_buffer"] = signals_buffer[-20:]
     pipeline["last_signal"] = {
@@ -1697,7 +1701,7 @@ def webhook_tradingview():
         "weight": weight, "weighted_confidence": weighted_confidence,
         "consensus": consensus, "consensus_bonus": consensus_bonus,
         "effective_confidence": effective_confidence,
-        "price": price, "reason": reason, "source": "TRADINGVIEW",
+        "price": price, "reason": reason, "source": bridge_source,
         "verdict": verdict, "ts": ts,
     }
     state["pipeline"] = pipeline
@@ -1713,7 +1717,7 @@ def webhook_tradingview():
     # Push TradingView signal to Home Assistant
     ha_result = None
     try:
-        ha_result = _ha_push_signal(normalized_action, symbol, confidence, effective_confidence, price, reason, verdict, "TRADINGVIEW")
+        ha_result = _ha_push_signal(normalized_action, symbol, confidence, effective_confidence, price, reason, verdict, bridge_source)
     except Exception as _ha_err:
         ha_result = {"ok": False, "error": str(_ha_err)}
 
@@ -1725,7 +1729,7 @@ def webhook_tradingview():
             token_in = "USDC" if normalized_action == "BUY" else "WETH"
             token_out = "WETH" if normalized_action == "BUY" else "USDC"
             dex_result = exe.execute_swap(token_in, token_out, exe.max_trade_usd,
-                                         reason=reason, source="TRADINGVIEW")
+                                         reason=reason, source=bridge_source)
         except Exception as e:
             dex_result = {"error": str(e)}
 
@@ -1738,7 +1742,7 @@ def webhook_tradingview():
             cex_result = cbx.execute_signal({
                 "action": normalized_action,
                 "symbol": symbol,
-                "source": "TRADINGVIEW",
+                "source": bridge_source,
                 "reason": reason,
                 "usd_amount": float(body.get("usd_amount", cbx.max_usd_per_trade)),
             })
@@ -1747,7 +1751,7 @@ def webhook_tradingview():
 
     return jsonify({
         "cex_result": cex_result,
-        "ok": True, "source": "TRADINGVIEW", "symbol": symbol,
+        "ok": True, "source": bridge_source, "symbol": symbol,
         "action": normalized_action, "price": price, "verdict": verdict,
         "pipeline": {
             "confidence": confidence, "weight": weight,
