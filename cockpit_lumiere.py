@@ -2006,6 +2006,81 @@ def api_strategy_usd_size(name):
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
+@app.route('/api/trading/backtest', methods=['POST', 'GET'])
+def api_trading_backtest():
+    """Run a strategy backtest on Coinbase historical candles.
+    POST {strategy, symbol, days} | GET ?strategy=&symbol=&days="""
+    try:
+        from agents.backtester import run_all
+        if request.method == 'POST':
+            body = request.get_json(force=True, silent=True) or {}
+        else:
+            body = {
+                "strategy": request.args.get("strategy"),
+                "symbol": request.args.get("symbol"),
+                "days": request.args.get("days", 12),
+            }
+        strategy = body.get("strategy")
+        symbol = body.get("symbol")
+        days = int(body.get("days", 12))
+        if not strategy or not symbol:
+            return jsonify({"ok": False, "error": "strategy and symbol are required"}), 400
+        return jsonify(run_all(strategy, symbol, days=days))
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route('/api/trading/backtest/all', methods=['GET'])
+def api_trading_backtest_all():
+    """Backtest every strategy on every whitelist coin. Return a matrix."""
+    try:
+        from agents.backtester import run_all
+        from agents.coinbase_executor import get_executor
+        import strategies
+        reg = strategies.bootstrap()
+        exe = get_executor()
+        symbols = sorted(exe.allowed_products)
+        days = int(request.args.get("days", 12))
+        results = []
+        for strat_name in reg.strategies.keys():
+            for symbol in symbols:
+                r = run_all(strat_name, symbol, days=days)
+                if r.get("ok"):
+                    results.append({
+                        "strategy": strat_name, "symbol": symbol,
+                        "trades": r.get("trades", 0),
+                        "win_rate_pct": r.get("win_rate_pct", 0),
+                        "total_pnl_pct": r.get("total_pnl_pct", 0),
+                        "max_dd_pct": r.get("max_drawdown_pct", 0),
+                    })
+        return jsonify({"ok": True, "days": days, "matrix": results})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route('/api/trading/dca', methods=['GET', 'POST', 'DELETE'])
+def api_trading_dca():
+    """DCA schedules management.
+    GET  -> list with next-fire times
+    POST {name, symbol, usd, interval_hours}  -> add/update
+    DELETE ?name=  -> remove"""
+    try:
+        from agents.dca_scheduler import list_schedules, add_schedule, load_schedules, save_schedules
+        if request.method == 'GET':
+            return jsonify({"ok": True, "schedules": list_schedules()})
+        if request.method == 'POST':
+            body = request.get_json(force=True, silent=True) or {}
+            r = add_schedule(body)
+            return jsonify({"ok": True, "schedule": r})
+        if request.method == 'DELETE':
+            name = request.args.get("name")
+            schedules = [s for s in load_schedules() if s.get("name") != name]
+            save_schedules(schedules)
+            return jsonify({"ok": True, "removed": name})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
 @app.route('/api/trading/pnl', methods=['GET'])
 def api_trading_pnl():
     """Condensed P&L dashboard endpoint."""
