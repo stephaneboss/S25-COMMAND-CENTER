@@ -1247,6 +1247,30 @@ def api_signal():
     }
 
     body = request.get_json(silent=True) or {}
+    # If no JSON body, try to parse text/plain Pine alert_message
+    if not body:
+        try:
+            raw = request.get_data(as_text=True) or ""
+            if raw.strip():
+                import json as _rjson
+                try:
+                    body = _rjson.loads(raw)
+                except Exception:
+                    up = raw.strip().upper()
+                    parsed = {}
+                    if any(t in up for t in ("BUY","LONG","STRONGBUY")):
+                        parsed["action"] = "BUY"
+                    elif any(t in up for t in ("SELL","SHORT","EXIT","CLOSE","STRONGSELL")):
+                        parsed["action"] = "SELL"
+                    for tok in up.replace("/", " ").replace("-", " ").split():
+                        if "USD" in tok and tok not in ("USDC", "USDT", "USD"):
+                            parsed["symbol"] = tok
+                            break
+                    parsed["source"] = "TRADINGVIEW"
+                    parsed["reason"] = raw[:200]
+                    body = parsed
+        except Exception:
+            body = {}
 
     # ── 3-min dedup cooldown (source|norm_symbol|action) ──
     # Multiple agents (oracle, merlin, commander, mesh_bridge) publish the same
