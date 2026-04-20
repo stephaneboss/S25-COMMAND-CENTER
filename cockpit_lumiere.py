@@ -1247,6 +1247,46 @@ def api_signal():
     }
 
     body = request.get_json(silent=True) or {}
+
+    # ── 3-min dedup cooldown (source|norm_symbol|action) ──
+    # Multiple agents (oracle, merlin, commander, mesh_bridge) publish the same
+    # ARKON5 state within a few seconds. Without this, each publish spams HA
+    # notifications + signals_buffer + CEX attempts. Cooldown dedups at the
+    # very entry point, so downstream (notif, buffer, cex) all skip.
+    try:
+        _early_source = str(body.get("source", "") or "AGENT").upper()
+        _early_symbol = str(body.get("symbol", "") or "BTC/USDT").upper().replace("/", "").replace("-", "")
+        for _q in ("USDT", "USDC"):
+            if _early_symbol.endswith(_q):
+                _early_symbol = _early_symbol[:-len(_q)] + "USD"
+                break
+        _early_action = str(body.get("action", "") or "HOLD").upper()
+        import json as _ejson, time as _etime
+        from pathlib import Path as _ePath
+        _cd_path = _ePath("memory") / "api_signal_entry_cooldown.json"
+        _cd_path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            _cd = _ejson.loads(_cd_path.read_text()) if _cd_path.exists() else {}
+        except Exception:
+            _cd = {}
+        _cd_key = f"{_early_source}|{_early_symbol}|{_early_action}"
+        _cd_now = _etime.time()
+        _cd_last = float(_cd.get(_cd_key, 0))
+        ENTRY_COOLDOWN_SEC = 180  # 3 minutes
+        if _cd_now - _cd_last < ENTRY_COOLDOWN_SEC and _early_action in ("BUY", "SELL"):
+            return jsonify({
+                "ok": True,
+                "skipped": "entry_cooldown",
+                "key": _cd_key,
+                "age_sec": int(_cd_now - _cd_last),
+                "message": "deduplicated — same signal within 3min",
+            })
+        _cd[_cd_key] = _cd_now
+        _cd = {k: v for k, v in _cd.items() if _cd_now - float(v) < 1800}  # prune 30min+
+        _cd_path.write_text(_ejson.dumps(_cd, indent=2))
+    except Exception as _ecd_e:
+        pass  # fail-open: never block on cooldown bugs
+
     action = body.get("action", "HOLD").upper()
     symbol = body.get("symbol", "BTC/USDT")
     confidence = float(body.get("confidence", 0.5))
