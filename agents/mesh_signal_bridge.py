@@ -97,8 +97,16 @@ def load_buffer() -> List[Dict]:
         return []
 
 
+ARKON_COOLDOWN_FILE = REPO / "memory" / "arkon_bridge_cooldown.json"
+ARKON_COOLDOWN_SEC = 30 * 60  # 30 min per action — ARKON5 persists same signal
+
+
 def _load_arkon_status(agents_state: Dict) -> Optional[Dict]:
-    """Read ARKON5 from /api/status (cockpit). Returns a synthetic signal or None."""
+    """Read ARKON5 from /api/status (cockpit). Returns a synthetic signal or None.
+
+    Strict 30-min cooldown per action — ARKON5 keeps the same signal posted
+    continuously, so without a cooldown we'd spam dispatches every 2 min.
+    """
     try:
         r = requests.get(f"{COCKPIT}/api/status", timeout=5)
         if r.status_code != 200:
@@ -112,11 +120,25 @@ def _load_arkon_status(agents_state: Dict) -> Optional[Dict]:
             return None
         if action not in ("BUY", "SELL") or conf < 0.60:
             return None
-        ts = d.get("timestamp") or datetime.now(timezone.utc).isoformat()
+
+        # Strict cooldown: one ARKON5 signal per action per 30 min
+        try:
+            cd = json.loads(ARKON_COOLDOWN_FILE.read_text()) if ARKON_COOLDOWN_FILE.exists() else {}
+        except Exception:
+            cd = {}
+        now = time.time()
+        last = float(cd.get(action, 0))
+        if now - last < ARKON_COOLDOWN_SEC:
+            return None  # silently skip during cooldown
+        cd[action] = now
+        ARKON_COOLDOWN_FILE.parent.mkdir(parents=True, exist_ok=True)
+        ARKON_COOLDOWN_FILE.write_text(json.dumps(cd))
+
+        ts = datetime.now(timezone.utc).isoformat()
         return {
             "ts": ts,
             "source": "ARKON5",
-            "symbol": "BTC/USD",  # ARKON5 targets BTC by convention
+            "symbol": "BTC/USD",
             "action": action,
             "confidence": round(conf, 3),
             "price": 0,
@@ -137,14 +159,45 @@ def normalize_symbol(sym: str) -> Optional[str]:
     return sym
 
 
+def _available_usd() -> float:
+    """Return USD actually available (excl. reserved by open orders)."""
+    try:
+        r = requests.get(f"{COCKPIT}/api/coinbase/portfolio", timeout=5)
+        if r.status_code != 200:
+            return 0.0
+        d = r.json()
+        for c in d.get("coins", []) or []:
+            if c.get("currency") == "USD":
+                return float(c.get("available", 0) or 0)
+    except Exception:
+        pass
+    return 0.0
+
+
 def dispatch_signal(sig: Dict) -> Dict:
     tv_pp = _env_get("TV_PASSPHRASE")
     ticker = normalize_symbol(sig.get("symbol", ""))
     if not ticker:
         return {"ok": False, "reason": "bad_symbol"}
+
+    # Cap the trade to what's actually available — avoids spammed
+    # INSUFFICIENT_FUND on every bridge tick if USD is low.
+    action = str(sig.get("action", "")).upper()
+    if action == "BUY":
+        available = _available_usd()
+        # Keep a $0.50 buffer so the order doesn't fail on fee rounding
+        max_spend = max(0.0, available - 0.5)
+        # Coinbase min market is $1
+        if max_spend < 1.0:
+            return {"ok": False, "reason": f"insufficient_usd available=${available:.2f}"}
+        # Send the cap explicitly — webhook will honor body.usd_amount
+        usd_to_spend = min(max_spend, 10.0)  # cap at $10 per bridge-driven trade
+    else:
+        usd_to_spend = None  # SELL — webhook decides sizing
+
     body = {
         "ticker": ticker,
-        "action": str(sig.get("action", "")).upper(),
+        "action": action,
         "price": float(sig.get("price") or 0),
         "confidence": float(sig.get("confidence") or 0),
         "strategy": f"[mesh:{sig.get('source','?')}] auto-relay",
@@ -152,12 +205,16 @@ def dispatch_signal(sig: Dict) -> Dict:
         "interval": "mesh",
         "passphrase": tv_pp,
     }
+    if usd_to_spend is not None:
+        body["usd_amount"] = round(usd_to_spend, 2)
+
     try:
         r = requests.post(f"{COCKPIT}/webhook/tradingview", json=body, timeout=10)
         if r.status_code == 200:
             d = r.json()
             return {"ok": True, "verdict": d.get("verdict"),
-                    "cex_ok": d.get("cex_result", {}).get("ok")}
+                    "cex_ok": d.get("cex_result", {}).get("ok"),
+                    "usd": usd_to_spend}
         return {"ok": False, "http": r.status_code}
     except Exception as e:
         return {"ok": False, "error": str(e)}
