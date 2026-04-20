@@ -1,0 +1,16 @@
+{
+  "risk_per_trade_pct": 1.0,
+  "default_sl_pct": 3.0,
+  "default_tp_pct": 6.0,
+  "use_volatility_sl": true,
+  "atr_multiplier": 1.5,
+  "atr_period": 14,
+  "sl_min_pct": 1.0,
+  "sl_max_pct": 8.0,
+  "max_concurrent_positions": 3,
+  "max_single_trade_usd": 50.0,
+  "min_single_trade_usd": 1.0,
+  "trail_activation_pct": 3.0,
+  "trail_step_pct": 2.0,
+  "trail_enabled": true
+}

@@ -2095,6 +2095,44 @@ def api_trading_dca():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
+@app.route('/api/trading/risk-config', methods=['GET', 'POST'])
+def api_trading_risk_config():
+    """Get or update risk engine configuration.
+    POST body can update: risk_per_trade_pct, default_sl_pct, default_tp_pct,
+                          use_volatility_sl, atr_multiplier, max_concurrent_positions,
+                          max_single_trade_usd, trail_activation_pct, trail_step_pct,
+                          trail_enabled
+    """
+    try:
+        from agents import risk_engine
+        from agents.coinbase_executor import get_executor
+        if request.method == 'POST':
+            body = request.get_json(force=True, silent=True) or {}
+            updated = risk_engine.set_config(body)
+            return jsonify({"ok": True, "config": updated})
+        exe = get_executor()
+        portfolio = exe.get_portfolio_usd()
+        candles_by_symbol = {}
+        for sym in sorted(exe.allowed_products):
+            try:
+                candles_by_symbol[sym] = exe.get_candles(sym, "ONE_HOUR", limit=30)
+            except Exception:
+                candles_by_symbol[sym] = []
+        return jsonify({"ok": True, **risk_engine.summary(portfolio, candles_by_symbol)})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route('/api/trading/trailing/run', methods=['POST', 'GET'])
+def api_trading_trailing_run():
+    """Manually trigger one trailing-stop tick."""
+    try:
+        from agents.trailing_stop_manager import run_tick
+        return jsonify(run_tick())
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
 @app.route('/api/trading/pnl', methods=['GET'])
 def api_trading_pnl():
     """Condensed P&L dashboard endpoint."""

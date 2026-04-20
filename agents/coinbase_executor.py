@@ -474,12 +474,17 @@ class CoinbaseExecutor(BaseAgent):
             logger.error("market order failed: %s", e)
             return {"ok": False, "error": str(e), "ts": ts, "order": order_record}
 
-    def place_bracket_sell(self, product_id: str, base_size: float, entry_price: float,
-                            source: str = "auto_bracket") -> Dict[str, Any]:
+    def place_bracket_sell(
+        self, product_id: str, base_size: float, entry_price: float,
+        source: str = "auto_bracket",
+        sl_pct: Optional[float] = None,
+        tp_pct: Optional[float] = None,
+    ) -> Dict[str, Any]:
         """Place an OCO bracket SELL: stop-loss + take-profit after a successful BUY.
 
         Uses Coinbase trigger_bracket_order_gtc_sell which is a native OCO.
         Never fires in dry_run. Never called unless auto_bracket is on.
+        SL/TP % can be overridden per-trade (used by adaptive ATR sizing).
         """
         from uuid import uuid4
         if self.dry_run:
@@ -487,10 +492,11 @@ class CoinbaseExecutor(BaseAgent):
         c = self._get_client()
         if c is None:
             return {"ok": False, "error": "client_unavailable"}
+        effective_sl = sl_pct if sl_pct is not None else self.sl_pct
+        effective_tp = tp_pct if tp_pct is not None else self.tp_pct
         try:
-            sl_price = round(entry_price * (1 - self.sl_pct / 100.0), 8)
-            tp_price = round(entry_price * (1 + self.tp_pct / 100.0), 8)
-            # Quantize base_size to product precision
+            sl_price = round(entry_price * (1 - effective_sl / 100.0), 8)
+            tp_price = round(entry_price * (1 + effective_tp / 100.0), 8)
             qty_str = self._quantize_base_size(product_id, float(base_size))
             client_order_id = f"s25-br-{uuid4().hex[:12]}"
             resp = c.trigger_bracket_order_gtc_sell(
@@ -502,18 +508,29 @@ class CoinbaseExecutor(BaseAgent):
             )
             raw = resp if isinstance(resp, dict) else getattr(resp, "__dict__", {})
             success = raw.get("success", False)
-            logger.info("bracket placed %s qty=%s TP=%.6f SL=%.6f ok=%s", product_id, qty_str, tp_price, sl_price, success)
+            logger.info("bracket placed %s qty=%s TP=%.6f SL=%.6f (sl_pct=%.2f tp_pct=%.2f) ok=%s",
+                        product_id, qty_str, tp_price, sl_price, effective_sl, effective_tp, success)
             return {
                 "ok": bool(success),
                 "client_order_id": client_order_id,
                 "order_id": (raw.get("success_response") or {}).get("order_id") if isinstance(raw.get("success_response"), dict) else None,
                 "qty": qty_str,
+                "entry_price": entry_price,
                 "tp_price": tp_price,
                 "sl_price": sl_price,
+                "sl_pct": effective_sl,
+                "tp_pct": effective_tp,
             }
         except Exception as e:
             logger.error("bracket failed: %s", e)
             return {"ok": False, "error": str(e)}
+
+    def get_portfolio_usd(self) -> float:
+        """Total portfolio value in USD. Used for risk sizing."""
+        p = self.get_portfolio()
+        if isinstance(p, dict) and p.get("ok"):
+            return float(p.get("total_usd", 0))
+        return 0.0
 
     def execute_signal(self, signal: Dict[str, Any]) -> Dict[str, Any]:
         # Legacy enabled gate removed. dry_run (set by refresh_mode_from_ha) is
@@ -529,13 +546,41 @@ class CoinbaseExecutor(BaseAgent):
         if action not in ("BUY", "SELL"):
             return {"ok": False, "error": f"non_actionable: {action}"}
 
+        # === Pro capital allocation: risk-based sizing + adaptive SL ===
+        adaptive_sl_pct = self.sl_pct
+        adaptive_tp_pct = self.tp_pct
+        usd_amount = float(signal.get("usd_amount", self.max_usd_per_trade))
+        try:
+            from agents import risk_engine
+            cfg = risk_engine.get_config()
+            # Adaptive SL based on ATR of 1h candles for this symbol
+            if cfg.get("use_volatility_sl", True):
+                candles = self.get_candles(symbol, "ONE_HOUR", limit=30)
+                if candles:
+                    adaptive_sl_pct = risk_engine.compute_adaptive_sl_pct(candles, cfg)
+                    # Keep same R/R ratio as config (TP = 2x SL by default)
+                    rr = cfg.get("default_tp_pct", 6.0) / cfg.get("default_sl_pct", 3.0)
+                    adaptive_tp_pct = adaptive_sl_pct * rr
+            # Risk-based sizing only if signal didn't hardcode usd_amount
+            #  (if user explicitly passed usd_amount in webhook body → respect it)
+            if "usd_amount" not in signal or signal.get("usd_amount") is None:
+                portfolio = self.get_portfolio_usd()
+                usd_amount = risk_engine.compute_notional(portfolio, adaptive_sl_pct, cfg)
+                logger.info("risk-based sizing: portfolio=%.2f sl=%.2f -> notional=%.2f",
+                            portfolio, adaptive_sl_pct, usd_amount)
+        except Exception as _e:
+            logger.warning("risk engine fallback (keeping fixed sizing): %s", _e)
+
         result = self.place_market_order(
             product_id=symbol,
             side=action,
-            usd_amount=float(signal.get("usd_amount", self.max_usd_per_trade)),
+            usd_amount=usd_amount,
             reason=signal.get("reason", ""),
             source=signal.get("source", "webhook"),
         )
+        # Expose risk context
+        if isinstance(result, dict):
+            result["risk"] = {"sl_pct": adaptive_sl_pct, "tp_pct": adaptive_tp_pct, "notional": usd_amount}
 
         # Record in position tracker (append JSONL)
         try:
@@ -570,7 +615,10 @@ class CoinbaseExecutor(BaseAgent):
             if qty and qty > 0:
                 entry_price = self.get_product_price(symbol)
                 if entry_price:
-                    bracket = self.place_bracket_sell(symbol, qty, entry_price, source="auto_bracket")
+                    bracket = self.place_bracket_sell(
+                        symbol, qty, entry_price, source="auto_bracket",
+                        sl_pct=adaptive_sl_pct, tp_pct=adaptive_tp_pct,
+                    )
                     result["bracket"] = bracket
             else:
                 result["bracket"] = {"ok": False, "error": "no_base_size_resolved"}
