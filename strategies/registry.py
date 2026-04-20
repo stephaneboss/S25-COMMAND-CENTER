@@ -38,10 +38,15 @@ class StrategyRegistry:
             self._state[strategy.name] = {
                 "enabled": strategy.default_enabled,
                 "usd_size": strategy.default_usd_size,
+                "symbols": [],  # empty = all whitelist; list = only these coins
                 "last_signal_ts": None,
                 "last_signal_symbol": None,
                 "total_signals": 0,
             }
+            self._save_state()
+        # Ensure existing entries have symbols field (back-compat)
+        if "symbols" not in self._state[strategy.name]:
+            self._state[strategy.name]["symbols"] = []
             self._save_state()
 
     def is_enabled(self, name: str) -> bool:
@@ -66,6 +71,18 @@ class StrategyRegistry:
         self._save_state()
         return True
 
+    def set_symbols(self, name: str, symbols: list) -> bool:
+        """Restrict a strategy to a specific list of coins. [] = all allowed."""
+        if name not in self.strategies:
+            return False
+        entry = self._state.setdefault(name, {})
+        entry["symbols"] = [s.upper() for s in symbols if s]
+        self._save_state()
+        return True
+
+    def get_symbols(self, name: str) -> list:
+        return list(self._state.get(name, {}).get("symbols", []))
+
     def record_signal(self, name: str, signal: Signal, market: MarketData):
         entry = self._state.setdefault(name, {})
         entry["last_signal_ts"] = time.time()
@@ -76,11 +93,19 @@ class StrategyRegistry:
 
     def dispatch(self, markets: List[MarketData]) -> List[tuple]:
         """Run every enabled strategy against each market. Returns list of
-        (strategy_name, symbol, signal) tuples."""
+        (strategy_name, symbol, signal) tuples.
+
+        If a strategy has a non-empty `symbols` list in its state, only those
+        coins are evaluated for it (per-symbol whitelist).
+        """
         out: List[tuple] = []
         for strategy in self.enabled_strategies():
-            usd_size = float(self._state.get(strategy.name, {}).get("usd_size", strategy.default_usd_size))
+            st = self._state.get(strategy.name, {})
+            usd_size = float(st.get("usd_size", strategy.default_usd_size))
+            allowed = [s.upper() for s in st.get("symbols", [])]
             for market in markets:
+                if allowed and market.symbol.upper() not in allowed:
+                    continue
                 try:
                     sig = strategy.should_fire(market)
                 except Exception as e:
@@ -88,7 +113,6 @@ class StrategyRegistry:
                     continue
                 if sig is None:
                     continue
-                # Override usd_amount with registry setting
                 sig.usd_amount = usd_size
                 self.record_signal(strategy.name, sig, market)
                 out.append((strategy.name, market.symbol, sig))
@@ -103,6 +127,7 @@ class StrategyRegistry:
             info.update({
                 "enabled": st.get("enabled", False),
                 "usd_size": st.get("usd_size", strat.default_usd_size),
+                "symbols": st.get("symbols", []),  # empty = all whitelist
                 "total_signals": st.get("total_signals", 0),
                 "last_signal_ts": st.get("last_signal_ts"),
                 "last_signal_symbol": st.get("last_signal_symbol"),

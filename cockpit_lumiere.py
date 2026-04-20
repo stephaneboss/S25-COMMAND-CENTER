@@ -1989,6 +1989,20 @@ def api_strategy_toggle(name):
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
+@app.route('/api/trading/strategies/<name>/symbols', methods=['POST'])
+def api_strategy_symbols(name):
+    try:
+        import strategies
+        reg = strategies.bootstrap()
+        body = request.get_json(force=True, silent=True) or {}
+        symbols = body.get('symbols', [])
+        if not reg.set_symbols(name, symbols):
+            return jsonify({'ok': False, 'error': f'unknown strategy: {name}'}), 404
+        return jsonify({'ok': True, 'strategy': name, 'symbols': reg.get_symbols(name)})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
 @app.route('/api/trading/strategies/<name>/usd-size', methods=['POST'])
 def api_strategy_usd_size(name):
     """Set per-strategy USD notional. POST {usd: float}"""
