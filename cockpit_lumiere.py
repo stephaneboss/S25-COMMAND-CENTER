@@ -1330,7 +1330,13 @@ def api_signal():
                 _cb_cd = _cbjson.loads(_cb_cd_path.read_text()) if _cb_cd_path.exists() else {}
             except Exception:
                 _cb_cd = {}
-            _cb_key = f"{source}|{symbol}|{action}".upper()
+            # Normalize symbol so BTC/USDT, BTC/USD, BTCUSD, BTC-USD all share the same cooldown slot
+            _cb_norm_sym = symbol.upper().replace("/","").replace("-","")
+            for _q in ("USDT","USDC"):
+                if _cb_norm_sym.endswith(_q):
+                    _cb_norm_sym = _cb_norm_sym[:-len(_q)] + "USD"
+                    break
+            _cb_key = f"{source}|{_cb_norm_sym}|{action}".upper()
             _cb_now = _cbtime.time()
             _cb_last = float(_cb_cd.get(_cb_key, 0))
             COOLDOWN_SEC = 5 * 60
