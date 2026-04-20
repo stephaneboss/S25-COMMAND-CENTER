@@ -1740,7 +1740,7 @@ def webhook_tradingview():
                 "symbol": symbol,
                 "source": "TRADINGVIEW",
                 "reason": reason,
-                "usd_amount": cbx.max_usd_per_trade,
+                "usd_amount": float(body.get("usd_amount", cbx.max_usd_per_trade)),
             })
         except Exception as _cbe:
             cex_result = {"error": str(_cbe)}

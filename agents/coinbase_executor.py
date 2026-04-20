@@ -407,7 +407,21 @@ class CoinbaseExecutor(BaseAgent):
             success = getattr(resp, "success", resp.get("success") if isinstance(resp, dict) else False)
             order_record["client_order_id"] = client_order_id
             order_record["success"] = bool(success)
-            order_record["raw"] = resp if isinstance(resp, dict) else getattr(resp, "__dict__", {})
+            # Stringify the SDK response so Flask jsonify never fails on
+            # non-serializable objects (proto messages, nested enums, etc.)
+            try:
+                raw_dict = resp if isinstance(resp, dict) else getattr(resp, "__dict__", {})
+                order_record["raw"] = {k: (str(v) if not isinstance(v, (str, int, float, bool, type(None), list, dict)) else v) for k, v in raw_dict.items()}
+                # Extract key fields straight to top level for easier introspection
+                if isinstance(raw_dict.get("success_response"), (dict,)):
+                    order_record["order_id"] = raw_dict["success_response"].get("order_id")
+                else:
+                    sr = raw_dict.get("success_response")
+                    oid = getattr(sr, "order_id", None) if sr else None
+                    if oid:
+                        order_record["order_id"] = oid
+            except Exception as _se:
+                order_record["raw"] = {"serialization_error": str(_se)}
             self.orders_placed.append(order_record)
             logger.info("[LIVE] market order placed: %s success=%s", client_order_id, success)
             return {"ok": True, "dry_run": False, "order": order_record}
@@ -416,9 +430,10 @@ class CoinbaseExecutor(BaseAgent):
             return {"ok": False, "error": str(e), "ts": ts, "order": order_record}
 
     def execute_signal(self, signal: Dict[str, Any]) -> Dict[str, Any]:
-        if not self.enabled and not self.dry_run:
-            return {"ok": False, "error": "executor_disabled"}
-
+        # `self.enabled` was the legacy gate before the HA file-flag existed.
+        # Now the single source of truth is `self.dry_run` (set by
+        # refresh_mode_from_ha). place_market_order calls refresh itself
+        # and handles both modes cleanly.
         action = str(signal.get("action", "")).upper()
         symbol = str(signal.get("symbol", "")).upper()
         if "/" in symbol:
