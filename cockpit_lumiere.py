@@ -2365,6 +2365,20 @@ def api_trading_trailing_run():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
+@app.route('/api/trading/brief', methods=['GET'])
+def api_trading_brief():
+    """Latest Gemini-generated analyst brief."""
+    try:
+        from pathlib import Path as _P
+        import json as _j
+        p = _P("memory") / "gemini_brief.json"
+        if not p.exists():
+            return jsonify({"ok": False, "error": "no brief yet; wait for next cron tick"}), 404
+        return jsonify({"ok": True, **_j.loads(p.read_text())})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
 @app.route('/api/trading/pnl', methods=['GET'])
 def api_trading_pnl():
     """Condensed P&L dashboard endpoint."""
