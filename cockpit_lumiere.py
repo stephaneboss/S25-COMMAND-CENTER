@@ -2371,7 +2371,7 @@ def api_trading_news():
     try:
         from pathlib import Path as _P
         import json as _j
-        p = _P("memory") / "perplexity_scan.json"
+        p = _P("memory") / "news_scan.json"
         if not p.exists():
             return jsonify({"ok": False, "error": "no scan yet — need PERPLEXITY_API_KEY + cron tick"}), 404
         return jsonify({"ok": True, **_j.loads(p.read_text())})
