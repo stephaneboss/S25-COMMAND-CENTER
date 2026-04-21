@@ -547,10 +547,72 @@ class CoinbaseExecutor(BaseAgent):
             return float(p.get("total_usd", 0))
         return 0.0
 
+    # Executor-level cooldown: the single choke-point all signal paths traverse.
+    # Key = (source, normalized_symbol) WITHOUT action, so flip-flop BUY→SELL
+    # from the same source on the same coin is blocked as a single family.
+    EXECUTOR_COOLDOWN_SEC = 600  # 10 minutes default
+    MAX_TRADES_PER_HOUR = 10      # global rate limit
+
+    @classmethod
+    def _coolfile(cls) -> "Path":
+        from pathlib import Path
+        return Path(__file__).resolve().parent.parent / "memory" / "executor_cooldown.json"
+
+    def _cooldown_check(self, signal: Dict) -> Optional[Dict]:
+        """Return a skip-dict if cooldown or rate limit blocks, else None."""
+        import json as _cdjson
+        cdp = self._coolfile()
+        cdp.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            state = _cdjson.loads(cdp.read_text()) if cdp.exists() else {}
+        except Exception:
+            state = {}
+        now = time.time()
+        source = str(signal.get("source", "") or "UNKNOWN").upper()
+        sym = str(signal.get("symbol", "")).upper().replace("/", "").replace("-", "")
+        for q in ("USDT", "USDC"):
+            if sym.endswith(q):
+                sym = sym[:-len(q)] + "USD"
+                break
+        key = f"{source}|{sym}"
+        # Per-key cooldown
+        last = float(state.get(key, 0))
+        if now - last < self.EXECUTOR_COOLDOWN_SEC:
+            return {
+                "ok": False,
+                "skipped": "executor_cooldown",
+                "key": key,
+                "age_sec": int(now - last),
+                "cooldown_sec": self.EXECUTOR_COOLDOWN_SEC,
+            }
+        # Global rate limit
+        recent = state.get("_recent_trades", [])
+        recent = [t for t in recent if now - float(t) < 3600]
+        if len(recent) >= self.MAX_TRADES_PER_HOUR:
+            return {
+                "ok": False,
+                "skipped": "hourly_rate_limit",
+                "count_last_hour": len(recent),
+                "limit": self.MAX_TRADES_PER_HOUR,
+            }
+        # Passes. Record pre-emptively so concurrent calls in flight also block.
+        state[key] = now
+        recent.append(now)
+        state["_recent_trades"] = recent[-20:]  # keep last 20
+        try:
+            cdp.write_text(_cdjson.dumps(state))
+        except Exception:
+            pass
+        return None
+
     def execute_signal(self, signal: Dict[str, Any]) -> Dict[str, Any]:
-        # Legacy enabled gate removed. dry_run (set by refresh_mode_from_ha) is
-        # the single source of truth.
+        # Executor cooldown — gates EVERY path (webhook_tradingview, api_signal,
+        # api_tv_pine, mesh_bridge, auto_scanner, DCA).
         action = str(signal.get("action", "")).upper()
+        if action in ("BUY", "SELL"):
+            skip = self._cooldown_check(signal)
+            if skip is not None:
+                return skip
         symbol = str(signal.get("symbol", "")).upper()
         if "/" in symbol:
             base, quote = symbol.split("/", 1)
