@@ -54,7 +54,7 @@
     "total_signals": 0
   },
   "stoch_rsi_bounce": {
-    "enabled": false,
+    "enabled": true,
     "usd_size": 3.0,
     "symbols": [
       "DOGE-USD"
