@@ -2365,6 +2365,20 @@ def api_trading_trailing_run():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
+@app.route('/api/trading/news', methods=['GET'])
+def api_trading_news():
+    """Latest Perplexity news/sentiment scan."""
+    try:
+        from pathlib import Path as _P
+        import json as _j
+        p = _P("memory") / "perplexity_scan.json"
+        if not p.exists():
+            return jsonify({"ok": False, "error": "no scan yet — need PERPLEXITY_API_KEY + cron tick"}), 404
+        return jsonify({"ok": True, **_j.loads(p.read_text())})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
 @app.route('/api/trading/brief', methods=['GET'])
 def api_trading_brief():
     """Latest Gemini-generated analyst brief."""
