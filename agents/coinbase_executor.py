@@ -33,7 +33,7 @@ logger = logging.getLogger("s25.coinbase")
 class CoinbaseExecutor(BaseAgent):
     """Coinbase Advanced order executor, dry-run safe by default."""
 
-    ALLOWED_PRODUCTS = {"BTC-USD", "ETH-USD", "AKT-USD", "SOL-USD", "ATOM-USD", "DOGE-USD"}
+    ALLOWED_PRODUCTS = {"BTC-USD", "ETH-USD", "AKT-USD", "SOL-USD", "ATOM-USD", "DOGE-USD", "PAXG-USD"}
     MAX_USD_PER_TRADE_DEFAULT = 50.0
     MAX_OPEN_ORDERS = 5
     # Auto bracket: after every successful BUY, place an OCO with SL+TP.
