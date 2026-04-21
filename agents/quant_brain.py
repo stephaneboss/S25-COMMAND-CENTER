@@ -36,10 +36,10 @@ COCKPIT = os.getenv("S25_COCKPIT_URL", "http://localhost:7777")
 
 # Decision thresholds — conservative on purpose
 DISABLE_IF_PNL_PCT_BELOW = -3.0
-DISABLE_MIN_TRADES = 5
+DISABLE_MIN_TRADES = 3      # react faster (was 5)
 RAISE_IF_PNL_PCT_ABOVE = 2.0
-RAISE_MIN_TRADES = 3
-WINDOW_HOURS_LIVE = 24 * 7   # analyze last 7 days of live trades
+RAISE_MIN_TRADES = 2        # react faster (was 3)
+WINDOW_HOURS_LIVE = 24 * 3   # 3 days (was 7)   # analyze last 7 days of live trades
 WINDOW_DAYS_BACKTEST = 30
 
 
