@@ -33,7 +33,7 @@ STATE_OUT = REPO / "memory" / "mesh_dispatched.json"
 COCKPIT = os.getenv("S25_COCKPIT_URL", "http://localhost:7777")
 
 # Skip: already executed via their own path (don't dispatch our own)
-SKIP_SOURCES = {"TRADINGVIEW", "AUTO_SCANNER", "MESH_BRIDGE", "DCA", ""}
+SKIP_SOURCES = {"TRADINGVIEW", "AUTO_SCANNER", "MESH_BRIDGE", "DCA", "ARKON5", ""}  # ARKON5 disabled: flip-flop overtrading 2026-04-20
 # Max age of a signal to be dispatchable
 FRESH_SEC = 240
 # Min effective confidence to dispatch
@@ -102,6 +102,7 @@ ARKON_COOLDOWN_SEC = 30 * 60  # 30 min per action — ARKON5 persists same signa
 
 
 def _load_arkon_status(agents_state: Dict) -> Optional[Dict]:
+    return None  # ARKON5 synthetic disabled 2026-04-20 after flip-flop incident
     """Read ARKON5 from /api/status (cockpit). Returns a synthetic signal or None.
 
     Strict 30-min cooldown per action — ARKON5 keeps the same signal posted
