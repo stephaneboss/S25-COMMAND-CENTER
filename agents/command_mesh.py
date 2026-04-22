@@ -25,6 +25,7 @@ from typing import Any, Dict, List, Optional
 
 from flask import Blueprint, jsonify, request
 
+from agents import stability_layer as _stab
 logger = logging.getLogger("s25.command_mesh")
 mesh_bp = Blueprint("s25_command_mesh", __name__, url_prefix="/api/mesh")
 
@@ -346,6 +347,43 @@ def mesh_journal():
     return jsonify({"ok": True, "count": len(entries), "entries": entries})
 
 
+
+# ═══════════════════════ STABILITY LAYER READS ═══════════════════════
+
+@mesh_bp.route("/stability/stats", methods=["GET"])
+def stability_stats():
+    """Snapshot: dedup entries, retry queue, DLQ count, open breakers."""
+    return jsonify({"ok": True, "stats": _stab.stats()})
+
+
+@mesh_bp.route("/stability/dlq", methods=["GET"])
+def stability_dlq():
+    """Last N DLQ entries (dead letter queue)."""
+    n = max(1, min(int(request.args.get("n", "50")), 500))
+    return jsonify({"ok": True, "entries": _stab.list_dlq(n)})
+
+
+@mesh_bp.route("/stability/breakers", methods=["GET"])
+def stability_breakers():
+    """Current circuit-breaker states (agent:task_type)."""
+    return jsonify({"ok": True, **_stab.list_breakers()})
+
+
+@mesh_bp.route("/stability/retry_queue", methods=["GET"])
+def stability_retry_queue():
+    """Retries pending or due."""
+    from pathlib import Path as _P
+    import json as _j
+    path = _P(__file__).resolve().parent.parent / "memory" / "stability" / "retry_queue.json"
+    data = _j.loads(path.read_text()) if path.exists() else {"items": []}
+    due = _stab.due_retries()
+    return jsonify({"ok": True,
+                    "total": len(data.get("items", [])),
+                    "due_now": len(due),
+                    "items": data.get("items", [])[-50:],
+                    "due_items": due})
+
+
 # ═══════════════════════ 6 LOGICAL ROUTES ═══════════════════════
 
 @mesh_bp.route("/ingest_intent", methods=["POST"])
@@ -498,12 +536,45 @@ def route_report_health():
     })
 
 
+def stability_wrapped_commit(body):
+    """Wrap commit_signal with dedupe via stability_layer."""
+    envelope = _stab.make_envelope(
+        event_type="signal.ingest",
+        payload=body,
+        priority=("critical" if str(body.get("action","")).upper() in ("BUY","SELL") else "normal"),
+        entity_type="signal",
+        entity_id=None,
+        source=str(body.get("source_agent", "unknown")),
+        dedupe_components=[
+            str(body.get("source_agent", "")).upper(),
+            str(body.get("symbol", "")).upper(),
+            str(body.get("action", "")).upper(),
+            # Bucket confidence by 0.05
+            f"{round(float(body.get('confidence', 0)) / 0.05) * 0.05:.2f}",
+            # Time bucket = 60s
+            str(int(time.time() // 60)),
+        ],
+    )
+    ok, reason = _stab._dedup.check_and_lock(envelope)
+    if not ok:
+        return {"status": "duplicate", "reason": reason}, envelope
+    return None, envelope
+
+
 @mesh_bp.route("/commit_signal", methods=["POST"])
 def route_commit_signal():
     """5.5 Register a signal with policy guard."""
     if not _auth_ok():
         return jsonify({"ok": False, "error": "unauthorized"}), 401
     body = request.get_json(silent=True) or {}
+    _dup_result, _envelope = stability_wrapped_commit(body)
+    if _dup_result is not None:
+        return jsonify({
+            "ok": True,
+            "skipped": True,
+            "reason": _dup_result.get("reason"),
+            "note": "signal already seen in current time bucket",
+        }), 200
     sid = _mkid("sig")
     conf = float(body.get("confidence", 0))
     weight = float(body.get("weight", 1.0))
@@ -545,6 +616,7 @@ def route_commit_signal():
     _save(SIGNALS_PATH, store)
     _journal(signal["source_agent"], "signal", sid, "commit",
              {"verdict": signal["verdict"], "conf": conf})
+    _stab._dedup.mark_processed(_envelope, {"signal_id": sid, "verdict": signal["verdict"]})
     return jsonify({
         "signal_id": sid,
         "verdict": signal["verdict"],

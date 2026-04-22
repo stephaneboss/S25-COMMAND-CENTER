@@ -1,0 +1,16 @@
+{
+  "items": {
+    "signal.ingest:TEST:BTC/USD:BUY:0.75:29613712": {
+      "dedupe_key": "signal.ingest:TEST:BTC/USD:BUY:0.75:29613712",
+      "event_id": "evt_PQgoeA7XO9G7",
+      "first_seen_at": "2026-04-22T01:52:39.989404+00:00",
+      "last_seen_at": "2026-04-22T01:52:39.991071+00:00",
+      "status": "processed",
+      "lock_owner": "worker",
+      "lock_expires_at": 1776822789.9893315,
+      "expires_at": 1776844359.9893315,
+      "attempt_count": 1,
+      "result_hash": "b96e1ecba56ce960"
+    }
+  }
+}

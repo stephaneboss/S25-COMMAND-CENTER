@@ -1,0 +1,21 @@
+{
+  "items": {
+    "sig_B2RvvKIWKo7u": {
+      "signal_id": "sig_B2RvvKIWKo7u",
+      "ts": "2026-04-22T01:52:39.990130+00:00",
+      "source_agent": "TEST",
+      "symbol": "BTC/USD",
+      "action": "BUY",
+      "confidence": 0.75,
+      "weight": 1.0,
+      "weighted_confidence": 0.75,
+      "consensus": true,
+      "consensus_bonus": 0.15,
+      "effective_confidence": 0.9,
+      "verdict": "REVIEW_REQUIRED",
+      "reason": "dedup test",
+      "context": {},
+      "linked_incident_id": null
+    }
+  }
+}
