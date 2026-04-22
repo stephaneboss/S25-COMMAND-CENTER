@@ -3,7 +3,7 @@ info:
   title: S25 Lumiere Trinity Bridge API
   description: |
     Complete OpenAPI schema for TRINITY Custom GPT → S25 Lumiere Cockpit.
-    Updated for Phase 8 (Trinity full backend command — ops routes live).
+    Updated for Phase 9 (Command Mesh API — TRINITY control plane v1, Trinity spec).
 
     PRIMARY SERVER: https://api.smajor.org (Cloudflare tunnel → AlienStef :7777)
     SECONDARY: https://s25.smajor.org (same cockpit, alias)
@@ -12,7 +12,7 @@ info:
     `x-openai-isConsequential: false` so ChatGPT Actions never prompt
     for consent on them. Only the POST/PUT endpoints that modify state
     require the X-S25-Secret header and may show a consent prompt.
-  version: 8.0.0
+  version: 9.0.0
   contact:
     name: Stef / S25 Lumiere
     url: https://smajor.org
@@ -470,4 +470,255 @@ paths:
                 reason: { type: string }
       responses:
         '200': { description: New state }
+
+  # ═══════════════ COMMAND MESH API (v9) — Trinity spec ═══════════════
+  # Canonical 5 objects + 6 routes per docs/TRINITY_ARCHITECTURE_v1.md
+
+  /api/mesh/agents:
+    get:
+      operationId: meshListAgents
+      summary: List all registered mesh agents (TRINITY/MERLIN/ORACLE/COMET/etc)
+      x-openai-isConsequential: false
+      responses:
+        '200': { description: Agents }
+
+  /api/mesh/agents/{agent_id}:
+    get:
+      operationId: meshGetAgent
+      summary: Get one agent by id
+      x-openai-isConsequential: false
+      parameters:
+        - { name: agent_id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: Agent }
+
+  /api/mesh/missions:
+    get:
+      operationId: meshListMissions
+      summary: List missions (optionally filter by status)
+      x-openai-isConsequential: false
+      parameters:
+        - { name: status, in: query, required: false, schema: { type: string, enum: [draft, queued, assigned, accepted, running, completed, failed, expired, blocked, cancelled] } }
+        - { name: limit, in: query, required: false, schema: { type: integer, default: 50 } }
+      responses:
+        '200': { description: Missions }
+
+  /api/mesh/missions/{mission_id}:
+    get:
+      operationId: meshGetMission
+      summary: Get one mission by id
+      x-openai-isConsequential: false
+      parameters:
+        - { name: mission_id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: Mission }
+
+  /api/mesh/signals:
+    get:
+      operationId: meshListSignals
+      summary: Recent signals from Signal Registry (all sources)
+      x-openai-isConsequential: false
+      parameters:
+        - { name: limit, in: query, required: false, schema: { type: integer, default: 50 } }
+      responses:
+        '200': { description: Signals }
+
+  /api/mesh/incidents:
+    get:
+      operationId: meshListIncidents
+      summary: List incidents (auto-opened by Policy Engine or manual)
+      x-openai-isConsequential: false
+      parameters:
+        - { name: status, in: query, required: false, schema: { type: string, enum: [open, acknowledged, mitigating, resolved, closed] } }
+      responses:
+        '200': { description: Incidents }
+
+  /api/mesh/state:
+    get:
+      operationId: meshGetSystemState
+      summary: Canonical system_state (recomputed on every read)
+      x-openai-isConsequential: false
+      responses:
+        '200': { description: system_state }
+
+  /api/mesh/journal:
+    get:
+      operationId: meshGetJournal
+      summary: Ops Journal entries (append-only, newest last)
+      x-openai-isConsequential: false
+      parameters:
+        - { name: n, in: query, required: false, schema: { type: integer, default: 100, maximum: 500 } }
+      responses:
+        '200': { description: Journal }
+
+  # --- 6 Logical Routes ---
+
+  /api/mesh/ingest_intent:
+    post:
+      operationId: meshIngestIntent
+      summary: 5.1 Canonical voice/text intent entry
+      security:
+        - S25Secret: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [intent]
+              properties:
+                sender: { type: string, example: "Claude" }
+                channel: { type: string, enum: [text, voice, api], default: text }
+                intent: { type: string }
+                context: { type: object }
+                priority: { type: string, enum: [low, normal, high, critical], default: normal }
+      responses:
+        '200': { description: Ingested, returns request_id }
+
+  /api/mesh/route_intent:
+    post:
+      operationId: meshRouteIntent
+      summary: 5.2 Classify intent → route decision (query/mission/signal/incident/kill_switch/noop)
+      security:
+        - S25Secret: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [intent]
+              properties:
+                request_id: { type: string }
+                intent: { type: string }
+                sender: { type: string }
+                context: { type: object }
+      responses:
+        '200': { description: Routing decision }
+
+  /api/mesh/create_mission:
+    post:
+      operationId: meshCreateMission
+      summary: 5.3 Create executable mission with target agent
+      security:
+        - S25Secret: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [target_agent, task_type]
+              properties:
+                created_by: { type: string, default: "TRINITY" }
+                target_agent: { type: string, example: "COMET" }
+                task_type: { type: string, enum: [trading_analysis, market_news, code_generation, strategy_planning, infra_monitoring, fallback] }
+                intent: { type: string }
+                priority: { type: string, enum: [low, normal, high, critical], default: normal }
+                input: { type: object }
+                constraints:
+                  type: object
+                  properties:
+                    timeout_sec: { type: integer, default: 120 }
+                    max_retries: { type: integer, default: 2 }
+                    require_ack: { type: boolean, default: true }
+      responses:
+        '200': { description: Mission created }
+
+  /api/mesh/report_health:
+    post:
+      operationId: meshReportHealth
+      summary: 5.4 Agent heartbeat + health telemetry (no auth — idempotent)
+      x-openai-isConsequential: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [agent_id]
+              properties:
+                agent_id: { type: string }
+                type: { type: string, example: intel }
+                status: { type: string, enum: [online, degraded, offline, standby, disabled], default: online }
+                runtime: { type: string, example: akash }
+                endpoint_class: { type: string, example: internal }
+                capabilities: { type: array, items: { type: string } }
+                latency_ms: { type: integer }
+                error_rate: { type: number }
+                reliability_score: { type: number }
+      responses:
+        '200': { description: Heartbeat accepted }
+
+  /api/mesh/commit_signal:
+    post:
+      operationId: meshCommitSignal
+      summary: 5.5 Register a signal — policy engine assigns verdict
+      security:
+        - S25Secret: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [source_agent, action]
+              properties:
+                source_agent: { type: string, example: ARKON }
+                symbol: { type: string, example: BTC/USD }
+                action: { type: string, enum: [BUY, SELL, HOLD, ALERT, NO_ACTION] }
+                confidence: { type: number, format: float }
+                weight: { type: number, format: float, default: 1.0 }
+                consensus: { type: boolean, default: false }
+                reason: { type: string }
+                context: { type: object }
+      responses:
+        '200': { description: Signal stored with verdict }
+
+  /api/mesh/resolve_incident:
+    post:
+      operationId: meshResolveIncident
+      summary: 5.6 Acknowledge / mitigate / resolve / close incident
+      security:
+        - S25Secret: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [incident_id, action]
+              properties:
+                incident_id: { type: string }
+                action: { type: string, enum: [acknowledge, mitigate, resolve, close] }
+                actor: { type: string, default: "TRINITY" }
+                note: { type: string }
+      responses:
+        '200': { description: New incident status }
+
+  /api/mesh/open_incident:
+    post:
+      operationId: meshOpenIncident
+      summary: Manually open incident (for watchdog scripts / tests)
+      security:
+        - S25Secret: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [severity, title]
+              properties:
+                severity: { type: string, enum: [info, warning, critical, severe] }
+                title: { type: string }
+                summary: { type: string }
+                category: { type: string }
+                source: { type: string }
+                evidence: { type: object }
+                impact: { type: object }
+                recommended_actions: { type: array, items: { type: string } }
+                owner: { type: string, default: "TRINITY" }
+      responses:
+        '200': { description: Incident opened }
 

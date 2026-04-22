@@ -14,6 +14,7 @@ from security.vault import vault_get
 from agents.ha_bridge import ha as ha_bridge
 from agents.s25_conversation_agent import handle_chat_completion, list_models as list_agent_models, push_mesh_to_ha
 from agents.ops_routes import ops_bp
+from agents.command_mesh import mesh_bp as command_mesh_bp
 
 MEMORY_DIR = Path(os.getenv("MEMORY_DIR", os.path.expanduser("~/S25-COMMAND-CENTER/memory")))
 MEMORY_DIR.mkdir(parents=True, exist_ok=True)
@@ -22,6 +23,7 @@ AGENTS_STATE_FILE  = MEMORY_DIR / "agents_state.json"
 
 app = Flask(__name__)
 app.register_blueprint(ops_bp)
+app.register_blueprint(command_mesh_bp)
 _START_TIME = time.time()
 app.secret_key = vault_get("SECRET_KEY", os.urandom(32).hex())
 

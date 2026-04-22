@@ -1,0 +1,35 @@
+{
+  "items": {
+    "inc_KpxNzVnu5OQC": {
+      "incident_id": "inc_KpxNzVnu5OQC",
+      "opened_at": "2026-04-22T01:33:37.874603+00:00",
+      "severity": "critical",
+      "status": "open",
+      "source": "Policy",
+      "category": "mesh_degradation",
+      "title": "Moins de 6 agents online",
+      "summary": "Only 4/8 online",
+      "evidence": {
+        "ts": "2026-04-22T01:33:37.873970+00:00",
+        "global_status": "degraded",
+        "pipeline_status": "unknown",
+        "mesh_status": "degraded",
+        "tunnel_active": true,
+        "agents_online": 4,
+        "agents_expected": 8,
+        "active_incidents": 0,
+        "router_quota_state": "ok",
+        "last_signal_at": null,
+        "control_plane_runtime": "local",
+        "local_dependency": "required",
+        "notes": []
+      },
+      "recommended_actions": [
+        "reroute_to_akash",
+        "disable_noncritical_dispatch"
+      ],
+      "owner": "TRINITY",
+      "resolved_at": null
+    }
+  }
+}

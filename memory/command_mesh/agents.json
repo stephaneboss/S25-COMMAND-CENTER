@@ -1,0 +1,163 @@
+{
+  "items": {
+    "TRINITY": {
+      "agent_id": "TRINITY",
+      "type": "control",
+      "status": "online",
+      "runtime": "chatgpt",
+      "endpoint_class": "internal",
+      "capabilities": [
+        "orchestration",
+        "voice",
+        "text"
+      ],
+      "priority": "normal",
+      "cost_tier": "low",
+      "reliability_score": 1.0,
+      "last_heartbeat_at": "2026-04-22T01:33:31.489880+00:00",
+      "last_seen_at": "2026-04-22T01:33:31.489880+00:00",
+      "cooldown_until": null,
+      "metadata": {},
+      "latency_ms": null,
+      "error_rate": null
+    },
+    "MERLIN": {
+      "agent_id": "MERLIN",
+      "type": "llm",
+      "status": "online",
+      "runtime": "local",
+      "endpoint_class": "internal",
+      "capabilities": [
+        "gemini_bridge",
+        "routing"
+      ],
+      "priority": "normal",
+      "cost_tier": "low",
+      "reliability_score": 1.0,
+      "last_heartbeat_at": "2026-04-22T01:33:32.062727+00:00",
+      "last_seen_at": "2026-04-22T01:33:32.062727+00:00",
+      "cooldown_until": null,
+      "metadata": {},
+      "latency_ms": null,
+      "error_rate": null
+    },
+    "ORACLE": {
+      "agent_id": "ORACLE",
+      "type": "intel",
+      "status": "online",
+      "runtime": "local",
+      "endpoint_class": "internal",
+      "capabilities": [
+        "price_validation",
+        "multi_source"
+      ],
+      "priority": "normal",
+      "cost_tier": "low",
+      "reliability_score": 1.0,
+      "last_heartbeat_at": "2026-04-22T01:33:32.662712+00:00",
+      "last_seen_at": "2026-04-22T01:33:32.662712+00:00",
+      "cooldown_until": null,
+      "metadata": {},
+      "latency_ms": null,
+      "error_rate": null
+    },
+    "ONCHAIN_GUARDIAN": {
+      "agent_id": "ONCHAIN_GUARDIAN",
+      "type": "intel",
+      "status": "standby",
+      "runtime": "local",
+      "endpoint_class": "internal",
+      "capabilities": [
+        "chain_monitoring",
+        "token_reports"
+      ],
+      "priority": "normal",
+      "cost_tier": "low",
+      "reliability_score": 1.0,
+      "last_heartbeat_at": "2026-04-22T01:33:33.237551+00:00",
+      "last_seen_at": "2026-04-22T01:33:33.237551+00:00",
+      "cooldown_until": null,
+      "metadata": {},
+      "latency_ms": null,
+      "error_rate": null
+    },
+    "COMET": {
+      "agent_id": "COMET",
+      "type": "intel",
+      "status": "standby",
+      "runtime": "local",
+      "endpoint_class": "internal",
+      "capabilities": [
+        "browser_research",
+        "sentiment"
+      ],
+      "priority": "normal",
+      "cost_tier": "low",
+      "reliability_score": 1.0,
+      "last_heartbeat_at": "2026-04-22T01:33:33.966052+00:00",
+      "last_seen_at": "2026-04-22T01:33:33.966052+00:00",
+      "cooldown_until": null,
+      "metadata": {},
+      "latency_ms": null,
+      "error_rate": null
+    },
+    "GEMINI": {
+      "agent_id": "GEMINI",
+      "type": "llm",
+      "status": "online",
+      "runtime": "google_cloud",
+      "endpoint_class": "internal",
+      "capabilities": [
+        "analysis",
+        "news_grounding"
+      ],
+      "priority": "normal",
+      "cost_tier": "low",
+      "reliability_score": 1.0,
+      "last_heartbeat_at": "2026-04-22T01:33:34.779047+00:00",
+      "last_seen_at": "2026-04-22T01:33:34.779047+00:00",
+      "cooldown_until": null,
+      "metadata": {},
+      "latency_ms": null,
+      "error_rate": null
+    },
+    "ARKON5": {
+      "agent_id": "ARKON5",
+      "type": "signal",
+      "status": "disabled",
+      "runtime": "local",
+      "endpoint_class": "internal",
+      "capabilities": [
+        "mesh_auto_relay"
+      ],
+      "priority": "normal",
+      "cost_tier": "low",
+      "reliability_score": 1.0,
+      "last_heartbeat_at": "2026-04-22T01:33:35.653570+00:00",
+      "last_seen_at": "2026-04-22T01:33:35.653570+00:00",
+      "cooldown_until": null,
+      "metadata": {},
+      "latency_ms": null,
+      "error_rate": null
+    },
+    "KIMI": {
+      "agent_id": "KIMI",
+      "type": "llm",
+      "status": "disabled",
+      "runtime": "legacy",
+      "endpoint_class": "internal",
+      "capabilities": [
+        "dormant"
+      ],
+      "priority": "normal",
+      "cost_tier": "low",
+      "reliability_score": 1.0,
+      "last_heartbeat_at": "2026-04-22T01:33:36.375237+00:00",
+      "last_seen_at": "2026-04-22T01:33:36.375237+00:00",
+      "cooldown_until": null,
+      "metadata": {},
+      "latency_ms": null,
+      "error_rate": null
+    }
+  }
+}
