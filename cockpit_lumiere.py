@@ -775,7 +775,7 @@ reponse: {"tool":"trade","args":{"symbol":"ETH/USD","action":"SELL","usd_amount"
             'stream': False,
             'format': 'json',
             'options': {'temperature': 0.7, 'num_predict': 250, 'top_p': 0.9},
-        }, timeout=30)
+        }, timeout=60)
         if not r.ok:
             raise Exception(f'Ollama HTTP {r.status_code}: {r.text[:200]}')
         qwen_out = r.json().get('message', {}).get('content', '').strip()
