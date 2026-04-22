@@ -671,6 +671,121 @@ def serve_openapi_voice():
         return jsonify({'ok': False, 'error': str(e)}), 500
 
 
+@app.route('/api/voice/command', methods=['POST'])
+def voice_command():
+    """
+    Hands-free voice command endpoint.
+
+    Accepts plain French/English phrase, parses trade intent, fires the
+    voice->trade chain directly. Designed for iOS Shortcuts, Siri, Home
+    Assistant, or any other voice source that can POST a phrase.
+
+    POST body:
+      { "phrase": "lance achat BTC 1 dollar dry run",
+        "sender": "SIRI" (optional, default STEF_VOICE) }
+
+    Auth: X-S25-Secret header (same as /api/mesh/*).
+
+    Returns: { ok, mission_id, status, symbol, action, usd_amount, chain_steps }
+    Or { ok: false, error } if not a trade command.
+    """
+    if request.headers.get('X-S25-Secret') != os.getenv('S25_SHARED_SECRET', 'MYN5VGqsJZ9MwYqvJ3mbwEfh0n4TZ4b7C7TjuwVp-2A'):
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
+
+    import re
+    body = request.get_json(silent=True) or {}
+    phrase = (body.get('phrase') or body.get('text') or body.get('intent') or '').strip()
+    sender = body.get('sender', 'STEF_VOICE')
+
+    if not phrase:
+        return jsonify({"ok": False, "error": "missing phrase"}), 400
+
+    phrase_lower = phrase.lower()
+
+    # Parse action (BUY/SELL)
+    if any(kw in phrase_lower for kw in ['achete', 'achat', 'buy', 'lance achat', 'long']):
+        action = 'BUY'
+    elif any(kw in phrase_lower for kw in ['vend', 'sell', 'short', 'liquide']):
+        action = 'SELL'
+    else:
+        return jsonify({"ok": False, "error": "no trade verb detected (lance/achete/vend/buy/sell)", "phrase": phrase}), 400
+
+    # Parse symbol - map common spoken names to pairs
+    symbol_map = {
+        'btc': 'BTC/USD', 'bitcoin': 'BTC/USD',
+        'eth': 'ETH/USD', 'ethereum': 'ETH/USD', 'ether': 'ETH/USD',
+        'sol': 'SOL/USD', 'solana': 'SOL/USD',
+        'doge': 'DOGE/USD', 'dogecoin': 'DOGE/USD',
+        'atom': 'ATOM/USD', 'cosmos': 'ATOM/USD',
+        'akt': 'AKT/USD', 'akash': 'AKT/USD',
+        'paxg': 'PAXG/USD', 'or': 'PAXG/USD', 'gold': 'PAXG/USD',
+    }
+    symbol = None
+    for token, pair in symbol_map.items():
+        if re.search(rf'\b{token}\b', phrase_lower):
+            symbol = pair
+            break
+    if not symbol:
+        return jsonify({"ok": False, "error": "no symbol detected", "phrase": phrase, "hint": "try: btc, eth, sol, doge, atom, akt, paxg"}), 400
+
+    # Parse usd_amount - look for a number (1 dollar, 5 dollars, 10 usd, $5)
+    amt_match = re.search(r'(\d+(?:\.\d+)?)\s*(?:dollar|usd|\$|euros?)?', phrase_lower)
+    usd_amount = float(amt_match.group(1)) if amt_match else 1.0
+    if usd_amount > 50:
+        usd_amount = 50  # hard safety cap matches executor
+
+    chain_steps = []
+
+    # Step 1: ingest_intent
+    try:
+        from agents.command_mesh import mesh_bp  # just to ensure module loaded
+    except Exception:
+        pass
+
+    r1 = requests.post(
+        'http://127.0.0.1:7777/api/mesh/ingest_intent',
+        headers={'X-S25-Secret': os.getenv('S25_SHARED_SECRET', 'MYN5VGqsJZ9MwYqvJ3mbwEfh0n4TZ4b7C7TjuwVp-2A'), 'Content-Type': 'application/json'},
+        json={'intent': phrase, 'channel': 'voice', 'sender': sender},
+        timeout=5
+    )
+    d1 = r1.json() if r1.ok else {}
+    chain_steps.append({'step': 'ingest_intent', 'ok': r1.ok, 'request_id': d1.get('request_id')})
+
+    # Step 2: create_mission (skip route_intent, we already parsed the intent)
+    mission_body = {
+        'target_agent': 'COINBASE',
+        'task_type': 'trade_execute',
+        'priority': 'high',
+        'intent': phrase,
+        'input': {
+            'symbol': symbol,
+            'action': action,
+            'usd_amount': usd_amount,
+            'source': sender,
+        },
+        'created_by': 'VOICE_WEBHOOK',
+    }
+    r2 = requests.post(
+        'http://127.0.0.1:7777/api/mesh/create_mission',
+        headers={'X-S25-Secret': os.getenv('S25_SHARED_SECRET', 'MYN5VGqsJZ9MwYqvJ3mbwEfh0n4TZ4b7C7TjuwVp-2A'), 'Content-Type': 'application/json'},
+        json=mission_body,
+        timeout=5
+    )
+    d2 = r2.json() if r2.ok else {}
+    chain_steps.append({'step': 'create_mission', 'ok': r2.ok, 'mission_id': d2.get('mission_id'), 'status': d2.get('status')})
+
+    return jsonify({
+        'ok': True,
+        'phrase': phrase,
+        'sender': sender,
+        'parsed': {'symbol': symbol, 'action': action, 'usd_amount': usd_amount},
+        'mission_id': d2.get('mission_id'),
+        'status': d2.get('status'),
+        'chain_steps': chain_steps,
+        'note': 'Mission will execute via mission_worker cron (tick 1 min). Dry-run unless .coinbase_live.flag exists.',
+    })
+
+
 @app.route('/openapi.yaml', methods=['GET'])
 @app.route('/openapi.json', methods=['GET'])
 def serve_openapi():
