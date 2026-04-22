@@ -73,16 +73,6 @@ LOCAL_AGENTS: Dict[str, Dict] = {
         "type": "brain", "runtime": "local",
         "capabilities": ["auto_tune_strategies", "re_enable_rules"],
     },
-    "gemini_orchestrator": {
-        "log": "/tmp/gemini_orchestrator.log", "interval": 7200,
-        "type": "brain", "runtime": "google_cloud",
-        "capabilities": ["strategic_brief", "portfolio_health_score"],
-    },
-    "gemini_news_scanner": {
-        "log": "/tmp/gemini_news.log", "interval": 3600,
-        "type": "intel", "runtime": "google_cloud",
-        "capabilities": ["news_grounding", "google_search_citations"],
-    },
     "system_health": {
         "log": "/tmp/system_health.log", "interval": 300,
         "type": "infra", "runtime": "local",

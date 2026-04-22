@@ -698,7 +698,11 @@ def _trinity_auth() -> bool:
     return request.headers.get("X-S25-Secret", "") == S25_SECRET
 
 def _merlin_query(prompt: str) -> str:
-    """Appel direct Merlin (Gemini) pour reponse intelligente."""
+    """MERLIN — local-only mode since 2026-04-22 (Google AI Studio retired).
+    For intelligent responses, Major uses Gemini Pro web manually."""
+    return (
+        "MERLIN local-mode: Google AI Studio retired (403 DENIED). "        "For deep analysis, use Gemini Pro web. This bridge returns market snapshot only."    )
+    # ---- legacy code below kept but never reached ----
     if not GEMINI_API_KEY:
         return "MERLIN OFFLINE: GEMINI_API_KEY non configuree"
     try:

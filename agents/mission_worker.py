@@ -55,11 +55,16 @@ MAX_MISSIONS_PER_TICK = 5
 
 # task_type -> dispatcher func-name
 DISPATCHERS: Dict[str, str] = {
-    "market_news": "dispatch_gemini_news",
-    "trading_analysis": "dispatch_gemini_orchestrator",
+    # FULL-LOCAL mode (2026-04-22 Major decision: Google AI Studio retired, Gemini Pro manual only)
+    "market_news": "dispatch_comet_sentiment",
+    "trading_analysis": "dispatch_quant_brain",
     "infra_monitoring": "dispatch_system_health",
     "strategy_planning": "dispatch_quant_brain",
-    "code_generation": "dispatch_merlin_gemini",
+    "code_generation": "dispatch_noop_gemini_retired",
+    "ha_automation": "dispatch_ha_automation",
+    "ha_notify": "dispatch_ha_notify",
+    "signal_scan": "dispatch_auto_signal_scanner",
+    "drawdown_check": "dispatch_drawdown_guardian",
     "fallback": "dispatch_noop",
 }
 
@@ -177,12 +182,70 @@ def _run_module(module: str, timeout: int = 120) -> Dict:
         return {"ok": False, "error": str(e)}
 
 
-def dispatch_gemini_news(mission: Dict) -> Dict:
-    return _run_module("agents.gemini_news_scanner", timeout=180)
+def dispatch_comet_sentiment(mission: Dict) -> Dict:
+    return _run_module("agents.comet_sentiment", timeout=120)
 
 
-def dispatch_gemini_orchestrator(mission: Dict) -> Dict:
-    return _run_module("agents.gemini_orchestrator", timeout=240)
+def dispatch_auto_signal_scanner(mission: Dict) -> Dict:
+    return _run_module("agents.auto_signal_scanner", timeout=180)
+
+
+def dispatch_drawdown_guardian(mission: Dict) -> Dict:
+    return _run_module("agents.drawdown_guardian", timeout=60)
+
+
+def dispatch_noop_gemini_retired(mission: Dict) -> Dict:
+    return {"ok": False, "error": "gemini_api_retired: route to local agent or use Gemini Pro web manually"}
+
+
+def dispatch_ha_automation(mission: Dict) -> Dict:
+    """Trigger a Home Assistant automation via REST."""
+    import os
+    url = os.getenv("HA_URL", "http://10.0.0.136:8123")
+    token = _ha_token()
+    if not token:
+        return {"ok": False, "error": "HA_TOKEN missing"}
+    automation = mission.get("input", {}).get("automation_id")
+    if not automation:
+        return {"ok": False, "error": "missing input.automation_id"}
+    r = requests.post(
+        f"{url.rstrip(chr(47))}/api/services/automation/trigger",
+        headers={"Authorization": f"Bearer {token}",
+                 "Content-Type": "application/json"},
+        json={"entity_id": f"automation.{automation}"},
+        timeout=10,
+    )
+    return {"ok": r.status_code == 200, "http": r.status_code,
+            "body": r.text[:300]}
+
+
+def dispatch_ha_notify(mission: Dict) -> Dict:
+    """Persistent notification in Home Assistant."""
+    import os
+    url = os.getenv("HA_URL", "http://10.0.0.136:8123")
+    token = _ha_token()
+    if not token:
+        return {"ok": False, "error": "HA_TOKEN missing"}
+    inp = mission.get("input", {})
+    r = requests.post(
+        f"{url.rstrip(chr(47))}/api/services/persistent_notification/create",
+        headers={"Authorization": f"Bearer {token}",
+                 "Content-Type": "application/json"},
+        json={
+            "title": inp.get("title", "S25 Mission"),
+            "message": inp.get("message", mission.get("intent", "")),
+        },
+        timeout=10,
+    )
+    return {"ok": r.status_code == 200, "http": r.status_code}
+
+
+def _ha_token() -> str:
+    try:
+        from security.vault import vault_get
+        return vault_get("HA_TOKEN", "")
+    except Exception:
+        return ""
 
 
 def dispatch_system_health(mission: Dict) -> Dict:
@@ -193,24 +256,7 @@ def dispatch_quant_brain(mission: Dict) -> Dict:
     return _run_module("agents.quant_brain", timeout=240)
 
 
-def dispatch_merlin_gemini(mission: Dict) -> Dict:
-    """Route via /api/trinity (existing merlin bridge)."""
-    payload = {
-        "intent": mission.get("intent", "code generation task"),
-        "action": "analyze",
-        "data": {
-            "task": mission.get("task_type"),
-            "input": mission.get("input", {}),
-            "created_by": mission.get("created_by"),
-        },
-    }
-    try:
-        r = requests.post(f"{COCKPIT}/api/trinity", json=payload, timeout=60)
-        if r.status_code == 200:
-            return {"ok": True, "response": r.json()}
-        return {"ok": False, "error": f"HTTP {r.status_code}: {r.text[:500]}"}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+
 
 
 def dispatch_noop(mission: Dict) -> Dict:
@@ -218,11 +264,14 @@ def dispatch_noop(mission: Dict) -> Dict:
 
 
 DISPATCH_MAP = {
-    "dispatch_gemini_news": dispatch_gemini_news,
-    "dispatch_gemini_orchestrator": dispatch_gemini_orchestrator,
+    "dispatch_comet_sentiment": dispatch_comet_sentiment,
+    "dispatch_auto_signal_scanner": dispatch_auto_signal_scanner,
+    "dispatch_drawdown_guardian": dispatch_drawdown_guardian,
     "dispatch_system_health": dispatch_system_health,
     "dispatch_quant_brain": dispatch_quant_brain,
-    "dispatch_merlin_gemini": dispatch_merlin_gemini,
+    "dispatch_noop_gemini_retired": dispatch_noop_gemini_retired,
+    "dispatch_ha_automation": dispatch_ha_automation,
+    "dispatch_ha_notify": dispatch_ha_notify,
     "dispatch_noop": dispatch_noop,
 }
 
