@@ -94,19 +94,71 @@ def save_state(s: Dict):
 
 
 def compute_drawdown_pct() -> Optional[float]:
-    """Return total_pnl as % of portfolio."""
+    """Return rolling 24h realized P&L as % of current portfolio.
+
+    Previous version used lifetime total_pnl which made the guardian
+    stick on "hard" forever after any historical loss. Now we window to
+    the last 24h of actual trades, so the guardian resets organically
+    once yesterday's losses age out."""
     try:
-        r = requests.get(f"{COCKPIT}/api/trading/pnl", timeout=6)
-        pnl = r.json() if r.status_code == 200 else None
         r2 = requests.get(f"{COCKPIT}/api/coinbase/portfolio", timeout=6)
         port = r2.json() if r2.status_code == 200 else None
-        if not pnl or not port:
+        if not port:
             return None
-        total_pnl = float(pnl.get("total_pnl") or 0)
         portfolio = float(port.get("total_usd") or 0)
         if portfolio <= 0:
             return None
-        return (total_pnl / portfolio) * 100
+
+        # Read trades log, sum realized P&L for last 24h
+        import json as _j
+        from pathlib import Path as _P
+        log = _P("memory") / "trades_log.jsonl"
+        if not log.exists():
+            return 0.0
+        cutoff = time.time() - 24 * 3600
+        # FIFO match BUY/SELL within last 24h for rough realized pnl
+        trades = []
+        for line in log.read_text().splitlines():
+            if not line.strip():
+                continue
+            try:
+                t = _j.loads(line)
+            except Exception:
+                continue
+            ts = t.get("ts", 0)
+            if not isinstance(ts, (int, float)) or ts < cutoff:
+                continue
+            if t.get("mode") != "live" or not t.get("success"):
+                continue
+            trades.append(t)
+        trades.sort(key=lambda x: x["ts"])
+
+        from collections import defaultdict
+        lots = defaultdict(list)
+        realized = 0.0
+        for t in trades:
+            sym = t.get("symbol", "")
+            size = t.get("base_size") or 0
+            price = t.get("avg_price") or 0
+            fee = t.get("fee") or 0
+            if not size or not price:
+                continue
+            qty = float(size); px = float(price)
+            if t.get("side") == "BUY":
+                lots[sym].append({"qty": qty, "price": px, "fee": float(fee)})
+            elif t.get("side") == "SELL":
+                remaining = qty
+                while remaining > 0 and lots[sym]:
+                    lot = lots[sym][0]
+                    matched = min(lot["qty"], remaining)
+                    pnl = (px - lot["price"]) * matched - lot["fee"] - float(fee) * (matched / qty)
+                    realized += pnl
+                    lot["qty"] -= matched
+                    remaining -= matched
+                    if lot["qty"] <= 1e-9:
+                        lots[sym].pop(0)
+
+        return (realized / portfolio) * 100
     except Exception as e:
         logger.warning("compute_drawdown_pct failed: %s", e)
         return None
