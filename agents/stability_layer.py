@@ -514,3 +514,148 @@ def stats() -> Dict:
         "breakers_total": len(breakers.get("breakers", {})),
         "dlq_total": dlq_count,
     }
+
+
+# ═══════════════════════ BACKPRESSURE (Phase 2, Stability §20) ═══════════════════════
+
+# Thresholds per §23 seuils v1
+_BP_SIGNAL_WARN = 50      # signals in last 60s
+_BP_SIGNAL_CONGESTED = 200
+_BP_MISSION_QUEUED_WARN = 20
+_BP_MISSION_QUEUED_CONGESTED = 60
+_BP_RETRY_DUE_WARN = 30
+_BP_RETRY_DUE_CONGESTED = 80
+
+_MESH_SIGNALS_PATH = REPO / "memory" / "command_mesh" / "signals.json"
+_MESH_MISSIONS_PATH = REPO / "memory" / "command_mesh" / "missions.json"
+_DEGRADED_FLAG = REPO / "memory" / "command_mesh" / "degraded_mode.json"
+
+
+def _signal_rate_last_60s() -> int:
+    try:
+        data = _load(_MESH_SIGNALS_PATH, {"items": {}})
+        items = data.get("items") or {}
+        cutoff = _now_ts() - 60
+        count = 0
+        for it in items.values():
+            ts = it.get("ingested_ts")
+            if not ts:
+                iso = it.get("ingested_at") or ""
+                try:
+                    ts = datetime.fromisoformat(iso.replace("Z", "+00:00")).timestamp()
+                except Exception:
+                    ts = 0
+            if ts and ts >= cutoff:
+                count += 1
+        return count
+    except Exception:
+        return 0
+
+
+def _missions_queued_count() -> int:
+    try:
+        data = _load(_MESH_MISSIONS_PATH, {"items": {}})
+        items = data.get("items") or {}
+        return sum(1 for m in items.values()
+                   if m.get("status") in {"queued", "assigned"})
+    except Exception:
+        return 0
+
+
+def backpressure_level() -> Dict:
+    """Return mesh load signal: ok | warn | congested.
+
+    Implements Trinity Stability §23 seuils v1 backpressure metric.
+    Used by /api/signal POST throttle and by watchdog for safe_mode toggle.
+    """
+    sig = _signal_rate_last_60s()
+    miss = _missions_queued_count()
+    retry = len(due_retries())
+
+    level = "ok"
+    if (sig >= _BP_SIGNAL_WARN
+            or miss >= _BP_MISSION_QUEUED_WARN
+            or retry >= _BP_RETRY_DUE_WARN):
+        level = "warn"
+    if (sig >= _BP_SIGNAL_CONGESTED
+            or miss >= _BP_MISSION_QUEUED_CONGESTED
+            or retry >= _BP_RETRY_DUE_CONGESTED):
+        level = "congested"
+
+    return {
+        "level": level,
+        "signal_rate_60s": sig,
+        "missions_queued": miss,
+        "retries_due": retry,
+        "thresholds": {
+            "signal": [_BP_SIGNAL_WARN, _BP_SIGNAL_CONGESTED],
+            "missions": [_BP_MISSION_QUEUED_WARN, _BP_MISSION_QUEUED_CONGESTED],
+            "retries": [_BP_RETRY_DUE_WARN, _BP_RETRY_DUE_CONGESTED],
+        },
+        "computed_at": _now_iso(),
+    }
+
+
+def should_throttle(priority: str) -> Tuple[bool, str]:
+    """Return (throttle?, reason).
+
+    Per §22 Test 3: during congested backpressure, throttle normal+low,
+    let critical+high through.
+    """
+    bp = backpressure_level()
+    lvl = bp["level"]
+    prio = (priority or "normal").lower()
+    if lvl == "congested" and prio in {"low", "normal"}:
+        return True, "backpressure_congested sig60s=%d queued=%d" % (
+            bp["signal_rate_60s"], bp["missions_queued"])
+    if lvl == "warn" and prio == "low":
+        return True, "backpressure_warn_low_only sig60s=%d" % bp["signal_rate_60s"]
+    return False, ""
+
+
+# ═══════════════════════ DLQ REPLAY (Phase 2 §22 Test 5) ═══════════════════════
+
+def replay_from_dlq(event_id: str, new_source: str = "dlq_replay") -> Optional[Dict]:
+    """Replay a DLQ'd event as a fresh envelope with a new event_id.
+
+    DLQ entries don't store the full envelope — only key fields + payload
+    snapshot. So replay rebuilds a new envelope via make_envelope(), preserving
+    the original event_type / entity / payload, and links lineage via
+    replay_of.
+
+    Per §22 Test 5: the new envelope MUST have a different event_id AND a
+    different dedupe_key, otherwise the Deduplicator will block it.
+    Returns the new envelope or None if the source DLQ entry isn't found.
+    """
+    if not DLQ_PATH.exists():
+        return None
+    entry = None
+    for line in DLQ_PATH.open():
+        try:
+            rec = json.loads(line)
+        except Exception:
+            continue
+        if rec.get("event_id") == event_id:
+            entry = rec
+            break
+    if not entry:
+        return None
+    if entry.get("replayable") is False:
+        _audit("dlq_replay_refused", {"event_id": event_id,
+                                       "reason": "not_replayable"})
+        return None
+
+    new_env = make_envelope(
+        event_type=entry.get("event_type") or "signal.ingest",
+        payload=entry.get("payload_snapshot") or {},
+        priority=entry.get("priority") or "normal",
+        entity_type=entry.get("entity_type"),
+        entity_id=entry.get("entity_id"),
+        source=new_source,
+    )
+    # Force a unique dedupe key so the replay always passes dedupe
+    new_env["dedupe_key"] = "replay:%s:%s" % (event_id, new_env["event_id"])
+    new_env["replay_of"] = event_id
+    _audit("dlq_replay", {"original_event_id": event_id,
+                          "new_event_id": new_env["event_id"]})
+    return new_env

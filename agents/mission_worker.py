@@ -279,23 +279,42 @@ DISPATCH_MAP = {
 # ═══════════════════════ AGENT CAPABILITY MATCHING ═══════════════════════
 
 def choose_target(mission: Dict, agents: Dict) -> Optional[str]:
-    """Trinity §15.2 — choose best agent that matches task."""
+    """Trinity §15.2 — choose best agent that matches task.
+
+    Phase 2: if preferred agent's circuit breaker is OPEN for this task_type,
+    skip straight to fallback_agents (Trinity Stability §22 Test 2).
+    """
+    try:
+        from agents.stability_layer import breaker_is_open
+    except Exception:
+        def breaker_is_open(_a, _t):  # graceful if stability_layer missing
+            return False
+
     preferred = mission.get("target_agent")
     task_type = mission.get("task_type")
-    # 1. Preferred if online + not disabled + has capability
+    # 1. Preferred if online + not disabled + has capability + breaker not open
     if preferred and preferred in agents:
         a = agents[preferred]
-        if a.get("status") == "online" and task_type in (a.get("capabilities") or []) + ["any"]:
+        caps_ok = task_type in (a.get("capabilities") or []) + ["any"]
+        online_ok = a.get("status") == "online"
+        breaker_ok = not breaker_is_open(preferred, task_type)
+        if online_ok and caps_ok and breaker_ok:
             return preferred
-    # 2. Fallback agents from routing
+        if online_ok and caps_ok and not breaker_ok:
+            _journal("MissionWorker", "mission", mission.get("mission_id", "?"),
+                     "breaker_reroute",
+                     {"from": preferred, "task_type": task_type})
+    # 2. Fallback agents from routing — also skip if breaker open
     for fb in (mission.get("routing", {}).get("fallback_agents") or []):
         if fb in agents:
             a = agents[fb]
-            if a.get("status") == "online":
+            if a.get("status") == "online" and not breaker_is_open(fb, task_type):
                 return fb
-    # 3. Any online agent with capability
+    # 3. Any online agent with capability and breaker closed
     for aid, a in agents.items():
-        if a.get("status") == "online" and task_type in (a.get("capabilities") or []):
+        if (a.get("status") == "online"
+                and task_type in (a.get("capabilities") or [])
+                and not breaker_is_open(aid, task_type)):
             return aid
     return None
 

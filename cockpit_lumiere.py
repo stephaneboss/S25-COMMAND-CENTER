@@ -1272,7 +1272,35 @@ def api_signal():
     Poids par source: TRINITY=0.80, MERLIN=0.70, KIMI=0.65, ORACLE=0.60, AGENT_LOOP/ONCHAIN=0.55, COMET=0.50
     Formule: effective_confidence = (confidence * weight) + consensus_bonus
     Seuil arkon_pass: effective_confidence >= 0.60
+    Phase 2 backpressure (Trinity §22 Test 3):
+      when stability_layer reports congested, normal+low priority signals → 429.
+      Critical and high always pass.
     """
+    # Backpressure throttle (Phase 2)
+    try:
+        _body_peek = request.get_json(silent=True) or {}
+    except Exception:
+        _body_peek = {}
+    try:
+        from agents.stability_layer import should_throttle, backpressure_level
+        _prio = str(_body_peek.get('priority') or 'normal').lower()
+        _throttle, _reason = should_throttle(_prio)
+        if _throttle:
+            _bp = backpressure_level()
+            resp = jsonify({
+                'ok': False,
+                'throttled': True,
+                'reason': _reason,
+                'backpressure': _bp,
+                'priority': _prio,
+                'retry_after_sec': 5,
+            })
+            resp.status_code = 429
+            resp.headers['Retry-After'] = '5'
+            return resp
+    except Exception as _e:
+        # Never block ingest if stability layer unavailable
+        pass
     SOURCE_WEIGHTS = {
         "TRINITY": 0.80, "TRADINGVIEW": 0.85, "MERLIN": 0.70, "KIMI": 0.65,
         "ORACLE": 0.60, "AGENT_LOOP": 0.55, "ONCHAIN": 0.55, "COMET": 0.50,
