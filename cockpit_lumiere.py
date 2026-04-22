@@ -674,20 +674,21 @@ def serve_openapi_voice():
 @app.route('/api/voice/command', methods=['POST'])
 def voice_command():
     """
-    Hands-free voice command endpoint.
+    Hands-free universal voice command endpoint.
 
-    Accepts plain French/English phrase, parses trade intent, fires the
-    voice->trade chain directly. Designed for iOS Shortcuts, Siri, Home
-    Assistant, or any other voice source that can POST a phrase.
+    Parses French/English phrase and routes to:
+      - Trade command (lance, achete, vends, buy, sell) -> create_mission on COINBASE
+      - Status/pipeline query -> getSystemStatus
+      - Price query (prix, quote) -> getSpotPrices
+      - Portfolio (portefeuille, solde, balance) -> getCoinbasePortfolio
+      - P&L (pnl, gains, profits) -> getPnL
+      - Missions list -> meshListMissions
+      - Otherwise -> still ingests intent for audit trail
 
-    POST body:
-      { "phrase": "lance achat BTC 1 dollar dry run",
-        "sender": "SIRI" (optional, default STEF_VOICE) }
+    POST body: { "phrase": "...", "sender": "PWA_VOICE" (optional) }
+    Auth: X-S25-Secret header.
 
-    Auth: X-S25-Secret header (same as /api/mesh/*).
-
-    Returns: { ok, mission_id, status, symbol, action, usd_amount, chain_steps }
-    Or { ok: false, error } if not a trade command.
+    Returns: { ok, kind, summary, data, phrase, sender, ... }
     """
     if request.headers.get('X-S25-Secret') != os.getenv('S25_SHARED_SECRET', 'MYN5VGqsJZ9MwYqvJ3mbwEfh0n4TZ4b7C7TjuwVp-2A'):
         return jsonify({"ok": False, "error": "unauthorized"}), 401
@@ -696,94 +697,158 @@ def voice_command():
     body = request.get_json(silent=True) or {}
     phrase = (body.get('phrase') or body.get('text') or body.get('intent') or '').strip()
     sender = body.get('sender', 'STEF_VOICE')
-
     if not phrase:
         return jsonify({"ok": False, "error": "missing phrase"}), 400
 
-    phrase_lower = phrase.lower()
+    pl = phrase.lower()
+    secret = os.getenv('S25_SHARED_SECRET', 'MYN5VGqsJZ9MwYqvJ3mbwEfh0n4TZ4b7C7TjuwVp-2A')
+    base = 'http://127.0.0.1:' + os.environ.get('PORT', '7777')
+    H = {'X-S25-Secret': secret, 'Content-Type': 'application/json'}
 
-    # Parse action (BUY/SELL)
-    if any(kw in phrase_lower for kw in ['achete', 'achat', 'buy', 'lance achat', 'long']):
-        action = 'BUY'
-    elif any(kw in phrase_lower for kw in ['vend', 'sell', 'short', 'liquide']):
-        action = 'SELL'
-    else:
-        return jsonify({"ok": False, "error": "no trade verb detected (lance/achete/vend/buy/sell)", "phrase": phrase}), 400
-
-    # Parse symbol - map common spoken names to pairs
-    symbol_map = {
-        'btc': 'BTC/USD', 'bitcoin': 'BTC/USD',
-        'eth': 'ETH/USD', 'ethereum': 'ETH/USD', 'ether': 'ETH/USD',
-        'sol': 'SOL/USD', 'solana': 'SOL/USD',
-        'doge': 'DOGE/USD', 'dogecoin': 'DOGE/USD',
-        'atom': 'ATOM/USD', 'cosmos': 'ATOM/USD',
-        'akt': 'AKT/USD', 'akash': 'AKT/USD',
-        'paxg': 'PAXG/USD', 'or': 'PAXG/USD', 'gold': 'PAXG/USD',
-    }
-    symbol = None
-    for token, pair in symbol_map.items():
-        if re.search(rf'\b{token}\b', phrase_lower):
-            symbol = pair
-            break
-    if not symbol:
-        return jsonify({"ok": False, "error": "no symbol detected", "phrase": phrase, "hint": "try: btc, eth, sol, doge, atom, akt, paxg"}), 400
-
-    # Parse usd_amount - look for a number (1 dollar, 5 dollars, 10 usd, $5)
-    amt_match = re.search(r'(\d+(?:\.\d+)?)\s*(?:dollar|usd|\$|euros?)?', phrase_lower)
-    usd_amount = float(amt_match.group(1)) if amt_match else 1.0
-    if usd_amount > 50:
-        usd_amount = 50  # hard safety cap matches executor
-
-    chain_steps = []
-
-    # Step 1: ingest_intent
+    # Audit: always ingest
     try:
-        from agents.command_mesh import mesh_bp  # just to ensure module loaded
+        requests.post(f'{base}/api/mesh/ingest_intent', headers=H, json={'intent': phrase, 'channel': 'voice', 'sender': sender}, timeout=3)
     except Exception:
         pass
 
-    r1 = requests.post(
-        'http://127.0.0.1:7777/api/mesh/ingest_intent',
-        headers={'X-S25-Secret': os.getenv('S25_SHARED_SECRET', 'MYN5VGqsJZ9MwYqvJ3mbwEfh0n4TZ4b7C7TjuwVp-2A'), 'Content-Type': 'application/json'},
-        json={'intent': phrase, 'channel': 'voice', 'sender': sender},
-        timeout=5
-    )
-    d1 = r1.json() if r1.ok else {}
-    chain_steps.append({'step': 'ingest_intent', 'ok': r1.ok, 'request_id': d1.get('request_id')})
+    # ─── Query routing ────────────────────────────────────────────────
+    def classify():
+        if re.search(r'\b(lance|achete|ach[ae]tes?|achat|vends?|vente|execute|ex[ée]cute|buy|sell|long|short|liquide)\b', pl):
+            return 'trade'
+        if re.search(r'\b(statut|status|pipeline|mesh|sant[ée]|health|etat|[ée]tat|syst[èe]me|system)\b', pl):
+            return 'status'
+        if re.search(r'\b(prix|price|quote|quotation|vaut|cours|cote|coûte|combien)\b', pl):
+            return 'price'
+        if re.search(r'\b(portefeuille|portfolio|solde|balance|wallet|avoirs?|positions?)\b', pl):
+            return 'portfolio'
+        if re.search(r'\b(pnl|p[&\.]?l|gains?|profits?|pertes?|résultat|resultat|performance)\b', pl):
+            return 'pnl'
+        if re.search(r'\b(missions?|t[âa]ches?|jobs?)\b', pl):
+            return 'missions'
+        if re.search(r'\b(breakers?|disjoncteurs?|stabilit[ée]|stability|backpressure|dlq)\b', pl):
+            return 'stability'
+        return None
 
-    # Step 2: create_mission (skip route_intent, we already parsed the intent)
-    mission_body = {
-        'target_agent': 'COINBASE',
-        'task_type': 'trade_execute',
-        'priority': 'high',
-        'intent': phrase,
-        'input': {
-            'symbol': symbol,
-            'action': action,
-            'usd_amount': usd_amount,
-            'source': sender,
-        },
-        'created_by': 'VOICE_WEBHOOK',
-    }
-    r2 = requests.post(
-        'http://127.0.0.1:7777/api/mesh/create_mission',
-        headers={'X-S25-Secret': os.getenv('S25_SHARED_SECRET', 'MYN5VGqsJZ9MwYqvJ3mbwEfh0n4TZ4b7C7TjuwVp-2A'), 'Content-Type': 'application/json'},
-        json=mission_body,
-        timeout=5
-    )
-    d2 = r2.json() if r2.ok else {}
-    chain_steps.append({'step': 'create_mission', 'ok': r2.ok, 'mission_id': d2.get('mission_id'), 'status': d2.get('status')})
+    kind = classify()
 
+    # ─── TRADE BRANCH ────────────────────────────────────────────────
+    if kind == 'trade':
+        action = 'BUY' if re.search(r'\b(lance|achete|ach[ae]tes?|achat|buy|long)\b', pl) else 'SELL'
+        symbol_map = {
+            'btc': 'BTC/USD', 'bitcoin': 'BTC/USD',
+            'eth': 'ETH/USD', 'ethereum': 'ETH/USD', 'ether': 'ETH/USD',
+            'sol': 'SOL/USD', 'solana': 'SOL/USD',
+            'doge': 'DOGE/USD', 'dogecoin': 'DOGE/USD',
+            'atom': 'ATOM/USD', 'cosmos': 'ATOM/USD',
+            'akt': 'AKT/USD', 'akash': 'AKT/USD',
+            'paxg': 'PAXG/USD', 'or': 'PAXG/USD', 'gold': 'PAXG/USD',
+        }
+        symbol = None
+        for token, pair in symbol_map.items():
+            if re.search(rf'\b{token}\b', pl):
+                symbol = pair
+                break
+        if not symbol:
+            return jsonify({"ok": False, "kind": "trade", "error": "no symbol detected", "phrase": phrase, "hint": "btc, eth, sol, doge, atom, akt, paxg"}), 400
+        amt_match = re.search(r'(\d+(?:[.,]\d+)?)\s*(?:dollar|usd|\$|euros?)?', pl)
+        usd_amount = float(amt_match.group(1).replace(',', '.')) if amt_match else 1.0
+        if usd_amount > 50:
+            usd_amount = 50
+        mission_body = {
+            'target_agent': 'COINBASE',
+            'task_type': 'trade_execute',
+            'priority': 'high',
+            'intent': phrase,
+            'input': {'symbol': symbol, 'action': action, 'usd_amount': usd_amount, 'source': sender},
+            'created_by': 'VOICE_WEBHOOK',
+        }
+        r = requests.post(f'{base}/api/mesh/create_mission', headers=H, json=mission_body, timeout=5)
+        d = r.json() if r.ok else {}
+        summary = (f"Mission {d.get('mission_id','?')} : {action} {symbol} pour {usd_amount}$ sur COINBASE, "
+                   f"statut {d.get('status','?')}.")
+        return jsonify({
+            'ok': True, 'kind': 'trade', 'summary': summary, 'phrase': phrase, 'sender': sender,
+            'parsed': {'symbol': symbol, 'action': action, 'usd_amount': usd_amount},
+            'mission_id': d.get('mission_id'), 'status': d.get('status'),
+            'note': 'Mission will execute via mission_worker cron. Dry-run unless .coinbase_live.flag exists.',
+        })
+
+    # ─── QUERY BRANCHES ──────────────────────────────────────────────
+    def _get(path):
+        try:
+            r = requests.get(f'{base}{path}', headers=H, timeout=5)
+            return r.json() if r.ok else {'error': f'HTTP {r.status_code}'}
+        except Exception as e:
+            return {'error': str(e)}
+
+    if kind == 'status':
+        d = _get('/api/status')
+        sm = d.get('pipeline_status') or d.get('pipeline_mode') or d.get('pipeline', {}).get('mode') or 'inconnu'
+        action = d.get('arkon5_action') or '?'
+        conf = d.get('arkon5_conf') or '?'
+        intel = d.get('comet_intel') or ''
+        # Strip emoji from intel for TTS
+        intel_clean = re.sub(r'[^\w\s\-:.,/\'éèêàâôûîç]', '', intel)[:120]
+        tunnel = 'actif' if d.get('tunnel_active') else 'inactif'
+        summary = f"Pipeline {sm}, ARKON5 {action} confiance {conf}, tunnel {tunnel}. {intel_clean}"
+        return jsonify({'ok': True, 'kind': 'status', 'summary': summary, 'phrase': phrase, 'data': d})
+
+    if kind == 'price':
+        d = _get('/api/coinbase/spot-prices')
+        prices = d.get('prices') or d.get('spot') or d
+        syms_in_phrase = re.findall(r'\b(btc|eth|sol|doge|atom|akt|paxg|bitcoin|ethereum|solana|dogecoin|cosmos|akash|or|gold)\b', pl)
+        name_to_ticker = {'btc':'BTC','bitcoin':'BTC','eth':'ETH','ethereum':'ETH','sol':'SOL','solana':'SOL','doge':'DOGE','dogecoin':'DOGE','atom':'ATOM','cosmos':'ATOM','akt':'AKT','akash':'AKT','paxg':'PAXG','or':'PAXG','gold':'PAXG'}
+        def _p(t):
+            if not isinstance(prices, dict): return None
+            return prices.get(t) or prices.get(f'{t}-USD') or prices.get(f'{t}/USD')
+        if syms_in_phrase:
+            wanted = list(dict.fromkeys(name_to_ticker[s] for s in syms_in_phrase if s in name_to_ticker))
+            parts = [f"{t} à {_p(t)} dollars" for t in wanted if _p(t) is not None]
+            summary = "Prix : " + (", ".join(parts) if parts else f"non trouvé pour {', '.join(wanted)}")
+        else:
+            top = [f"{k.replace('-USD','')} {v}" for k, v in (prices.items() if isinstance(prices, dict) else [])][:5]
+            summary = "Prix spot : " + (", ".join(top) if top else "indisponible")
+        return jsonify({'ok': True, 'kind': 'price', 'summary': summary, 'phrase': phrase, 'data': d})
+
+    if kind == 'portfolio':
+        d = _get('/api/coinbase/portfolio')
+        total = d.get('total_usd') or d.get('available_usd') or d.get('total') or d.get('balance_usd') or d.get('usd_total')
+        n = d.get('coin_count') or len(d.get('coins') or [])
+        summary = f"Portefeuille Coinbase : {total} dollars total sur {n} coins." if total else "Portefeuille indisponible."
+        return jsonify({'ok': True, 'kind': 'portfolio', 'summary': summary, 'phrase': phrase, 'data': d})
+
+    if kind == 'pnl':
+        d = _get('/api/trading/pnl')
+        realized = d.get('realized') or d.get('realized_usd')
+        unreal = d.get('unrealized') or d.get('unrealized_usd')
+        wr = d.get('win_rate') or d.get('winrate')
+        parts = []
+        if realized is not None: parts.append(f"réalisé {realized} dollars")
+        if unreal is not None: parts.append(f"non réalisé {unreal} dollars")
+        if wr is not None: parts.append(f"win rate {wr}")
+        summary = "P and L : " + (", ".join(parts) if parts else "indisponible")
+        return jsonify({'ok': True, 'kind': 'pnl', 'summary': summary, 'phrase': phrase, 'data': d})
+
+    if kind == 'missions':
+        d = _get('/api/mesh/missions?limit=5')
+        items = d.get('items') or d.get('missions') or []
+        summary = f"{len(items)} missions récentes. " + ", ".join(f"{m.get('mission_id','?')} {m.get('status','?')}" for m in items[:3]) if items else "Aucune mission récente."
+        return jsonify({'ok': True, 'kind': 'missions', 'summary': summary, 'phrase': phrase, 'data': d})
+
+    if kind == 'stability':
+        d = _get('/api/stability/stats')
+        bp = d.get('backpressure', {}).get('level') if isinstance(d.get('backpressure'), dict) else d.get('backpressure')
+        brks = d.get('breakers_open') or len(d.get('open_breakers', []))
+        dlq = d.get('dlq_total') or 0
+        summary = f"Stability : backpressure {bp}, breakers ouverts {brks}, DLQ {dlq}."
+        return jsonify({'ok': True, 'kind': 'stability', 'summary': summary, 'phrase': phrase, 'data': d})
+
+    # Fallback
     return jsonify({
-        'ok': True,
-        'phrase': phrase,
-        'sender': sender,
-        'parsed': {'symbol': symbol, 'action': action, 'usd_amount': usd_amount},
-        'mission_id': d2.get('mission_id'),
-        'status': d2.get('status'),
-        'chain_steps': chain_steps,
-        'note': 'Mission will execute via mission_worker cron (tick 1 min). Dry-run unless .coinbase_live.flag exists.',
-    })
+        'ok': False, 'kind': 'unknown',
+        'summary': "Commande non reconnue. Essaie : lance achat BTC 1 dollar, vends ETH 5 dollars, statut du pipeline, prix BTC, portefeuille, P and L, missions, stability.",
+        'phrase': phrase, 'sender': sender,
+    }), 400
 
 
 @app.route('/openapi.yaml', methods=['GET'])
