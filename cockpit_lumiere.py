@@ -1282,7 +1282,8 @@ def api_signal():
     except Exception:
         _body_peek = {}
     try:
-        from agents.stability_layer import should_throttle, backpressure_level
+        from agents.stability_layer import should_throttle, backpressure_level, record_signal_ingest
+        record_signal_ingest(str(_body_peek.get("source") or "unknown"))
         _prio = str(_body_peek.get('priority') or 'normal').lower()
         _throttle, _reason = should_throttle(_prio)
         if _throttle:

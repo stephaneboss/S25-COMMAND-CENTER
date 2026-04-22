@@ -531,22 +531,53 @@ _MESH_MISSIONS_PATH = REPO / "memory" / "command_mesh" / "missions.json"
 _DEGRADED_FLAG = REPO / "memory" / "command_mesh" / "degraded_mode.json"
 
 
+_SIGNAL_RATE_LOG = REPO / "memory" / "stability" / "signal_ingest.log"
+_SIGNAL_RATE_LOG_MAX_LINES = 2000
+
+
+def record_signal_ingest(source: str = "unknown") -> None:
+    """Append a timestamp to the signal-ingest rate log.
+
+    Called from /api/signal POST so backpressure sees the TRUE request
+    rate. The command_mesh/signals.json file is compacted and deduped,
+    so counting entries there misses bursts.
+    """
+    try:
+        _SIGNAL_RATE_LOG.parent.mkdir(parents=True, exist_ok=True)
+        line = "%.3f|%s\n" % (_now_ts(), (source or "unknown")[:20])
+        with _SIGNAL_RATE_LOG.open("a") as f:
+            f.write(line)
+        try:
+            if _SIGNAL_RATE_LOG.stat().st_size > 400_000:
+                lines = _SIGNAL_RATE_LOG.read_text().splitlines()
+                keep = lines[-_SIGNAL_RATE_LOG_MAX_LINES:]
+                _SIGNAL_RATE_LOG.write_text("\n".join(keep) + "\n")
+        except Exception:
+            pass
+    except Exception:
+        pass
+
+
 def _signal_rate_last_60s() -> int:
     try:
-        data = _load(_MESH_SIGNALS_PATH, {"items": {}})
-        items = data.get("items") or {}
+        if not _SIGNAL_RATE_LOG.exists():
+            data = _load(_MESH_SIGNALS_PATH, {"items": {}})
+            items = data.get("items") or {}
+            cutoff = _now_ts() - 60
+            return sum(
+                1 for it in items.values()
+                if (it.get("ingested_ts") or 0) >= cutoff
+            )
         cutoff = _now_ts() - 60
         count = 0
-        for it in items.values():
-            ts = it.get("ingested_ts")
-            if not ts:
-                iso = it.get("ingested_at") or ""
+        with _SIGNAL_RATE_LOG.open() as f:
+            for raw in f:
                 try:
-                    ts = datetime.fromisoformat(iso.replace("Z", "+00:00")).timestamp()
+                    ts = float(raw.split("|", 1)[0])
+                    if ts >= cutoff:
+                        count += 1
                 except Exception:
-                    ts = 0
-            if ts and ts >= cutoff:
-                count += 1
+                    pass
         return count
     except Exception:
         return 0
