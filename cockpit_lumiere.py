@@ -3596,6 +3596,107 @@ def api_terminal_summary():
 # ════ END TERMINAL UI INJECTION ════
 
 
+
+
+# ═══════════════════════ STABILITY OBSERVABILITY (Phase 2.5) ═══════════════════════
+
+@app.route('/api/stability/backpressure', methods=['GET'])
+def api_stability_backpressure():
+    """Return current mesh backpressure metric (level + signals + missions + retries)."""
+    try:
+        from agents.stability_layer import backpressure_level
+        return jsonify({"ok": True, **backpressure_level()})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route('/api/stability/breakers', methods=['GET'])
+def api_stability_breakers():
+    """Return all circuit breakers + their state (open/half_open/closed)."""
+    try:
+        from agents.stability_layer import list_breakers
+        store = list_breakers()
+        items = store.get("breakers", {})
+        open_count = sum(1 for b in items.values() if b.get("state") == "open")
+        half_open_count = sum(1 for b in items.values() if b.get("state") == "half_open")
+        return jsonify({
+            "ok": True,
+            "total": len(items),
+            "open": open_count,
+            "half_open": half_open_count,
+            "closed": len(items) - open_count - half_open_count,
+            "breakers": items,
+        })
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route('/api/stability/dlq', methods=['GET'])
+def api_stability_dlq():
+    """List the last N dead-letter entries."""
+    try:
+        from agents.stability_layer import list_dlq
+        try:
+            limit = int(request.args.get("limit", 50))
+        except Exception:
+            limit = 50
+        entries = list_dlq(limit=limit)
+        return jsonify({"ok": True, "count": len(entries), "items": entries})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route('/api/stability/dlq/replay/<event_id>', methods=['POST'])
+def api_stability_dlq_replay(event_id):
+    """Replay a DLQ'd event as a fresh envelope (new event_id + dedupe_key)."""
+    try:
+        from agents.stability_layer import replay_from_dlq, Deduplicator
+        body = request.get_json(silent=True) or {}
+        new_source = body.get("new_source", "dlq_replay_api")
+
+        env = replay_from_dlq(event_id, new_source=new_source)
+        if not env:
+            return jsonify({
+                "ok": False,
+                "error": "not_found_or_not_replayable",
+                "event_id": event_id,
+            }), 404
+
+        # Re-inject into dedupe (locked), caller is expected to dispatch
+        dedup = Deduplicator()
+        locked, reason = dedup.check_and_lock(env)
+        if not locked:
+            return jsonify({
+                "ok": False,
+                "error": "dedupe_blocked",
+                "reason": reason,
+                "envelope": env,
+            }), 409
+
+        return jsonify({
+            "ok": True,
+            "original_event_id": event_id,
+            "new_event_id": env["event_id"],
+            "envelope": env,
+        })
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route('/api/stability/stats', methods=['GET'])
+def api_stability_stats():
+    """One-shot snapshot: backpressure + breakers + dedupe + retry + DLQ."""
+    try:
+        from agents.stability_layer import stats, backpressure_level
+        return jsonify({
+            "ok": True,
+            "stability": stats(),
+            "backpressure": backpressure_level(),
+        })
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
 if __name__ == '__main__':
     port = int(os.getenv("PORT", "7777"))
     app.run(host='0.0.0.0', port=port, debug=False)
