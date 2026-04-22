@@ -605,7 +605,34 @@ class CoinbaseExecutor(BaseAgent):
             pass
         return None
 
+    def _check_blocklist_and_kill(self, signal):
+        """Return skip-dict if source is blocklisted or kill-switch active, else None."""
+        from pathlib import Path as _P
+        import json as _j
+        # Kill-switch (all trades blocked)
+        kill = _P(__file__).resolve().parent.parent / "memory" / "emergency_stop.flag"
+        if kill.exists():
+            return {"ok": False, "skipped": "kill_switch_active",
+                    "source": str(signal.get("source", ""))}
+        # Source blocklist
+        bl_path = _P(__file__).resolve().parent.parent / "memory" / "signal_source_blocklist.json"
+        if bl_path.exists():
+            try:
+                data = _j.loads(bl_path.read_text())
+                blocked = [str(s).upper() for s in data.get("blocked_sources", [])]
+                src_name = str(signal.get("source", "")).upper()
+                if src_name in blocked:
+                    return {"ok": False, "skipped": "source_blocked",
+                            "source": src_name, "blocklist": blocked}
+            except Exception:
+                pass
+        return None
+
     def execute_signal(self, signal: Dict[str, Any]) -> Dict[str, Any]:
+        # Source blocklist + emergency kill-switch (highest priority gate)
+        gate = self._check_blocklist_and_kill(signal)
+        if gate is not None:
+            return gate
         # Executor cooldown — gates EVERY path (webhook_tradingview, api_signal,
         # api_tv_pine, mesh_bridge, auto_scanner, DCA).
         action = str(signal.get("action", "")).upper()

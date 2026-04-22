@@ -3,7 +3,7 @@ info:
   title: S25 Lumiere Trinity Bridge API
   description: |
     Complete OpenAPI schema for TRINITY Custom GPT → S25 Lumiere Cockpit.
-    Updated for Phase 7 (Coinbase live trading + Quant Brain + Gemini analyst).
+    Updated for Phase 8 (Trinity full backend command — ops routes live).
 
     PRIMARY SERVER: https://api.smajor.org (Cloudflare tunnel → AlienStef :7777)
     SECONDARY: https://s25.smajor.org (same cockpit, alias)
@@ -12,7 +12,7 @@ info:
     `x-openai-isConsequential: false` so ChatGPT Actions never prompt
     for consent on them. Only the POST/PUT endpoints that modify state
     require the X-S25-Secret header and may show a consent prompt.
-  version: 7.0.0
+  version: 8.0.0
   contact:
     name: Stef / S25 Lumiere
     url: https://smajor.org
@@ -286,3 +286,188 @@ paths:
                 usd_amount: { type: number }
       responses:
         '200': { description: Preview details }
+
+  # ═══════════════ OPS — TRINITY BACKEND CONTROL (v8) ═══════════════
+
+  /api/ops/agents:
+    get:
+      operationId: opsListAgents
+      summary: List all S25 cron/systemd agents with last-run age
+      description: Returns every known agent (coinbase_ha_publisher, mesh_signal_bridge, quant_brain, gemini_orchestrator, etc) with log mtime, priority, cron schedule.
+      x-openai-isConsequential: false
+      responses:
+        '200': { description: Agents inventory }
+
+  /api/ops/agent/{name}/log:
+    get:
+      operationId: opsAgentLog
+      summary: Tail last N lines of a specific agent log
+      x-openai-isConsequential: false
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema: { type: string, example: gemini_orchestrator }
+        - name: n
+          in: query
+          required: false
+          schema: { type: integer, default: 50, maximum: 500 }
+      responses:
+        '200': { description: Tail lines }
+
+  /api/ops/agent/{name}/trigger:
+    post:
+      operationId: opsAgentTrigger
+      summary: Run a cron agent immediately (one-shot)
+      description: Triggers `python3 -m agents.{name}` synchronously with 90s timeout. Useful when Trinity wants fresh quant_brain or gemini_orchestrator output.
+      security:
+        - S25Secret: []
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Run result (stdout/stderr) }
+
+  /api/ops/agent/{name}/restart:
+    post:
+      operationId: opsAgentRestart
+      summary: Restart a systemd-user unit (e.g. cockpit)
+      security:
+        - S25Secret: []
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema: { type: string, example: cockpit }
+      responses:
+        '200': { description: Restart result }
+
+  /api/ops/git:
+    get:
+      operationId: opsGitStatus
+      summary: Current branch, last 10 commits, dirty files
+      x-openai-isConsequential: false
+      responses:
+        '200': { description: Git snapshot }
+
+  /api/ops/git/pull:
+    post:
+      operationId: opsGitPull
+      summary: Fast-forward pull from origin/main
+      security:
+        - S25Secret: []
+      responses:
+        '200': { description: Pull result }
+
+  /api/ops/file:
+    get:
+      operationId: opsFileRead
+      summary: Read a whitelisted infra file (agents/*, strategies/*, memory/*, trinity_config/*)
+      description: Blocks .env, secrets, keys. Max 200KB.
+      x-openai-isConsequential: false
+      parameters:
+        - name: path
+          in: query
+          required: true
+          schema: { type: string, example: "agents/coinbase_executor.py" }
+      responses:
+        '200': { description: File content }
+
+  /api/ops/dir:
+    get:
+      operationId: opsDirList
+      summary: List whitelisted directory contents
+      x-openai-isConsequential: false
+      parameters:
+        - name: path
+          in: query
+          required: false
+          schema: { type: string, default: "agents" }
+      responses:
+        '200': { description: Directory listing }
+
+  /api/ops/cf/tunnel:
+    get:
+      operationId: opsCloudflareTunnel
+      summary: Cloudflare tunnel status (systemd active + running processes)
+      x-openai-isConsequential: false
+      responses:
+        '200': { description: Tunnel status }
+
+  /api/ops/crontab:
+    get:
+      operationId: opsCrontab
+      summary: View current user crontab
+      x-openai-isConsequential: false
+      responses:
+        '200': { description: Crontab entries }
+
+  /api/ops/signal/blocklist:
+    get:
+      operationId: opsBlocklistGet
+      summary: Get list of sources the executor will refuse (e.g. ARKON5 after ping-pong)
+      x-openai-isConsequential: false
+      responses:
+        '200': { description: Current blocklist }
+
+  /api/ops/signal/block:
+    post:
+      operationId: opsBlockSource
+      summary: Add a signal source to executor blocklist (stops ANY trade from that source)
+      security:
+        - S25Secret: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [source]
+              properties:
+                source: { type: string, example: ARKON5 }
+      responses:
+        '200': { description: Updated blocklist }
+
+  /api/ops/signal/unblock:
+    post:
+      operationId: opsUnblockSource
+      summary: Remove a source from executor blocklist
+      security:
+        - S25Secret: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [source]
+              properties:
+                source: { type: string }
+      responses:
+        '200': { description: Updated blocklist }
+
+  /api/ops/kill-switch:
+    get:
+      operationId: opsKillSwitchGet
+      summary: Is the emergency stop flag active?
+      x-openai-isConsequential: false
+      responses:
+        '200': { description: Kill-switch state }
+    post:
+      operationId: opsKillSwitchSet
+      summary: Activate or deactivate the emergency stop (trades fully blocked while active)
+      description: Activate does NOT require the secret (safety). Deactivate requires X-S25-Secret.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                activate: { type: boolean, default: true }
+                reason: { type: string }
+      responses:
+        '200': { description: New state }
+
