@@ -3613,6 +3613,15 @@ from flask import send_from_directory as _send_from_directory
 _TERMINAL_STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 
 
+@app.route('/voice', methods=['GET'])
+def voice_ui():
+    """Hands-free voice PWA using Web Speech API - bypass ChatGPT Actions limitation."""
+    try:
+        return _send_from_directory(_TERMINAL_STATIC_DIR, 'trinity_voice.html')
+    except Exception as e:
+        return jsonify({'ok': False, 'error': f'trinity_voice.html not found: {e}'}), 404
+
+
 @app.route('/terminal', methods=['GET'])
 def terminal_ui():
     """Serve the MetaTrader-style terminal single-page app."""
