@@ -18,10 +18,10 @@ info:
     url: https://smajor.org
 
 servers:
-  - url: https://api.smajor.org
-    description: S25 API (PRIMARY — use this)
   - url: https://cockpit-alien.smajor.org
-    description: Cockpit direct (same backend)
+    description: Cockpit direct (PRIMARY — auth-transparent tunnel to AlienStef :7777)
+  - url: https://api.smajor.org
+    description: CF Worker gateway (legacy — secret-injection bug on /api/mesh/* POST, avoid until wrangler secret refresh)
 
 components:
   securitySchemes:
