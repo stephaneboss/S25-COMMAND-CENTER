@@ -170,9 +170,9 @@ function initRecognizer(continuous) {
     interim.textContent = finalBuf + (interimStr ? '… ' + interimStr : '');
     // On final, if there's a complete phrase, send
     if (continuous) {
-      // Wake-word trigger OR direct command (if listener is active, anything final is a command)
+      // In continuous mode, any final sentence goes to Qwen brain which decides what to do
       const trimmed = finalBuf.trim();
-      if (trimmed && /\b(lance|achete|achète|vends|vend|execute|exécute|achat|vente|buy|sell|statut|status|prix|price|portefeuille|portfolio|solde|balance|mission|pipeline|trinity|hey trinity)\b/i.test(trimmed)) {
+      if (trimmed && trimmed.length > 2) {
         finalBuf = '';
         interim.textContent = '';
         sendCommand(trimmed);
