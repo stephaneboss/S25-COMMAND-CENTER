@@ -645,6 +645,32 @@ def api_version():
     })
 
 
+@app.route('/openapi.yaml', methods=['GET'])
+@app.route('/openapi.json', methods=['GET'])
+def serve_openapi():
+    """Public OpenAPI schema for Trinity Custom GPT import (no auth)."""
+    try:
+        import yaml, json as _j
+        from pathlib import Path as _P
+        p = _P(__file__).parent / "trinity_config" / "openapi_trinity.yaml"
+        if not p.exists():
+            p = _P(__file__).parent / "agents" / "trinity_gpt_config" / "openapi_spec.yaml"
+        if not p.exists():
+            return jsonify({"ok": False, "error": "openapi file not found"}), 404
+        raw = p.read_text()
+        # Serve as YAML if extension requested, JSON otherwise
+        if request.path.endswith(".json"):
+            data = yaml.safe_load(raw)
+            resp = app.response_class(_j.dumps(data, indent=2), mimetype='application/json')
+        else:
+            resp = app.response_class(raw, mimetype='application/yaml')
+        resp.headers['Access-Control-Allow-Origin'] = '*'
+        resp.headers['Cache-Control'] = 'public, max-age=300'
+        return resp
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
 @app.route('/health', methods=['GET'])
 @app.route('/api/health', methods=['GET'])
 def api_health():
