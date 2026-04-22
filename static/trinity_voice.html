@@ -62,10 +62,18 @@
     <button id="ptt">🎙️ Dicter une fois</button>
   </div>
   <div class="status" id="status">Ready</div>
+  <div class="row">
+    <button id="reset" style="flex:1;font-size:11px;padding:6px;background:#20141a;border-color:#3a2a2a;">🗑️ Reset secret</button>
+  </div>
 </footer>
 <script>
-const SECRET = new URLSearchParams(location.search).get('k') || localStorage.getItem('s25_secret') || '';
+const qs = new URLSearchParams(location.search);
+const urlSecret = (qs.get('k') || '').trim();
+// URL always wins - overwrite any stale localStorage value
+if (urlSecret) localStorage.setItem('s25_secret', urlSecret);
+const SECRET = (urlSecret || localStorage.getItem('s25_secret') || '').trim();
 const BASE = location.origin;
+console.log('[Trinity Voice] secret length:', SECRET.length, 'base:', BASE);
 
 const feed = document.getElementById('feed');
 const orb = document.getElementById('orb');
@@ -256,9 +264,19 @@ function speak(text) {
   speechSynthesis.speak(u);
 }
 
-// ─── Settings: accept secret via URL param ───────────────────────────────
-if (SECRET) localStorage.setItem('s25_secret', SECRET);
-statusEl.textContent = SECRET ? ('Secret OK · ' + SECRET.slice(0, 8) + '...') : 'Ajoute ?k=<SECRET> dans l\'URL';
+// ─── Settings: visible secret status + reset button ─────────────────────
+function refreshStatus() {
+  const s = (localStorage.getItem('s25_secret') || '').trim();
+  statusEl.textContent = s
+    ? `Secret len=${s.length} · ${s.slice(0,6)}...${s.slice(-4)} · brain=qwen2.5-14b`
+    : 'Pas de secret · ajoute ?k=<SECRET> a l\'URL';
+}
+refreshStatus();
+document.getElementById('reset').addEventListener('click', () => {
+  localStorage.removeItem('s25_secret');
+  append('sys', '🗑️ Secret effacé du localStorage. Recharge la page avec ?k=<SECRET>.');
+  refreshStatus();
+});
 </script>
 </body>
 </html>
