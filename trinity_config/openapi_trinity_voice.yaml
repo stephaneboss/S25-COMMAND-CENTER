@@ -16,6 +16,10 @@ servers:
     description: Cockpit direct (PRIMARY)
 
 components:
+  schemas:
+    Empty:
+      type: object
+      properties: {}
   securitySchemes:
     S25Secret:
       type: apiKey
@@ -167,6 +171,7 @@ paths:
     post:
       operationId: meshIngestIntent
       summary: VOICE step 1 - ingest voice or text intent, returns request_id
+      x-openai-isConsequential: false
       security: [ { S25Secret: [] } ]
       requestBody:
         required: true
@@ -185,6 +190,7 @@ paths:
     post:
       operationId: meshRouteIntent
       summary: VOICE step 2 - classify intent, returns action and route
+      x-openai-isConsequential: false
       security: [ { S25Secret: [] } ]
       requestBody:
         required: true
@@ -202,6 +208,7 @@ paths:
     post:
       operationId: meshCreateMission
       summary: VOICE step 3 - create mission, routes to target_agent (COINBASE for trade_execute)
+      x-openai-isConsequential: false
       security: [ { S25Secret: [] } ]
       requestBody:
         required: true
@@ -223,14 +230,32 @@ paths:
                   default: normal
                 input:
                   type: object
-                  description: For trade_execute COINBASE use fields - symbol action usd_amount source
-                intent: { type: string }
+                  description: Mission payload. For COINBASE trade_execute REQUIRED - symbol (e.g. BTC/USD), action (BUY or SELL), usd_amount (integer), source (e.g. TRINITY)
+                  properties:
+                    symbol:
+                      type: string
+                      description: Trading pair e.g. BTC/USD, ETH/USD, SOL/USD
+                    action:
+                      type: string
+                      enum: [BUY, SELL]
+                      description: Trade direction
+                    usd_amount:
+                      type: number
+                      description: Trade size in USD (kept under $50 by safety layer)
+                    source:
+                      type: string
+                      default: TRINITY
+                      description: Origin tag for trace
+                intent:
+                  type: string
+                  description: Original voice phrase for traceability
       responses: { '200': { description: Mission created } }
 
   /api/signal:
     post:
       operationId: postSignal
       summary: Inject a trading signal (multi-source)
+      x-openai-isConsequential: false
       security: [ { S25Secret: [] } ]
       requestBody:
         required: true
@@ -249,6 +274,7 @@ paths:
     post:
       operationId: postTrinity
       summary: Generic Trinity dispatch - status query analyze signal mission route
+      x-openai-isConsequential: false
       security: [ { S25Secret: [] } ]
       requestBody:
         required: true
@@ -268,6 +294,7 @@ paths:
     post:
       operationId: stabilityDlqReplay
       summary: Replay a DLQ entry - give new_source for trace
+      x-openai-isConsequential: false
       security: [ { S25Secret: [] } ]
       requestBody:
         required: true
@@ -285,6 +312,7 @@ paths:
     post:
       operationId: meshOpenIncident
       summary: Open an incident (agent severity note)
+      x-openai-isConsequential: false
       security: [ { S25Secret: [] } ]
       requestBody:
         required: true
