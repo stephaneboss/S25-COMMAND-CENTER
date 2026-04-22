@@ -1,0 +1,299 @@
+openapi: 3.1.0
+info:
+  title: S25 Lumiere Trinity Bridge API (Voice lean)
+  description: |
+    Lean OpenAPI for TRINITY Custom GPT focused on voice->trade chain + core observability.
+    Kept under 30 operations for ChatGPT Actions limit.
+
+    PRIMARY: https://cockpit-alien.smajor.org (direct Cloudflare tunnel to AlienStef :7777)
+    All GETs are x-openai-isConsequential:false (no consent prompt).
+    Only state-modifying POSTs require X-S25-Secret.
+  version: 11.1.0-voice
+  contact: { name: Stef / S25 Lumiere, url: https://smajor.org }
+
+servers:
+  - url: https://cockpit-alien.smajor.org
+    description: Cockpit direct (PRIMARY)
+
+components:
+  securitySchemes:
+    S25Secret:
+      type: apiKey
+      in: header
+      name: X-S25-Secret
+      description: Shared secret for write endpoints
+
+paths:
+  /api/status:
+    get:
+      operationId: getSystemStatus
+      summary: Overall system status (pipeline, threat, agents)
+      x-openai-isConsequential: false
+      responses: { '200': { description: Status } }
+
+  /api/mesh/status:
+    get:
+      operationId: getMeshStatus
+      summary: Agent mesh health (online/standby agents)
+      x-openai-isConsequential: false
+      responses: { '200': { description: Mesh } }
+
+  /api/coinbase/portfolio:
+    get:
+      operationId: getCoinbasePortfolio
+      summary: Live Coinbase portfolio (USD + per-coin)
+      x-openai-isConsequential: false
+      responses: { '200': { description: Portfolio } }
+
+  /api/coinbase/spot-prices:
+    get:
+      operationId: getSpotPrices
+      summary: Live spot prices for whitelist coins
+      x-openai-isConsequential: false
+      responses: { '200': { description: Prices } }
+
+  /api/coinbase/live-mode:
+    get:
+      operationId: getLiveMode
+      summary: Is executor in LIVE or DRY_RUN mode
+      x-openai-isConsequential: false
+      responses: { '200': { description: Live mode } }
+
+  /api/trading/pnl:
+    get:
+      operationId: getPnL
+      summary: Live P-and-L (realized + unrealized, win rate)
+      x-openai-isConsequential: false
+      responses: { '200': { description: PnL } }
+
+  /api/trading/positions:
+    get:
+      operationId: getPositions
+      summary: Open positions with avg entry + unrealized P-and-L
+      x-openai-isConsequential: false
+      responses: { '200': { description: Positions } }
+
+  /api/trading/brief:
+    get:
+      operationId: getGeminiBrief
+      summary: Latest Gemini analyst brief (french)
+      x-openai-isConsequential: false
+      responses: { '200': { description: Brief } }
+
+  /api/mesh/agents:
+    get:
+      operationId: meshListAgents
+      summary: List all agents + capabilities + status
+      x-openai-isConsequential: false
+      responses: { '200': { description: Agents } }
+
+  /api/mesh/missions:
+    get:
+      operationId: meshListMissions
+      summary: Recent missions (active + completed)
+      x-openai-isConsequential: false
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, default: 20 }
+      responses: { '200': { description: Missions } }
+
+  /api/mesh/missions/{mission_id}:
+    get:
+      operationId: meshGetMission
+      summary: Single mission status + result
+      x-openai-isConsequential: false
+      parameters:
+        - name: mission_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses: { '200': { description: Mission } }
+
+  /api/stability/backpressure:
+    get:
+      operationId: stabilityBackpressure
+      summary: Live backpressure level (ok | warn | congested)
+      x-openai-isConsequential: false
+      responses: { '200': { description: Backpressure } }
+
+  /api/stability/breakers:
+    get:
+      operationId: stabilityBreakersV2
+      summary: Breakers by (agent, task_type) with state + outcomes
+      x-openai-isConsequential: false
+      responses: { '200': { description: Breakers } }
+
+  /api/stability/dlq:
+    get:
+      operationId: stabilityDlqV2
+      summary: Dead-letters recent (replayable + reason_code)
+      x-openai-isConsequential: false
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, default: 20 }
+      responses: { '200': { description: DLQ } }
+
+  /api/stability/stats:
+    get:
+      operationId: stabilityStats
+      summary: Stability + backpressure combined snapshot
+      x-openai-isConsequential: false
+      responses: { '200': { description: Stats } }
+
+  /api/mesh/incidents:
+    get:
+      operationId: meshListIncidents
+      summary: Active incidents + recent
+      x-openai-isConsequential: false
+      responses: { '200': { description: Incidents } }
+
+  /api/mesh/signals:
+    get:
+      operationId: meshListSignals
+      summary: Recent trading signals
+      x-openai-isConsequential: false
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, default: 20 }
+      responses: { '200': { description: Signals } }
+
+  /api/mesh/ingest_intent:
+    post:
+      operationId: meshIngestIntent
+      summary: VOICE step 1 - ingest voice or text intent, returns request_id
+      security: [ { S25Secret: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [intent]
+              properties:
+                intent: { type: string, description: The phrase Stef said }
+                channel: { type: string, enum: [voice, text, webhook], default: voice }
+                sender: { type: string, default: STEF }
+      responses: { '200': { description: Accepted + request_id } }
+
+  /api/mesh/route_intent:
+    post:
+      operationId: meshRouteIntent
+      summary: VOICE step 2 - classify intent, returns action and route
+      security: [ { S25Secret: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [intent]
+              properties:
+                request_id: { type: string }
+                intent: { type: string }
+      responses: { '200': { description: Classification } }
+
+  /api/mesh/create_mission:
+    post:
+      operationId: meshCreateMission
+      summary: VOICE step 3 - create mission, routes to target_agent (COINBASE for trade_execute)
+      security: [ { S25Secret: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [target_agent, task_type]
+              properties:
+                target_agent:
+                  type: string
+                  enum: [COINBASE, COMET, MERLIN, ARKON-5, KIMI, ORACLE, GEMINI_OPS, ONCHAIN_GUARDIAN]
+                task_type:
+                  type: string
+                  enum: [trading_analysis, market_news, code_generation, strategy_planning, infra_monitoring, trade_execute, fallback]
+                priority:
+                  type: string
+                  enum: [low, normal, high, critical]
+                  default: normal
+                input:
+                  type: object
+                  description: For trade_execute COINBASE use fields - symbol action usd_amount source
+                intent: { type: string }
+      responses: { '200': { description: Mission created } }
+
+  /api/signal:
+    post:
+      operationId: postSignal
+      summary: Inject a trading signal (multi-source)
+      security: [ { S25Secret: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                symbol: { type: string }
+                action: { type: string, enum: [BUY, SELL, HOLD] }
+                source: { type: string }
+                confidence: { type: number }
+      responses: { '200': { description: Signal ingested } }
+
+  /api/trinity:
+    post:
+      operationId: postTrinity
+      summary: Generic Trinity dispatch - status query analyze signal mission route
+      security: [ { S25Secret: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                action:
+                  type: string
+                  enum: [status, query, analyze, signal, mission, route]
+                intent: { type: string }
+      responses: { '200': { description: Trinity response } }
+
+  /api/stability/dlq/replay:
+    post:
+      operationId: stabilityDlqReplay
+      summary: Replay a DLQ entry - give new_source for trace
+      security: [ { S25Secret: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [entry_id]
+              properties:
+                entry_id: { type: string }
+                new_source: { type: string, default: trinity_replay }
+      responses: { '200': { description: Replayed } }
+
+  /api/mesh/open_incident:
+    post:
+      operationId: meshOpenIncident
+      summary: Open an incident (agent severity note)
+      security: [ { S25Secret: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                agent: { type: string }
+                severity: { type: string, enum: [low, medium, high, critical] }
+                note: { type: string }
+      responses: { '200': { description: Incident opened } }

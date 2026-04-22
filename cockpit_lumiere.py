@@ -649,6 +649,28 @@ def api_version():
     })
 
 
+@app.route('/openapi-voice.yaml', methods=['GET'])
+@app.route('/openapi-voice.json', methods=['GET'])
+def serve_openapi_voice():
+    try:
+        import yaml, json as _j
+        from pathlib import Path as _P
+        p = _P(__file__).parent / 'trinity_config' / 'openapi_trinity_voice.yaml'
+        if not p.exists():
+            return jsonify({'ok': False, 'error': 'lean openapi not found'}), 404
+        raw = p.read_text()
+        if request.path.endswith('.json'):
+            data = yaml.safe_load(raw)
+            resp = app.response_class(_j.dumps(data, indent=2), mimetype='application/json')
+        else:
+            resp = app.response_class(raw, mimetype='application/yaml')
+        resp.headers['Access-Control-Allow-Origin'] = '*'
+        resp.headers['Cache-Control'] = 'public, max-age=300'
+        return resp
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
 @app.route('/openapi.yaml', methods=['GET'])
 @app.route('/openapi.json', methods=['GET'])
 def serve_openapi():
