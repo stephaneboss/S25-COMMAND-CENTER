@@ -1,0 +1,65 @@
+{
+  "items": {
+    "mis_DTlDDPe60goq": {
+      "mission_id": "mis_DTlDDPe60goq",
+      "created_at": "2026-04-22T01:59:42.726389+00:00",
+      "created_by": "Claude_on_behalf_of_Major",
+      "target_agent": "GEMINI",
+      "task_type": "market_news",
+      "intent": "Scan last-24h crypto news + macro",
+      "priority": "high",
+      "status": "completed",
+      "input": {
+        "symbols": [
+          "BTC/USD",
+          "ETH/USD"
+        ]
+      },
+      "constraints": {
+        "timeout_sec": 120,
+        "max_retries": 2,
+        "require_ack": true
+      },
+      "routing": {
+        "selected_by": "TRINITY",
+        "runtime_preference": "google_cloud",
+        "fallback_agents": [
+          "MERLIN"
+        ]
+      },
+      "result": {
+        "duration_sec": 3.52,
+        "output_preview": "{\n  \"generated_at\": \"2026-04-22T01:59:52.203689+00:00\",\n  \"model\": \"gemini-2.5-pro\",\n  \"results\": [\n    {\n      \"error\": \"ClientError: 403 PERMISSION_DENIED. {'error': {'code': 403, 'message': 'Your project has been denied access. Please contact support.', 'status': 'PERMISSION_DENIED'}}\",\n      \"query\": \"Crypto market Bitcoin Ethereum last 24 hours: price action, major news, regulatory events, key headlines. Respond in French.\",\n      \"ts\": \"2026-04-22T01:59:51.948860+00:00\"\n    },\n    {\n      "
+      },
+      "error": null,
+      "updated_at": "2026-04-22T01:59:52.556772+00:00"
+    },
+    "mis_MVWkKu3q3WCr": {
+      "mission_id": "mis_MVWkKu3q3WCr",
+      "created_at": "2026-04-22T02:01:20.987239+00:00",
+      "created_by": "TRINITY_GPT",
+      "target_agent": "ORACLE",
+      "task_type": "infra_monitoring",
+      "intent": "scan infra health",
+      "priority": "high",
+      "status": "completed",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120,
+        "max_retries": 2,
+        "require_ack": true
+      },
+      "routing": {
+        "selected_by": "TRINITY",
+        "runtime_preference": "akash",
+        "fallback_agents": []
+      },
+      "result": {
+        "duration_sec": 1.13,
+        "output_preview": "{\n  \"generated_at\": \"2026-04-22T02:01:22.262140+00:00\",\n  \"overall_status\": \"healthy\",\n  \"crons_healthy\": 11,\n  \"crons_stale\": 0,\n  \"crons_stuck\": 0,\n  \"endpoints_ok\": 6,\n  \"endpoints_fail\": 0,\n  \"stuck_agent_names\": []\n}\n"
+      },
+      "error": null,
+      "updated_at": "2026-04-22T02:01:22.309036+00:00"
+    }
+  }
+}

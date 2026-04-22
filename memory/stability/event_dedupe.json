@@ -11,6 +11,30 @@
       "expires_at": 1776844359.9893315,
       "attempt_count": 1,
       "result_hash": "b96e1ecba56ce960"
+    },
+    "signal.ingest:DEDUP_TEST:SOL/USD:BUY:0.70:29613720": {
+      "dedupe_key": "signal.ingest:DEDUP_TEST:SOL/USD:BUY:0.70:29613720",
+      "event_id": "evt_GbABBcdxjnrV",
+      "first_seen_at": "2026-04-22T02:00:41.253107+00:00",
+      "last_seen_at": "2026-04-22T02:00:41.254237+00:00",
+      "status": "processed",
+      "lock_owner": "worker",
+      "lock_expires_at": 1776823271.253104,
+      "expires_at": 1776844841.253104,
+      "attempt_count": 1,
+      "result_hash": "1e4b99364f1f41a2"
+    },
+    "signal.ingest:DEDUP5X:ATOM/USD:SELL:0.70:29613721": {
+      "dedupe_key": "signal.ingest:DEDUP5X:ATOM/USD:SELL:0.70:29613721",
+      "event_id": "evt_VSlWqFZWL59P",
+      "first_seen_at": "2026-04-22T02:01:01.645177+00:00",
+      "last_seen_at": "2026-04-22T02:01:01.646618+00:00",
+      "status": "processed",
+      "lock_owner": "worker",
+      "lock_expires_at": 1776823291.6451714,
+      "expires_at": 1776844861.6451714,
+      "attempt_count": 1,
+      "result_hash": "68da4ea6888a34f1"
     }
   }
 }

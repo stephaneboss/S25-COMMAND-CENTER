@@ -1,5 +1,5 @@
 {
-  "ts": "2026-04-22T01:53:02.013169+00:00",
+  "ts": "2026-04-22T02:01:32.104922+00:00",
   "global_status": "critical",
   "pipeline_status": "unknown",
   "mesh_status": "online",
@@ -8,7 +8,7 @@
   "agents_expected": 21,
   "active_incidents": 1,
   "router_quota_state": "ok",
-  "last_signal_at": "2026-04-22T01:52:39.990130+00:00",
+  "last_signal_at": "2026-04-22T02:01:01.645750+00:00",
   "control_plane_runtime": "local",
   "local_dependency": "required",
   "notes": []

@@ -1,0 +1,1 @@
+{"dlq_id": "dlq_oe5SAr8xrOlp", "event_id": "evt_K4V6tGNQnO1Z", "event_type": "mission.command", "entity_type": "mission", "entity_id": "mis_test", "priority": "normal", "failed_at": "2026-04-22T02:00:42.595090+00:00", "reason_code": "schema_invalid", "reason_detail": "test payload missing required fields", "payload_snapshot": {"bad": "payload"}, "replayable": false}

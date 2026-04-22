@@ -16,6 +16,40 @@
       "reason": "dedup test",
       "context": {},
       "linked_incident_id": null
+    },
+    "sig_7yt4Fs1cfvGg": {
+      "signal_id": "sig_7yt4Fs1cfvGg",
+      "ts": "2026-04-22T02:00:41.253481+00:00",
+      "source_agent": "DEDUP_TEST",
+      "symbol": "SOL/USD",
+      "action": "BUY",
+      "confidence": 0.72,
+      "weight": 1.0,
+      "weighted_confidence": 0.72,
+      "consensus": false,
+      "consensus_bonus": 0.0,
+      "effective_confidence": 0.72,
+      "verdict": "REVIEW_REQUIRED",
+      "reason": "",
+      "context": {},
+      "linked_incident_id": null
+    },
+    "sig_ryTBDcP9U2eB": {
+      "signal_id": "sig_ryTBDcP9U2eB",
+      "ts": "2026-04-22T02:01:01.645750+00:00",
+      "source_agent": "DEDUP5X",
+      "symbol": "ATOM/USD",
+      "action": "SELL",
+      "confidence": 0.68,
+      "weight": 1.0,
+      "weighted_confidence": 0.68,
+      "consensus": false,
+      "consensus_bonus": 0.0,
+      "effective_confidence": 0.68,
+      "verdict": "REVIEW_REQUIRED",
+      "reason": "",
+      "context": {},
+      "linked_incident_id": null
     }
   }
 }

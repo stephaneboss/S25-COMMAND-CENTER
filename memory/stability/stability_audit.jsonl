@@ -1,1 +1,10 @@
 {"ts": "2026-04-22T01:52:40.003853+00:00", "action": "dedupe_hit", "event_id": "evt_FHvoD7lQAnf0", "key": "signal.ingest:TEST:BTC/USD:BUY:0.75:29613712", "status": "processed"}
+{"ts": "2026-04-22T02:00:41.417435+00:00", "action": "dedupe_hit", "event_id": "evt_2JFO6IGAaj1W", "key": "signal.ingest:DEDUP_TEST:SOL/USD:BUY:0.70:29613720", "status": "processed"}
+{"ts": "2026-04-22T02:00:41.556039+00:00", "action": "dedupe_hit", "event_id": "evt_7VcZbeAFc7vF", "key": "signal.ingest:DEDUP_TEST:SOL/USD:BUY:0.70:29613720", "status": "processed"}
+{"ts": "2026-04-22T02:00:41.690204+00:00", "action": "dedupe_hit", "event_id": "evt_7feHmeKg09en", "key": "signal.ingest:DEDUP_TEST:SOL/USD:BUY:0.70:29613720", "status": "processed"}
+{"ts": "2026-04-22T02:00:41.825672+00:00", "action": "dedupe_hit", "event_id": "evt_mLCn75WloyAx", "key": "signal.ingest:DEDUP_TEST:SOL/USD:BUY:0.70:29613720", "status": "processed"}
+{"ts": "2026-04-22T02:00:42.595248+00:00", "action": "dlq_written", "event_id": "evt_K4V6tGNQnO1Z", "reason": "schema_invalid"}
+{"ts": "2026-04-22T02:01:01.655736+00:00", "action": "dedupe_hit", "event_id": "evt_T13KHY0TMaBX", "key": "signal.ingest:DEDUP5X:ATOM/USD:SELL:0.70:29613721", "status": "processed"}
+{"ts": "2026-04-22T02:01:01.664706+00:00", "action": "dedupe_hit", "event_id": "evt_mdkKo129d2gE", "key": "signal.ingest:DEDUP5X:ATOM/USD:SELL:0.70:29613721", "status": "processed"}
+{"ts": "2026-04-22T02:01:01.673664+00:00", "action": "dedupe_hit", "event_id": "evt_cx9dfFxuPXbA", "key": "signal.ingest:DEDUP5X:ATOM/USD:SELL:0.70:29613721", "status": "processed"}
+{"ts": "2026-04-22T02:01:01.682116+00:00", "action": "dedupe_hit", "event_id": "evt_EpDUL9Lh14Oc", "key": "signal.ingest:DEDUP5X:ATOM/USD:SELL:0.70:29613721", "status": "processed"}
