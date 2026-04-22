@@ -31,8 +31,8 @@ logger = logging.getLogger("s25.drawdown_guardian")
 REPO = Path(__file__).resolve().parent.parent
 STATE_FILE = REPO / "memory" / "drawdown_state.json"
 
-SOFT_THRESHOLD_PCT = -3.0   # warn
-HARD_THRESHOLD_PCT = -5.0   # kill
+SOFT_THRESHOLD_PCT = -5.0   # warn (raised from -3)
+HARD_THRESHOLD_PCT = -12.0  # kill (raised from -5 for grace period on ARKON5 residue)
 
 COCKPIT = os.getenv("S25_COCKPIT_URL", "http://localhost:7777")
 
