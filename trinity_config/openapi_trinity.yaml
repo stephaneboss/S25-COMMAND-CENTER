@@ -12,7 +12,7 @@ info:
     `x-openai-isConsequential: false` so ChatGPT Actions never prompt
     for consent on them. Only the POST/PUT endpoints that modify state
     require the X-S25-Secret header and may show a consent prompt.
-  version: 11.0.0
+  version: 11.1.0
   contact:
     name: Stef / S25 Lumiere
     url: https://smajor.org
@@ -612,7 +612,7 @@ paths:
               properties:
                 created_by: { type: string, default: "TRINITY" }
                 target_agent: { type: string, example: "COMET" }
-                task_type: { type: string, enum: [trading_analysis, market_news, code_generation, strategy_planning, infra_monitoring, fallback] }
+                task_type: { type: string, enum: [trading_analysis, market_news, code_generation, strategy_planning, infra_monitoring, trade_execute, fallback] }
                 intent: { type: string }
                 priority: { type: string, enum: [low, normal, high, critical], default: normal }
                 input: { type: object }
