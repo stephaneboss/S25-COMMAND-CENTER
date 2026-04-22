@@ -180,11 +180,11 @@
       "priority": "normal",
       "cost_tier": "low",
       "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-04-22T03:13:01.407677+00:00",
-      "last_seen_at": "2026-04-22T03:13:01.407677+00:00",
+      "last_heartbeat_at": "2026-04-22T04:06:01.798607+00:00",
+      "last_seen_at": "2026-04-22T04:06:01.798607+00:00",
       "cooldown_until": null,
       "metadata": {},
-      "latency_ms": 57211,
+      "latency_ms": 58029,
       "error_rate": 0.0
     },
     "mesh_signal_bridge": {
@@ -200,11 +200,11 @@
       "priority": "normal",
       "cost_tier": "low",
       "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-04-22T03:13:01.412406+00:00",
-      "last_seen_at": "2026-04-22T03:13:01.412406+00:00",
+      "last_heartbeat_at": "2026-04-22T04:06:01.803759+00:00",
+      "last_seen_at": "2026-04-22T04:06:01.803759+00:00",
       "cooldown_until": null,
       "metadata": {},
-      "latency_ms": 58531,
+      "latency_ms": 117496,
       "error_rate": 0.0
     },
     "trailing_stop_manager": {
@@ -220,11 +220,11 @@
       "priority": "normal",
       "cost_tier": "low",
       "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-04-22T03:13:01.416549+00:00",
-      "last_seen_at": "2026-04-22T03:13:01.416549+00:00",
+      "last_heartbeat_at": "2026-04-22T04:06:01.813153+00:00",
+      "last_seen_at": "2026-04-22T04:06:01.813153+00:00",
       "cooldown_until": null,
       "metadata": {},
-      "latency_ms": 59174,
+      "latency_ms": 179784,
       "error_rate": 0.0
     },
     "auto_signal_scanner": {
@@ -240,11 +240,11 @@
       "priority": "normal",
       "cost_tier": "low",
       "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-04-22T03:13:01.420744+00:00",
-      "last_seen_at": "2026-04-22T03:13:01.420744+00:00",
+      "last_heartbeat_at": "2026-04-22T04:06:01.818903+00:00",
+      "last_seen_at": "2026-04-22T04:06:01.818903+00:00",
       "cooldown_until": null,
       "metadata": {},
-      "latency_ms": 179203,
+      "latency_ms": 59872,
       "error_rate": 0.0
     },
     "comet_sentiment": {
@@ -260,11 +260,11 @@
       "priority": "normal",
       "cost_tier": "low",
       "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-04-22T03:13:01.425435+00:00",
-      "last_seen_at": "2026-04-22T03:13:01.425435+00:00",
+      "last_heartbeat_at": "2026-04-22T04:06:01.824603+00:00",
+      "last_seen_at": "2026-04-22T04:06:01.824603+00:00",
       "cooldown_until": null,
       "metadata": {},
-      "latency_ms": 178224,
+      "latency_ms": 357498,
       "error_rate": 0.0
     },
     "drawdown_guardian": {
@@ -280,11 +280,11 @@
       "priority": "normal",
       "cost_tier": "low",
       "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-04-22T03:13:01.430006+00:00",
-      "last_seen_at": "2026-04-22T03:13:01.430006+00:00",
+      "last_heartbeat_at": "2026-04-22T04:06:01.830347+00:00",
+      "last_seen_at": "2026-04-22T04:06:01.830347+00:00",
       "cooldown_until": null,
       "metadata": {},
-      "latency_ms": 178776,
+      "latency_ms": 358345,
       "error_rate": 0.0
     },
     "dca_scheduler": {
@@ -299,11 +299,11 @@
       "priority": "normal",
       "cost_tier": "low",
       "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-04-22T03:13:01.434493+00:00",
-      "last_seen_at": "2026-04-22T03:13:01.434493+00:00",
+      "last_heartbeat_at": "2026-04-22T04:06:01.834901+00:00",
+      "last_seen_at": "2026-04-22T04:06:01.834901+00:00",
       "cooldown_until": null,
       "metadata": {},
-      "latency_ms": 778606,
+      "latency_ms": 358461,
       "error_rate": 0.0
     },
     "quant_brain": {
@@ -319,11 +319,11 @@
       "priority": "normal",
       "cost_tier": "low",
       "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-04-22T03:13:01.439054+00:00",
-      "last_seen_at": "2026-04-22T03:13:01.439054+00:00",
+      "last_heartbeat_at": "2026-04-22T04:06:01.838882+00:00",
+      "last_seen_at": "2026-04-22T04:06:01.838882+00:00",
       "cooldown_until": null,
       "metadata": {},
-      "latency_ms": 766890,
+      "latency_ms": 342985,
       "error_rate": 0.0
     },
     "gemini_orchestrator": {
@@ -379,11 +379,11 @@
       "priority": "normal",
       "cost_tier": "low",
       "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-04-22T03:13:01.443600+00:00",
-      "last_seen_at": "2026-04-22T03:13:01.443600+00:00",
+      "last_heartbeat_at": "2026-04-22T04:06:01.843764+00:00",
+      "last_seen_at": "2026-04-22T04:06:01.843764+00:00",
       "cooldown_until": null,
       "metadata": {},
-      "latency_ms": 178782,
+      "latency_ms": 59374,
       "error_rate": 0.0
     },
     "git_auto_sync": {
@@ -398,11 +398,11 @@
       "priority": "normal",
       "cost_tier": "low",
       "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-04-22T03:13:01.447633+00:00",
-      "last_seen_at": "2026-04-22T03:13:01.447633+00:00",
+      "last_heartbeat_at": "2026-04-22T04:06:01.847619+00:00",
+      "last_seen_at": "2026-04-22T04:06:01.847619+00:00",
       "cooldown_until": null,
       "metadata": {},
-      "latency_ms": 778889,
+      "latency_ms": 358748,
       "error_rate": 0.0
     },
     "COCKPIT_LUMIERE": {
@@ -419,8 +419,8 @@
       "priority": "normal",
       "cost_tier": "low",
       "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-04-22T03:13:01.568158+00:00",
-      "last_seen_at": "2026-04-22T03:13:01.568158+00:00",
+      "last_heartbeat_at": "2026-04-22T04:06:01.948100+00:00",
+      "last_seen_at": "2026-04-22T04:06:01.948100+00:00",
       "cooldown_until": null,
       "metadata": {},
       "latency_ms": null,
@@ -482,6 +482,19 @@
       },
       "latency_ms": null,
       "error_rate": null
+    },
+    "COINBASE": {
+      "agent_id": "COINBASE",
+      "name": "COINBASE",
+      "kind": "executor",
+      "status": "online",
+      "capabilities": [
+        "trade_execute",
+        "bracket_orders",
+        "market_quotes"
+      ],
+      "description": "Coinbase Advanced executor \u2014 accepts trade_execute missions via /webhook/tradingview",
+      "registered_at": "2026-04-22T04:00:00+00:00"
     }
   }
 }

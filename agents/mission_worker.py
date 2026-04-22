@@ -65,6 +65,7 @@ DISPATCHERS: Dict[str, str] = {
     "ha_notify": "dispatch_ha_notify",
     "signal_scan": "dispatch_auto_signal_scanner",
     "drawdown_check": "dispatch_drawdown_guardian",
+    "trade_execute": "dispatch_coinbase_executor",
     "fallback": "dispatch_noop",
 }
 
@@ -75,6 +76,20 @@ def _now_iso() -> str:
 
 def _now_ts() -> float:
     return time.time()
+
+
+
+def _env_file_get(key: str):
+    try:
+        env = REPO / ".env"
+        if not env.exists():
+            return None
+        for line in env.read_text().splitlines():
+            if line.strip().startswith(key + "="):
+                return line.split("=", 1)[1].strip().strip('"').strip("'")
+    except Exception:
+        return None
+    return None
 
 
 def _load(path: Path, default):
@@ -259,6 +274,62 @@ def dispatch_quant_brain(mission: Dict) -> Dict:
 
 
 
+def dispatch_coinbase_executor(mission: Dict) -> Dict:
+    """Forward a trade_execute mission to /webhook/tradingview.
+
+    Mission input schema:
+      {
+        "symbol": "BTC/USD" | "BTCUSD",    # required
+        "action": "BUY" | "SELL",           # required
+        "confidence": 0.80,                 # optional, default 0.80
+        "usd_amount": 10,                   # optional — forces size
+        "source": "TRINITY",                # optional — weight override
+        "reason": "why this trade",
+      }
+
+    The cockpit webhook respects the `.coinbase_live.flag` file, the
+    HA kill-switch, and all 12 safety layers from the trading runbook.
+    If they block, status=blocked with the reason. If they allow, a
+    real (or dry-run) order is placed on Coinbase Advanced.
+    """
+    inp = mission.get("input", {}) or {}
+    symbol = str(inp.get("symbol") or "").upper()
+    action = str(inp.get("action") or "").upper()
+    if not symbol or action not in {"BUY", "SELL"}:
+        return {"ok": False, "error": "missing_symbol_or_action",
+                "received": {"symbol": symbol, "action": action}}
+
+    conf = float(inp.get("confidence") or 0.80)
+    src = str(inp.get("source") or "TRINITY").upper()
+    ticker = symbol.replace("/", "").replace("-", "")
+    body = {
+        "ticker": ticker,
+        "action": action,
+        "price": float(inp.get("price") or 0.0),
+        "confidence": conf,
+        "source": src,
+        "strategy": str(inp.get("strategy")
+                        or f"mission_{mission.get('mission_id', '?')}"),
+        "interval": str(inp.get("interval") or "1h"),
+        "reason": str(inp.get("reason")
+                      or mission.get("intent") or "trade_execute"),
+    }
+    if inp.get("usd_amount"):
+        body["usd_amount"] = float(inp["usd_amount"])
+    tv_pass = os.getenv("TV_PASSPHRASE") or _env_file_get("TV_PASSPHRASE")
+    if tv_pass:
+        body["passphrase"] = tv_pass
+
+    try:
+        r = requests.post(f"{COCKPIT}/webhook/tradingview",
+                          json=body, timeout=20)
+        out = r.json() if r.ok else {"http": r.status_code,
+                                     "text": r.text[:400]}
+        return {"ok": r.ok, "webhook_response": out, "sent_body": body}
+    except Exception as e:
+        return {"ok": False, "error": str(e), "sent_body": body}
+
+
 def dispatch_noop(mission: Dict) -> Dict:
     return {"ok": True, "note": "fallback no-op"}
 
@@ -272,6 +343,7 @@ DISPATCH_MAP = {
     "dispatch_noop_gemini_retired": dispatch_noop_gemini_retired,
     "dispatch_ha_automation": dispatch_ha_automation,
     "dispatch_ha_notify": dispatch_ha_notify,
+    "dispatch_coinbase_executor": dispatch_coinbase_executor,
     "dispatch_noop": dispatch_noop,
 }
 
@@ -367,6 +439,14 @@ def execute_mission(mission: Dict) -> Dict:
     result = disp_fn(mission)
     dur = round(time.time() - start, 2)
     ok = result.get("ok", False)
+
+    # Breaker outcome — record so dispatch failures eventually open the
+    # breaker and choose_target reroutes to fallback (Trinity §22 Test 2)
+    try:
+        from agents.stability_layer import breaker_record
+        breaker_record(target, task_type, success=bool(ok))
+    except Exception:
+        pass
 
     if ok:
         _update_mission(mid, {
