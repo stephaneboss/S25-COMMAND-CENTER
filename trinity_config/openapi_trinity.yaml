@@ -3,7 +3,7 @@ info:
   title: S25 Lumiere Trinity Bridge API
   description: |
     Complete OpenAPI schema for TRINITY Custom GPT → S25 Lumiere Cockpit.
-    Updated for Phase 10 (Stability Layer v1 — dedupe + retry + DLQ + circuit breakers per Trinity spec).
+    Updated for Phase 11 (Stability v2 — Breaker reroute + Backpressure + DLQ auto-replay).
 
     PRIMARY SERVER: https://api.smajor.org (Cloudflare tunnel → AlienStef :7777)
     SECONDARY: https://s25.smajor.org (same cockpit, alias)
@@ -12,7 +12,7 @@ info:
     `x-openai-isConsequential: false` so ChatGPT Actions never prompt
     for consent on them. Only the POST/PUT endpoints that modify state
     require the X-S25-Secret header and may show a consent prompt.
-  version: 10.0.0
+  version: 11.0.0
   contact:
     name: Stef / S25 Lumiere
     url: https://smajor.org
@@ -757,3 +757,81 @@ paths:
       responses:
         200: { description: Retry queue }
 
+
+  /api/stability/backpressure:
+    get:
+      operationId: stabilityBackpressure
+      summary: Live mesh backpressure level (ok | warn | congested)
+      description: |
+        Returns the current mesh load signal computed from last-60s signal
+        rate + queued missions + due retries. Use this to know if the mesh
+        is about to throttle normal-priority ingest.
+      x-openai-isConsequential: false
+      responses:
+        200:
+          description: Backpressure level + metrics + thresholds
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  level: { type: string, enum: [ok, warn, congested] }
+                  signal_rate_60s: { type: integer }
+                  missions_queued: { type: integer }
+                  retries_due: { type: integer }
+
+  /api/stability/breakers:
+    get:
+      operationId: stabilityBreakersV2
+      summary: All circuit breakers with open/half_open/closed counts
+      x-openai-isConsequential: false
+      responses:
+        200: { description: Breakers snapshot }
+
+  /api/stability/dlq:
+    get:
+      operationId: stabilityDlqV2
+      summary: Latest DLQ entries
+      x-openai-isConsequential: false
+      parameters:
+        - { name: limit, in: query, required: false,
+            schema: { type: integer, default: 50, maximum: 500 } }
+      responses:
+        200: { description: DLQ entries }
+
+  /api/stability/dlq/replay/{event_id}:
+    post:
+      operationId: stabilityDlqReplay
+      summary: Replay a DLQ entry as a fresh envelope (new event_id + dedupe_key)
+      description: |
+        Rebuilds the event via make_envelope() with a new event_id so the
+        Deduplicator accepts it. Refuses if the DLQ entry has
+        replayable=false. Lineage preserved via replay_of field.
+      x-openai-isConsequential: true
+      security:
+        - S25Secret: []
+      parameters:
+        - { name: event_id, in: path, required: true,
+            schema: { type: string } }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                new_source:
+                  type: string
+                  default: dlq_replay_api
+      responses:
+        200: { description: Replayed, new event_id returned }
+        404: { description: Event not found or not replayable }
+        409: { description: Dedupe blocked (very rare — new event_id collision) }
+
+  /api/stability/stats:
+    get:
+      operationId: stabilityStats
+      summary: One-shot snapshot — stability + backpressure combined
+      x-openai-isConsequential: false
+      responses:
+        200: { description: Snapshot }

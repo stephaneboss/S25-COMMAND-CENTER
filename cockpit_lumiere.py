@@ -3697,6 +3697,123 @@ def api_stability_stats():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
+
+
+# ═══════════════════════ LIVE PIPELINE TRAIL (Phase 3) ═══════════════════════
+
+@app.route('/api/stability/stream', methods=['GET'])
+def api_stability_stream():
+    """Server-Sent Events stream of mesh activity.
+
+    Emits a combined 'tick' event every 2s with:
+      - backpressure level + counters
+      - breakers open count
+      - dlq total
+      - missions active (queued + running + assigned)
+      - last 3 journal entries
+
+    Also tails the ops_journal for new lines (delta events).
+
+    Consumable by Trinity GPT, dashboards, or curl -N for live tail.
+    """
+    import time as _time
+    from flask import Response, stream_with_context
+
+    def gen():
+        from agents.stability_layer import (
+            backpressure_level, list_breakers, stats,
+        )
+        import json as _j
+        import os as _os
+
+        repo = os.path.dirname(os.path.abspath(__file__))
+        missions_p = os.path.join(repo, "memory", "command_mesh", "missions.json")
+        journal_p = os.path.join(repo, "memory", "command_mesh", "ops_journal.jsonl")
+
+        # Seek to end of journal to stream only new events
+        journal_pos = 0
+        try:
+            journal_pos = _os.path.getsize(journal_p)
+        except Exception:
+            pass
+
+        yield "retry: 5000\n\n"
+        yield "event: hello\ndata: {\"ok\":true}\n\n"
+
+        tick_count = 0
+        max_ticks = 1800  # ~1h at 2s/tick then client reconnects
+
+        while tick_count < max_ticks:
+            try:
+                bp = backpressure_level()
+                breakers = list_breakers().get("breakers", {})
+                st = stats()
+                try:
+                    with open(missions_p, encoding="utf-8") as f:
+                        missions_data = _j.load(f)
+                    items = missions_data.get("items", {})
+                    active = sum(1 for m in items.values()
+                                 if m.get("status") in {"queued",
+                                                        "assigned",
+                                                        "running"})
+                    completed_recent = [
+                        {"id": mid, "task": m.get("task_type"),
+                         "agent": m.get("target_agent"),
+                         "status": m.get("status")}
+                        for mid, m in list(items.items())[-5:]
+                    ]
+                except Exception:
+                    active = 0
+                    completed_recent = []
+
+                # Detect deltas from journal
+                new_journal = []
+                try:
+                    size = _os.path.getsize(journal_p)
+                    if size > journal_pos:
+                        with open(journal_p, encoding="utf-8") as f:
+                            f.seek(journal_pos)
+                            for line in f:
+                                try:
+                                    new_journal.append(_j.loads(line))
+                                except Exception:
+                                    pass
+                        journal_pos = size
+                except Exception:
+                    pass
+
+                payload = {
+                    "ts": datetime.now(timezone.utc).isoformat(),
+                    "tick": tick_count,
+                    "backpressure": bp,
+                    "breakers_open": sum(1 for b in breakers.values()
+                                         if b.get("state") == "open"),
+                    "breakers_total": len(breakers),
+                    "dlq_total": st.get("dlq_total", 0),
+                    "missions_active": active,
+                    "missions_recent": completed_recent[-3:],
+                }
+                yield f"event: tick\ndata: {_j.dumps(payload)}\n\n"
+
+                for j in new_journal[-10:]:
+                    yield f"event: journal\ndata: {_j.dumps(j)}\n\n"
+
+                tick_count += 1
+                _time.sleep(2)
+            except GeneratorExit:
+                break
+            except Exception as e:
+                yield f"event: error\ndata: {{\"error\":\"{str(e)[:100]}\"}}\n\n"
+                _time.sleep(5)
+
+        yield "event: bye\ndata: {\"reason\":\"max_ticks\"}\n\n"
+
+    return Response(stream_with_context(gen()),
+                    mimetype="text/event-stream",
+                    headers={"Cache-Control": "no-cache",
+                             "X-Accel-Buffering": "no"})
+
+
 if __name__ == '__main__':
     port = int(os.getenv("PORT", "7777"))
     app.run(host='0.0.0.0', port=port, debug=False)
