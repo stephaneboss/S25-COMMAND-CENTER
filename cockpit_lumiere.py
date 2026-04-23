@@ -890,6 +890,134 @@ reponse: {"tool":"trade","args":{"symbol":"ETH/USD","action":"SELL","usd_amount"
     })
 
 
+@app.route('/api/kimi/health', methods=['GET'])
+def kimi_health():
+    """Check which Kimi backend(s) are configured and reachable."""
+    status = {
+        'moonshot': {'configured': False, 'reachable': None, 'error': None},
+        'cloudflare': {'configured': False, 'reachable': None, 'error': None},
+    }
+    moonshot_key = os.getenv('KIMI_API_KEY', '').strip() or os.getenv('MOONSHOT_API_KEY', '').strip()
+    if moonshot_key:
+        status['moonshot']['configured'] = True
+        try:
+            r = requests.get(
+                'https://api.moonshot.ai/v1/models',
+                headers={'Authorization': f'Bearer {moonshot_key}'},
+                timeout=8,
+            )
+            status['moonshot']['reachable'] = r.ok
+            status['moonshot']['error'] = None if r.ok else f'HTTP {r.status_code}'
+        except Exception as e:
+            status['moonshot']['reachable'] = False
+            status['moonshot']['error'] = str(e)[:100]
+    cf_token = os.getenv('CLOUDFLARE_API_TOKEN', '').strip()
+    cf_acc = os.getenv('CLOUDFLARE_ACCOUNT_ID', '').strip()
+    if cf_token and cf_acc:
+        status['cloudflare']['configured'] = True
+        try:
+            r = requests.get(
+                f'https://api.cloudflare.com/client/v4/accounts/{cf_acc}/ai/models/search?per_page=1',
+                headers={'Authorization': f'Bearer {cf_token}'},
+                timeout=8,
+            )
+            status['cloudflare']['reachable'] = r.ok
+            if not r.ok:
+                d = r.json() if r.headers.get('content-type', '').startswith('application/json') else {}
+                status['cloudflare']['error'] = (d.get('errors') or [{'message': f'HTTP {r.status_code}'}])[0].get('message', '?')
+        except Exception as e:
+            status['cloudflare']['reachable'] = False
+            status['cloudflare']['error'] = str(e)[:100]
+    ok = any(s['reachable'] for s in status.values() if s['reachable'])
+    return jsonify({'ok': ok, 'backends': status, 'default_model': os.getenv('KIMI_MODEL', 'kimi-k2-6')})
+
+
+@app.route('/api/kimi/chat', methods=['POST'])
+def kimi_chat():
+    """Chat with Kimi K2.6 via Moonshot API (preferred) or Cloudflare Workers AI (fallback).
+
+    POST body:
+      { "message": "...",
+        "history": [{role, content}] (optional),
+        "system": "..." (optional),
+        "model": "kimi-k2-6" (optional, default from env),
+        "temperature": 0.7 (optional),
+        "backend": "moonshot|cloudflare|auto" (optional, default auto) }
+
+    Auth: X-S25-Secret header.
+    """
+    if request.headers.get('X-S25-Secret') != os.getenv('S25_SHARED_SECRET', 'MYN5VGqsJZ9MwYqvJ3mbwEfh0n4TZ4b7C7TjuwVp-2A'):
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
+    body = request.get_json(silent=True) or {}
+    message = (body.get('message') or body.get('prompt') or '').strip()
+    if not message:
+        return jsonify({"ok": False, "error": "missing message"}), 400
+    system = body.get('system') or 'Tu es Kimi K2.6, assistant IA agentic pour S25 Lumiere de Stef (Major). Reponds en francais, direct et operationnel.'
+    history = body.get('history') or []
+    model = body.get('model') or os.getenv('KIMI_MODEL', 'kimi-k2-6')
+    temperature = float(body.get('temperature', 0.6))
+    backend = (body.get('backend') or 'auto').lower()
+    messages = [{'role': 'system', 'content': system}]
+    for h in history[-10:]:
+        if isinstance(h, dict) and h.get('role') in ('user', 'assistant') and h.get('content'):
+            messages.append({'role': h['role'], 'content': h['content']})
+    messages.append({'role': 'user', 'content': message})
+
+    def _try_moonshot():
+        key = os.getenv('KIMI_API_KEY', '').strip() or os.getenv('MOONSHOT_API_KEY', '').strip()
+        if not key:
+            return None, 'KIMI_API_KEY empty'
+        try:
+            r = requests.post(
+                'https://api.moonshot.ai/v1/chat/completions',
+                headers={'Authorization': f'Bearer {key}', 'Content-Type': 'application/json'},
+                json={'model': model, 'messages': messages, 'temperature': temperature, 'stream': False},
+                timeout=45,
+            )
+            if not r.ok:
+                return None, f'Moonshot HTTP {r.status_code}: {r.text[:160]}'
+            d = r.json()
+            reply = d['choices'][0]['message']['content']
+            usage = d.get('usage', {})
+            return {'reply': reply, 'backend': 'moonshot', 'model': d.get('model', model), 'usage': usage}, None
+        except Exception as e:
+            return None, f'Moonshot: {str(e)[:160]}'
+
+    def _try_cloudflare():
+        tok = os.getenv('CLOUDFLARE_API_TOKEN', '').strip()
+        acc = os.getenv('CLOUDFLARE_ACCOUNT_ID', '').strip()
+        if not (tok and acc):
+            return None, 'CF token or account id missing'
+        cf_model = os.getenv('CF_KIMI_MODEL', '@cf/moonshotai/kimi-k2-6')
+        try:
+            r = requests.post(
+                f'https://api.cloudflare.com/client/v4/accounts/{acc}/ai/run/{cf_model}',
+                headers={'Authorization': f'Bearer {tok}', 'Content-Type': 'application/json'},
+                json={'messages': messages, 'temperature': temperature, 'max_tokens': 1000},
+                timeout=45,
+            )
+            if not r.ok:
+                d = r.json() if r.headers.get('content-type', '').startswith('application/json') else {}
+                msg = (d.get('errors') or [{'message': f'HTTP {r.status_code}'}])[0].get('message', '?')
+                return None, f'CF Workers AI: {msg}'
+            d = r.json()
+            reply = (d.get('result') or {}).get('response') or (d.get('result') or {}).get('text') or ''
+            if not reply:
+                return None, f'CF empty response: {str(d)[:160]}'
+            return {'reply': reply, 'backend': 'cloudflare', 'model': cf_model, 'usage': d.get('result', {}).get('usage', {})}, None
+        except Exception as e:
+            return None, f'CF: {str(e)[:160]}'
+
+    errors = []
+    order = ['moonshot', 'cloudflare'] if backend == 'auto' else [backend]
+    for b in order:
+        result, err = (_try_moonshot if b == 'moonshot' else _try_cloudflare)()
+        if result:
+            return jsonify({'ok': True, **result})
+        errors.append(f'{b}: {err}')
+    return jsonify({'ok': False, 'error': 'All backends failed', 'details': errors}), 502
+
+
 @app.route('/openapi.yaml', methods=['GET'])
 @app.route('/openapi.json', methods=['GET'])
 def serve_openapi():
