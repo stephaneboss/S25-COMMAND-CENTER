@@ -911,7 +911,9 @@ def kimi_health():
         except Exception as e:
             status['moonshot']['reachable'] = False
             status['moonshot']['error'] = str(e)[:100]
-    cf_token = os.getenv('CLOUDFLARE_API_TOKEN', '').strip()
+    cf_token = (os.getenv('WORKERS_AI_API_TOKEN', '').strip()
+                or os.getenv('CLOUDFLARE_AI_TOKEN', '').strip()
+                or os.getenv('CLOUDFLARE_API_TOKEN', '').strip())
     cf_acc = os.getenv('CLOUDFLARE_ACCOUNT_ID', '').strip()
     if cf_token and cf_acc:
         status['cloudflare']['configured'] = True
@@ -984,29 +986,62 @@ def kimi_chat():
             return None, f'Moonshot: {str(e)[:160]}'
 
     def _try_cloudflare():
-        tok = os.getenv('CLOUDFLARE_API_TOKEN', '').strip()
+        # Prefer dedicated Workers AI token, fallback to general CF token
+        tok = (os.getenv('WORKERS_AI_API_TOKEN', '').strip()
+               or os.getenv('CLOUDFLARE_AI_TOKEN', '').strip()
+               or os.getenv('CLOUDFLARE_API_TOKEN', '').strip())
         acc = os.getenv('CLOUDFLARE_ACCOUNT_ID', '').strip()
         if not (tok and acc):
             return None, 'CF token or account id missing'
-        cf_model = os.getenv('CF_KIMI_MODEL', '@cf/moonshotai/kimi-k2-6')
-        try:
-            r = requests.post(
-                f'https://api.cloudflare.com/client/v4/accounts/{acc}/ai/run/{cf_model}',
-                headers={'Authorization': f'Bearer {tok}', 'Content-Type': 'application/json'},
-                json={'messages': messages, 'temperature': temperature, 'max_tokens': 1000},
-                timeout=45,
-            )
-            if not r.ok:
-                d = r.json() if r.headers.get('content-type', '').startswith('application/json') else {}
-                msg = (d.get('errors') or [{'message': f'HTTP {r.status_code}'}])[0].get('message', '?')
-                return None, f'CF Workers AI: {msg}'
-            d = r.json()
-            reply = (d.get('result') or {}).get('response') or (d.get('result') or {}).get('text') or ''
-            if not reply:
-                return None, f'CF empty response: {str(d)[:160]}'
-            return {'reply': reply, 'backend': 'cloudflare', 'model': cf_model, 'usage': d.get('result', {}).get('usage', {})}, None
-        except Exception as e:
-            return None, f'CF: {str(e)[:160]}'
+        # Try multiple Kimi model names (CF naming may evolve)
+        candidates = [
+            os.getenv('CF_KIMI_MODEL', '').strip(),
+            '@cf/moonshotai/kimi-k2.6',
+            '@cf/moonshotai/kimi-k2.5',
+        ]
+        seen = []
+        for cf_model in candidates:
+            if not cf_model or cf_model in seen:
+                continue
+            seen.append(cf_model)
+            try:
+                r = requests.post(
+                    f'https://api.cloudflare.com/client/v4/accounts/{acc}/ai/run/{cf_model}',
+                    headers={'Authorization': f'Bearer {tok}', 'Content-Type': 'application/json'},
+                    json={'messages': messages, 'temperature': temperature, 'max_tokens': int(body.get('max_tokens', 1500))},
+                    timeout=45,
+                )
+                if r.status_code == 404:
+                    continue  # model name doesn't exist, try next
+                if not r.ok:
+                    d = r.json() if r.headers.get('content-type', '').startswith('application/json') else {}
+                    msg = (d.get('errors') or [{'message': f'HTTP {r.status_code}'}])[0].get('message', '?')
+                    return None, f'CF Workers AI [{cf_model}]: {msg}'
+                d = r.json()
+                result = d.get('result') or {}
+                # New CF format (chat.completion style, like OpenAI)
+                reply = ''
+                reasoning = ''
+                choices = result.get('choices') or []
+                if choices:
+                    msg = (choices[0] or {}).get('message') or {}
+                    reply = msg.get('content') or ''
+                    reasoning = msg.get('reasoning_content') or ''
+                # Legacy format fallback
+                if not reply:
+                    reply = result.get('response') or result.get('text') or ''
+                if not reply:
+                    continue
+                return {
+                    'reply': reply,
+                    'reasoning': reasoning,
+                    'backend': 'cloudflare',
+                    'model': cf_model,
+                    'usage': result.get('usage', {})
+                }, None
+            except Exception as e:
+                return None, f'CF [{cf_model}]: {str(e)[:160]}'
+        return None, f'CF: no working Kimi model found (tried {len(seen)})'
 
     errors = []
     order = ['moonshot', 'cloudflare'] if backend == 'auto' else [backend]
