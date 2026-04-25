@@ -357,12 +357,45 @@ paths:
       x-openai-isConsequential: false
       responses: { '200': { description: Wallets overview } }
 
-  /api/cdc/balance:
-    get:
-      operationId: getCdcBalance
-      summary: Crypto.com Exchange account balance
+  /api/kimi/chat:
+    post:
+      operationId: chatKimi
+      summary: Talk to Kimi K2.6 (Moonshot frontier model via Cloudflare Workers AI) for deep analysis, multi-step reasoning, or agentic swarm tasks. Returns reply + reasoning_content (chain-of-thought).
       x-openai-isConsequential: false
-      responses: { '200': { description: CDC balance } }
+      security: [ { S25Secret: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [message]
+              properties:
+                message:
+                  type: string
+                  description: La question ou le probleme complexe a soumettre a Kimi K2.6
+                system:
+                  type: string
+                  description: System prompt custom pour Kimi (optionnel, default = Trinity persona)
+                history:
+                  type: array
+                  description: Historique de conversation pour multi-turn
+                  items:
+                    type: object
+                    properties:
+                      role: { type: string, enum: [user, assistant] }
+                      content: { type: string }
+                temperature:
+                  type: number
+                  default: 0.6
+                max_tokens:
+                  type: integer
+                  default: 1500
+                backend:
+                  type: string
+                  enum: [auto, moonshot, cloudflare]
+                  default: auto
+      responses: { '200': { description: Kimi reply with reasoning_content } }
 
   /api/comet/feed:
     get:
