@@ -69,6 +69,16 @@ class CoinbaseExecutor(BaseAgent):
     def _load_keys(self) -> None:
         self._api_key = os.environ.get("CBA_API_KEY", "") or os.environ.get("COINBASE_API_KEY", "")
         self._api_secret = os.environ.get("CBA_API_SECRET", "") or os.environ.get("COINBASE_API_SECRET", "")
+        # Path-based secret (PEM file) - cleaner than embedding multi-line PEM in .env
+        if not self._api_secret:
+            secret_path = os.environ.get("CBA_API_SECRET_PATH", "") or os.environ.get("COINBASE_API_SECRET_PATH", "")
+            if secret_path and os.path.exists(secret_path):
+                try:
+                    with open(secret_path, "r") as f:
+                        self._api_secret = f.read().strip()
+                    logger.info("Loaded CBA API secret from file %s (%d chars)", secret_path, len(self._api_secret))
+                except Exception as e:
+                    logger.warning("Failed to read CBA secret from %s: %s", secret_path, e)
         if not (self._api_key and self._api_secret):
             try:
                 from security.vault import vault_get
