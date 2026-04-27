@@ -2123,6 +2123,100 @@ def api_jarvis():
     except Exception as exc:
         return jsonify({"ok": False, "error": str(exc)}), 502
 
+
+# ════════════════════════════════════════════════════════════════
+# /api/code/propose — Trinity → Jarvis (Qwen 14b local) → patch
+# Self-hosted code reasoning. Zero external API. Trinity asks job,
+# Jarvis (Ollama qwen2.5-coder:14b on RTX 3060) returns analysis or
+# unified diff. Application is a separate auditable step via opsRun.
+# ════════════════════════════════════════════════════════════════
+@app.route('/api/code/propose', methods=['POST'])
+def api_code_propose():
+    if request.headers.get('X-S25-Secret') != os.getenv('S25_SHARED_SECRET', 'MYN5VGqsJZ9MwYqvJ3mbwEfh0n4TZ4b7C7TjuwVp-2A'):
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
+    body = request.get_json(silent=True) or {}
+    job = (body.get('job') or '').strip()
+    target_files = body.get('target_files') or []
+    mode = (body.get('mode') or 'diagnose').strip().lower()
+    if not job:
+        return jsonify({'ok': False, 'error': 'job is required'}), 400
+    if mode not in ('diagnose', 'patch'):
+        return jsonify({'ok': False, 'error': 'mode must be diagnose or patch'}), 400
+    if not isinstance(target_files, list) or len(target_files) > 5:
+        return jsonify({'ok': False, 'error': 'target_files must be list of <=5 paths'}), 400
+
+    REPO = '/home/alienstef/S25-COMMAND-CENTER'
+    file_blocks = []
+    for f in target_files:
+        if not isinstance(f, str) or '..' in f or f.startswith('/') or len(f) > 200:
+            return jsonify({'ok': False, 'error': f'invalid path: {f}'}), 400
+        full = os.path.join(REPO, f)
+        if not os.path.isfile(full):
+            return jsonify({'ok': False, 'error': f'file not found: {f}'}), 400
+        try:
+            with open(full, 'r', encoding='utf-8', errors='replace') as fh:
+                content = fh.read()
+            if len(content) > 50000:
+                content = content[:50000] + '\n# ... truncated at 50000 chars ...'
+            file_blocks.append(f'--- FILE: {f} ---\n{content}\n--- END FILE ---')
+        except Exception as e:
+            return jsonify({'ok': False, 'error': f'read error {f}: {str(e)[:200]}'}), 500
+
+    if mode == 'diagnose':
+        system_prompt = (
+            "Tu es Jarvis, dev senior Python/Flask sur S25 Lumiere (AlienStef). "
+            "Job: analyser le code donne et donner diagnostic/recommandations. "
+            "Format: 1) Probleme detecte 2) Cause 3) Solution proposee. "
+            "Reponse francais, concis (max 400 mots), pas de code en sortie."
+        )
+    else:  # patch
+        system_prompt = (
+            "Tu es Jarvis, dev senior Python sur S25 Lumiere. "
+            "Job: generer un patch unified diff format (git apply compatible). "
+            "Format de sortie: UNIQUEMENT le diff, rien d'autre. "
+            "Pas d'explication, pas de markdown, pas de prefixes texte. "
+            "Le diff doit commencer par '--- a/path' et etre applicable avec git apply."
+        )
+
+    user_prompt = f"Job: {job}\n\n" + "\n\n".join(file_blocks)
+
+    try:
+        resp = requests.post(
+            "http://localhost:3002/v1/chat/completions",
+            headers={"Content-Type": "application/json", "Authorization": "Bearer s25-jarvis-internal-key"},
+            json={
+                "model": "qwen2.5-coder:14b",
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                "max_tokens": 2500,
+                "temperature": 0.2,
+            },
+            timeout=120,
+        )
+        data = resp.json()
+        reply = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+        usage = data.get("usage", {})
+        return jsonify({
+            "ok": True,
+            "mode": mode,
+            "model": "qwen2.5-coder:14b",
+            "backend": "ollama-local-rtx3060",
+            "job": job,
+            "target_files": target_files,
+            "result": reply,
+            "usage": usage,
+            "next_step": ("Reviser le patch puis appliquer via opsRun shell_safe: "
+                          "1) Save patch /tmp/patch.diff via shell_safe cat, "
+                          "2) git -C {REPO} apply /tmp/patch.diff, "
+                          "3) git -C {REPO} commit, 4) git -C {REPO} push"
+                          if mode == 'patch' else 'Diagnostic only - pas de patch a appliquer.'),
+        })
+    except Exception as exc:
+        return jsonify({"ok": False, "error": f"jarvis: {str(exc)[:300]}"}), 502
+
+
 # ════════════════════════════════════════════════════════════════
 # CONTROL LINK — Claude ↔ Trinity validated action chain
 # propose → validate → execute (canonical, auditable)
