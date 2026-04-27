@@ -2932,6 +2932,221 @@ def api_code_auto():
     })
 
 
+
+@app.route('/api/health/full', methods=['GET'])
+def api_health_full():
+    """One-shot deep system audit. Trinity asks 'comment va le systeme?' -> here."""
+    if request.headers.get('X-S25-Secret') != os.getenv('S25_SHARED_SECRET', 'MYN5VGqsJZ9MwYqvJ3mbwEfh0n4TZ4b7C7TjuwVp-2A'):
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
+    import subprocess as _sub
+    REPO = '/home/alienstef/S25-COMMAND-CENTER'
+    def run(cmd, timeout=10):
+        try:
+            r = _sub.run(cmd, capture_output=True, text=True, timeout=timeout, cwd=REPO)
+            return r.stdout.strip() if r.returncode == 0 else None
+        except Exception:
+            return None
+    out = {
+        "ok": True,
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "service": "s25-cockpit",
+    }
+    # Pipeline mode
+    try:
+        with open(os.path.join(REPO, 'memory/agents_state.json')) as fh:
+            st = json.load(fh)
+        p = st.get('pipeline', {})
+        out['pipeline'] = {'mode': p.get('mode'), 'kill_switch': p.get('kill_switch'), 'threat_level': p.get('threat_level')}
+    except Exception as e:
+        out['pipeline'] = {'error': str(e)[:100]}
+    # GPU
+    gpu = run(['nvidia-smi', '--query-gpu=utilization.gpu,memory.used,memory.total,temperature.gpu', '--format=csv,noheader,nounits'])
+    if gpu:
+        try:
+            util, mu, mt, temp = [s.strip() for s in gpu.split(',')]
+            out['gpu'] = {'util_pct': int(util), 'mem_used_mb': int(mu), 'mem_total_mb': int(mt), 'temp_c': int(temp)}
+        except Exception:
+            out['gpu'] = {'raw': gpu}
+    # RAM
+    ram = run(['free', '-m'])
+    if ram:
+        try:
+            line = [l for l in ram.split(chr(10)) if l.startswith('Mem:')][0].split()
+            out['ram'] = {'total_mb': int(line[1]), 'used_mb': int(line[2]), 'avail_mb': int(line[6])}
+        except Exception:
+            pass
+    # Disk
+    df = run(['df', '-h', REPO])
+    if df:
+        try:
+            line = df.split(chr(10))[1].split()
+            out['disk'] = {'mount': line[0], 'used_pct': line[4]}
+        except Exception:
+            pass
+    # mission_worker cron
+    crontab = run(['crontab', '-l'])
+    if crontab:
+        worker = [l for l in crontab.split(chr(10)) if 'mission_worker' in l and not l.startswith('#')]
+        out['mission_worker_cron'] = worker[0] if worker else None
+    # Recent commits
+    log = run(['git', 'log', '--oneline', '-5'])
+    out['recent_commits'] = log.split(chr(10)) if log else []
+    # Coinbase portfolio (proxy from internal /api/coinbase/portfolio)
+    try:
+        with app.test_client() as c:
+            rp = c.get('/api/coinbase/portfolio')
+            d = rp.get_json() or {}
+            out['coinbase'] = {
+                'total_usd': d.get('total_usd'),
+                'available_usd': d.get('available_usd'),
+                'reserved_in_orders': d.get('reserved_in_open_orders_usd'),
+                'coin_count': d.get('coin_count'),
+            }
+    except Exception as e:
+        out['coinbase'] = {'error': str(e)[:100]}
+    return jsonify(out)
+
+
+@app.route('/api/business/quote/draft', methods=['POST'])
+def api_business_quote_draft():
+    """Generate a quote DRAFT (HTML preview). Quebec TPS 5% + TVQ 9.975%.
+
+    Body:
+      {
+        "client_name": "Jean Tremblay",
+        "client_address": "1234 rue X, Montreal H1A 1B2",
+        "client_email": "jean@email.com",
+        "items": [{"description": "Drain francais 30m", "qty": 1, "unit_price": 4500}],
+        "notes": "Garantie 25 ans inclus",
+        "validity_days": 30
+      }
+
+    Returns: { quote_id, html_preview, totals, draft=true }
+    No save, no email send. Just preview.
+    """
+    if request.headers.get('X-S25-Secret') != os.getenv('S25_SHARED_SECRET', 'MYN5VGqsJZ9MwYqvJ3mbwEfh0n4TZ4b7C7TjuwVp-2A'):
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
+    body = request.get_json(silent=True) or {}
+    client_name = (body.get('client_name') or '').strip()
+    client_address = (body.get('client_address') or '').strip()
+    client_email = (body.get('client_email') or '').strip()
+    items = body.get('items') or []
+    notes = (body.get('notes') or '').strip()
+    validity_days = int(body.get('validity_days') or 30)
+
+    if not client_name or not items:
+        return jsonify({"ok": False, "error": "client_name and items required"}), 400
+    if not isinstance(items, list) or len(items) > 50:
+        return jsonify({"ok": False, "error": "items must be list of 1-50 entries"}), 400
+
+    # Compute totals
+    subtotal = 0.0
+    item_rows = []
+    for i, it in enumerate(items):
+        try:
+            desc = (it.get('description') or '').strip()
+            qty = float(it.get('qty') or 1)
+            unit = float(it.get('unit_price') or 0)
+            line_total = round(qty * unit, 2)
+            subtotal += line_total
+            item_rows.append({"i": i+1, "description": desc, "qty": qty, "unit_price": unit, "line_total": line_total})
+        except Exception as e:
+            return jsonify({"ok": False, "error": f"item {i} invalid: {e}"}), 400
+    subtotal = round(subtotal, 2)
+    tps = round(subtotal * 0.05, 2)        # Quebec GST 5%
+    tvq = round(subtotal * 0.09975, 2)     # Quebec QST 9.975%
+    total = round(subtotal + tps + tvq, 2)
+
+    quote_id = f"S25-Q-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}"
+    issue_date = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+
+    # Build HTML preview (Quebec-compliant: TPS+TVQ separated, includes business info)
+    items_html = "".join(
+        f"<tr><td>{r['i']}</td><td>{r['description']}</td><td style='text-align:right'>{r['qty']}</td><td style='text-align:right'>{r['unit_price']:.2f}$</td><td style='text-align:right'>{r['line_total']:.2f}$</td></tr>"
+        for r in item_rows
+    )
+    notes_html = f"<p style='margin-top:24px;color:#666'><strong>Notes:</strong><br>{notes}</p>" if notes else ""
+
+    html = f"""<!doctype html>
+<html lang='fr'><head><meta charset='utf-8'><title>Soumission {quote_id}</title>
+<style>
+body {{ font-family: 'Inter', Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 24px; color: #1a1a1a; }}
+.header {{ display: flex; justify-content: space-between; align-items: start; border-bottom: 3px solid #f59e0b; padding-bottom: 24px; }}
+.logo {{ font-size: 24px; font-weight: 800; }}
+.logo em {{ font-style: normal; color: #f59e0b; }}
+.business-info {{ font-size: 13px; color: #555; }}
+.quote-info {{ text-align: right; font-size: 13px; }}
+.quote-info strong {{ font-size: 18px; color: #f59e0b; }}
+.client {{ background: #fafafa; padding: 16px; border-left: 4px solid #f59e0b; margin: 24px 0; }}
+table {{ width: 100%; border-collapse: collapse; margin: 16px 0; }}
+th {{ background: #1a1a1a; color: white; padding: 10px; text-align: left; font-size: 13px; }}
+td {{ padding: 10px; border-bottom: 1px solid #eee; font-size: 14px; }}
+.totals {{ float: right; width: 320px; margin-top: 16px; }}
+.totals td {{ padding: 6px 12px; }}
+.totals tr.total td {{ font-weight: 700; font-size: 16px; border-top: 2px solid #f59e0b; padding-top: 10px; }}
+.footer {{ clear: both; padding-top: 80px; font-size: 12px; color: #999; text-align: center; border-top: 1px solid #eee; margin-top: 60px; }}
+</style></head><body>
+<div class='header'>
+  <div>
+    <div class='logo'>S. <em>Major</em></div>
+    <div class='business-info'>
+      Mini Excavation · Drain Francais · Imperméabilisation · Déneigement<br>
+      Montréal, Laval, Longueuil, Brossard<br>
+      Tel: (514) 802-1771 · excavaneige@gmail.com<br>
+      <em>NEQ: A FILL · TPS: A FILL · TVQ: A FILL</em>
+    </div>
+  </div>
+  <div class='quote-info'>
+    <div style='color:#f59e0b;font-weight:700;letter-spacing:0.1em;font-size:11px;text-transform:uppercase'>Soumission</div>
+    <strong>{quote_id}</strong><br>
+    Date: {issue_date}<br>
+    Valide: {validity_days} jours
+  </div>
+</div>
+
+<div class='client'>
+  <strong>Client:</strong> {client_name}<br>
+  <strong>Adresse:</strong> {client_address or '_'}<br>
+  <strong>Courriel:</strong> {client_email or '_'}
+</div>
+
+<table>
+  <thead><tr><th>#</th><th>Description</th><th style='text-align:right'>Qte</th><th style='text-align:right'>Prix unit.</th><th style='text-align:right'>Total</th></tr></thead>
+  <tbody>{items_html}</tbody>
+</table>
+
+<table class='totals'>
+  <tr><td>Sous-total</td><td style='text-align:right'>{subtotal:.2f}$</td></tr>
+  <tr><td>TPS (5%)</td><td style='text-align:right'>{tps:.2f}$</td></tr>
+  <tr><td>TVQ (9.975%)</td><td style='text-align:right'>{tvq:.2f}$</td></tr>
+  <tr class='total'><td>TOTAL</td><td style='text-align:right'>{total:.2f}$</td></tr>
+</table>
+
+{notes_html}
+
+<div class='footer'>
+  Garantie : Voir conditions ecrites jointes. Soumission generee par S25 Lumiere · {issue_date}
+</div>
+</body></html>"""
+
+    return jsonify({
+        "ok": True,
+        "draft": True,
+        "quote_id": quote_id,
+        "issue_date": issue_date,
+        "client_name": client_name,
+        "totals": {"subtotal": subtotal, "tps": tps, "tvq": tvq, "total": total},
+        "items": item_rows,
+        "html_preview": html,
+        "next_steps": [
+            "Review HTML preview",
+            "TODO: implement /api/business/quote/save (persist to DB)",
+            "TODO: implement /api/business/quote/{id}/send (email via Gmail SMTP)",
+            "TODO: register NEQ + TPS + TVQ numbers in business_info config",
+        ],
+    })
+
+
 @app.route('/api/code/journal', methods=['GET'])
 def api_code_journal():
     """Return last N entries from code_journal.jsonl (propose+apply audit log)."""
