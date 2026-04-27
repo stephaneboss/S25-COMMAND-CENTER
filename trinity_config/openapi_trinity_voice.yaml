@@ -425,17 +425,35 @@ paths:
                   description: Si true, skip Kimi reasoning et use llama-3.1-8b directement (3-4s response). Pour voix rapide.
       responses: { '200': { description: Kimi reply with reasoning_content } }
 
-  /api/comet/feed:
-    get:
-      operationId: getCometFeed
-      summary: COMET live intel feed (recent market/security observations)
+  /api/code/propose:
+    post:
+      operationId: codeProposePatch
+      summary: Trinity demande a Jarvis (Qwen 14b local sur RTX 3060) un diagnostic ou un patch git pour des fichiers du repo. ZERO API externe, full self-hosted. Returns analysis or unified diff (NOT applied - apply via opsRun shell_safe in separate step).
       x-openai-isConsequential: false
-      parameters:
-        - name: n
-          in: query
-          required: false
-          schema: { type: integer, default: 20 }
-      responses: { '200': { description: Intel feed } }
+      security: [ { S25Secret: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [job]
+              properties:
+                job:
+                  type: string
+                  description: Description du job en francais (ex: "ajoute un log de debug dans coinbase_executor.execute_signal" ou "trouve les TODO dans agents/scanner.py")
+                target_files:
+                  type: array
+                  description: Chemins relatifs au repo S25-COMMAND-CENTER (max 5, pas de .. ni absolu, max 50KB par fichier). Ex&#58; ["agents/coinbase_executor.py"]
+                  items: { type: string }
+                  maxItems: 5
+                mode:
+                  type: string
+                  enum: [diagnose, patch]
+                  default: diagnose
+                  description: diagnose=analyse en texte; patch=unified diff format applicable avec git apply (PAS auto-applique).
+      responses: { '200': { description: Analysis or unified diff from Qwen 14b local } }
+
 
   /api/jarvis:
     post:
