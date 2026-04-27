@@ -1,0 +1,3 @@
+S25 first auto-build marker
+Generated 2026-04-27 via /api/code/apply
+Trinity -> Jarvis (Qwen 14b) -> apply -> commit -> push
