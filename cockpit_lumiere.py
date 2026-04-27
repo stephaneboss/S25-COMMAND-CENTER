@@ -1140,7 +1140,24 @@ def ops_run():
         pattern = args.get('pattern', '').strip()
         if not pattern or not _re.match(r'^[a-zA-Z0-9_.\-]+$', pattern):
             return jsonify({'ok': False, 'error': 'invalid pattern (alphanumeric + . _ - only)'}), 400
-        return jsonify({'ok': True, **_exec(f'pgrep -af {pattern}')})
+        r = _exec(f'pgrep -af {pattern}')
+        if r.get('ok') and r.get('stdout'):
+            lines = [l for l in r['stdout'].splitlines() if 'pgrep -af' not in l and 'bash -c' not in l and 'curl ' not in l and 'X-S25-Secret' not in l]
+            r['stdout'] = chr(10).join(lines) if lines else ''
+            r['process_count'] = len(lines)
+            r['note'] = 'cron jobs run briefly each tick - process_count=0 may be normal. Use op=cron_check to verify schedules.'
+        return jsonify({'ok': True, **r})
+
+    if op == 'cron_check':
+        pattern = (args.get('pattern') or '').strip()
+        if pattern and not _re.match(r'^[a-zA-Z0-9_.\-]+$', pattern):
+            return jsonify({'ok': False, 'error': 'invalid pattern'}), 400
+        r = _exec(['crontab', '-l'])
+        if r.get('ok') and r.get('stdout') and pattern:
+            lines = [l for l in r['stdout'].splitlines() if pattern in l and not l.strip().startswith('#')]
+            r['stdout'] = chr(10).join(lines) if lines else f'no cron job matching: {pattern}'
+            r['cron_count'] = len(lines)
+        return jsonify({'ok': True, **r})
 
     if op == 'crontab_show':
         return jsonify({'ok': True, **_exec(['crontab', '-l'])})
@@ -1164,7 +1181,7 @@ def ops_run():
     return jsonify({'ok': False, 'error': f'unknown op: {op}',
                     'available_ops': ['log_tail', 'agent_restart', 'service_status',
                                       'git_status', 'git_log', 'disk_usage', 'ram_status',
-                                      'gpu_status', 'process_check', 'crontab_show', 'shell_safe']}), 400
+                                      'gpu_status', 'process_check', 'cron_check', 'crontab_show', 'shell_safe']}), 400
 
 
 @app.route('/openapi.yaml', methods=['GET'])

@@ -324,7 +324,7 @@ paths:
               properties:
                 op:
                   type: string
-                  enum: [log_tail, agent_restart, service_status, git_status, git_log, disk_usage, ram_status, gpu_status, process_check, crontab_show, shell_safe]
+                  enum: [log_tail, agent_restart, service_status, git_status, git_log, disk_usage, ram_status, gpu_status, process_check, cron_check, crontab_show, shell_safe]
                   description: Type d operation a executer
                 args:
                   type: object
