@@ -1,0 +1,3 @@
+Test oneshot v2
+2026-04-27
+Trinity self-build via auto endpoint.
