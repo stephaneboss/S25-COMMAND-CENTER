@@ -455,10 +455,10 @@ paths:
       responses: { '200': { description: Analysis or unified diff from Qwen 14b local } }
 
 
-  /api/jarvis:
+  /api/code/apply:
     post:
-      operationId: chatJarvis
-      summary: Chat with local Jarvis (Qwen 14b) for deep analysis or fallback reasoning
+      operationId: codeApplyPatch
+      summary: APPLY un patch (unified diff) au repo. Step 2 de la chaine self-host code. git apply --check + apply + git add + commit + (optional) push + reload. Returns commit_sha. Audit trail dans memory/code_journal.jsonl.
       x-openai-isConsequential: false
       security: [ { S25Secret: [] } ]
       requestBody:
@@ -467,7 +467,24 @@ paths:
           application/json:
             schema:
               type: object
-              required: [message]
+              required: [patch]
               properties:
-                message: { type: string }
-      responses: { '200': { description: Jarvis reply } }
+                patch:
+                  type: string
+                  description: Unified diff content (commence par "--- a/path" ou "--- /dev/null" pour nouveau fichier). Generated typiquement par codeProposePatch mode=patch.
+                commit_msg:
+                  type: string
+                  description: Git commit message (format conventional commits prefere)
+                  default: "auto: trinity-driven patch"
+                propose_id:
+                  type: string
+                  description: ID du propose qui a genere ce patch (chain audit). Optionnel.
+                auto_push:
+                  type: boolean
+                  default: false
+                  description: Si true, git push origin apres commit (sync external git smajor)
+                auto_reload:
+                  type: boolean
+                  default: false
+                  description: Si true, systemctl --user reload-or-restart s25-cockpit apres commit (pickup code change)
+      responses: { '200': { description: Apply result with commit_sha and affected_files } }
