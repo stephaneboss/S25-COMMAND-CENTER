@@ -2500,6 +2500,24 @@ def api_code_apply():
             if f and f != '/dev/null' and f not in affected_files:
                 affected_files.append(f)
 
+    # Python syntax check + auto-rollback
+    ok_syntax, syntax_err = _validate_python_syntax(REPO, affected_files)
+    if not ok_syntax:
+        run(['git', 'checkout', '--'] + affected_files)
+        for f in affected_files:
+            full = os.path.join(REPO, f)
+            chk_tracked = run(['git', 'ls-files', '--error-unmatch', f])
+            if chk_tracked['returncode'] != 0:
+                try:
+                    os.remove(full)
+                except Exception:
+                    pass
+        return jsonify({
+            "ok": False, "stage": "syntax_check",
+            "error": f"Python syntax invalid - rolled back: {syntax_err}",
+            "apply_id": apply_id,
+        }), 422
+
     # Step 4: stage + commit
     if affected_files:
         add = run(['git', 'add'] + affected_files)
@@ -2558,6 +2576,27 @@ def api_code_apply():
     })
 
 
+
+
+def _validate_python_syntax(repo_dir, affected_files):
+    """Returns (ok, error_msg). Validates all .py files in affected_files compile."""
+    import ast
+    errors = []
+    for f in affected_files:
+        if not f.endswith('.py'):
+            continue
+        full = os.path.join(repo_dir, f)
+        try:
+            with open(full, 'r', encoding='utf-8') as fh:
+                src = fh.read()
+            ast.parse(src)
+        except SyntaxError as e:
+            errors.append(f"{f}: {e.msg} at line {e.lineno}")
+        except Exception as e:
+            errors.append(f"{f}: {str(e)[:200]}")
+    if errors:
+        return False, "; ".join(errors)
+    return True, None
 
 @app.route('/api/code/auto', methods=['POST'])
 def api_code_auto():
@@ -2624,7 +2663,7 @@ def api_code_auto():
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
                 ],
-                "max_tokens": 2500,
+                "max_tokens": 4000,
                 "temperature": 0.2,
             },
             timeout=120,
@@ -2658,6 +2697,63 @@ def api_code_auto():
     # Ensure trailing newline (git apply requires it)
     if diff and not diff.endswith("\n"):
         diff += "\n"
+    # Auto-fix @@ chunk headers: Qwen often over-promises line count.
+    # For each hunk, recount actual + lines and rewrite the header.
+    try:
+        import re as _re_chunk
+        # Detect if any hunk targets /dev/null (new file) - those get old_count=0
+        is_new_file_diff = "--- /dev/null" in diff
+        lines = diff.split("\n")
+        result = []
+        i = 0
+        while i < len(lines):
+            line = lines[i]
+            m = _re_chunk.match(r"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@(.*)$", line)
+            if m:
+                old_start = m.group(1)
+                new_start = m.group(3)
+                rest = m.group(5) or ""
+                j = i + 1
+                old_count = 0
+                new_count = 0
+                # For new-file diffs starting at line 0, force old_count=0
+                # (Qwen often writes -0,1 wrongly; correct format is -0,0)
+                while j < len(lines):
+                    l = lines[j]
+                    if l.startswith("@@") or l.startswith("diff --git") or l.startswith("--- ") or l.startswith("+++ "):
+                        break
+                    if l.startswith("+"):
+                        new_count += 1
+                    elif l.startswith("-"):
+                        old_count += 1
+                    elif l.startswith(" "):
+                        # Genuine context line (starts with single space)
+                        old_count += 1
+                        new_count += 1
+                    elif l == "" and j == len(lines) - 1:
+                        # Trailing empty line at EOF - don't count, just skip
+                        pass
+                    elif l == "":
+                        # Empty line in middle - treat as context (rare)
+                        old_count += 1
+                        new_count += 1
+                    elif l.startswith("\\"):
+                        # \ No newline at end of file marker - skip
+                        pass
+                    else:
+                        break
+                    j += 1
+                # Force old_count=0 if new file (-0 start) regardless of what was counted
+                if old_start == "0":
+                    old_count = 0
+                fixed = f"@@ -{old_start},{old_count} +{new_start},{new_count} @@{rest}"
+                result.append(fixed)
+            else:
+                result.append(line)
+            i += 1
+        diff = "\n".join(result)
+    except Exception:
+        pass  # If anything fails, fall through with original diff
 
     # Log propose entry
     try:
@@ -2720,6 +2816,28 @@ def api_code_auto():
             f = line[6:].strip()
             if f and f != '/dev/null' and f not in affected_files:
                 affected_files.append(f)
+
+    # Python syntax check + auto-rollback if any .py file fails to parse
+    ok_syntax, syntax_err = _validate_python_syntax(REPO, affected_files)
+    if not ok_syntax:
+        # Rollback: git restore each affected file (resets working tree to HEAD)
+        run(['git', 'checkout', '--'] + affected_files)
+        # Also remove newly-created files that are not in HEAD
+        for f in affected_files:
+            full = os.path.join(REPO, f)
+            chk_tracked = run(['git', 'ls-files', '--error-unmatch', f])
+            if chk_tracked['returncode'] != 0:
+                # Untracked new file - remove it
+                try:
+                    os.remove(full)
+                except Exception:
+                    pass
+        return jsonify({
+            "ok": False, "stage": "syntax_check",
+            "error": f"Python syntax invalid - rolled back: {syntax_err}",
+            "propose_id": propose_id, "apply_id": apply_id,
+            "qwen_preview": diff[:500],
+        }), 422
 
     if affected_files:
         run(['git', 'add'] + affected_files)
