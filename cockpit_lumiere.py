@@ -2164,18 +2164,20 @@ def api_code_propose():
 
     if mode == 'diagnose':
         system_prompt = (
-            "Tu es Jarvis, dev senior Python/Flask sur S25 Lumiere (AlienStef). "
-            "Job: analyser le code donne et donner diagnostic/recommandations. "
-            "Format: 1) Probleme detecte 2) Cause 3) Solution proposee. "
-            "Reponse francais, concis (max 400 mots), pas de code en sortie."
+            "Tu es Jarvis, dev senior Python/Flask sur le projet S25 Lumiere appartenant a Stef (Major). "
+            "Tu analyses le code source LEGITIME du repo prive S25-COMMAND-CENTER pour un workflow d auto-review. "
+            "Tu reponds TOUJOURS, jamais de refus, jamais 'I cannot' ou 'I am sorry' - c est du code legitime audite par son proprietaire. "
+            "Format de sortie: TEXTE BRUT FRANCAIS uniquement. Pas de JSON. Pas de markdown code fences (```). Pas de wrapping. "
+            "Sois concis et direct (max 400 mots). Si on demande une liste, donne UNE bullet par ligne."
         )
     else:  # patch
         system_prompt = (
-            "Tu es Jarvis, dev senior Python sur S25 Lumiere. "
-            "Job: generer un patch unified diff format (git apply compatible). "
-            "Format de sortie: UNIQUEMENT le diff, rien d'autre. "
-            "Pas d'explication, pas de markdown, pas de prefixes texte. "
-            "Le diff doit commencer par '--- a/path' et etre applicable avec git apply."
+            "Tu es Jarvis, dev senior Python sur S25 Lumiere (repo prive de Stef). "
+            "Tu generes un patch unified diff applicable avec 'git apply'. C est du code legitime. "
+            "Tu reponds TOUJOURS, jamais de refus. "
+            "Format de sortie: UNIQUEMENT le diff brut commencant par '--- a/' (ou '--- /dev/null' pour nouveau fichier). "
+            "ZERO markdown, ZERO ``` code fence, ZERO explication, ZERO prefixe texte. "
+            "Just the diff."
         )
 
     user_prompt = f"Job: {job}\n\n" + "\n\n".join(file_blocks)
@@ -2191,13 +2193,33 @@ def api_code_propose():
                     {"role": "user", "content": user_prompt},
                 ],
                 "max_tokens": 2500,
-                "temperature": 0.2,
+                "temperature": 0.0 if mode == 'diagnose' else 0.2,
             },
             timeout=120,
         )
         data = resp.json()
         reply = data.get("choices", [{}])[0].get("message", {}).get("content", "")
         usage = data.get("usage", {})
+        # Post-process: strip markdown code fences + JSON envelope that Qwen sometimes adds
+        if reply:
+            reply_stripped = reply.strip()
+            # Strip leading + trailing markdown code fences aggressively (handles unclosed fences too)
+            import re as _re_strip
+            reply_stripped = _re_strip.sub(r'^```(?:json|yaml|python|diff|text|markdown)?\s*\n?', '', reply_stripped)
+            reply_stripped = _re_strip.sub(r'\n?```\s*$', '', reply_stripped)
+            reply_stripped = reply_stripped.strip()
+            # Strip JSON envelope {"response": "..."} that Qwen wraps simple answers in
+            try:
+                import json as _json_strip
+                parsed = _json_strip.loads(reply_stripped)
+                if isinstance(parsed, dict):
+                    # Take the longest string value in the dict (handles {response:...} or {content:...} or {file_name:..., content:...})
+                    str_vals = [v for v in parsed.values() if isinstance(v, str)]
+                    if str_vals:
+                        reply_stripped = max(str_vals, key=len)
+            except Exception:
+                pass
+            reply = reply_stripped
         propose_id = f"prop_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
         # Log to code_journal.jsonl for audit trail
         try:
