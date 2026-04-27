@@ -891,6 +891,11 @@ class CoinbaseExecutor(BaseAgent):
             return None
 
     def exec_status(self) -> Dict[str, Any]:
+        # Refresh mode from flag file before reporting status
+        try:
+            self.refresh_mode_from_ha(ttl=5)
+        except Exception:
+            pass
         return {
             "agent": "coinbase_executor",
             "dry_run": self.dry_run,

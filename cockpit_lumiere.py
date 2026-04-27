@@ -1053,6 +1053,120 @@ def kimi_chat():
     return jsonify({'ok': False, 'error': 'All backends failed', 'details': errors}), 502
 
 
+@app.route('/api/ops/run', methods=['POST'])
+def ops_run():
+    """Trinity-accessible system ops with whitelist safety.
+
+    POST { op: "type", args: {...} }
+    Auth: X-S25-Secret header.
+
+    Op types:
+      - "log_tail":   { file: "auto_signal_scanner|mission_worker|cockpit|trailing_stop|mesh_bridge", n: 30 }
+      - "agent_restart": { service: "s25-cockpit" }
+      - "git_status": {}
+      - "git_log":    { n: 5 }
+      - "disk_usage": {}
+      - "ram_status": {}
+      - "gpu_status": {}
+      - "process_check": { pattern: "..." }
+      - "service_status": { service: "s25-cockpit" }
+      - "crontab_show": {}
+      - "shell_safe":   { cmd: "...", safe whitelist regex }
+    """
+    if request.headers.get('X-S25-Secret') != os.getenv('S25_SHARED_SECRET', 'MYN5VGqsJZ9MwYqvJ3mbwEfh0n4TZ4b7C7TjuwVp-2A'):
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
+    import subprocess as _sub
+    import re as _re
+    body = request.get_json(silent=True) or {}
+    op = (body.get('op') or '').lower()
+    args = body.get('args') or {}
+
+    def _exec(cmd, timeout=15):
+        try:
+            r = _sub.run(cmd, capture_output=True, text=True, timeout=timeout, shell=isinstance(cmd, str))
+            return {'ok': r.returncode == 0, 'returncode': r.returncode, 'stdout': r.stdout[-4000:], 'stderr': r.stderr[-1000:]}
+        except _sub.TimeoutExpired:
+            return {'ok': False, 'error': f'timeout after {timeout}s'}
+        except Exception as e:
+            return {'ok': False, 'error': str(e)[:300]}
+
+    if op == 'log_tail':
+        log_map = {
+            'auto_signal_scanner': '/tmp/auto_signal_scanner.log',
+            'mission_worker': '/tmp/mission_worker.log',
+            'trailing_stop': '/tmp/trailing_stop.log',
+            'mesh_bridge': '/tmp/mesh_bridge.log',
+            'coinbase_ha_publisher': '/tmp/coinbase_ha_publisher.log',
+            'stability_ha': '/tmp/stability_ha.log',
+        }
+        f = args.get('file', 'mission_worker')
+        n = int(args.get('n', 30))
+        n = min(max(n, 5), 200)
+        path = log_map.get(f)
+        if not path:
+            return jsonify({'ok': False, 'error': f'unknown log: {f}', 'allowed': list(log_map.keys())}), 400
+        return jsonify({'ok': True, 'log': f, **_exec(['tail', '-n', str(n), path])})
+
+    if op == 'agent_restart':
+        service = args.get('service', '').strip()
+        allowed = {'s25-cockpit'}
+        if service not in allowed:
+            return jsonify({'ok': False, 'error': f'service not in whitelist {allowed}'}), 400
+        return jsonify({'ok': True, 'service': service, **_exec(['systemctl', '--user', 'restart', service])})
+
+    if op == 'service_status':
+        service = args.get('service', 's25-cockpit').strip()
+        if service not in {'s25-cockpit'}:
+            return jsonify({'ok': False, 'error': 'service not in whitelist'}), 400
+        return jsonify({'ok': True, 'service': service, **_exec(['systemctl', '--user', 'status', service, '--no-pager', '-n', '20'])})
+
+    if op == 'git_status':
+        return jsonify({'ok': True, **_exec(['git', '-C', '/home/alienstef/S25-COMMAND-CENTER', 'status', '--short'])})
+
+    if op == 'git_log':
+        n = min(max(int(args.get('n', 5)), 1), 30)
+        return jsonify({'ok': True, **_exec(['git', '-C', '/home/alienstef/S25-COMMAND-CENTER', 'log', '--oneline', '-n', str(n)])})
+
+    if op == 'disk_usage':
+        return jsonify({'ok': True, **_exec(['df', '-h'])})
+
+    if op == 'ram_status':
+        return jsonify({'ok': True, **_exec(['free', '-h'])})
+
+    if op == 'gpu_status':
+        return jsonify({'ok': True, **_exec(['nvidia-smi', '--query-gpu=name,utilization.gpu,memory.used,memory.total,temperature.gpu', '--format=csv'])})
+
+    if op == 'process_check':
+        pattern = args.get('pattern', '').strip()
+        if not pattern or not _re.match(r'^[a-zA-Z0-9_.\-]+$', pattern):
+            return jsonify({'ok': False, 'error': 'invalid pattern (alphanumeric + . _ - only)'}), 400
+        return jsonify({'ok': True, **_exec(f'pgrep -af {pattern}')})
+
+    if op == 'crontab_show':
+        return jsonify({'ok': True, **_exec(['crontab', '-l'])})
+
+    if op == 'shell_safe':
+        cmd = (args.get('cmd') or '').strip()
+        # Whitelist: only allow specific commands at the start, no pipes, redirections, semicolons
+        allowed_prefixes = ['ls ', 'cat ', 'tail ', 'head ', 'grep ', 'find ',
+                            'pwd', 'whoami', 'date', 'uname', 'uptime',
+                            'systemctl --user list-units', 'systemctl --user status',
+                            'git -C /home/alienstef/S25-COMMAND-CENTER ',
+                            'ps ', 'pgrep ', 'df ', 'free ', 'nvidia-smi',
+                            'curl -s -o /dev/null -w']
+        if not any(cmd == p.rstrip() or cmd.startswith(p) for p in allowed_prefixes):
+            return jsonify({'ok': False, 'error': 'cmd not in whitelist', 'allowed_prefixes': allowed_prefixes[:10]}), 400
+        # Block dangerous chars even if whitelist matched
+        if any(c in cmd for c in [';', '|', '`', '$(', '&&', '||', '>', '<']):
+            return jsonify({'ok': False, 'error': 'dangerous characters detected'}), 400
+        return jsonify({'ok': True, 'cmd': cmd, **_exec(cmd, timeout=10)})
+
+    return jsonify({'ok': False, 'error': f'unknown op: {op}',
+                    'available_ops': ['log_tail', 'agent_restart', 'service_status',
+                                      'git_status', 'git_log', 'disk_usage', 'ram_status',
+                                      'gpu_status', 'process_check', 'crontab_show', 'shell_safe']}), 400
+
+
 @app.route('/openapi.yaml', methods=['GET'])
 @app.route('/openapi.json', methods=['GET'])
 def serve_openapi():

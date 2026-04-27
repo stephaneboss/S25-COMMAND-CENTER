@@ -308,10 +308,10 @@ paths:
                 new_source: { type: string, default: trinity_replay }
       responses: { '200': { description: Replayed } }
 
-  /api/mesh/open_incident:
+  /api/ops/run:
     post:
-      operationId: meshOpenIncident
-      summary: Open an incident (agent severity note)
+      operationId: opsRun
+      summary: System ops Trinity-accessible - log tail, agent restart, git, disk/ram/gpu, shell whitelist. Permet a Trinity d operer sur l infra reelle au-dela du trade.
       x-openai-isConsequential: false
       security: [ { S25Secret: [] } ]
       requestBody:
@@ -320,11 +320,35 @@ paths:
           application/json:
             schema:
               type: object
+              required: [op]
               properties:
-                agent: { type: string }
-                severity: { type: string, enum: [low, medium, high, critical] }
-                note: { type: string }
-      responses: { '200': { description: Incident opened } }
+                op:
+                  type: string
+                  enum: [log_tail, agent_restart, service_status, git_status, git_log, disk_usage, ram_status, gpu_status, process_check, crontab_show, shell_safe]
+                  description: Type d operation a executer
+                args:
+                  type: object
+                  description: Arguments specifiques selon op (ex log_tail file+n, agent_restart service, shell_safe cmd)
+                  properties:
+                    file:
+                      type: string
+                      enum: [auto_signal_scanner, mission_worker, trailing_stop, mesh_bridge, coinbase_ha_publisher, stability_ha]
+                      description: Pour op=log_tail, lequel des fichiers logs
+                    n:
+                      type: integer
+                      description: Nombre de lignes pour log_tail / git_log (5-200)
+                      default: 30
+                    service:
+                      type: string
+                      enum: [s25-cockpit]
+                      description: Pour op=agent_restart ou service_status
+                    pattern:
+                      type: string
+                      description: Pour op=process_check, regex alphanumeric simple
+                    cmd:
+                      type: string
+                      description: Pour op=shell_safe, commande dans la whitelist (ls, cat, tail, head, grep, find, pwd, df, free, ps, pgrep, git, systemctl --user status)
+      responses: { '200': { description: Ops result with stdout/stderr/returncode } }
 
   /api/ha/status:
     get:
