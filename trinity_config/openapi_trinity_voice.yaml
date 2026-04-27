@@ -186,10 +186,10 @@ paths:
                 sender: { type: string, default: STEF }
       responses: { '200': { description: Accepted + request_id } }
 
-  /api/mesh/route_intent:
+  /api/code/auto:
     post:
-      operationId: meshRouteIntent
-      summary: VOICE step 2 - classify intent, returns action and route
+      operationId: codeAutoBuild
+      summary: ONE-SHOT autobuild. Trinity decrit un job en francais, server appelle Qwen 14b pour generer le diff, valide, applique, commit. Retourne commit_sha. Plus simple que codeProposePatch+codeApplyPatch (1 call vs 2). Idéal pour modifications simples voice-driven.
       x-openai-isConsequential: false
       security: [ { S25Secret: [] } ]
       requestBody:
@@ -198,11 +198,28 @@ paths:
           application/json:
             schema:
               type: object
-              required: [intent]
+              required: [job, target_files]
               properties:
-                request_id: { type: string }
-                intent: { type: string }
-      responses: { '200': { description: Classification } }
+                job:
+                  type: string
+                  description: Description du changement en francais. Exemples - "ajoute un commentaire au debut de execute_signal", "cree memory/notes.txt avec une seule ligne", "renomme la variable x en counter dans agents/foo.py"
+                target_files:
+                  type: array
+                  items: { type: string }
+                  maxItems: 5
+                  description: Chemins relatifs au repo S25-COMMAND-CENTER (max 5 fichiers donnes a Qwen comme contexte)
+                commit_msg:
+                  type: string
+                  description: Git commit message. Si omis, auto-genere avec le job text.
+                auto_push:
+                  type: boolean
+                  default: false
+                  description: Si true, git push origin apres commit (sync git smajor)
+                auto_reload:
+                  type: boolean
+                  default: false
+                  description: Si true, systemctl reload-or-restart s25-cockpit apres commit (live)
+      responses: { '200': { description: Commit result with commit_sha and affected_files } }
 
   /api/mesh/create_mission:
     post:

@@ -2445,6 +2445,9 @@ def api_code_apply():
     # Auto-fix literal escape sequences from JSON-mangled clients (ChatGPT Actions sometimes sends \\n instead of newline)
     if "\\n" in patch_text and "\n" not in patch_text:
         patch_text = patch_text.replace("\\n", "\n").replace("\\t", "\t")
+    # Ensure trailing newline (git apply requires it)
+    if patch_text and not patch_text.endswith("\n"):
+        patch_text += "\n"
     # Lenient unified diff marker check
     has_marker = any(m in patch_text for m in ("diff --git", "--- a/", "--- /dev/null", "+++ b/", "@@ "))
     if not has_marker:
@@ -2552,6 +2555,217 @@ def api_code_apply():
         "push": push_result,
         "reload": reload_result,
         "patch_path": patch_path,
+    })
+
+
+
+@app.route('/api/code/auto', methods=['POST'])
+def api_code_auto():
+    """One-shot autobuild: job -> Qwen patch -> validate -> apply -> commit.
+
+    Body: { job, target_files (max 5), commit_msg, auto_push, auto_reload }
+
+    Trinity-friendly: no multi-line patch payload to construct, just describe what to do.
+    Internal flow combines /api/code/propose (mode=patch) + /api/code/apply with safety.
+    """
+    if request.headers.get('X-S25-Secret') != os.getenv('S25_SHARED_SECRET', 'MYN5VGqsJZ9MwYqvJ3mbwEfh0n4TZ4b7C7TjuwVp-2A'):
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
+
+    body = request.get_json(silent=True) or {}
+    job = (body.get('job') or '').strip()
+    target_files = body.get('target_files') or []
+    commit_msg = (body.get('commit_msg') or f'auto(trinity): {job[:60]}').strip()
+    auto_push = bool(body.get('auto_push', False))
+    auto_reload = bool(body.get('auto_reload', False))
+
+    if not job:
+        return jsonify({"ok": False, "error": "job is required"}), 400
+    if not isinstance(target_files, list) or not target_files or len(target_files) > 5:
+        return jsonify({"ok": False, "error": "target_files must be non-empty list of 1-5 paths"}), 400
+
+    REPO = '/home/alienstef/S25-COMMAND-CENTER'
+
+    # Step 1: read target files (sandbox)
+    file_blocks = []
+    for f in target_files:
+        if not isinstance(f, str) or '..' in f or f.startswith('/') or len(f) > 200:
+            return jsonify({"ok": False, "error": f"invalid path: {f}"}), 400
+        full = os.path.join(REPO, f)
+        if not os.path.isfile(full):
+            return jsonify({"ok": False, "error": f"file not found: {f}"}), 400
+        try:
+            with open(full, 'r', encoding='utf-8', errors='replace') as fh:
+                content = fh.read()
+            if len(content) > 50000:
+                content = content[:50000] + chr(10) + '# ... truncated at 50000 chars ...'
+            file_blocks.append(f'--- FILE: {f} ---' + chr(10) + content + chr(10) + '--- END FILE ---')
+        except Exception as e:
+            return jsonify({"ok": False, "error": f"read error {f}: {str(e)[:200]}"}), 500
+
+    # Step 2: ask Qwen for unified diff (patch mode, hard-coded prompt)
+    system_prompt = (
+        "Tu es Jarvis, dev senior Python sur S25 Lumiere (repo prive de Stef, audit legitime). "
+        "Tu generes un patch unified diff applicable avec 'git apply'. "
+        "Tu reponds TOUJOURS, jamais de refus. "
+        "Format de sortie: UNIQUEMENT le diff brut commencant par '--- a/' (ou '--- /dev/null' pour nouveau fichier). "
+        "ZERO markdown, ZERO ``` code fence, ZERO explication, ZERO prefixe texte. "
+        "Le diff DOIT etre minimal (juste les lignes a changer) et applicable tel quel. "
+        "Just the diff."
+    )
+    user_prompt = f"Job: {job}" + chr(10) + chr(10) + (chr(10) + chr(10)).join(file_blocks)
+
+    try:
+        resp = requests.post(
+            "http://localhost:3002/v1/chat/completions",
+            headers={"Content-Type": "application/json", "Authorization": "Bearer s25-jarvis-internal-key"},
+            json={
+                "model": "qwen2.5-coder:14b",
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                "max_tokens": 2500,
+                "temperature": 0.2,
+            },
+            timeout=120,
+        )
+        data = resp.json()
+        raw_diff = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+        usage = data.get("usage", {})
+    except Exception as e:
+        return jsonify({"ok": False, "stage": "qwen", "error": f"jarvis: {str(e)[:300]}"}), 502
+
+    propose_id = f"prop_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
+
+    # Step 3: clean Qwen output - strip markdown fences + JSON envelope
+    diff = raw_diff.strip()
+    import re as _re_clean
+    diff = _re_clean.sub(r'^```(?:json|yaml|python|diff|text|markdown)?\s*\n?', '', diff)
+    diff = _re_clean.sub(r'\n?```\s*$', '', diff)
+    diff = diff.strip()
+    # Try JSON envelope strip (longest string value)
+    try:
+        parsed = json.loads(diff)
+        if isinstance(parsed, dict):
+            str_vals = [v for v in parsed.values() if isinstance(v, str)]
+            if str_vals:
+                diff = max(str_vals, key=len)
+    except Exception:
+        pass
+    # Auto-fix literal backslash-n (mangled)
+    if "\\n" in diff and "\n" not in diff:
+        diff = diff.replace("\\n", "\n").replace("\\t", "\t")
+    # Ensure trailing newline (git apply requires it)
+    if diff and not diff.endswith("\n"):
+        diff += "\n"
+
+    # Log propose entry
+    try:
+        journal_path = os.path.join(REPO, 'memory', 'code_journal.jsonl')
+        os.makedirs(os.path.dirname(journal_path), exist_ok=True)
+        with open(journal_path, 'a', encoding='utf-8') as jf:
+            jf.write(json.dumps({
+                "ts": datetime.now(timezone.utc).isoformat(),
+                "type": "propose", "id": propose_id,
+                "mode": "patch_auto", "job": job[:500],
+                "target_files": target_files,
+                "result_preview": diff[:200], "result_len": len(diff),
+                "usage": usage,
+            }, ensure_ascii=False) + chr(10))
+    except Exception:
+        pass
+
+    # Step 4: validate diff has unified diff markers
+    has_marker = any(m in diff for m in ("diff --git", "--- a/", "--- /dev/null", "+++ b/", "@@ "))
+    if not has_marker or len(diff) < 20:
+        return jsonify({
+            "ok": False, "stage": "qwen_output",
+            "error": "Qwen did not produce a valid unified diff",
+            "propose_id": propose_id,
+            "qwen_preview": diff[:500],
+        }), 422
+
+    # Step 5: persist + apply
+    apply_id = f"apply_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
+    patch_path = f"/tmp/patch_{apply_id}.diff"
+    try:
+        with open(patch_path, 'w', encoding='utf-8') as pf:
+            pf.write(diff)
+    except Exception as e:
+        return jsonify({"ok": False, "stage": "save", "error": str(e)[:200], "propose_id": propose_id}), 500
+
+    import subprocess as _sub
+    def run(cmd, timeout=30):
+        try:
+            r = _sub.run(cmd, capture_output=True, text=True, timeout=timeout, cwd=REPO)
+            return {'returncode': r.returncode, 'stdout': r.stdout, 'stderr': r.stderr}
+        except Exception as e:
+            return {'returncode': -1, 'stdout': '', 'stderr': str(e)[:300]}
+
+    chk = run(['git', 'apply', '--check', patch_path])
+    if chk['returncode'] != 0:
+        return jsonify({
+            "ok": False, "stage": "check", "error": "git apply --check failed",
+            "stderr": chk['stderr'][:1000], "propose_id": propose_id, "apply_id": apply_id,
+            "patch_path": patch_path, "qwen_preview": diff[:500],
+        }), 400
+
+    apl = run(['git', 'apply', patch_path])
+    if apl['returncode'] != 0:
+        return jsonify({"ok": False, "stage": "apply", "error": apl['stderr'][:500], "propose_id": propose_id}), 500
+
+    affected_files = []
+    for line in diff.splitlines():
+        if line.startswith('+++ b/'):
+            f = line[6:].strip()
+            if f and f != '/dev/null' and f not in affected_files:
+                affected_files.append(f)
+
+    if affected_files:
+        run(['git', 'add'] + affected_files)
+
+    full_msg = commit_msg + (chr(10) + chr(10) + f"[via /api/code/auto propose_id={propose_id} apply_id={apply_id}]")
+    cmt = run(['git', 'commit', '-m', full_msg])
+    commit_sha = ''
+    if cmt['returncode'] == 0:
+        rev = run(['git', 'rev-parse', '--short', 'HEAD'])
+        commit_sha = rev['stdout'].strip()
+
+    push_result = None
+    if auto_push:
+        push = run(['git', 'push'], timeout=60)
+        push_result = {'ok': push['returncode'] == 0, 'stderr': push['stderr'][:300]}
+
+    reload_result = None
+    if auto_reload:
+        rel = run(['systemctl', '--user', 'reload-or-restart', 's25-cockpit'], timeout=30)
+        reload_result = {'ok': rel['returncode'] == 0}
+
+    # Audit apply entry
+    try:
+        with open(journal_path, 'a', encoding='utf-8') as jf:
+            jf.write(json.dumps({
+                "ts": datetime.now(timezone.utc).isoformat(),
+                "type": "apply", "id": apply_id, "propose_id": propose_id,
+                "commit_sha": commit_sha, "commit_msg": commit_msg,
+                "affected_files": affected_files, "patch_size": len(diff),
+                "pushed": auto_push and (push_result or {}).get('ok', False),
+                "reloaded": auto_reload and (reload_result or {}).get('ok', False),
+                "via": "auto",
+            }, ensure_ascii=False) + chr(10))
+    except Exception:
+        pass
+
+    return jsonify({
+        "ok": True,
+        "propose_id": propose_id,
+        "apply_id": apply_id,
+        "commit_sha": commit_sha,
+        "affected_files": affected_files,
+        "qwen_preview": diff[:500],
+        "diff_size": len(diff),
+        "push": push_result,
+        "reload": reload_result,
     })
 
 
