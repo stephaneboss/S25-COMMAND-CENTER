@@ -419,6 +419,10 @@ paths:
                   type: string
                   enum: [auto, moonshot, cloudflare]
                   default: auto
+                fast:
+                  type: boolean
+                  default: false
+                  description: Si true, skip Kimi reasoning et use llama-3.1-8b directement (3-4s response). Pour voix rapide.
       responses: { '200': { description: Kimi reply with reasoning_content } }
 
   /api/comet/feed:
