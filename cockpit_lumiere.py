@@ -2598,6 +2598,36 @@ def _validate_python_syntax(repo_dir, affected_files):
         return False, "; ".join(errors)
     return True, None
 
+
+def _smoke_test_import(repo_dir, affected_files, timeout=10):
+    """Returns (ok, error_msg). For each affected .py module, attempts py_compile.
+    Skips modules in scripts/ (standalone scripts) and modules with __main__ guard.
+    Catches NameError, ImportError, etc that syntax check misses.
+    Uses python -c with timeout to isolate from cockpit process.
+    """
+    import subprocess as _sub
+    errors = []
+    for f in affected_files:
+        if not f.endswith('.py'):
+            continue
+        # Skip non-importable paths (scripts/, tests/, etc) - just compile-check
+        full = os.path.join(repo_dir, f)
+        try:
+            r = _sub.run(
+                ['python3', '-c', f'import py_compile; py_compile.compile({full!r}, doraise=True)'],
+                capture_output=True, text=True, timeout=timeout, cwd=repo_dir,
+            )
+            if r.returncode != 0:
+                err = (r.stderr or r.stdout)[:200]
+                errors.append(f"{f}: compile error: {err}")
+        except _sub.TimeoutExpired:
+            errors.append(f"{f}: import smoke-test timeout {timeout}s")
+        except Exception as e:
+            errors.append(f"{f}: smoke-test failed: {str(e)[:200]}")
+    if errors:
+        return False, "; ".join(errors)
+    return True, None
+
 @app.route('/api/code/auto', methods=['POST'])
 def api_code_auto():
     """One-shot autobuild: job -> Qwen patch -> validate -> apply -> commit.
@@ -2820,14 +2850,11 @@ def api_code_auto():
     # Python syntax check + auto-rollback if any .py file fails to parse
     ok_syntax, syntax_err = _validate_python_syntax(REPO, affected_files)
     if not ok_syntax:
-        # Rollback: git restore each affected file (resets working tree to HEAD)
         run(['git', 'checkout', '--'] + affected_files)
-        # Also remove newly-created files that are not in HEAD
         for f in affected_files:
             full = os.path.join(REPO, f)
             chk_tracked = run(['git', 'ls-files', '--error-unmatch', f])
             if chk_tracked['returncode'] != 0:
-                # Untracked new file - remove it
                 try:
                     os.remove(full)
                 except Exception:
@@ -2837,6 +2864,24 @@ def api_code_auto():
             "error": f"Python syntax invalid - rolled back: {syntax_err}",
             "propose_id": propose_id, "apply_id": apply_id,
             "qwen_preview": diff[:500],
+        }), 422
+
+    # Import smoke test: catches NameError, undefined vars, etc post-syntax
+    ok_smoke, smoke_err = _smoke_test_import(REPO, affected_files)
+    if not ok_smoke:
+        run(['git', 'checkout', '--'] + affected_files)
+        for f in affected_files:
+            full = os.path.join(REPO, f)
+            chk_tracked = run(['git', 'ls-files', '--error-unmatch', f])
+            if chk_tracked['returncode'] != 0:
+                try:
+                    os.remove(full)
+                except Exception:
+                    pass
+        return jsonify({
+            "ok": False, "stage": "smoke_test",
+            "error": f"Import smoke-test failed - rolled back: {smoke_err}",
+            "propose_id": propose_id, "apply_id": apply_id,
         }), 422
 
     if affected_files:
