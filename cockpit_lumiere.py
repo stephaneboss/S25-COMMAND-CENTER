@@ -2198,8 +2198,29 @@ def api_code_propose():
         data = resp.json()
         reply = data.get("choices", [{}])[0].get("message", {}).get("content", "")
         usage = data.get("usage", {})
+        propose_id = f"prop_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
+        # Log to code_journal.jsonl for audit trail
+        try:
+            journal_path = os.path.join(REPO, 'memory', 'code_journal.jsonl')
+            os.makedirs(os.path.dirname(journal_path), exist_ok=True)
+            entry = {
+                "ts": datetime.now(timezone.utc).isoformat(),
+                "type": "propose",
+                "id": propose_id,
+                "mode": mode,
+                "job": job[:500],
+                "target_files": target_files,
+                "result_preview": reply[:200],
+                "result_len": len(reply),
+                "usage": usage,
+            }
+            with open(journal_path, 'a', encoding='utf-8') as jf:
+                jf.write(json.dumps(entry, ensure_ascii=False) + chr(10))
+        except Exception:
+            pass  # Audit failure should not break propose
         return jsonify({
             "ok": True,
+            "propose_id": propose_id,
             "mode": mode,
             "model": "qwen2.5-coder:14b",
             "backend": "ollama-local-rtx3060",
@@ -2207,14 +2228,324 @@ def api_code_propose():
             "target_files": target_files,
             "result": reply,
             "usage": usage,
-            "next_step": ("Reviser le patch puis appliquer via opsRun shell_safe: "
-                          "1) Save patch /tmp/patch.diff via shell_safe cat, "
-                          "2) git -C {REPO} apply /tmp/patch.diff, "
-                          "3) git -C {REPO} commit, 4) git -C {REPO} push"
-                          if mode == 'patch' else 'Diagnostic only - pas de patch a appliquer.'),
+            "next_step": ("Pour appliquer: POST /api/code/apply avec {propose_id, patch: '<diff>', commit_msg: '...', auto_push: true}"
+                          if mode == 'patch' else 'Diagnostic only - pas de patch a appliquer. Pour generer un patch, refaire avec mode=patch.'),
         })
     except Exception as exc:
         return jsonify({"ok": False, "error": f"jarvis: {str(exc)[:300]}"}), 502
+
+
+
+
+@app.route('/admin/code', methods=['GET'])
+def admin_code_ui():
+    """Web UI for code propose/apply audit + quick action.
+
+    No auth on the page itself (HTML), but all API calls require X-S25-Secret
+    stored in localStorage as 's25_secret'.
+    """
+    html = """<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><title>S25 Code - Autobuild Console</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+* { box-sizing:border-box }
+body { font:14px/1.4 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+       background:#0c0d10; color:#d8e0e8; margin:0; padding:16px; }
+h1 { color:#7be8a8; margin:0 0 12px; font-size:18px }
+h2 { color:#9ad8ff; font-size:14px; margin:18px 0 6px; text-transform:uppercase; letter-spacing:.05em }
+.card { background:#15171b; border:1px solid #252a32; border-radius:8px; padding:14px; margin-bottom:12px }
+.row { display:flex; gap:8px; flex-wrap:wrap; align-items:center }
+input,textarea,select,button { background:#0e1014; border:1px solid #303640; color:#d8e0e8; padding:8px; border-radius:6px; font:inherit }
+input,textarea,select { width:100% }
+textarea { font-family: ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12px; min-height:120px }
+button { background:#1e6a3a; border-color:#1e6a3a; color:#fff; cursor:pointer; padding:8px 16px; font-weight:600 }
+button:hover { background:#287d47 }
+button.danger { background:#7a1f1f; border-color:#7a1f1f }
+button.danger:hover { background:#963131 }
+.muted { color:#6b7480 }
+.entry { padding:8px; border-bottom:1px solid #252a32; font-family:ui-monospace,Menlo,monospace; font-size:12px }
+.entry .t { color:#7be8a8 } .entry .id { color:#9ad8ff } .entry .sha { color:#ffce5e }
+.tag { display:inline-block; padding:1px 6px; border-radius:3px; font-size:11px; margin-right:4px }
+.tag.propose { background:#1e3a6a } .tag.apply { background:#1e6a3a }
+pre { background:#0a0c10; padding:10px; border-radius:6px; overflow:auto; max-height:300px; font-size:12px; color:#bcc7d3 }
+.flex2 { display:grid; grid-template-columns: 1fr 1fr; gap:12px }
+@media(max-width:800px){ .flex2 { grid-template-columns:1fr } }
+label { display:block; font-size:12px; color:#9ad8ff; margin:6px 0 2px }
+.status { padding:4px 8px; border-radius:4px; font-weight:600; font-size:12px }
+.status.ok { background:#1e6a3a; color:#fff }
+.status.err { background:#7a1f1f; color:#fff }
+</style></head><body>
+<h1>S25 — Autobuild Console <span class="muted" id="now"></span></h1>
+
+<div class="card">
+  <div class="row">
+    <label style="flex:1">X-S25-Secret <input id="secret" placeholder="paste secret" type="password"></label>
+    <button onclick="saveSecret()">Save</button>
+    <span id="secretStatus" class="status err">no secret</span>
+  </div>
+</div>
+
+<div class="flex2">
+  <div class="card">
+    <h2>1. Propose (Trinity -> Jarvis Qwen 14b)</h2>
+    <label>Job (instruction en francais)</label>
+    <input id="job" placeholder="ex: ajoute un log debug dans coinbase_executor.execute_signal">
+    <label>Target files (CSV, max 5, paths relatifs au repo)</label>
+    <input id="files" placeholder="agents/coinbase_executor.py">
+    <label>Mode</label>
+    <select id="mode"><option>diagnose</option><option>patch</option></select>
+    <div style="margin-top:10px"><button onclick="propose()">Propose</button>
+    <span id="proposeStatus" class="muted"></span></div>
+    <pre id="proposeOut" class="muted">(result will show here)</pre>
+  </div>
+
+  <div class="card">
+    <h2>2. Apply (patch -> git apply -> commit)</h2>
+    <label>Patch (unified diff)</label>
+    <textarea id="patch" placeholder="--- a/file.py
++++ b/file.py
+@@ ..."></textarea>
+    <label>Commit message</label>
+    <input id="commitMsg" placeholder="auto: trinity-driven patch">
+    <label>propose_id (optional, for audit chain)</label>
+    <input id="proposeId" placeholder="prop_xxx">
+    <div class="row" style="margin-top:10px">
+      <label style="flex:0"><input type="checkbox" id="autoPush"> auto_push</label>
+      <label style="flex:0"><input type="checkbox" id="autoReload"> auto_reload</label>
+      <button onclick="apply()" class="danger">Apply patch</button>
+      <span id="applyStatus" class="muted"></span>
+    </div>
+    <pre id="applyOut" class="muted">(result will show here)</pre>
+  </div>
+</div>
+
+<div class="card">
+  <h2>3. Code journal (audit trail) <button onclick="loadJournal()" style="float:right">refresh</button></h2>
+  <div id="journal" class="muted">click refresh to load</div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+function saveSecret(){
+  const s = $("secret").value.trim();
+  if(s){ localStorage.setItem("s25_secret", s); $("secret").value=""; updateSecretStatus(); }
+}
+function getSecret(){ return localStorage.getItem("s25_secret") || ""; }
+function updateSecretStatus(){
+  const s = getSecret();
+  $("secretStatus").className = "status " + (s ? "ok" : "err");
+  $("secretStatus").textContent = s ? "secret loaded ("+s.length+" chars)" : "no secret";
+}
+async function call(path, body){
+  const headers = {"Content-Type":"application/json", "X-S25-Secret": getSecret()};
+  const opts = body ? {method:"POST", headers, body: JSON.stringify(body)} : {headers};
+  const r = await fetch(path, opts);
+  return await r.json();
+}
+async function propose(){
+  $("proposeStatus").textContent = "running...";
+  $("proposeOut").textContent = "";
+  const files = $("files").value.split(",").map(s=>s.trim()).filter(Boolean);
+  const r = await call("/api/code/propose", {
+    job: $("job").value,
+    target_files: files,
+    mode: $("mode").value,
+  });
+  $("proposeStatus").textContent = r.ok ? "ok ("+r.propose_id+")" : "FAIL: "+r.error;
+  $("proposeOut").textContent = JSON.stringify(r, null, 2);
+  if (r.ok && r.propose_id) $("proposeId").value = r.propose_id;
+  if (r.ok && r.mode === "patch" && r.result) $("patch").value = r.result;
+}
+async function apply(){
+  if (!confirm("Apply patch + commit?")) return;
+  $("applyStatus").textContent = "applying...";
+  const r = await call("/api/code/apply", {
+    patch: $("patch").value,
+    commit_msg: $("commitMsg").value || "auto: via /admin/code",
+    propose_id: $("proposeId").value,
+    auto_push: $("autoPush").checked,
+    auto_reload: $("autoReload").checked,
+  });
+  $("applyStatus").textContent = r.ok ? ("ok "+r.commit_sha) : ("FAIL: "+(r.error||r.stage));
+  $("applyOut").textContent = JSON.stringify(r, null, 2);
+  if (r.ok) loadJournal();
+}
+async function loadJournal(){
+  const r = await call("/api/code/journal?n=20");
+  if (!r.ok) { $("journal").textContent = "FAIL: "+r.error; return; }
+  const html = r.entries.reverse().map(e => {
+    const tag = `<span class="tag ${e.type}">${e.type}</span>`;
+    if (e.type === "propose") {
+      return `<div class="entry">${tag}<span class="id">${e.id}</span> <span class="t">${e.ts.slice(11,19)}</span> mode=${e.mode} files=[${(e.target_files||[]).join(",")}] job: ${(e.job||"").slice(0,80)}</div>`;
+    } else {
+      return `<div class="entry">${tag}<span class="id">${e.id}</span> <span class="t">${e.ts.slice(11,19)}</span> <span class="sha">${e.commit_sha||"no-sha"}</span> -> ${(e.affected_files||[]).join(",")} | ${(e.commit_msg||"").slice(0,60)} ${e.pushed?"PUSHED":""} ${e.reloaded?"RELOADED":""}</div>`;
+    }
+  }).join("");
+  $("journal").innerHTML = html || "<i>journal vide</i>";
+}
+function tick(){ $("now").textContent = new Date().toISOString().slice(0,19).replace("T"," "); }
+setInterval(tick, 1000); tick();
+updateSecretStatus();
+loadJournal();
+</script>
+</body></html>"""
+    return html, 200, {"Content-Type": "text/html; charset=utf-8"}
+
+
+@app.route('/api/code/apply', methods=['POST'])
+def api_code_apply():
+    """Apply a patch (unified diff) to the repo. Validates with git apply --check first.
+
+    Body: { patch: "<unified diff>", commit_msg: "...", propose_id: "...", auto_push: bool }
+
+    Steps:
+    1. Save patch to /tmp/patch_<id>.diff
+    2. git apply --check (validate)
+    3. git apply (commit changes)
+    4. git add affected files (parsed from diff)
+    5. git commit -m "<msg>"
+    6. (optional) git push
+    7. Log to memory/code_journal.jsonl
+    """
+    if request.headers.get('X-S25-Secret') != os.getenv('S25_SHARED_SECRET', 'MYN5VGqsJZ9MwYqvJ3mbwEfh0n4TZ4b7C7TjuwVp-2A'):
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
+    body = request.get_json(silent=True) or {}
+    patch_text = body.get('patch') or ''
+    commit_msg = (body.get('commit_msg') or 'auto: code/apply via Trinity').strip()
+    propose_id = (body.get('propose_id') or '').strip()
+    auto_push = bool(body.get('auto_push', False))
+    auto_reload = bool(body.get('auto_reload', False))  # systemd reload after push
+
+    if not patch_text:
+        return jsonify({"ok": False, "error": "patch is required"}), 400
+    if len(patch_text) > 200000:
+        return jsonify({"ok": False, "error": "patch too large (>200KB)"}), 400
+    if "diff --git" not in patch_text and "--- a/" not in patch_text and "--- /dev/null" not in patch_text:
+        return jsonify({"ok": False, "error": "patch does not look like unified diff (missing diff/--- markers)"}), 400
+
+    REPO = '/home/alienstef/S25-COMMAND-CENTER'
+    apply_id = f"apply_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
+    patch_path = f"/tmp/patch_{apply_id}.diff"
+
+    # Persist patch to disk for git apply
+    try:
+        with open(patch_path, 'w', encoding='utf-8') as pf:
+            pf.write(patch_text)
+    except Exception as e:
+        return jsonify({"ok": False, "error": f"patch save failed: {str(e)[:200]}"}), 500
+
+    import subprocess as _sub
+    def run(cmd, timeout=30):
+        try:
+            r = _sub.run(cmd, capture_output=True, text=True, timeout=timeout, cwd=REPO)
+            return {'returncode': r.returncode, 'stdout': r.stdout, 'stderr': r.stderr}
+        except Exception as e:
+            return {'returncode': -1, 'stdout': '', 'stderr': str(e)[:300]}
+
+    # Step 1: validate
+    chk = run(['git', 'apply', '--check', patch_path])
+    if chk['returncode'] != 0:
+        return jsonify({
+            "ok": False, "stage": "check", "error": "git apply --check failed",
+            "stderr": chk['stderr'][:1000], "patch_path": patch_path,
+        }), 400
+
+    # Step 2: apply
+    apl = run(['git', 'apply', patch_path])
+    if apl['returncode'] != 0:
+        return jsonify({
+            "ok": False, "stage": "apply", "error": "git apply failed",
+            "stderr": apl['stderr'][:1000],
+        }), 500
+
+    # Step 3: parse files from diff for git add
+    affected_files = []
+    for line in patch_text.splitlines():
+        if line.startswith('+++ b/'):
+            f = line[6:].strip()
+            if f and f != '/dev/null' and f not in affected_files:
+                affected_files.append(f)
+
+    # Step 4: stage + commit
+    if affected_files:
+        add = run(['git', 'add'] + affected_files)
+        if add['returncode'] != 0:
+            return jsonify({"ok": False, "stage": "add", "error": add['stderr'][:500]}), 500
+
+    full_msg = commit_msg + (f"\n\n[via /api/code/apply propose_id={propose_id} apply_id={apply_id}]" if propose_id else f"\n\n[via /api/code/apply apply_id={apply_id}]")
+    cmt = run(['git', 'commit', '-m', full_msg])
+    commit_sha = ''
+    if cmt['returncode'] == 0:
+        rev = run(['git', 'rev-parse', '--short', 'HEAD'])
+        commit_sha = rev['stdout'].strip()
+
+    # Step 5: push (optional)
+    push_result = None
+    if auto_push:
+        push = run(['git', 'push'], timeout=60)
+        push_result = {'ok': push['returncode'] == 0, 'stderr': push['stderr'][:500]}
+
+    # Step 6: reload (optional)
+    reload_result = None
+    if auto_reload:
+        rel = run(['systemctl', '--user', 'reload-or-restart', 's25-cockpit'], timeout=30)
+        reload_result = {'ok': rel['returncode'] == 0, 'stderr': rel['stderr'][:500]}
+
+    # Audit log
+    try:
+        journal_path = os.path.join(REPO, 'memory', 'code_journal.jsonl')
+        os.makedirs(os.path.dirname(journal_path), exist_ok=True)
+        entry = {
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "type": "apply",
+            "id": apply_id,
+            "propose_id": propose_id,
+            "commit_sha": commit_sha,
+            "commit_msg": commit_msg,
+            "affected_files": affected_files,
+            "patch_size": len(patch_text),
+            "pushed": bool(auto_push) and (push_result or {}).get('ok', False),
+            "reloaded": bool(auto_reload) and (reload_result or {}).get('ok', False),
+        }
+        with open(journal_path, 'a', encoding='utf-8') as jf:
+            jf.write(json.dumps(entry, ensure_ascii=False) + chr(10))
+    except Exception:
+        pass
+
+    return jsonify({
+        "ok": True,
+        "apply_id": apply_id,
+        "propose_id": propose_id,
+        "commit_sha": commit_sha,
+        "affected_files": affected_files,
+        "push": push_result,
+        "reload": reload_result,
+        "patch_path": patch_path,
+    })
+
+
+@app.route('/api/code/journal', methods=['GET'])
+def api_code_journal():
+    """Return last N entries from code_journal.jsonl (propose+apply audit log)."""
+    if request.headers.get('X-S25-Secret') != os.getenv('S25_SHARED_SECRET', 'MYN5VGqsJZ9MwYqvJ3mbwEfh0n4TZ4b7C7TjuwVp-2A'):
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
+    REPO = '/home/alienstef/S25-COMMAND-CENTER'
+    n = max(1, min(int(request.args.get('n', 30)), 200))
+    journal_path = os.path.join(REPO, 'memory', 'code_journal.jsonl')
+    if not os.path.isfile(journal_path):
+        return jsonify({"ok": True, "entries": [], "note": "journal not yet created"})
+    try:
+        with open(journal_path, 'r', encoding='utf-8') as jf:
+            lines = jf.readlines()
+        entries = []
+        for line in lines[-n:]:
+            try:
+                entries.append(json.loads(line))
+            except Exception:
+                continue
+        return jsonify({"ok": True, "count": len(entries), "entries": entries})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)[:300]}), 500
 
 
 # ════════════════════════════════════════════════════════════════
