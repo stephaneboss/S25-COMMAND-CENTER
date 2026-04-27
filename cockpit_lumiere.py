@@ -2442,8 +2442,17 @@ def api_code_apply():
         return jsonify({"ok": False, "error": "patch is required"}), 400
     if len(patch_text) > 200000:
         return jsonify({"ok": False, "error": "patch too large (>200KB)"}), 400
-    if "diff --git" not in patch_text and "--- a/" not in patch_text and "--- /dev/null" not in patch_text:
-        return jsonify({"ok": False, "error": "patch does not look like unified diff (missing diff/--- markers)"}), 400
+    # Auto-fix literal escape sequences from JSON-mangled clients (ChatGPT Actions sometimes sends \\n instead of newline)
+    if "\\n" in patch_text and "\n" not in patch_text:
+        patch_text = patch_text.replace("\\n", "\n").replace("\\t", "\t")
+    # Lenient unified diff marker check
+    has_marker = any(m in patch_text for m in ("diff --git", "--- a/", "--- /dev/null", "+++ b/", "@@ "))
+    if not has_marker:
+        return jsonify({
+            "ok": False,
+            "error": "patch does not look like unified diff (missing all of: diff --git / --- a/ / --- /dev/null / +++ b/ / @@)",
+            "received_preview": patch_text[:200],
+        }), 400
 
     REPO = '/home/alienstef/S25-COMMAND-CENTER'
     apply_id = f"apply_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
