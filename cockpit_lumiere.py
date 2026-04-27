@@ -993,12 +993,17 @@ def kimi_chat():
         acc = os.getenv('CLOUDFLARE_ACCOUNT_ID', '').strip()
         if not (tok and acc):
             return None, 'CF token or account id missing'
-        # Try multiple Kimi model names (CF naming may evolve)
-        candidates = [
-            os.getenv('CF_KIMI_MODEL', '').strip(),
-            '@cf/moonshotai/kimi-k2.6',
-            '@cf/moonshotai/kimi-k2.5',
-        ]
+        # Fast mode: skip Kimi reasoning, use llama-8b directly (3-4s response)
+        fast = bool(body.get('fast', False))
+        if fast:
+            candidates = ['@cf/meta/llama-3.1-8b-instruct']
+        else:
+            candidates = [
+                os.getenv('CF_KIMI_MODEL', '').strip(),
+                '@cf/moonshotai/kimi-k2.6',
+                '@cf/moonshotai/kimi-k2.5',
+                '@cf/meta/llama-3.1-8b-instruct',  # final fallback if kimi reasoning chains exhaust tokens
+            ]
         seen = []
         for cf_model in candidates:
             if not cf_model or cf_model in seen:
