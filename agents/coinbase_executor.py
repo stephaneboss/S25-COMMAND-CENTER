@@ -228,6 +228,38 @@ class CoinbaseExecutor(BaseAgent):
             decimals = 0
         return f"{q:.{decimals}f}"
 
+    _price_increment_cache: Dict[str, str] = {}
+
+    def _get_price_increment(self, product_id: str) -> str:
+        """Return Coinbase's price_increment / quote_increment for a product."""
+        if product_id in self._price_increment_cache:
+            return self._price_increment_cache[product_id]
+        c = self._get_client()
+        if c is None:
+            return "0.01"
+        try:
+            resp = c.get_product(product_id)
+            d = resp if isinstance(resp, dict) else getattr(resp, "__dict__", {})
+            inc = d.get("price_increment") or d.get("quote_increment") or "0.01"
+            self._price_increment_cache[product_id] = str(inc)
+            return str(inc)
+        except Exception:
+            return "0.01"
+
+    def _quantize_price(self, product_id: str, raw_price: float, round_up: bool = False) -> str:
+        """Round price to product's price_increment. Required for limit_price + stop_trigger_price
+        else Coinbase rejects with INVALID_PRICE_PRECISION."""
+        from decimal import Decimal, ROUND_DOWN, ROUND_UP
+        inc_s = self._get_price_increment(product_id)
+        inc = Decimal(inc_s)
+        rounding = ROUND_UP if round_up else ROUND_DOWN
+        q = (Decimal(str(raw_price)) / inc).to_integral_value(rounding=rounding) * inc
+        if "." in inc_s:
+            decimals = len(inc_s.split(".")[1].rstrip("0")) or 1
+        else:
+            decimals = 0
+        return f"{q:.{decimals}f}"
+
     # ─── Portfolio + fiat read side ─────────────────────────────────
 
     def get_portfolio(self) -> Dict[str, Any]:
@@ -530,16 +562,20 @@ class CoinbaseExecutor(BaseAgent):
         effective_sl = sl_pct if sl_pct is not None else self.sl_pct
         effective_tp = tp_pct if tp_pct is not None else self.tp_pct
         try:
-            sl_price = round(entry_price * (1 - effective_sl / 100.0), 8)
-            tp_price = round(entry_price * (1 + effective_tp / 100.0), 8)
+            sl_price_raw = entry_price * (1 - effective_sl / 100.0)
+            tp_price_raw = entry_price * (1 + effective_tp / 100.0)
             qty_str = self._quantize_base_size(product_id, float(base_size))
+            sl_price_str = self._quantize_price(product_id, sl_price_raw, round_up=False)
+            tp_price_str = self._quantize_price(product_id, tp_price_raw, round_up=True)
+            sl_price = float(sl_price_str)
+            tp_price = float(tp_price_str)
             client_order_id = f"s25-br-{uuid4().hex[:12]}"
             resp = c.trigger_bracket_order_gtc_sell(
                 client_order_id=client_order_id,
                 product_id=product_id,
                 base_size=qty_str,
-                limit_price=f"{tp_price:.8f}",
-                stop_trigger_price=f"{sl_price:.8f}",
+                limit_price=tp_price_str,
+                stop_trigger_price=sl_price_str,
             )
             raw = resp if isinstance(resp, dict) else getattr(resp, "__dict__", {})
             success = raw.get("success", False)

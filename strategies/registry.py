@@ -113,7 +113,37 @@ class StrategyRegistry:
                     continue
                 if sig is None:
                     continue
-                sig.usd_amount = usd_size
+                # Position sizing v2: confidence-scaled + capital-capped
+                # 1) Confidence factor: 0.5..1.0 mapped from confidence 0.0..1.0
+                conf = float(getattr(sig, "confidence", 0.7) or 0.7)
+                conf_factor = 0.5 + 0.5 * max(0.0, min(1.0, conf))
+                # 2) Capital cap: max 20% of USD-available per trade (read from env or default)
+                #    Falls back gracefully if balance unavailable.
+                import os
+                pct_cap = float(os.environ.get("SIZING_PCT_CAP", "20")) / 100.0
+                hard_min = float(os.environ.get("SIZING_MIN_USD", "1.0"))
+                hard_max = float(os.environ.get("SIZING_MAX_USD", "50.0"))
+                try:
+                    if not hasattr(self, "_cached_usd_balance"):
+                        from agents.coinbase_executor import get_executor
+                        exe = get_executor()
+                        try:
+                            port = exe.get_portfolio()
+                            usd_av = float(((port or {}).get("by_currency") or {}).get("USD", {}).get("available", 50.0))
+                        except Exception:
+                            usd_av = 50.0
+                        self._cached_usd_balance = usd_av
+                    capital_cap = max(hard_min, min(hard_max, self._cached_usd_balance * pct_cap))
+                except Exception:
+                    capital_cap = hard_max
+                # 3) Final size = min(strategy_size * conf_factor, capital_cap), bounded by hard_min/hard_max
+                base_with_conf = usd_size * conf_factor
+                final_size = max(hard_min, min(hard_max, min(base_with_conf, capital_cap)))
+                sig.usd_amount = round(final_size, 2)
+                logger.info(
+                    "sizing %s: base=%.2f conf=%.2f conf_factor=%.2f capital_cap=%.2f -> final=%.2f",
+                    strategy.name, usd_size, conf, conf_factor, capital_cap, sig.usd_amount,
+                )
                 self.record_signal(strategy.name, sig, market)
                 out.append((strategy.name, market.symbol, sig))
         return out

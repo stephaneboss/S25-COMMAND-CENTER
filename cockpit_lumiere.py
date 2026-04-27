@@ -1277,7 +1277,13 @@ Reponds en 2-3 phrases max, direct et actionnable."""
 # ═══════════════════════════════════════════════════════════════
 
 def _load_agents_state() -> dict:
-    """Charge agents_state.json depuis disque."""
+    """Charge agents_state.json depuis disque.
+
+    Boot guard: si pipeline.mode est absent ou "dry_run", on log un warning
+    mais on NE force pas "authorized" automatiquement (anti-regression safety).
+    Pour activer: utiliser /api/control/propose + execute, ou editer le fichier.
+    Pour FORCER en boot: TRADING_AUTHORIZE_AT_BOOT=1 dans .env.
+    """
     state = {}
     try:
         if AGENTS_STATE_FILE.exists():
@@ -1285,7 +1291,17 @@ def _load_agents_state() -> dict:
     except Exception:
         pass
     state.setdefault("agents", {})
-    state.setdefault("pipeline", {})
+    pipeline = state.setdefault("pipeline", {})
+    # Boot-time pipeline integrity check
+    current_mode = pipeline.get("mode")
+    if not current_mode:
+        # Missing entirely - default safe to dry_run UNLESS env override
+        if os.getenv("TRADING_AUTHORIZE_AT_BOOT") == "1":
+            pipeline["mode"] = "authorized"
+            pipeline.setdefault("kill_switch", False)
+            pipeline.setdefault("threat_level", "T0")
+        else:
+            pipeline["mode"] = "dry_run"
     return state
 
 def _save_agents_state(state: dict):
