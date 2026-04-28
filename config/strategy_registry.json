@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "updated_by": "TRINITY",
+  "default_mode": "observe",
+  "global_rules": {
+    "live_requires_governor": true,
+    "live_requires_attribution": true,
+    "max_usd_per_trade_default": 5.0,
+    "max_trades_per_hour_default": 3,
+    "cooldown_sec_default": 900
+  },
+  "strategies": {
+    "stoch_rsi_bounce": {
+      "mode": "observe",
+      "family": "mean_reversion",
+      "symbols": ["DOGE-USD", "BTC-USD", "SOL-USD"],
+      "suspected_actual_source": "auto_signal_scanner",
+      "allowed_to_emit_signal": true,
+      "allowed_to_execute_live": false,
+      "max_usd_per_trade": 5.0,
+      "cooldown_sec": 900,
+      "requires_signal_ledger": true,
+      "requires_trade_attribution": true
+    },
+    "bollinger_bounce": {
+      "mode": "observe",
+      "family": "mean_reversion",
+      "symbols": ["BTC-USD", "SOL-USD", "DOGE-USD"],
+      "suspected_actual_source": "auto_signal_scanner",
+      "allowed_to_emit_signal": true,
+      "allowed_to_execute_live": false,
+      "max_usd_per_trade": 5.0,
+      "cooldown_sec": 1200,
+      "requires_signal_ledger": true,
+      "requires_trade_attribution": true
+    },
+    "btc_daily_dca": {
+      "mode": "observe",
+      "family": "dca",
+      "symbols": ["BTC-USD"],
+      "suspected_actual_source": "dca_scheduler",
+      "allowed_to_emit_signal": true,
+      "allowed_to_execute_live": false,
+      "max_usd_per_trade": 2.0,
+      "cooldown_sec": 86400,
+      "requires_signal_ledger": true,
+      "requires_trade_attribution": true
+    },
+    "doge_opportunistic_accumulation": {
+      "mode": "observe",
+      "family": "dca_opportunistic",
+      "symbols": ["DOGE-USD"],
+      "suspected_actual_source": "auto_signal_scanner",
+      "allowed_to_emit_signal": true,
+      "allowed_to_execute_live": false,
+      "max_usd_per_trade": 3.0,
+      "max_symbol_exposure_usd": 35.0,
+      "cooldown_sec": 1200,
+      "requires_signal_ledger": true,
