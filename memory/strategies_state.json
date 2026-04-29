@@ -28,12 +28,13 @@
   "breakout_1h": {
     "enabled": true,
     "usd_size": 5.0,
-    "last_signal_ts": null,
-    "last_signal_symbol": null,
-    "total_signals": 0,
+    "last_signal_ts": 1777434903.0274556,
+    "last_signal_symbol": "ATOM-USD",
+    "total_signals": 3,
     "symbols": [
       "ATOM-USD"
-    ]
+    ],
+    "last_signal_action": "BUY"
   },
   "macd_cross": {
     "enabled": false,
