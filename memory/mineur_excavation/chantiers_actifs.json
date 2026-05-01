@@ -1,0 +1,11 @@
+{
+  "company": "Mineur Excavation",
+  "last_updated": "2026-05-01",
+  "chantiers": [
+    {
+      "id": "CHANTIER-2026-05-01-001",
+      "nom": "gros_chantier_a_completer",
+      "statut": "actif",
+      "date_demarrage": "2026-05-01",
+      "notes": "Details a completer par dictee vocale terrain."
+    }

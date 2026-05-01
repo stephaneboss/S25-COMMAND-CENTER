@@ -1,0 +1,12 @@
+{
+  "company": "Mineur Excavation",
+  "last_updated": "2026-05-01",
+  "note": "Suivi leger. Module de facturation detaille reporte.",
+  "items": [
+    {
+      "id": "CS-2026-05-01-001",
+      "chantier_id": "CHANTIER-2026-05-01-001",
+      "statut": "a_completer",
+      "notes": "Contrat ou soumission de demarrage a completer."
+    }
+  ]
