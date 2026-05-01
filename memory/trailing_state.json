@@ -110,5 +110,13 @@
   "ded462e1-f41f-4c39-beab-413a2baf30fc": {
     "peak_price": 0.10987,
     "activated": false
+  },
+  "4f9b7acf-f4fa-4107-bd6a-1888a974b27b": {
+    "peak_price": 0.10907,
+    "activated": false
+  },
+  "45807db1-dc77-49db-8ffd-986bb488ccdc": {
+    "peak_price": 0.10905,
+    "activated": false
   }
 }
