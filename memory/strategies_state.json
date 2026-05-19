@@ -52,9 +52,9 @@
       "BTC-USD",
       "SOL-USD"
     ],
-    "last_signal_ts": 1779130804.366217,
+    "last_signal_ts": 1779200703.473834,
     "last_signal_symbol": "SOL-USD",
-    "total_signals": 121,
+    "total_signals": 125,
     "last_signal_action": "BUY"
   },
   "stoch_rsi_bounce": {
@@ -63,9 +63,9 @@
     "symbols": [
       "DOGE-USD"
     ],
-    "last_signal_ts": 1779105304.293788,
+    "last_signal_ts": 1779199503.375957,
     "last_signal_symbol": "DOGE-USD",
-    "total_signals": 287,
+    "total_signals": 288,
     "last_signal_action": "BUY"
   },
   "volume_surge": {
