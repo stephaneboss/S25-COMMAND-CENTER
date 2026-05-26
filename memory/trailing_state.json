@@ -608,7 +608,7 @@
     "activated": false
   },
   "fd268c27-2c56-490b-9c29-aefcfa6053cc": {
-    "peak_price": 77740.37,
+    "peak_price": 77959.77,
     "activated": false
   },
   "391902d7-5079-4eb4-b2cd-55072841123b": {
@@ -624,7 +624,7 @@
     "activated": false
   },
   "5bffae8f-ab1d-4155-b67a-c446c8fb2f2a": {
-    "peak_price": 0.10354,
+    "peak_price": 0.10366,
     "activated": false
   },
   "4d9d0fdd-8ad0-4045-9dfa-c2ffd2221eea": {
@@ -652,15 +652,19 @@
     "activated": false
   },
   "ff8364b8-223c-4927-8960-bc220e7010a6": {
-    "peak_price": 2.26,
+    "peak_price": 2.294,
     "activated": false
   },
   "2934757a-2c2a-4739-bc89-eff7bd30faeb": {
-    "peak_price": 2.259,
+    "peak_price": 2.294,
     "activated": false
   },
   "3de0eaee-b576-45ae-8d1b-29282718585b": {
-    "peak_price": 2.26,
+    "peak_price": 2.294,
+    "activated": false
+  },
+  "0f1f9911-6561-474d-8cd0-5503ddbdd9aa": {
+    "peak_price": 2.28,
     "activated": false
   }
 }
