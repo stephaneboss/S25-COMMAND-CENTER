@@ -682,5 +682,9 @@
   "73930f67-f93c-4756-9f68-49cd9f667e85": {
     "peak_price": 75115.44,
     "activated": false
+  },
+  "55ca8f47-d758-4c6c-85a6-8166a8c036f0": {
+    "peak_price": 74865.8,
+    "activated": false
   }
 }
