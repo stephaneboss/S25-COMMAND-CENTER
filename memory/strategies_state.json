@@ -52,9 +52,9 @@
       "BTC-USD",
       "SOL-USD"
     ],
-    "last_signal_ts": 1779950403.663601,
-    "last_signal_symbol": "BTC-USD",
-    "total_signals": 376,
+    "last_signal_ts": 1780059003.8991203,
+    "last_signal_symbol": "SOL-USD",
+    "total_signals": 378,
     "last_signal_action": "BUY"
   },
   "stoch_rsi_bounce": {
