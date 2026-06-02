@@ -2,9 +2,9 @@
   "rsi_dip": {
     "enabled": true,
     "usd_size": 8.0,
-    "last_signal_ts": 1780356303.870603,
+    "last_signal_ts": 1780358103.9692137,
     "last_signal_symbol": "BTC-USD",
-    "total_signals": 60,
+    "total_signals": 63,
     "symbols": [
       "BTC-USD"
     ],
