@@ -2,9 +2,9 @@
   "rsi_dip": {
     "enabled": true,
     "usd_size": 8.0,
-    "last_signal_ts": 1780440903.9198582,
+    "last_signal_ts": 1780442703.082862,
     "last_signal_symbol": "BTC-USD",
-    "total_signals": 191,
+    "total_signals": 197,
     "symbols": [
       "BTC-USD"
     ],
@@ -53,9 +53,9 @@
       "BTC-USD",
       "SOL-USD"
     ],
-    "last_signal_ts": 1780440903.921203,
+    "last_signal_ts": 1780442703.0842264,
     "last_signal_symbol": "SOL-USD",
-    "total_signals": 751,
+    "total_signals": 753,
     "last_signal_action": "BUY"
   },
   "stoch_rsi_bounce": {
