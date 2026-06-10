@@ -29,9 +29,9 @@
   "breakout_1h": {
     "enabled": true,
     "usd_size": 5.0,
-    "last_signal_ts": 1781054404.1832588,
+    "last_signal_ts": 1781085303.1455338,
     "last_signal_symbol": "ATOM-USD",
-    "total_signals": 265,
+    "total_signals": 268,
     "symbols": [
       "ATOM-USD"
     ],
@@ -53,9 +53,9 @@
       "BTC-USD",
       "SOL-USD"
     ],
-    "last_signal_ts": 1781083503.1381469,
+    "last_signal_ts": 1781085003.1697502,
     "last_signal_symbol": "SOL-USD",
-    "total_signals": 838,
+    "total_signals": 840,
     "last_signal_action": "BUY"
   },
   "stoch_rsi_bounce": {
