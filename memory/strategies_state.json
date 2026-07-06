@@ -53,9 +53,9 @@
       "BTC-USD",
       "SOL-USD"
     ],
-    "last_signal_ts": 1783233603.4397051,
+    "last_signal_ts": 1783339803.6391335,
     "last_signal_symbol": "ATOM-USD",
-    "total_signals": 1566,
+    "total_signals": 1568,
     "last_signal_action": "BUY"
   },
   "stoch_rsi_bounce": {
