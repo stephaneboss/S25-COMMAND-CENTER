@@ -53,6 +53,10 @@ OPS_JOURNAL = REPO / "memory" / "command_mesh" / "ops_journal.jsonl"
 LOCK_TTL_SEC = 120  # mission lock — longer than heartbeat but safe
 MAX_MISSIONS_PER_TICK = 5
 
+# Agents that pull their own missions via /api/mesh/missions/<id>/claim+complete
+# — mission_worker must leave their missions in the queue untouched.
+EXTERNAL_PULL_AGENTS = {"CLAUDE"}
+
 # task_type -> dispatcher func-name
 DISPATCHERS: Dict[str, str] = {
     # FULL-LOCAL mode (2026-04-22 Major decision: Google AI Studio retired, Gemini Pro manual only)
@@ -480,7 +484,8 @@ def main():
     store = _load(MISSIONS_PATH, {"items": {}})
     items = store.get("items", {})
     candidates = [m for m in items.values()
-                  if m.get("status") in ("queued", "assigned")]
+                  if m.get("status") in ("queued", "assigned")
+                  and m.get("target_agent") not in EXTERNAL_PULL_AGENTS]
     # Sort by priority: critical > high > normal > low, then created_at
     prio_rank = {"critical": 0, "high": 1, "normal": 2, "low": 3}
     candidates.sort(key=lambda m: (

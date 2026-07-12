@@ -291,6 +291,9 @@ def mesh_list_missions():
     status_filter = request.args.get("status")
     if status_filter:
         items = [m for m in items if m.get("status") == status_filter]
+    agent_filter = request.args.get("target_agent")
+    if agent_filter:
+        items = [m for m in items if m.get("target_agent") == agent_filter]
     items.sort(key=lambda m: m.get("created_at", ""), reverse=True)
     limit = int(request.args.get("limit", "50"))
     return jsonify({"ok": True, "count": len(items), "missions": items[:limit]})
@@ -303,6 +306,61 @@ def mesh_get_mission(mission_id):
     if not item:
         return jsonify({"ok": False, "error": "not found"}), 404
     return jsonify({"ok": True, "mission": item})
+
+
+@mesh_bp.route("/missions/<mission_id>/claim", methods=["POST"])
+def mesh_claim_mission(mission_id):
+    """External agent (e.g. CLAUDE) takes ownership: queued/assigned -> running."""
+    if not _auth_ok():
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
+    body = request.get_json(silent=True) or {}
+    agent_id = str(body.get("agent_id", "")).strip() or "EXTERNAL"
+    store = _load(MISSIONS_PATH, {"items": {}})
+    item = store.get("items", {}).get(mission_id)
+    if not item:
+        return jsonify({"ok": False, "error": "not found"}), 404
+    if item.get("status") not in ("queued", "assigned"):
+        return jsonify({"ok": False, "error": f"not claimable (status={item.get('status')})"}), 409
+    item["status"] = "running"
+    item["target_agent"] = agent_id
+    item["updated_at"] = _now_iso()
+    _save(MISSIONS_PATH, store)
+    _journal(agent_id, "mission", mission_id, "claimed", {"agent": agent_id})
+    return jsonify({"ok": True, "mission_id": mission_id, "status": "running"})
+
+
+@mesh_bp.route("/missions/<mission_id>/complete", methods=["POST"])
+def mesh_complete_mission(mission_id):
+    """External agent reports result: running -> completed/failed."""
+    if not _auth_ok():
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
+    body = request.get_json(silent=True) or {}
+    agent_id = str(body.get("agent_id", "")).strip() or "EXTERNAL"
+    success = bool(body.get("ok", True))
+    output = str(body.get("output", ""))[:2000]
+    store = _load(MISSIONS_PATH, {"items": {}})
+    item = store.get("items", {}).get(mission_id)
+    if not item:
+        return jsonify({"ok": False, "error": "not found"}), 404
+    if item.get("status") not in ("running", "queued", "assigned"):
+        return jsonify({"ok": False, "error": f"not completable (status={item.get('status')})"}), 409
+    if success:
+        item["status"] = "completed"
+        item["result"] = {"completed_by": agent_id, "output_preview": output[:500]}
+    else:
+        item["status"] = "failed"
+        item["error"] = output[:500] or "external agent reported failure"
+    item["updated_at"] = _now_iso()
+    _save(MISSIONS_PATH, store)
+    _journal(agent_id, "mission", mission_id,
+             "completed" if success else "failed", {"agent": agent_id})
+    try:
+        from agents.stability_layer import breaker_record
+        breaker_record(item.get("target_agent") or agent_id,
+                       item.get("task_type", "fallback"), success=success)
+    except Exception:
+        pass
+    return jsonify({"ok": True, "mission_id": mission_id, "status": item["status"]})
 
 
 @mesh_bp.route("/signals", methods=["GET"])
