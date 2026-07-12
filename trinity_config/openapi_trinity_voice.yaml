@@ -237,10 +237,10 @@ paths:
               properties:
                 target_agent:
                   type: string
-                  enum: [COINBASE, COMET, MERLIN, ARKON-5, KIMI, ORACLE, GEMINI_OPS, ONCHAIN_GUARDIAN]
+                  enum: [COINBASE, COMET, MERLIN, ARKON-5, KIMI, ORACLE, GEMINI_OPS, ONCHAIN_GUARDIAN, CLAUDE]
                 task_type:
                   type: string
-                  enum: [trading_analysis, market_news, code_generation, strategy_planning, infra_monitoring, trade_execute, fallback]
+                  enum: [trading_analysis, market_news, code_generation, strategy_planning, infra_monitoring, trade_execute, infra_ops, fallback]
                 priority:
                   type: string
                   enum: [low, normal, high, critical]
