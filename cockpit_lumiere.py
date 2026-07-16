@@ -564,7 +564,7 @@ def api_status():
         "timestamp": datetime.utcnow().isoformat(),
         "arkon5_action": "HOLD",
         "arkon5_conf": 0,
-        "pipeline_status": "INIT",
+        "pipeline_status": "HA_OFFLINE",
         "hashrate": "--",
         "temp": "--",
         "comet_intel": "En attente...",
