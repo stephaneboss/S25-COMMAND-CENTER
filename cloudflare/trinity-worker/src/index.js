@@ -2566,14 +2566,18 @@ function buildProxyMeta(env, requestId, targetUrl) {
   };
 }
 
-async function fetchWithPolicy(target, request, env, requestId) {
+async function fetchWithPolicy(target, request, env, requestId, sharedBody) {
   const timeoutMs = Number(env.PROXY_TIMEOUT_MS || 15000);
   const maxRetries = Math.max(0, Number(env.PROXY_RETRIES || 1));
   const clientIp = request.headers.get("cf-connecting-ip") || "";
   const method = request.method.toUpperCase();
   const canRetry = method === "GET" || method === "HEAD";
   const bodyBuffer =
-    method === "GET" || method === "HEAD" ? undefined : await request.arrayBuffer();
+    method === "GET" || method === "HEAD"
+      ? undefined
+      : sharedBody !== undefined
+        ? sharedBody
+        : await request.arrayBuffer();
 
   let attempt = 0;
   let lastError = null;
@@ -2656,13 +2660,16 @@ export default {
     }
 
     // Primary: ORIGIN_BASE (Akash) — Fallback: FALLBACK_ORIGIN (AlienStef)
-    const origins = [env.ORIGIN_BASE, env.FALLBACK_ORIGIN].filter(Boolean);
+    const origins = [...new Set([env.ORIGIN_BASE, env.FALLBACK_ORIGIN].filter(Boolean))];
+    const proxyMethod = request.method.toUpperCase();
+    const sharedBody =
+      proxyMethod === "GET" || proxyMethod === "HEAD" ? undefined : await request.arrayBuffer();
     let lastError = null;
 
     for (const origin of origins) {
       const target = buildTargetUrl(request.url, origin);
       try {
-        const upstream = await fetchWithPolicy(target, request, env, requestId);
+        const upstream = await fetchWithPolicy(target, request, env, requestId, sharedBody);
         if (upstream.status < 500) {
           return new Response(upstream.body, {
             status: upstream.status,
