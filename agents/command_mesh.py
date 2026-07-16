@@ -198,8 +198,30 @@ def _recompute_system_state():
     incidents = _load(INCIDENTS_PATH, {"items": {}}).get("items", {})
     signals = _load(SIGNALS_PATH, {"items": {}}).get("items", {})
 
-    online = sum(1 for a in agents.values() if a.get("status") == "online")
-    expected = len(agents) or 1
+    # Age-aware (2027 spec): les statuts perimes ne comptent jamais comme actifs.
+    _now = datetime.now(timezone.utc)
+    _stale_sec = int(os.getenv("MESH_HEARTBEAT_STALE_SEC", "7200"))        # 2h
+    _expected_sec = int(os.getenv("MESH_EXPECTED_WINDOW_SEC", "604800"))   # 7 jours
+
+    def _hb_age(a):
+        raw = a.get("last_seen_at") or a.get("last_heartbeat_at")
+        if not raw:
+            return None
+        try:
+            return (_now - datetime.fromisoformat(raw)).total_seconds()
+        except Exception:
+            return None
+
+    online = sum(
+        1 for a in agents.values()
+        if a.get("status") == "online"
+        and (lambda ag: ag is not None and ag <= _stale_sec)(_hb_age(a))
+    )
+    expected = sum(
+        1 for a in agents.values()
+        if a.get("status") != "disabled"
+        and (lambda ag: ag is not None and ag <= _expected_sec)(_hb_age(a))
+    ) or 1
     active_inc = sum(1 for i in incidents.values()
                      if i.get("status") in ("open", "acknowledged", "mitigating"))
     last_sig = None
