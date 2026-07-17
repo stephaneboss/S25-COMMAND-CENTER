@@ -259,6 +259,23 @@ def _recompute_system_state():
     }
     _save(STATE_PATH, state)
 
+    # Auto-resolve mesh_degradation incidents once the agent ratio has recovered
+    # (avoids mission_worker staying stuck in degraded_mode_skip_non_critical
+    # forever after a transient dip, since nothing else ever closed these).
+    if expected > 0 and online >= CRITICAL_AGENT_RATIO * expected:
+        healed = [i for i in incidents.values()
+                  if i.get("source") == "Policy"
+                  and i.get("category") == "mesh_degradation"
+                  and i.get("status") in ("open", "acknowledged", "mitigating")]
+        if healed:
+            inc_store = _load(INCIDENTS_PATH, {"items": {}})
+            for inc in healed:
+                inc["status"] = "resolved"
+                inc["resolved_at"] = _now_iso()
+                inc_store.setdefault("items", {})[inc["incident_id"]] = inc
+                _journal("Policy", "incident", inc["incident_id"], "resolved", inc)
+            _save(INCIDENTS_PATH, inc_store)
+
     # Auto-open incident if state triggers policy
     template = policy_incident_trigger(state)
     if template:
