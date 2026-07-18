@@ -685,7 +685,7 @@ def voice_command():
     POST body: { "phrase": str, "sender": str (opt), "history": [{role, content}] (opt) }
     Auth: X-S25-Secret.
     """
-    if request.headers.get('X-S25-Secret') != os.getenv('S25_SHARED_SECRET', 'MYN5VGqsJZ9MwYqvJ3mbwEfh0n4TZ4b7C7TjuwVp-2A'):
+    if request.headers.get('X-S25-Secret') != os.getenv('S25_SHARED_SECRET', ''):
         return jsonify({"ok": False, "error": "unauthorized"}), 401
 
     import re, json as _j
@@ -696,7 +696,7 @@ def voice_command():
     if not phrase:
         return jsonify({"ok": False, "error": "missing phrase"}), 400
 
-    secret = os.getenv('S25_SHARED_SECRET', 'MYN5VGqsJZ9MwYqvJ3mbwEfh0n4TZ4b7C7TjuwVp-2A')
+    secret = os.getenv('S25_SHARED_SECRET', '')
     base = 'http://127.0.0.1:' + os.environ.get('PORT', '7777')
     H = {'X-S25-Secret': secret, 'Content-Type': 'application/json'}
     OLLAMA = 'http://127.0.0.1:11434'
@@ -948,7 +948,7 @@ def kimi_chat():
 
     Auth: X-S25-Secret header.
     """
-    if request.headers.get('X-S25-Secret') != os.getenv('S25_SHARED_SECRET', 'MYN5VGqsJZ9MwYqvJ3mbwEfh0n4TZ4b7C7TjuwVp-2A'):
+    if request.headers.get('X-S25-Secret') != os.getenv('S25_SHARED_SECRET', ''):
         return jsonify({"ok": False, "error": "unauthorized"}), 401
     body = request.get_json(silent=True) or {}
     message = (body.get('message') or body.get('prompt') or '').strip()
@@ -1078,7 +1078,7 @@ def ops_run():
       - "crontab_show": {}
       - "shell_safe":   { cmd: "...", safe whitelist regex }
     """
-    if request.headers.get('X-S25-Secret') != os.getenv('S25_SHARED_SECRET', 'MYN5VGqsJZ9MwYqvJ3mbwEfh0n4TZ4b7C7TjuwVp-2A'):
+    if request.headers.get('X-S25-Secret') != os.getenv('S25_SHARED_SECRET', ''):
         return jsonify({"ok": False, "error": "unauthorized"}), 401
     import subprocess as _sub
     import re as _re
@@ -2132,7 +2132,7 @@ def api_jarvis():
 # ════════════════════════════════════════════════════════════════
 @app.route('/api/code/propose', methods=['POST'])
 def api_code_propose():
-    if request.headers.get('X-S25-Secret') != os.getenv('S25_SHARED_SECRET', 'MYN5VGqsJZ9MwYqvJ3mbwEfh0n4TZ4b7C7TjuwVp-2A'):
+    if request.headers.get('X-S25-Secret') != os.getenv('S25_SHARED_SECRET', ''):
         return jsonify({"ok": False, "error": "unauthorized"}), 401
     body = request.get_json(silent=True) or {}
     job = (body.get('job') or '').strip()
@@ -2429,7 +2429,7 @@ def api_code_apply():
     6. (optional) git push
     7. Log to memory/code_journal.jsonl
     """
-    if request.headers.get('X-S25-Secret') != os.getenv('S25_SHARED_SECRET', 'MYN5VGqsJZ9MwYqvJ3mbwEfh0n4TZ4b7C7TjuwVp-2A'):
+    if request.headers.get('X-S25-Secret') != os.getenv('S25_SHARED_SECRET', ''):
         return jsonify({"ok": False, "error": "unauthorized"}), 401
     body = request.get_json(silent=True) or {}
     patch_text = body.get('patch') or ''
@@ -2637,7 +2637,7 @@ def api_code_auto():
     Trinity-friendly: no multi-line patch payload to construct, just describe what to do.
     Internal flow combines /api/code/propose (mode=patch) + /api/code/apply with safety.
     """
-    if request.headers.get('X-S25-Secret') != os.getenv('S25_SHARED_SECRET', 'MYN5VGqsJZ9MwYqvJ3mbwEfh0n4TZ4b7C7TjuwVp-2A'):
+    if request.headers.get('X-S25-Secret') != os.getenv('S25_SHARED_SECRET', ''):
         return jsonify({"ok": False, "error": "unauthorized"}), 401
 
     body = request.get_json(silent=True) or {}
@@ -2936,7 +2936,7 @@ def api_code_auto():
 @app.route('/api/health/full', methods=['GET'])
 def api_health_full():
     """One-shot deep system audit. Trinity asks 'comment va le systeme?' -> here."""
-    if request.headers.get('X-S25-Secret') != os.getenv('S25_SHARED_SECRET', 'MYN5VGqsJZ9MwYqvJ3mbwEfh0n4TZ4b7C7TjuwVp-2A'):
+    if request.headers.get('X-S25-Secret') != os.getenv('S25_SHARED_SECRET', ''):
         return jsonify({"ok": False, "error": "unauthorized"}), 401
     import subprocess as _sub
     REPO = '/home/alienstef/S25-COMMAND-CENTER'
@@ -3024,7 +3024,7 @@ def api_business_quote_draft():
     Returns: { quote_id, html_preview, totals, draft=true }
     No save, no email send. Just preview.
     """
-    if request.headers.get('X-S25-Secret') != os.getenv('S25_SHARED_SECRET', 'MYN5VGqsJZ9MwYqvJ3mbwEfh0n4TZ4b7C7TjuwVp-2A'):
+    if request.headers.get('X-S25-Secret') != os.getenv('S25_SHARED_SECRET', ''):
         return jsonify({"ok": False, "error": "unauthorized"}), 401
     body = request.get_json(silent=True) or {}
     client_name = (body.get('client_name') or '').strip()
@@ -3150,7 +3150,7 @@ td {{ padding: 10px; border-bottom: 1px solid #eee; font-size: 14px; }}
 @app.route('/api/code/journal', methods=['GET'])
 def api_code_journal():
     """Return last N entries from code_journal.jsonl (propose+apply audit log)."""
-    if request.headers.get('X-S25-Secret') != os.getenv('S25_SHARED_SECRET', 'MYN5VGqsJZ9MwYqvJ3mbwEfh0n4TZ4b7C7TjuwVp-2A'):
+    if request.headers.get('X-S25-Secret') != os.getenv('S25_SHARED_SECRET', ''):
         return jsonify({"ok": False, "error": "unauthorized"}), 401
     REPO = '/home/alienstef/S25-COMMAND-CENTER'
     n = max(1, min(int(request.args.get('n', 30)), 200))
