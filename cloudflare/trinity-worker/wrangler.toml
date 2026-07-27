@@ -2,16 +2,17 @@ name = "trinity-s25-proxy"
 main = "src/index.js"
 compatibility_date = "2026-03-10"
 workers_dev = true
-routes = [
-  { pattern = "s25.smajor.org", custom_domain = true },
-  { pattern = "api.smajor.org", custom_domain = true }
-]
+# routes retirees : s25.smajor.org et api.smajor.org sont servis par smajor-hub
+# (voir cloudflare/smajor-hub-worker/src/index.js l.10761). Deux workers ne
+# peuvent pas revendiquer le meme custom domain - c'etait la cause des echecs
+# repetes du workflow "Deploy Cloudflare Workers".
+# Ce worker reste joignable sur workers.dev et sert de failover.
 
 [vars]
 # CRITICAL: ORIGIN_BASE must be kept in sync with Akash Trinity deployment
 # When Trinity endpoint changes, update both this value and the Akash deploy_cockpit.yaml COCKPIT_ENDPOINT
 # Current endpoint should match GitHub Actions deployed Trinity endpoint
-# CRITICAL: Set these via `wrangler secret put ORIGIN_BASE` and `wrangler secret put ORIGIN_HOST_HEADER`
+# CRITICAL: Set these via wrangler secret put ORIGIN_BASE and wrangler secret put ORIGIN_HOST_HEADER
 # Or override in .dev.vars for local dev
 ORIGIN_BASE = "https://cockpit-alien.smajor.org"
 ORIGIN_HOST_HEADER = "cockpit-alien.smajor.org"
@@ -20,6 +21,6 @@ PUBLIC_RUNTIME_URL = "https://s25.smajor.org"
 PROXY_TIMEOUT_MS = "15000"
 PROXY_RETRIES = "1"
 FALLBACK_ORIGIN = "https://cockpit-alien.smajor.org"
-# S25_WEBHOOK_PRIVATE_KEY — moved to Cloudflare secrets (wrangler secret put S25_WEBHOOK_PRIVATE_KEY)
+# S25_WEBHOOK_PRIVATE_KEY - moved to Cloudflare secrets (wrangler secret put S25_WEBHOOK_PRIVATE_KEY)
 # Updated: 2026-04-03 Trinity Endpoint Sync Phase 3B+ / Webhook Refactor
 # All Trinity requests proxied through this Cloudflare worker to Akash ingress endpoint
