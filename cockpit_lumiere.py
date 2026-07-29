@@ -1076,6 +1076,8 @@ def ops_run():
       - "process_check": { pattern: "..." }
       - "service_status": { service: "s25-cockpit" }
       - "crontab_show": {}
+      - "docker_env_check": { container: "s25-openjarvis|s25-open-webui|s25-bras-alien", key: "API_KEY" }
+                          -> existence/count only, NEVER returns the actual value
       - "shell_safe":   { cmd: "...", safe whitelist regex }
     """
     if request.headers.get('X-S25-Secret') != os.getenv('S25_SHARED_SECRET', ''):
@@ -1167,6 +1169,19 @@ def ops_run():
     if op == 'crontab_show':
         return jsonify({'ok': True, **_exec(['crontab', '-l'])})
 
+    if op == 'docker_env_check':
+        # Existence/count check only - deliberately never returns the actual secret value.
+        container = (args.get('container') or '').strip()
+        key = (args.get('key') or '').strip()
+        allowed_containers = {'s25-openjarvis', 's25-open-webui', 's25-bras-alien'}
+        if container not in allowed_containers:
+            return jsonify({'ok': False, 'error': f'container not in whitelist {sorted(allowed_containers)}'}), 400
+        if not key or not _re.match(r'^[A-Z0-9_]+$', key):
+            return jsonify({'ok': False, 'error': 'invalid key (uppercase alphanumeric + underscore only)'}), 400
+        r = _exec(['docker', 'exec', container, 'sh', '-c', f'env | grep -c {key} || true'])
+        return jsonify({'ok': True, 'container': container, 'key': key,
+                        'note': 'existence/count only - value is never returned', **r})
+
     if op == 'shell_safe':
         cmd = (args.get('cmd') or '').strip()
         # Whitelist: only allow specific commands at the start, no pipes, redirections, semicolons
@@ -1186,7 +1201,8 @@ def ops_run():
     return jsonify({'ok': False, 'error': f'unknown op: {op}',
                     'available_ops': ['log_tail', 'agent_restart', 'service_status',
                                       'git_status', 'git_log', 'disk_usage', 'ram_status',
-                                      'gpu_status', 'process_check', 'cron_check', 'crontab_show', 'shell_safe']}), 400
+                                      'gpu_status', 'process_check', 'cron_check', 'crontab_show',
+                                      'docker_env_check', 'shell_safe']}), 400
 
 
 @app.route('/openapi.yaml', methods=['GET'])
