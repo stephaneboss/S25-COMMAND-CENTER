@@ -1078,6 +1078,8 @@ def ops_run():
       - "crontab_show": {}
       - "docker_env_check": { container: "s25-openjarvis|s25-open-webui|s25-bras-alien", key: "API_KEY" }
                           -> existence/count only, NEVER returns the actual value
+      - "docker_inspect_safe": { container: "..." }
+                          -> redacted inspect (image, ports, mounts, restart policy, env VAR NAMES only)
       - "shell_safe":   { cmd: "...", safe whitelist regex }
     """
     if request.headers.get('X-S25-Secret') != os.getenv('S25_SHARED_SECRET', ''):
@@ -1182,6 +1184,41 @@ def ops_run():
         return jsonify({'ok': True, 'container': container, 'key': key,
                         'note': 'existence/count only - value is never returned', **r})
 
+    if op == 'docker_inspect_safe':
+        # Redacted docker inspect: launch config needed to safely recreate a container
+        # (image, ports, mounts, restart policy, env VAR NAMES) - never env var values.
+        container = (args.get('container') or '').strip()
+        allowed_containers = {'s25-openjarvis', 's25-open-webui', 's25-bras-alien'}
+        if container not in allowed_containers:
+            return jsonify({'ok': False, 'error': f'container not in whitelist {sorted(allowed_containers)}'}), 400
+        import json as _djson
+        # Not using the shared _exec() helper here: it truncates stdout to the last 4000
+        # chars, which would corrupt a full `docker inspect` JSON blob. Full output needed
+        # to parse safely, but nothing beyond the redacted subset below is ever returned.
+        try:
+            raw = _sub.run(['docker', 'inspect', container], capture_output=True, text=True, timeout=15)
+        except _sub.TimeoutExpired:
+            return jsonify({'ok': False, 'error': 'docker inspect timeout'}), 504
+        if raw.returncode != 0:
+            return jsonify({'ok': False, 'error': 'docker inspect failed', 'stderr': raw.stderr[-500:]}), 502
+        try:
+            data = _djson.loads(raw.stdout)[0]
+        except (ValueError, IndexError, KeyError) as e:
+            return jsonify({'ok': False, 'error': f'inspect parse failed: {e}'}), 502
+        cfg = data.get('Config', {})
+        env_names = sorted({(e.split('=', 1)[0] if '=' in e else e) for e in cfg.get('Env', [])})
+        mounts = [{'source': m.get('Source'), 'destination': m.get('Destination'), 'mode': m.get('Mode')}
+                  for m in data.get('Mounts', [])]
+        redacted = {
+            'image': cfg.get('Image'),
+            'restart_policy': data.get('HostConfig', {}).get('RestartPolicy', {}).get('Name'),
+            'ports': list((data.get('HostConfig', {}).get('PortBindings') or {}).keys()),
+            'mounts': mounts,
+            'env_var_names': env_names,
+            'note': 'redacted: env values, full network/mount details never included',
+        }
+        return jsonify({'ok': True, 'container': container, 'inspect': redacted})
+
     if op == 'shell_safe':
         cmd = (args.get('cmd') or '').strip()
         # Whitelist: only allow specific commands at the start, no pipes, redirections, semicolons
@@ -1202,7 +1239,7 @@ def ops_run():
                     'available_ops': ['log_tail', 'agent_restart', 'service_status',
                                       'git_status', 'git_log', 'disk_usage', 'ram_status',
                                       'gpu_status', 'process_check', 'cron_check', 'crontab_show',
-                                      'docker_env_check', 'shell_safe']}), 400
+                                      'docker_env_check', 'docker_inspect_safe', 'shell_safe']}), 400
 
 
 @app.route('/openapi.yaml', methods=['GET'])
