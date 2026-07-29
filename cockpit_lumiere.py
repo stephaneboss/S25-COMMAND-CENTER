@@ -1353,6 +1353,41 @@ def ops_run():
         return jsonify({'ok': r.status_code in (200, 201), 'status_code': r.status_code,
                         'path': path, 'response': resp_body})
 
+    if op == 'patch_agent_capabilities':
+        # Adds capability strings to an EXISTING mesh agent's entry in agents.json.
+        # Idempotent, additive only: cannot create a new agent, cannot remove
+        # capabilities, cannot change status/online state. Fixes routing gaps like
+        # "no_eligible_target" without touching any live trading/execution code.
+        import json as _pjson
+        agent_id = (args.get('agent_id') or '').strip()
+        add_caps = args.get('add_capabilities') or []
+        if not agent_id or not _re.match(r'^[A-Za-z0-9_\-]+$', agent_id):
+            return jsonify({'ok': False, 'error': 'invalid agent_id'}), 400
+        if not isinstance(add_caps, list) or not add_caps or not all(
+                isinstance(c, str) and _re.match(r'^[a-z0-9_]+$', c) for c in add_caps):
+            return jsonify({'ok': False, 'error': 'add_capabilities must be a non-empty list of lowercase_snake_case strings'}), 400
+        agents_path = '/home/alienstef/S25-COMMAND-CENTER/memory/command_mesh/agents.json'
+        try:
+            with open(agents_path, encoding='utf-8') as f:
+                store = _pjson.load(f)
+        except (OSError, ValueError) as e:
+            return jsonify({'ok': False, 'error': f'cannot read agents.json: {e}'}), 502
+        items = store.get('items', {})
+        if agent_id not in items:
+            return jsonify({'ok': False, 'error': f'agent_id not found in agents.json: {agent_id}',
+                            'known_agents': sorted(items.keys())}), 404
+        entry = items[agent_id]
+        existing = entry.get('capabilities') or []
+        added = [c for c in add_caps if c not in existing]
+        entry['capabilities'] = existing + added
+        try:
+            with open(agents_path, 'w', encoding='utf-8') as f:
+                _pjson.dump(store, f, indent=2, ensure_ascii=False)
+        except OSError as e:
+            return jsonify({'ok': False, 'error': f'cannot write agents.json: {e}'}), 502
+        return jsonify({'ok': True, 'agent_id': agent_id, 'added': added,
+                        'capabilities_now': entry['capabilities']})
+
     if op == 'shell_safe':
         cmd = (args.get('cmd') or '').strip()
         # Whitelist: only allow specific commands at the start, no pipes, redirections, semicolons
@@ -1375,7 +1410,7 @@ def ops_run():
                                       'gpu_status', 'process_check', 'cron_check', 'crontab_show',
                                       'docker_env_check', 'docker_inspect_safe', 'sync_secret_to_env',
                                       'jarvis_health_check', 'jarvis_api_get', 'jarvis_api_post',
-                                      'shell_safe']}), 400
+                                      'patch_agent_capabilities', 'shell_safe']}), 400
 
 
 @app.route('/openapi.yaml', methods=['GET'])
