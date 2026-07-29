@@ -42,6 +42,13 @@ RAISE_MIN_TRADES = 2        # react faster (was 3)
 WINDOW_HOURS_LIVE = 24 * 3   # 3 days (was 7)   # analyze last 7 days of live trades
 WINDOW_DAYS_BACKTEST = 30
 
+# Auto-optimization kill-switch. Default OFF: decide_and_apply() still computes and
+# reports what it WOULD do (dry_run), but never calls apply_toggle/apply_usd_size/
+# apply_symbols, until data quality is proven (see mission mis_tO7cMHi7A4BO priority 5 -
+# bounded path: proposal -> simulation/backtest -> canary -> T1 only -> rollback).
+# Flip via env, not code, so re-enabling is an explicit ops decision, not a silent default.
+AUTO_APPLY_ENABLED = os.getenv("QUANT_BRAIN_AUTO_APPLY", "false").strip().lower() == "true"
+
 
 def _env_get(key: str) -> str:
     env = REPO / ".env"
@@ -170,6 +177,55 @@ def live_performance_by_strategy_symbol() -> Dict:
     }
 
 
+def live_data_freshness() -> Dict:
+    """Explains *why* live_perf_rows may be 0 - freshness/quality control, not a bug report.
+
+    Schema: {window_hours, cutoff_ts_iso, last_successful_live_trade_ts_iso,
+             successful_live_trades_in_window, most_recent_trade_success, reason}
+    Reads memory/trades_log.jsonl (same source as live_performance_by_strategy_symbol),
+    read-only, no writes.
+    """
+    cutoff = time.time() - WINDOW_HOURS_LIVE * 3600
+    if not TRADES_LOG.exists():
+        return {"window_hours": WINDOW_HOURS_LIVE, "reason": "trades_log.jsonl missing"}
+    last_success_ts = None
+    in_window_success = 0
+    most_recent_ts = None
+    most_recent_success = None
+    for line in TRADES_LOG.read_text().splitlines():
+        if not line.strip():
+            continue
+        try:
+            t = json.loads(line)
+        except Exception:
+            continue
+        ts = t.get("ts", 0)
+        if not isinstance(ts, (int, float)):
+            continue
+        if most_recent_ts is None or ts > most_recent_ts:
+            most_recent_ts = ts
+            most_recent_success = bool(t.get("success"))
+        if t.get("success") and t.get("mode") == "live":
+            if last_success_ts is None or ts > last_success_ts:
+                last_success_ts = ts
+            if ts >= cutoff:
+                in_window_success += 1
+    reason = "ok"
+    if in_window_success == 0:
+        if most_recent_success is False:
+            reason = "no successful live trade in window - most recent order attempts failed (check balance/funds)"
+        else:
+            reason = "no successful live trade in window - account inactive or below activity threshold"
+    return {
+        "window_hours": WINDOW_HOURS_LIVE,
+        "cutoff_ts": cutoff,
+        "last_successful_live_trade_ts": last_success_ts,
+        "successful_live_trades_in_window": in_window_success,
+        "most_recent_trade_success": most_recent_success,
+        "reason": reason,
+    }
+
+
 def run_backtest_matrix() -> List[Dict]:
     """Pull backtest matrix from the cockpit endpoint."""
     try:
@@ -242,25 +298,30 @@ def decide_and_apply():
 
         # Rule A: disable if losing and enough trades
         if currently_enabled and total_trades >= DISABLE_MIN_TRADES and total_pnl_pct < DISABLE_IF_PNL_PCT_BELOW:
-            if apply_toggle(name, False):
+            applied = AUTO_APPLY_ENABLED and apply_toggle(name, False)
+            if applied or AUTO_APPLY_ENABLED is False:
                 decisions.append({
                     "action": "disable",
                     "strategy": name,
                     "reason": f"actual live {total_pnl_pct:.2f}% over {total_trades} trades (threshold {DISABLE_IF_PNL_PCT_BELOW}%)",
                     "total_pnl_usd": round(total_pnl_usd, 3),
+                    "dry_run": not AUTO_APPLY_ENABLED,
                 })
             continue
 
         # Rule B: raise usd_size if winning
         if currently_enabled and total_trades >= RAISE_MIN_TRADES and total_pnl_pct > RAISE_IF_PNL_PCT_ABOVE:
             new_usd = min(usd * 1.25, 25.0)  # cap at $25
-            if abs(new_usd - usd) > 0.5 and apply_usd_size(name, new_usd):
-                decisions.append({
-                    "action": "raise_usd_size",
-                    "strategy": name,
-                    "from": usd, "to": new_usd,
-                    "reason": f"live {total_pnl_pct:.2f}% over {total_trades} trades",
-                })
+            if abs(new_usd - usd) > 0.5:
+                applied = AUTO_APPLY_ENABLED and apply_usd_size(name, new_usd)
+                if applied or AUTO_APPLY_ENABLED is False:
+                    decisions.append({
+                        "action": "raise_usd_size",
+                        "strategy": name,
+                        "from": usd, "to": new_usd,
+                        "reason": f"live {total_pnl_pct:.2f}% over {total_trades} trades",
+                        "dry_run": not AUTO_APPLY_ENABLED,
+                    })
 
         # Rule C: trim whitelist by losing symbols
         if currently_enabled and len(current_syms) > 1:
@@ -272,14 +333,17 @@ def decide_and_apply():
                     losing.append(sym)
             if losing:
                 new_syms = [s for s in current_syms if s not in losing]
-                if new_syms and apply_symbols(name, new_syms):
-                    decisions.append({
-                        "action": "trim_symbols",
-                        "strategy": name,
-                        "dropped": losing,
-                        "kept": new_syms,
-                        "reason": "per-symbol actual loss > 5%",
-                    })
+                if new_syms:
+                    applied = AUTO_APPLY_ENABLED and apply_symbols(name, new_syms)
+                    if applied or AUTO_APPLY_ENABLED is False:
+                        decisions.append({
+                            "action": "trim_symbols",
+                            "strategy": name,
+                            "dropped": losing,
+                            "kept": new_syms,
+                            "reason": "per-symbol actual loss > 5%",
+                            "dry_run": not AUTO_APPLY_ENABLED,
+                        })
 
         # Rule D: re-enable if backtest matrix shows a positive combo for a disabled strategy
         if not currently_enabled:
@@ -289,19 +353,23 @@ def decide_and_apply():
                 and r["win_rate_pct"] >= 55 and r["total_pnl_pct"] >= 5
             ]
             if profitable_syms:
-                if apply_toggle(name, True) and apply_symbols(name, profitable_syms):
+                applied = AUTO_APPLY_ENABLED and apply_toggle(name, True) and apply_symbols(name, profitable_syms)
+                if applied or AUTO_APPLY_ENABLED is False:
                     decisions.append({
                         "action": "reenable",
                         "strategy": name,
                         "symbols": profitable_syms,
                         "reason": f"backtest 30d matrix shows {len(profitable_syms)} profitable combos",
+                        "dry_run": not AUTO_APPLY_ENABLED,
                     })
 
     return {
         "decisions": decisions,
+        "dry_run": not AUTO_APPLY_ENABLED,
         "live_perf_rows": len(live_perf),
         "backtest_rows": len(backtest),
         "strategies_seen": len(strategies),
+        "live_data_freshness": live_data_freshness(),
     }
 
 
