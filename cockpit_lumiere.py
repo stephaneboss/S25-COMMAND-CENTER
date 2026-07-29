@@ -1301,6 +1301,33 @@ def ops_run():
             body = {'raw_len': len(r.text)}
         return jsonify({'ok': r.status_code == 200, 'status_code': r.status_code, 'response': body})
 
+    if op == 'jarvis_api_get':
+        # Read-only GET proxy into OpenJarvis, for exploring its API surface (agents,
+        # approvals, connectors, etc). POST/PATCH/DELETE deliberately not exposed here -
+        # mutating calls get their own dedicated, narrowly-scoped ops.
+        import requests as _jreq2
+        path = (args.get('path') or '').strip()
+        allowed_paths = {
+            '/v1/info', '/health', '/v1/agents', '/v1/managed-agents',
+            '/v1/approvals/pending', '/v1/connectors', '/v1/channels',
+            '/v1/skills', '/v1/sessions', '/v1/speech/health', '/v1/budget',
+        }
+        if path not in allowed_paths:
+            return jsonify({'ok': False, 'error': f'path not in whitelist {sorted(allowed_paths)}'}), 400
+        key = os.getenv('OPENJARVIS_API_KEY', '')
+        if not key:
+            return jsonify({'ok': False, 'error': 'OPENJARVIS_API_KEY not set'}), 400
+        try:
+            r = _jreq2.get(f'https://jarvis.smajor.org{path}',
+                            headers={'Authorization': f'Bearer {key}'}, timeout=10)
+        except _jreq2.RequestException as e:
+            return jsonify({'ok': False, 'error': f'request failed: {str(e)[:200]}'}), 502
+        try:
+            body = r.json()
+        except ValueError:
+            body = {'raw_len': len(r.text)}
+        return jsonify({'ok': r.status_code == 200, 'status_code': r.status_code, 'path': path, 'response': body})
+
     if op == 'shell_safe':
         cmd = (args.get('cmd') or '').strip()
         # Whitelist: only allow specific commands at the start, no pipes, redirections, semicolons
@@ -1322,7 +1349,7 @@ def ops_run():
                                       'git_status', 'git_log', 'disk_usage', 'ram_status',
                                       'gpu_status', 'process_check', 'cron_check', 'crontab_show',
                                       'docker_env_check', 'docker_inspect_safe', 'sync_secret_to_env',
-                                      'jarvis_health_check', 'shell_safe']}), 400
+                                      'jarvis_health_check', 'jarvis_api_get', 'shell_safe']}), 400
 
 
 @app.route('/openapi.yaml', methods=['GET'])
