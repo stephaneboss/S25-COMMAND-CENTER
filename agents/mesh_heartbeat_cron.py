@@ -71,7 +71,8 @@ LOCAL_AGENTS: Dict[str, Dict] = {
     "quant_brain": {
         "log": "/tmp/quant_brain.log", "interval": 3600,
         "type": "brain", "runtime": "local",
-        "capabilities": ["auto_tune_strategies", "re_enable_rules"],
+        "capabilities": ["auto_tune_strategies", "re_enable_rules",
+                          "trading_analysis", "strategy_planning"],
     },
     "system_health": {
         "log": "/tmp/system_health.log", "interval": 300,
