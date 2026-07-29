@@ -1080,6 +1080,8 @@ def ops_run():
                           -> existence/count only, NEVER returns the actual value
       - "docker_inspect_safe": { container: "..." }
                           -> redacted inspect (image, ports, mounts, restart policy, env VAR NAMES only)
+      - "sync_secret_to_env": { source_alias: "bras_alien_env", source_key: "...", dest_key: "..." }
+                          -> copies a value server-side into S25's .env, response never contains the value
       - "shell_safe":   { cmd: "...", safe whitelist regex }
     """
     if request.headers.get('X-S25-Secret') != os.getenv('S25_SHARED_SECRET', ''):
@@ -1219,6 +1221,66 @@ def ops_run():
         }
         return jsonify({'ok': True, 'container': container, 'inspect': redacted})
 
+    if op == 'sync_secret_to_env':
+        # Copies a value from a whitelisted source .env into S25's own .env, entirely
+        # server-side. The value itself is NEVER included in the HTTP response - only the
+        # key names and the copied value's length (for a sanity check) are returned.
+        source_alias = (args.get('source_alias') or '').strip()
+        source_key = (args.get('source_key') or '').strip()
+        dest_key = (args.get('dest_key') or source_key).strip()
+        source_map = {
+            'bras_alien_env': '/opt/s25/agents/bras-alien/.env',
+        }
+        source_path = source_map.get(source_alias)
+        if not source_path:
+            return jsonify({'ok': False, 'error': f'source_alias not in whitelist {sorted(source_map)}'}), 400
+        if not source_key or not _re.match(r'^[A-Z0-9_]+$', source_key):
+            return jsonify({'ok': False, 'error': 'invalid source_key'}), 400
+        if not dest_key or not _re.match(r'^[A-Z0-9_]+$', dest_key):
+            return jsonify({'ok': False, 'error': 'invalid dest_key'}), 400
+        try:
+            with open(source_path, encoding='utf-8') as f:
+                source_lines = f.readlines()
+        except OSError as e:
+            return jsonify({'ok': False, 'error': f'cannot read source: {e}'}), 502
+        value = None
+        for line in source_lines:
+            stripped = line.strip()
+            if stripped.startswith(f'{source_key}='):
+                value = stripped.split('=', 1)[1].strip().strip('"').strip("'")
+                break
+        if value is None:
+            return jsonify({'ok': False, 'error': f'{source_key} not found in {source_alias}'}), 404
+        if not value:
+            return jsonify({'ok': False, 'error': f'{source_key} present but empty in {source_alias}'}), 422
+        dest_path = '/home/alienstef/S25-COMMAND-CENTER/.env'
+        try:
+            with open(dest_path, encoding='utf-8') as f:
+                dest_lines = f.readlines()
+        except OSError as e:
+            return jsonify({'ok': False, 'error': f'cannot read dest: {e}'}), 502
+        replaced = False
+        new_lines = []
+        for line in dest_lines:
+            if line.strip().startswith(f'{dest_key}='):
+                new_lines.append(f'{dest_key}={value}\n')
+                replaced = True
+            else:
+                new_lines.append(line)
+        if not replaced:
+            if new_lines and not new_lines[-1].endswith('\n'):
+                new_lines[-1] += '\n'
+            new_lines.append(f'{dest_key}={value}\n')
+        try:
+            with open(dest_path, 'w', encoding='utf-8') as f:
+                f.writelines(new_lines)
+        except OSError as e:
+            return jsonify({'ok': False, 'error': f'cannot write dest: {e}'}), 502
+        return jsonify({'ok': True, 'source_alias': source_alias, 'source_key': source_key,
+                        'dest_key': dest_key, 'dest_path': dest_path,
+                        'value_length': len(value), 'action': 'replaced' if replaced else 'appended',
+                        'note': 'value copied server-side, never included in this response'})
+
     if op == 'shell_safe':
         cmd = (args.get('cmd') or '').strip()
         # Whitelist: only allow specific commands at the start, no pipes, redirections, semicolons
@@ -1239,7 +1301,8 @@ def ops_run():
                     'available_ops': ['log_tail', 'agent_restart', 'service_status',
                                       'git_status', 'git_log', 'disk_usage', 'ram_status',
                                       'gpu_status', 'process_check', 'cron_check', 'crontab_show',
-                                      'docker_env_check', 'docker_inspect_safe', 'shell_safe']}), 400
+                                      'docker_env_check', 'docker_inspect_safe', 'sync_secret_to_env',
+                                      'shell_safe']}), 400
 
 
 @app.route('/openapi.yaml', methods=['GET'])
