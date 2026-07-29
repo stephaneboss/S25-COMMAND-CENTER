@@ -55,18 +55,33 @@ def record_trade(entry: TradeEntry) -> bool:
 
 
 def _load_all() -> List[Dict[str, Any]]:
+    """Load trades_log.jsonl, deduplicated by trade_id (first occurrence wins).
+
+    The log is append-only and a retried record_trade() call (e.g. after a network
+    timeout that actually succeeded server-side) can append the same trade_id twice.
+    Without this, compute_positions() would double-count that fill's size/PnL.
+    Entries with a missing/empty trade_id are never deduplicated against each other
+    (kept as-is) since there's nothing reliable to key on.
+    """
     if not LOG_PATH.exists():
         return []
     out = []
+    seen_trade_ids: set = set()
     try:
         for line in LOG_PATH.read_text().splitlines():
             line = line.strip()
             if not line:
                 continue
             try:
-                out.append(json.loads(line))
+                entry = json.loads(line)
             except Exception:
                 continue
+            tid = entry.get("trade_id")
+            if tid:
+                if tid in seen_trade_ids:
+                    continue
+                seen_trade_ids.add(tid)
+            out.append(entry)
     except Exception as e:
         logger.warning("load_all failed: %s", e)
     return out
