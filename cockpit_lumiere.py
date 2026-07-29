@@ -1082,6 +1082,7 @@ def ops_run():
                           -> redacted inspect (image, ports, mounts, restart policy, env VAR NAMES only)
       - "sync_secret_to_env": { source_alias: "bras_alien_env", source_key: "...", dest_key: "..." }
                           -> copies a value server-side into S25's .env, response never contains the value
+      - "jarvis_health_check": {} -> authenticated probe of jarvis.smajor.org using this process's own env
       - "shell_safe":   { cmd: "...", safe whitelist regex }
     """
     if request.headers.get('X-S25-Secret') != os.getenv('S25_SHARED_SECRET', ''):
@@ -1281,6 +1282,25 @@ def ops_run():
                         'value_length': len(value), 'action': 'replaced' if replaced else 'appended',
                         'note': 'value copied server-side, never included in this response'})
 
+    if op == 'jarvis_health_check':
+        # Server-side authenticated probe against the real OpenJarvis API. The key is
+        # read from this process's own env and used only for the outbound header -
+        # never echoed back in the response.
+        import requests as _jreq
+        key = os.getenv('OPENJARVIS_API_KEY', '')
+        if not key:
+            return jsonify({'ok': False, 'error': 'OPENJARVIS_API_KEY not set in this process env (restart needed after sync_secret_to_env?)'}), 400
+        try:
+            r = _jreq.get('https://jarvis.smajor.org/v1/info',
+                           headers={'Authorization': f'Bearer {key}'}, timeout=10)
+        except _jreq.RequestException as e:
+            return jsonify({'ok': False, 'error': f'request failed: {str(e)[:200]}'}), 502
+        try:
+            body = r.json()
+        except ValueError:
+            body = {'raw_len': len(r.text)}
+        return jsonify({'ok': r.status_code == 200, 'status_code': r.status_code, 'response': body})
+
     if op == 'shell_safe':
         cmd = (args.get('cmd') or '').strip()
         # Whitelist: only allow specific commands at the start, no pipes, redirections, semicolons
@@ -1302,7 +1322,7 @@ def ops_run():
                                       'git_status', 'git_log', 'disk_usage', 'ram_status',
                                       'gpu_status', 'process_check', 'cron_check', 'crontab_show',
                                       'docker_env_check', 'docker_inspect_safe', 'sync_secret_to_env',
-                                      'shell_safe']}), 400
+                                      'jarvis_health_check', 'shell_safe']}), 400
 
 
 @app.route('/openapi.yaml', methods=['GET'])
