@@ -1282,6 +1282,44 @@ def ops_run():
                         'value_length': len(value), 'action': 'replaced' if replaced else 'appended',
                         'note': 'value copied server-side, never included in this response'})
 
+    if op == 'set_secret_in_env':
+        # Writes a caller-supplied value into S25's .env. The value travels once,
+        # over the same authenticated HTTPS channel as every other ops/run call
+        # (same trust boundary as sync_secret_to_env), and is NEVER echoed back in
+        # the response - only length + action, exactly like sync_secret_to_env.
+        dest_key = (args.get('key') or '').strip()
+        value = args.get('value')
+        if not dest_key or not _re.match(r'^[A-Z0-9_]+$', dest_key):
+            return jsonify({'ok': False, 'error': 'invalid key (uppercase alphanumeric + underscore only)'}), 400
+        if not isinstance(value, str) or not value:
+            return jsonify({'ok': False, 'error': 'value must be a non-empty string'}), 400
+        dest_path = '/home/alienstef/S25-COMMAND-CENTER/.env'
+        try:
+            with open(dest_path, encoding='utf-8') as f:
+                dest_lines = f.readlines()
+        except OSError as e:
+            return jsonify({'ok': False, 'error': f'cannot read dest: {e}'}), 502
+        replaced = False
+        new_lines = []
+        for line in dest_lines:
+            if line.strip().startswith(f'{dest_key}='):
+                new_lines.append(f'{dest_key}={value}\n')
+                replaced = True
+            else:
+                new_lines.append(line)
+        if not replaced:
+            if new_lines and not new_lines[-1].endswith('\n'):
+                new_lines[-1] += '\n'
+            new_lines.append(f'{dest_key}={value}\n')
+        try:
+            with open(dest_path, 'w', encoding='utf-8') as f:
+                f.writelines(new_lines)
+        except OSError as e:
+            return jsonify({'ok': False, 'error': f'cannot write dest: {e}'}), 502
+        return jsonify({'ok': True, 'dest_key': dest_key, 'dest_path': dest_path,
+                        'value_length': len(value), 'action': 'replaced' if replaced else 'appended',
+                        'note': 'value written server-side, never included in this response'})
+
     if op == 'jarvis_health_check':
         # Server-side authenticated probe against the real OpenJarvis API. The key is
         # read from this process's own env and used only for the outbound header -
@@ -1409,8 +1447,8 @@ def ops_run():
                                       'git_status', 'git_log', 'disk_usage', 'ram_status',
                                       'gpu_status', 'process_check', 'cron_check', 'crontab_show',
                                       'docker_env_check', 'docker_inspect_safe', 'sync_secret_to_env',
-                                      'jarvis_health_check', 'jarvis_api_get', 'jarvis_api_post',
-                                      'patch_agent_capabilities', 'shell_safe']}), 400
+                                      'set_secret_in_env', 'jarvis_health_check', 'jarvis_api_get',
+                                      'jarvis_api_post', 'patch_agent_capabilities', 'shell_safe']}), 400
 
 
 @app.route('/openapi.yaml', methods=['GET'])
