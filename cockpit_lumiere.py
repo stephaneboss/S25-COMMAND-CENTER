@@ -1320,6 +1320,27 @@ def ops_run():
                         'value_length': len(value), 'action': 'replaced' if replaced else 'appended',
                         'note': 'value written server-side, never included in this response'})
 
+    if op == 'run_news_scanner':
+        # Runs one tick of a whitelisted news/intel scanner module and returns its
+        # stdout. Scoped to modules that only read market data + write
+        # memory/news_scan.json + optionally push HA sensors - no trading, no
+        # fund movement, no secret exposure (scanners read their own API key
+        # from env/vault, never accept one from the caller).
+        module = (args.get('module') or '').strip()
+        allowed_modules = {'agents.perplexity_news_scanner', 'agents.gemini_news_scanner'}
+        if module not in allowed_modules:
+            return jsonify({'ok': False, 'error': f'module not in whitelist {sorted(allowed_modules)}'}), 400
+        try:
+            r = _sub.run(
+                ['/home/alienstef/S25-COMMAND-CENTER/.venv/bin/python', '-m', module],
+                cwd='/home/alienstef/S25-COMMAND-CENTER',
+                capture_output=True, text=True, timeout=90,
+            )
+        except _sub.TimeoutExpired:
+            return jsonify({'ok': False, 'error': 'scanner timeout after 90s'}), 504
+        return jsonify({'ok': r.returncode == 0, 'module': module, 'returncode': r.returncode,
+                        'stdout': r.stdout[-3000:], 'stderr': r.stderr[-1000:]})
+
     if op == 'jarvis_health_check':
         # Server-side authenticated probe against the real OpenJarvis API. The key is
         # read from this process's own env and used only for the outbound header -
@@ -1447,8 +1468,9 @@ def ops_run():
                                       'git_status', 'git_log', 'disk_usage', 'ram_status',
                                       'gpu_status', 'process_check', 'cron_check', 'crontab_show',
                                       'docker_env_check', 'docker_inspect_safe', 'sync_secret_to_env',
-                                      'set_secret_in_env', 'jarvis_health_check', 'jarvis_api_get',
-                                      'jarvis_api_post', 'patch_agent_capabilities', 'shell_safe']}), 400
+                                      'set_secret_in_env', 'run_news_scanner', 'jarvis_health_check',
+                                      'jarvis_api_get', 'jarvis_api_post', 'patch_agent_capabilities',
+                                      'shell_safe']}), 400
 
 
 @app.route('/openapi.yaml', methods=['GET'])
