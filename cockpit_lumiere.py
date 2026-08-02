@@ -1341,6 +1341,31 @@ def ops_run():
         return jsonify({'ok': r.returncode == 0, 'module': module, 'returncode': r.returncode,
                         'stdout': r.stdout[-3000:], 'stderr': r.stderr[-1000:]})
 
+    if op == 'add_cron_line':
+        # Appends ONE exact, pre-approved cron line via the standard crontab -l / crontab -
+        # round-trip (preserves every existing entry, never rewrites the whole file blindly).
+        # Idempotent: no-ops if the line is already present. Whitelist of exact strings only -
+        # never accepts an arbitrary caller-supplied command.
+        line = (args.get('line') or '').strip()
+        allowed_lines = {
+            '*/30 * * * * cd /home/alienstef/S25-COMMAND-CENTER && set -a && . ./.env && set +a && .venv/bin/python -m agents.perplexity_news_scanner >> /tmp/perplexity_news.log 2>&1',
+        }
+        if line not in allowed_lines:
+            return jsonify({'ok': False, 'error': 'line not in whitelist', 'allowed': sorted(allowed_lines)}), 400
+        current = _exec(['crontab', '-l'])
+        if not current.get('ok'):
+            return jsonify({'ok': False, 'error': 'cannot read current crontab', 'detail': current}), 502
+        existing = current.get('stdout', '')
+        if line in existing:
+            return jsonify({'ok': True, 'action': 'already_present'})
+        new_content = existing.rstrip('\n') + '\n' + line + '\n'
+        try:
+            r = _sub.run(['crontab', '-'], input=new_content, capture_output=True, text=True, timeout=10)
+        except _sub.TimeoutExpired:
+            return jsonify({'ok': False, 'error': 'crontab write timeout'}), 504
+        return jsonify({'ok': r.returncode == 0, 'action': 'appended', 'returncode': r.returncode,
+                        'stderr': r.stderr[-500:]})
+
     if op == 'jarvis_health_check':
         # Server-side authenticated probe against the real OpenJarvis API. The key is
         # read from this process's own env and used only for the outbound header -
@@ -1468,9 +1493,9 @@ def ops_run():
                                       'git_status', 'git_log', 'disk_usage', 'ram_status',
                                       'gpu_status', 'process_check', 'cron_check', 'crontab_show',
                                       'docker_env_check', 'docker_inspect_safe', 'sync_secret_to_env',
-                                      'set_secret_in_env', 'run_news_scanner', 'jarvis_health_check',
-                                      'jarvis_api_get', 'jarvis_api_post', 'patch_agent_capabilities',
-                                      'shell_safe']}), 400
+                                      'set_secret_in_env', 'run_news_scanner', 'add_cron_line',
+                                      'jarvis_health_check', 'jarvis_api_get', 'jarvis_api_post',
+                                      'patch_agent_capabilities', 'shell_safe']}), 400
 
 
 @app.route('/openapi.yaml', methods=['GET'])
