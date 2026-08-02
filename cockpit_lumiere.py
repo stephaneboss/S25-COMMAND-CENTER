@@ -1419,7 +1419,7 @@ def ops_run():
         import requests as _jreq3
         path = (args.get('path') or '').strip()
         body_data = args.get('body') or {}
-        allowed_paths = {'/v1/managed-agents'}
+        allowed_paths = {'/v1/managed-agents', '/v1/connectors/whatsapp/connect'}
         if path not in allowed_paths:
             return jsonify({'ok': False, 'error': f'path not in whitelist {sorted(allowed_paths)}'}), 400
         key = os.getenv('OPENJARVIS_API_KEY', '')
