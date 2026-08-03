@@ -931,7 +931,7 @@ def kimi_health():
             status['cloudflare']['reachable'] = False
             status['cloudflare']['error'] = str(e)[:100]
     ok = any(s['reachable'] for s in status.values() if s['reachable'])
-    return jsonify({'ok': ok, 'backends': status, 'default_model': os.getenv('KIMI_MODEL', 'kimi-k2-6')})
+    return jsonify({'ok': ok, 'backends': status, 'default_model': os.getenv('KIMI_MODEL', 'kimi-k2.6')})
 
 
 @app.route('/api/kimi/chat', methods=['POST'])
@@ -942,7 +942,7 @@ def kimi_chat():
       { "message": "...",
         "history": [{role, content}] (optional),
         "system": "..." (optional),
-        "model": "kimi-k2-6" (optional, default from env),
+        "model": "kimi-k2.6" (optional, default from env),
         "temperature": 0.7 (optional),
         "backend": "moonshot|cloudflare|auto" (optional, default auto) }
 
@@ -950,19 +950,17 @@ def kimi_chat():
     """
     if request.headers.get('X-S25-Secret') != os.getenv('S25_SHARED_SECRET', ''):
         return jsonify({"ok": False, "error": "unauthorized"}), 401
-    try:
-        with open('/tmp/kimi_chat_debug.log', 'a') as _dbg:
-            import time as _dbgtime
-            _dbg.write(f'{_dbgtime.time()} kimi_chat route entered\n')
-    except Exception:
-        pass
     body = request.get_json(silent=True) or {}
     message = (body.get('message') or body.get('prompt') or '').strip()
     if not message:
         return jsonify({"ok": False, "error": "missing message"}), 400
     system = body.get('system') or 'Tu es Kimi K2.6, assistant IA agentic pour S25 Lumiere de Stef (Major). Reponds en francais, direct et operationnel.'
     history = body.get('history') or []
-    model = body.get('model') or os.getenv('KIMI_MODEL', 'kimi-k2-6')
+    # 2026-08-03: was 'kimi-k2-6' (dash) - Moonshot's actual model id uses a dot
+    # ('kimi-k2.6'), causing every native Moonshot call to 404
+    # ("Not found the model kimi-k2-6 or Permission denied"). Confirmed against
+    # the live /v1/models list for this account.
+    model = body.get('model') or os.getenv('KIMI_MODEL', 'kimi-k2.6')
     temperature = float(body.get('temperature', 0.6))
     backend = (body.get('backend') or 'auto').lower()
     messages = [{'role': 'system', 'content': system}]
@@ -971,45 +969,24 @@ def kimi_chat():
             messages.append({'role': h['role'], 'content': h['content']})
     messages.append({'role': 'user', 'content': message})
 
-    def _dbglog(msg):
-        try:
-            with open('/tmp/kimi_chat_debug.log', 'a') as _f:
-                import time as _t
-                _f.write(f'{_t.time()} {msg}\n')
-        except Exception:
-            pass
-
     def _try_moonshot():
-        _dbglog('_try_moonshot: enter')
         key = os.getenv('KIMI_API_KEY', '').strip() or os.getenv('MOONSHOT_API_KEY', '').strip()
-        _dbglog(f'_try_moonshot: key_present={bool(key)} key_len={len(key)}')
         if not key:
             return None, 'KIMI_API_KEY empty'
         try:
-            _mr = requests.get('https://api.moonshot.ai/v1/models',
-                                headers={'Authorization': f'Bearer {key}'}, timeout=8)
-            _mids = [m.get('id') for m in (_mr.json().get('data') or [])] if _mr.ok else f'HTTP {_mr.status_code}'
-            _dbglog(f'_try_moonshot: available models = {_mids}')
-        except Exception as _me:
-            _dbglog(f'_try_moonshot: models list fetch failed: {_me}')
-        try:
-            _dbglog('_try_moonshot: before requests.post')
             r = requests.post(
                 'https://api.moonshot.ai/v1/chat/completions',
                 headers={'Authorization': f'Bearer {key}', 'Content-Type': 'application/json'},
                 json={'model': model, 'messages': messages, 'temperature': temperature, 'stream': False},
                 timeout=45,
             )
-            _dbglog(f'_try_moonshot: after requests.post status={r.status_code} body={r.text[:300]}')
             if not r.ok:
                 return None, f'Moonshot HTTP {r.status_code}: {r.text[:160]}'
             d = r.json()
             reply = d['choices'][0]['message']['content']
             usage = d.get('usage', {})
-            _dbglog('_try_moonshot: success, returning')
             return {'reply': reply, 'backend': 'moonshot', 'model': d.get('model', model), 'usage': usage}, None
         except Exception as e:
-            _dbglog(f'_try_moonshot: EXCEPTION {type(e).__name__}: {str(e)[:200]}')
             return None, f'Moonshot: {str(e)[:160]}'
 
     def _try_cloudflare():
