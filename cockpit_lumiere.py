@@ -986,6 +986,13 @@ def kimi_chat():
         if not key:
             return None, 'KIMI_API_KEY empty'
         try:
+            _mr = requests.get('https://api.moonshot.ai/v1/models',
+                                headers={'Authorization': f'Bearer {key}'}, timeout=8)
+            _mids = [m.get('id') for m in (_mr.json().get('data') or [])] if _mr.ok else f'HTTP {_mr.status_code}'
+            _dbglog(f'_try_moonshot: available models = {_mids}')
+        except Exception as _me:
+            _dbglog(f'_try_moonshot: models list fetch failed: {_me}')
+        try:
             _dbglog('_try_moonshot: before requests.post')
             r = requests.post(
                 'https://api.moonshot.ai/v1/chat/completions',
