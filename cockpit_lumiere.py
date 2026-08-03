@@ -950,6 +950,12 @@ def kimi_chat():
     """
     if request.headers.get('X-S25-Secret') != os.getenv('S25_SHARED_SECRET', ''):
         return jsonify({"ok": False, "error": "unauthorized"}), 401
+    try:
+        with open('/tmp/kimi_chat_debug.log', 'a') as _dbg:
+            import time as _dbgtime
+            _dbg.write(f'{_dbgtime.time()} kimi_chat route entered\n')
+    except Exception:
+        pass
     body = request.get_json(silent=True) or {}
     message = (body.get('message') or body.get('prompt') or '').strip()
     if not message:
