@@ -961,7 +961,9 @@ def kimi_chat():
     # ("Not found the model kimi-k2-6 or Permission denied"). Confirmed against
     # the live /v1/models list for this account.
     model = body.get('model') or os.getenv('KIMI_MODEL', 'kimi-k2.6')
-    temperature = float(body.get('temperature', 0.6))
+    # 2026-08-03: Moonshot's kimi-k2.x models reject any temperature other than 1
+    # ("invalid temperature: only 1 is allowed for this model") - force it for that family.
+    temperature = 1.0 if model.startswith('kimi-k2') else float(body.get('temperature', 0.6))
     backend = (body.get('backend') or 'auto').lower()
     messages = [{'role': 'system', 'content': system}]
     for h in history[-10:]:
