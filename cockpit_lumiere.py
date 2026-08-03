@@ -971,24 +971,38 @@ def kimi_chat():
             messages.append({'role': h['role'], 'content': h['content']})
     messages.append({'role': 'user', 'content': message})
 
+    def _dbglog(msg):
+        try:
+            with open('/tmp/kimi_chat_debug.log', 'a') as _f:
+                import time as _t
+                _f.write(f'{_t.time()} {msg}\n')
+        except Exception:
+            pass
+
     def _try_moonshot():
+        _dbglog('_try_moonshot: enter')
         key = os.getenv('KIMI_API_KEY', '').strip() or os.getenv('MOONSHOT_API_KEY', '').strip()
+        _dbglog(f'_try_moonshot: key_present={bool(key)} key_len={len(key)}')
         if not key:
             return None, 'KIMI_API_KEY empty'
         try:
+            _dbglog('_try_moonshot: before requests.post')
             r = requests.post(
                 'https://api.moonshot.ai/v1/chat/completions',
                 headers={'Authorization': f'Bearer {key}', 'Content-Type': 'application/json'},
                 json={'model': model, 'messages': messages, 'temperature': temperature, 'stream': False},
                 timeout=45,
             )
+            _dbglog(f'_try_moonshot: after requests.post status={r.status_code}')
             if not r.ok:
                 return None, f'Moonshot HTTP {r.status_code}: {r.text[:160]}'
             d = r.json()
             reply = d['choices'][0]['message']['content']
             usage = d.get('usage', {})
+            _dbglog('_try_moonshot: success, returning')
             return {'reply': reply, 'backend': 'moonshot', 'model': d.get('model', model), 'usage': usage}, None
         except Exception as e:
+            _dbglog(f'_try_moonshot: EXCEPTION {type(e).__name__}: {str(e)[:200]}')
             return None, f'Moonshot: {str(e)[:160]}'
 
     def _try_cloudflare():
