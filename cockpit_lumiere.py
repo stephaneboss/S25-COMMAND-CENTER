@@ -993,7 +993,7 @@ def kimi_chat():
                 json={'model': model, 'messages': messages, 'temperature': temperature, 'stream': False},
                 timeout=45,
             )
-            _dbglog(f'_try_moonshot: after requests.post status={r.status_code}')
+            _dbglog(f'_try_moonshot: after requests.post status={r.status_code} body={r.text[:300]}')
             if not r.ok:
                 return None, f'Moonshot HTTP {r.status_code}: {r.text[:160]}'
             d = r.json()
