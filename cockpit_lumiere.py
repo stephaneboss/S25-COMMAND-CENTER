@@ -896,6 +896,7 @@ def kimi_health():
     status = {
         'moonshot': {'configured': False, 'reachable': None, 'error': None},
         'cloudflare': {'configured': False, 'reachable': None, 'error': None},
+        'runpod': {'configured': False, 'reachable': None, 'error': None},
     }
     moonshot_key = os.getenv('KIMI_API_KEY', '').strip() or os.getenv('MOONSHOT_API_KEY', '').strip()
     if moonshot_key:
@@ -930,6 +931,17 @@ def kimi_health():
         except Exception as e:
             status['cloudflare']['reachable'] = False
             status['cloudflare']['error'] = str(e)[:100]
+    runpod_url = os.getenv('RUNPOD_LLM_URL', '').strip()
+    if runpod_url:
+        status['runpod']['configured'] = True
+        try:
+            r = requests.get(f'{runpod_url.rstrip("/")}/api/version', timeout=8)
+            status['runpod']['reachable'] = r.ok
+            if not r.ok:
+                status['runpod']['error'] = f'HTTP {r.status_code}'
+        except Exception as e:
+            status['runpod']['reachable'] = False
+            status['runpod']['error'] = str(e)[:100]
     ok = any(s['reachable'] for s in status.values() if s['reachable'])
     return jsonify({'ok': ok, 'backends': status, 'default_model': os.getenv('KIMI_MODEL', 'kimi-k2.6')})
 
@@ -944,7 +956,9 @@ def kimi_chat():
         "system": "..." (optional),
         "model": "kimi-k2.6" (optional, default from env),
         "temperature": 0.7 (optional),
-        "backend": "moonshot|cloudflare|auto" (optional, default auto) }
+        "backend": "moonshot|cloudflare|runpod|auto" (optional, default auto - "runpod" must
+                    be requested explicitly, it is never used by the auto fallback since the
+                    RunPod GPU pod bills per hour while running) }
 
     Auth: X-S25-Secret header.
     """
@@ -1054,10 +1068,41 @@ def kimi_chat():
                 return None, f'CF [{cf_model}]: {str(e)[:160]}'
         return None, f'CF: no working Kimi model found (tried {len(seen)})'
 
+    def _try_runpod():
+        # Self-hosted Ollama on a RunPod GPU pod - billed per hour while the pod
+        # runs, so this is intentionally NOT in the 'auto' fallback order below.
+        # Must be requested explicitly via backend="runpod".
+        url = os.getenv('RUNPOD_LLM_URL', '').strip().rstrip('/')
+        if not url:
+            return None, 'RUNPOD_LLM_URL not set'
+        rp_model = os.getenv('RUNPOD_LLM_MODEL', 'qwen2.5:14b-instruct').strip()
+        try:
+            r = requests.post(
+                f'{url}/api/chat',
+                json={'model': rp_model, 'messages': messages, 'stream': False,
+                      'options': {'temperature': temperature}},
+                timeout=90,
+            )
+            if not r.ok:
+                return None, f'RunPod HTTP {r.status_code}: {r.text[:160]}'
+            d = r.json()
+            reply = (d.get('message') or {}).get('content', '')
+            if not reply:
+                return None, 'RunPod: empty response'
+            return {'reply': reply, 'backend': 'runpod', 'model': rp_model,
+                    'usage': {'eval_count': d.get('eval_count'), 'total_duration_ns': d.get('total_duration')}}, None
+        except Exception as e:
+            return None, f'RunPod: {str(e)[:160]}'
+
     errors = []
     order = ['moonshot', 'cloudflare'] if backend == 'auto' else [backend]
+    dispatch = {'moonshot': _try_moonshot, 'cloudflare': _try_cloudflare, 'runpod': _try_runpod}
     for b in order:
-        result, err = (_try_moonshot if b == 'moonshot' else _try_cloudflare)()
+        fn = dispatch.get(b)
+        if not fn:
+            errors.append(f'{b}: unknown backend')
+            continue
+        result, err = fn()
         if result:
             return jsonify({'ok': True, **result})
         errors.append(f'{b}: {err}')
