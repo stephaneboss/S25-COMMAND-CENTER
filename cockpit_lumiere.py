@@ -1089,6 +1089,10 @@ def ops_run():
       - "sync_secret_to_env": { source_alias: "bras_alien_env", source_key: "...", dest_key: "..." }
                           -> copies a value server-side into S25's .env, response never contains the value
       - "jarvis_health_check": {} -> authenticated probe of jarvis.smajor.org using this process's own env
+      - "patch_agent_status": { agent_id: "...", status: "online|degraded|stale|disabled" (optional),
+                                reason: "..." (optional) } -> corrects an existing agent's registry
+                                entry, additive metadata only, cannot create/delete agents,
+                                HOME_ASSISTANT is out of scope
       - "shell_safe":   { cmd: "...", safe whitelist regex }
     """
     if request.headers.get('X-S25-Secret') != os.getenv('S25_SHARED_SECRET', ''):
@@ -1478,6 +1482,51 @@ def ops_run():
         return jsonify({'ok': True, 'agent_id': agent_id, 'added': added,
                         'capabilities_now': entry['capabilities']})
 
+    if op == 'patch_agent_status':
+        # Corrects status/metadata on an EXISTING mesh agent entry when the registry
+        # no longer reflects reality (e.g. legacy heartbeat-based entries superseded
+        # by an on-demand API route, or a live executor stuck at a stale timestamp
+        # because nothing refreshes it). Cannot create or delete agents. status is
+        # optional (metadata-only annotation also allowed). HOME_ASSISTANT is
+        # explicitly out of scope for this op.
+        import json as _pjson
+        from datetime import datetime as _dt, timezone as _tz
+        agent_id = (args.get('agent_id') or '').strip()
+        new_status = (args.get('status') or '').strip()
+        reason = (args.get('reason') or '').strip()
+        allowed_status = {'', 'online', 'degraded', 'stale', 'disabled'}
+        if agent_id == 'HOME_ASSISTANT':
+            return jsonify({'ok': False, 'error': 'HOME_ASSISTANT is out of scope for this op'}), 400
+        if not agent_id or not _re.match(r'^[A-Za-z0-9_\-]+$', agent_id):
+            return jsonify({'ok': False, 'error': 'invalid agent_id'}), 400
+        if new_status not in allowed_status:
+            return jsonify({'ok': False, 'error': f'status must be one of {sorted(allowed_status)}'}), 400
+        if not new_status and not reason:
+            return jsonify({'ok': False, 'error': 'provide status and/or reason'}), 400
+        agents_path = '/home/alienstef/S25-COMMAND-CENTER/memory/command_mesh/agents.json'
+        try:
+            with open(agents_path, encoding='utf-8') as f:
+                store = _pjson.load(f)
+        except (OSError, ValueError) as e:
+            return jsonify({'ok': False, 'error': f'cannot read agents.json: {e}'}), 502
+        items = store.get('items', {})
+        if agent_id not in items:
+            return jsonify({'ok': False, 'error': f'agent_id not found in agents.json: {agent_id}',
+                            'known_agents': sorted(items.keys())}), 404
+        entry = items[agent_id]
+        if new_status:
+            entry['status'] = new_status
+        if reason:
+            entry.setdefault('metadata', {})['status_reason'] = reason
+        entry['last_seen_at'] = _dt.now(_tz.utc).isoformat()
+        try:
+            with open(agents_path, 'w', encoding='utf-8') as f:
+                _pjson.dump(store, f, indent=2, ensure_ascii=False)
+        except OSError as e:
+            return jsonify({'ok': False, 'error': f'cannot write agents.json: {e}'}), 502
+        return jsonify({'ok': True, 'agent_id': agent_id, 'status_now': entry.get('status'),
+                        'reason': reason or None})
+
     if op == 'shell_safe':
         cmd = (args.get('cmd') or '').strip()
         # Whitelist: only allow specific commands at the start, no pipes, redirections, semicolons
@@ -1501,7 +1550,7 @@ def ops_run():
                                       'docker_env_check', 'docker_inspect_safe', 'sync_secret_to_env',
                                       'set_secret_in_env', 'run_news_scanner', 'add_cron_line',
                                       'jarvis_health_check', 'jarvis_api_get', 'jarvis_api_post',
-                                      'patch_agent_capabilities', 'shell_safe']}), 400
+                                      'patch_agent_capabilities', 'patch_agent_status', 'shell_safe']}), 400
 
 
 @app.route('/openapi.yaml', methods=['GET'])

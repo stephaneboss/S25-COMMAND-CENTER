@@ -84,6 +84,11 @@ LOCAL_AGENTS: Dict[str, Dict] = {
         "type": "infra", "runtime": "local",
         "capabilities": ["git_pull"],
     },
+    "perplexity_news_scanner": {
+        "log": "/tmp/perplexity_news.log", "interval": 1800,
+        "type": "intel", "runtime": "local",
+        "capabilities": ["market_news", "sentiment_scan", "perplexity_api"],
+    },
 }
 
 
