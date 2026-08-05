@@ -4542,6 +4542,10 @@ def api_coinbase_live_mode():
         from agents.coinbase_executor import CoinbaseExecutor, get_executor
         import pathlib
         flag = pathlib.Path(CoinbaseExecutor.LIVE_FLAG_PATH)
+        # SECURITY: mutating the live-trade flag requires the shared secret.
+        _mutating = request.method == "POST" or request.args.get("enabled") is not None
+        if _mutating and request.headers.get("X-S25-Secret") != os.getenv("S25_SHARED_SECRET", "MYN5VGqsJZ9MwYqvJ3mbwEfh0n4TZ4b7C7TjuwVp-2A"):
+            return jsonify({"ok": False, "error": "unauthorized"}), 401
 
         if request.method == 'GET':
             # Support URL-triggered flips: /api/coinbase/live-mode?enabled=true|false
