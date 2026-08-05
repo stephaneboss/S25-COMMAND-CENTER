@@ -570,6 +570,20 @@ def api_status():
         "comet_intel": "En attente...",
         "tunnel_active": False
     }
+    # COMET fallback: HA offline returns early below; seed comet_intel from the
+    # freshest local Perplexity scan (memory/news_scan.json) so intel shows even
+    # without Home Assistant. Display only, no trading impact.
+    try:
+        import json as _cj
+        from pathlib import Path as _CP
+        _ns = _CP(__file__).parent / "memory" / "news_scan.json"
+        if _ns.exists():
+            _nd = _cj.loads(_ns.read_text(encoding="utf-8"))
+            _nr = _nd.get("results") or []
+            if _nr and _nr[0].get("summary"):
+                status["comet_intel"] = _nr[0]["summary"][:280]
+    except Exception:
+        pass
 
     if not ha_bridge.connected:
         return jsonify(status)
