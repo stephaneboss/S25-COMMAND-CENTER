@@ -64,9 +64,9 @@
     "symbols": [
       "DOGE-USD"
     ],
-    "last_signal_ts": 1786150503.4180684,
+    "last_signal_ts": 1786152303.347782,
     "last_signal_symbol": "DOGE-USD",
-    "total_signals": 1332,
+    "total_signals": 1337,
     "last_signal_action": "BUY"
   },
   "volume_surge": {
