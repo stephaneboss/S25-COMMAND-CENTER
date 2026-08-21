@@ -29,9 +29,9 @@
   "breakout_1h": {
     "enabled": true,
     "usd_size": 5.0,
-    "last_signal_ts": 1787279103.3722188,
+    "last_signal_ts": 1787280902.9685605,
     "last_signal_symbol": "ATOM-USD",
-    "total_signals": 593,
+    "total_signals": 599,
     "symbols": [
       "ATOM-USD"
     ],
