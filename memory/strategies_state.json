@@ -29,9 +29,9 @@
   "breakout_1h": {
     "enabled": true,
     "usd_size": 5.0,
-    "last_signal_ts": 1788872413.202913,
+    "last_signal_ts": 1788881105.4596074,
     "last_signal_symbol": "ATOM-USD",
-    "total_signals": 773,
+    "total_signals": 776,
     "symbols": [
       "ATOM-USD"
     ],
@@ -64,9 +64,9 @@
     "symbols": [
       "DOGE-USD"
     ],
-    "last_signal_ts": 1788861303.9693997,
+    "last_signal_ts": 1788881105.4610534,
     "last_signal_symbol": "DOGE-USD",
-    "total_signals": 1772,
+    "total_signals": 1776,
     "last_signal_action": "BUY"
   },
   "volume_surge": {
