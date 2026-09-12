@@ -100,3 +100,8 @@ memory/alert_state.json
 # S25 runtime state — never commit (secrets-adjacent + spam)
 .coinbase_live.flag
 .auto_scanner_cooldown.json
+
+# --- Sauvegardes de .env (2026-09-12) ---
+.env.bak*
+.env.backup*
+*.env.bak
