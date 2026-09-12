@@ -24,7 +24,11 @@ TRACKED_PATHS = [
     "memory/trailing_state.json",
     "memory/strategies_state.json",
     "memory/risk_config.json",
-    "memory/command_mesh",
+    "memory/command_mesh/agents.json",
+    "memory/command_mesh/missions.json",
+    "memory/command_mesh/incidents.json",
+    "memory/command_mesh/system_state.json",
+    "memory/command_mesh/signals.json",
 ]
 
 
