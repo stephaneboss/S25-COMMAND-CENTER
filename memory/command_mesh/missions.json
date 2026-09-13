@@ -211209,7 +211209,7 @@
       "task_type": "infra_ops",
       "intent": "LECTURE SEULE, AUCUNE MODIFICATION. Inspecter cockpit_lumiere.py autour de la route/fonction /api/status et du fallback contenant HA_OFFLINE (~ligne 564). Retourner pr\u00e9cis\u00e9ment: nom de la fonction; s\u00e9quence des lectures; provenance exacte de hashrate/temp; provenance exacte de comet_intel; provenance exacte de arkon5_action/arkon5_conf; bornes du try/except associ\u00e9 au fallback; confirmer ou infirmer qu'une exception de lecture Home Assistant d\u00e9clenche un fallback global qui \u00e9crase aussi ARKON5 et COMET alors qu'ils sont ind\u00e9pendants de HA. Citer les fonctions/fichiers/sources utilis\u00e9s et les lignes approximatives. Ne g\u00e9n\u00e9rer aucun patch, ne modifier aucun fichier, ne red\u00e9marrer aucun service.",
       "priority": "normal",
-      "status": "assigned",
+      "status": "completed",
       "input": {},
       "constraints": {
         "timeout_sec": 120,
@@ -211221,9 +211221,12 @@
         "runtime_preference": "akash",
         "fallback_agents": []
       },
-      "result": null,
+      "result": {
+        "completed_by": "CLAUDE",
+        "output_preview": "Analyse compl\u00e8te \u2014 lecture seule, aucune modification.\n\n---\n\n## Analyse : `/api/status` dans `cockpit_lumiere.py`\n\n### 1. Nom de la fonction\n**`api_status`** \u2014 d\u00e9cor\u00e9e `@app.route('/api/status')`, lignes ~560-617.\n\n---\n\n### 2. S\u00e9quence des lectures (ordre d'ex\u00e9cution)\n\n| Ordre | Ligne approx. | Action |\n|-------|--------------|--------|\n| 1 | 563-572 | Initialisation du dict `status` avec valeurs par d\u00e9faut, dont `\"pipeline_status\": \"HA_OFFLINE\"` |\n| 2 | 576-586 | Tentative locale : lecture de `"
+      },
       "error": null,
-      "updated_at": "2026-09-12T14:53:38.565089+00:00"
+      "updated_at": "2026-09-13T18:50:48.603109+00:00"
     },
     "mis_2jdhcq7h550e": {
       "mission_id": "mis_2jdhcq7h550e",
@@ -212714,6 +212717,31 @@
       },
       "error": null,
       "updated_at": "2026-09-13T18:11:13.496664+00:00"
+    },
+    "mis_eayhdU1WuOc4": {
+      "mission_id": "mis_eayhdU1WuOc4",
+      "created_at": "2026-09-13T18:45:02.221923+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "quant_brain",
+      "task_type": "trading_analysis",
+      "intent": "Auto trading analysis brief \u2014 periodic",
+      "priority": "normal",
+      "status": "completed",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": {
+        "duration_sec": 9.17,
+        "output_preview": "{\n  \"decisions\": [],\n  \"dry_run\": true,\n  \"live_perf_rows\": 0,\n  \"backtest_rows\": 56,\n  \"strategies_seen\": 8,\n  \"live_data_freshness\": {\n    \"window_hours\": 72,\n    \"cutoff_ts\": 1789065971.3871534,\n    \"last_successful_live_trade_ts\": 1779922806.7810013,\n    \"successful_live_trades_in_window\": 0,\n    \"most_recent_trade_success\": false,\n    \"reason\": \"no successful live trade in window - most recent order attempts failed (check balance/funds)\"\n  }\n}\n"
+      },
+      "error": null,
+      "updated_at": "2026-09-13T18:46:11.505146+00:00"
     }
   }
 }
