@@ -105,3 +105,5 @@ memory/alert_state.json
 .env.bak*
 .env.backup*
 *.env.bak
+memory/command_mesh/ops_journal.jsonl
+memory/command_mesh/archive/
