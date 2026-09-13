@@ -593,7 +593,8 @@ def route_create_mission():
 @mesh_bp.route("/report_health", methods=["POST"])
 def route_report_health():
     """5.4 Agent heartbeat + health telemetry."""
-    # Health reports are frequent and don't need auth (idempotent writes)
+    if not _auth_ok():
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
     body = request.get_json(silent=True) or {}
     agent_id = body.get("agent_id")
     if not agent_id:
