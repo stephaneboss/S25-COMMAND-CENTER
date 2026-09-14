@@ -213630,6 +213630,28 @@
       "result": null,
       "error": "degraded_mode_skip_non_critical",
       "updated_at": "2026-09-14T16:21:02.474315+00:00"
+    },
+    "mis_u4ZqObfVvJI6": {
+      "mission_id": "mis_u4ZqObfVvJI6",
+      "created_at": "2026-09-14T16:55:01.931986+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "quant_brain",
+      "task_type": "trading_analysis",
+      "intent": "Auto trading analysis brief \u2014 periodic",
+      "priority": "normal",
+      "status": "blocked",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": null,
+      "error": "degraded_mode_skip_non_critical",
+      "updated_at": "2026-09-14T16:56:01.741520+00:00"
     }
   }
 }
