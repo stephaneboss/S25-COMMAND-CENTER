@@ -213562,6 +213562,52 @@
       "result": null,
       "error": "degraded_mode_skip_non_critical",
       "updated_at": "2026-09-14T15:16:01.932331+00:00"
+    },
+    "mis_LCKhPgyznrKL": {
+      "mission_id": "mis_LCKhPgyznrKL",
+      "created_at": "2026-09-14T15:45:02.713517+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "quant_brain",
+      "task_type": "trading_analysis",
+      "intent": "Auto trading analysis brief \u2014 periodic",
+      "priority": "normal",
+      "status": "blocked",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": null,
+      "error": "degraded_mode_skip_non_critical",
+      "updated_at": "2026-09-14T15:46:02.400225+00:00"
+    },
+    "mis_SZp8ipw1EnyA": {
+      "mission_id": "mis_SZp8ipw1EnyA",
+      "created_at": "2026-09-14T15:53:22.449123+00:00",
+      "created_by": "TRINITY",
+      "target_agent": "CLAUDE",
+      "task_type": "infra_ops",
+      "intent": "DIAGNOSTIC T0 LECTURE SEULE. Aucune modification, aucun restart, aucun secret affiche. Objectif: expliquer pourquoi le mesh S25 est actuellement degrade (vue live: MERLIN seul present/degraded, 0 online, 1 offline, missions quant_brain bloquees avec error degraded_mode_skip_non_critical, cockpit /api/status HA_OFFLINE). Inspecter uniquement en lecture: agents/command_mesh.py, agents/mission_worker.py, agents/mesh_activator.py ou equivalent, agents/degraded_mode* si present, memory/command_mesh/agents.json, system_state.json, degraded_mode.json si present, logs lisibles pertinents, et logique qui decide degraded_mode_skip_non_critical. Verifier aussi pourquoi les autres agents ne sont plus visibles alors qu'ils l'etaient hier. Retour attendu: 1) cause racine la plus probable avec preuves/fichiers/lignes, 2) etat exact du degraded mode et sa condition d'activation, 3) pourquoi quant_brain est bloque, 4) pourquoi le registre agents n'expose plus que MERLIN, 5) liste ordonnee des actions minimales de remediation, mais NE RIEN EXECUTER. T0 lecture seule uniquement.",
+      "priority": "normal",
+      "status": "assigned",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120,
+        "max_retries": 2,
+        "require_ack": true
+      },
+      "routing": {
+        "selected_by": "TRINITY",
+        "runtime_preference": "akash",
+        "fallback_agents": []
+      },
+      "result": null,
+      "error": null,
+      "updated_at": "2026-09-14T15:53:22.449123+00:00"
     }
   }
 }
