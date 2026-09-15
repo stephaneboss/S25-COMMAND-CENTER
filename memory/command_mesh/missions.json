@@ -214422,6 +214422,28 @@
       "result": null,
       "error": "degraded_mode_skip_non_critical",
       "updated_at": "2026-09-15T12:11:02.331139+00:00"
+    },
+    "mis_Am29DoB3XrWl": {
+      "mission_id": "mis_Am29DoB3XrWl",
+      "created_at": "2026-09-15T12:45:02.591856+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "quant_brain",
+      "task_type": "trading_analysis",
+      "intent": "Auto trading analysis brief \u2014 periodic",
+      "priority": "normal",
+      "status": "blocked",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": null,
+      "error": "degraded_mode_skip_non_critical",
+      "updated_at": "2026-09-15T12:46:02.462119+00:00"
     }
   }
 }
