@@ -214400,6 +214400,28 @@
       "result": null,
       "error": "degraded_mode_skip_non_critical",
       "updated_at": "2026-09-15T11:41:02.047700+00:00"
+    },
+    "mis_110SGwPOB4Ve": {
+      "mission_id": "mis_110SGwPOB4Ve",
+      "created_at": "2026-09-15T12:10:02.656214+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "quant_brain",
+      "task_type": "trading_analysis",
+      "intent": "Auto trading analysis brief \u2014 periodic",
+      "priority": "normal",
+      "status": "blocked",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": null,
+      "error": "degraded_mode_skip_non_critical",
+      "updated_at": "2026-09-15T12:11:02.331139+00:00"
     }
   }
 }
