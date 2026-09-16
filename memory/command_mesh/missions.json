@@ -215135,7 +215135,7 @@
       "task_type": "trading_analysis",
       "intent": "Auto trading analysis brief \u2014 periodic",
       "priority": "normal",
-      "status": "assigned",
+      "status": "blocked",
       "input": {},
       "constraints": {
         "timeout_sec": 120
@@ -215146,8 +215146,8 @@
         ]
       },
       "result": null,
-      "error": null,
-      "updated_at": "2026-09-16T06:30:03.023958+00:00"
+      "error": "degraded_mode_skip_non_critical",
+      "updated_at": "2026-09-16T06:31:01.742194+00:00"
     }
   }
 }
