@@ -216279,6 +216279,28 @@
       "task_type": "trading_analysis",
       "intent": "Auto trading analysis brief \u2014 periodic",
       "priority": "normal",
+      "status": "blocked",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": null,
+      "error": "degraded_mode_skip_non_critical",
+      "updated_at": "2026-09-17T17:31:01.905381+00:00"
+    },
+    "mis_jw94hXzdklis": {
+      "mission_id": "mis_jw94hXzdklis",
+      "created_at": "2026-09-17T18:00:03.231691+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "quant_brain",
+      "task_type": "trading_analysis",
+      "intent": "Auto trading analysis brief \u2014 periodic",
+      "priority": "normal",
       "status": "assigned",
       "input": {},
       "constraints": {
@@ -216291,7 +216313,7 @@
       },
       "result": null,
       "error": null,
-      "updated_at": "2026-09-17T17:30:02.980413+00:00"
+      "updated_at": "2026-09-17T18:00:03.231691+00:00"
     }
   }
 }
