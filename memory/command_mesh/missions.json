@@ -216578,6 +216578,28 @@
       "result": null,
       "error": "degraded_mode_skip_non_critical",
       "updated_at": "2026-09-18T00:36:02.501347+00:00"
+    },
+    "mis_f8PfZ75uatmR": {
+      "mission_id": "mis_f8PfZ75uatmR",
+      "created_at": "2026-09-18T01:10:02.177012+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "quant_brain",
+      "task_type": "trading_analysis",
+      "intent": "Auto trading analysis brief \u2014 periodic",
+      "priority": "normal",
+      "status": "blocked",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": null,
+      "error": "degraded_mode_skip_non_critical",
+      "updated_at": "2026-09-18T01:11:02.448611+00:00"
     }
   }
 }
