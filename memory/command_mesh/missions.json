@@ -216710,6 +216710,28 @@
       "result": null,
       "error": "degraded_mode_skip_non_critical",
       "updated_at": "2026-09-18T03:51:02.192392+00:00"
+    },
+    "mis_vPV3NdnwDEXa": {
+      "mission_id": "mis_vPV3NdnwDEXa",
+      "created_at": "2026-09-18T04:25:01.710282+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "quant_brain",
+      "task_type": "trading_analysis",
+      "intent": "Auto trading analysis brief \u2014 periodic",
+      "priority": "normal",
+      "status": "blocked",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": null,
+      "error": "degraded_mode_skip_non_critical",
+      "updated_at": "2026-09-18T04:26:02.418599+00:00"
     }
   }
 }
