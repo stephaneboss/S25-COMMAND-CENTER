@@ -218164,6 +218164,79 @@
       "result": null,
       "error": "degraded_mode_skip_non_critical",
       "updated_at": "2026-09-19T15:01:01.840310+00:00"
+    },
+    "mis_4lG2Z8hKsYk3": {
+      "mission_id": "mis_4lG2Z8hKsYk3",
+      "created_at": "2026-09-19T15:35:02.011222+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "quant_brain",
+      "task_type": "trading_analysis",
+      "intent": "Auto trading analysis brief \u2014 periodic",
+      "priority": "normal",
+      "status": "blocked",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": null,
+      "error": "degraded_mode_skip_non_critical",
+      "updated_at": "2026-09-19T15:36:02.003038+00:00"
+    },
+    "mis_2UO8HwbOpVwS": {
+      "mission_id": "mis_2UO8HwbOpVwS",
+      "created_at": "2026-09-19T15:37:07.724835+00:00",
+      "created_by": "TRINITY",
+      "target_agent": "CLAUDE",
+      "task_type": "infra_ops",
+      "intent": "Test de bout en bout non destructif demande par Stef. Verifie la chaine mission CLAUDE -> orchestration mesh -> retour de resultat, sans modifier de fichier, secret, service, configuration ou etat. Effectue uniquement des controles de sante/lecture et retourne un resume avec statut, etapes executees et anomalies eventuelles.",
+      "priority": "normal",
+      "status": "assigned",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120,
+        "max_retries": 2,
+        "require_ack": true
+      },
+      "routing": {
+        "selected_by": "TRINITY",
+        "runtime_preference": "akash",
+        "fallback_agents": []
+      },
+      "result": null,
+      "error": null,
+      "updated_at": "2026-09-19T15:37:07.724835+00:00"
+    },
+    "mis_L6FI9U6LmsSN": {
+      "mission_id": "mis_L6FI9U6LmsSN",
+      "created_at": "2026-09-19T15:44:20.301430+00:00",
+      "created_by": "TRINITY",
+      "target_agent": "CLAUDE",
+      "task_type": "infra_ops",
+      "intent": "Test de bout en bout non destructif demande par Stef. Verifie uniquement la chaine mission CLAUDE -> orchestration mesh -> retour de resultat. Lecture seule: controles de sante et d'etat, aucune modification de fichier, configuration, service, compte, identifiant ou donnee sensible. Retourne un resume avec statut, etapes executees et anomalies eventuelles.",
+      "priority": "normal",
+      "status": "completed",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120,
+        "max_retries": 2,
+        "require_ack": true
+      },
+      "routing": {
+        "selected_by": "TRINITY",
+        "runtime_preference": "akash",
+        "fallback_agents": []
+      },
+      "result": {
+        "completed_by": "CLAUDE",
+        "output_preview": "---\n\n## Rapport E2E Non-Destructif \u2014 Mission `mis_L6FI9U6LmsSN`\n\n**Date :** 2026-09-19T15:45 UTC  \n**Type :** `infra_ops` | **Agent :** CLAUDE (relay)  \n**Statut global :** `DEGRADED` (non critique pour les ops en cours)\n\n---\n\n### Etape 1 \u2014 Reception de la mission par CLAUDE\n\n| Element | Valeur |\n|---|---|\n| Mission ID | `mis_L6FI9U6LmsSN` |\n| Enregistree dans relay_index | Oui \u2014 `2026-09-19T15:45:01.988054+00:00` |\n| Agent CLAUDE status | `online` |\n| Heartbeat CLAUDE | `2026-09-19T15:45:02.037"
+      },
+      "error": null,
+      "updated_at": "2026-09-19T15:45:54.933992+00:00"
     }
   }
 }
