@@ -1,236 +1,5 @@
 {
   "items": {
-    "TRINITY": {
-      "agent_id": "TRINITY",
-      "type": "control",
-      "status": "stale",
-      "runtime": "chatgpt",
-      "endpoint_class": "internal",
-      "capabilities": [
-        "orchestration",
-        "voice",
-        "text",
-        "any"
-      ],
-      "priority": "normal",
-      "cost_tier": "low",
-      "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-04-22T01:59:42.128862+00:00",
-      "last_seen_at": "2026-04-22T01:59:42.128862+00:00",
-      "cooldown_until": null,
-      "metadata": {},
-      "latency_ms": null,
-      "error_rate": null
-    },
-    "MERLIN": {
-      "agent_id": "MERLIN",
-      "type": "llm",
-      "status": "stale",
-      "runtime": "local",
-      "endpoint_class": "internal",
-      "capabilities": [
-        "code_generation",
-        "strategy_planning",
-        "gemini_bridge",
-        "routing",
-        "trading_analysis"
-      ],
-      "priority": "normal",
-      "cost_tier": "low",
-      "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-04-22T01:59:40.728198+00:00",
-      "last_seen_at": "2026-04-22T01:59:40.728198+00:00",
-      "cooldown_until": null,
-      "metadata": {},
-      "latency_ms": null,
-      "error_rate": null
-    },
-    "ORACLE": {
-      "agent_id": "ORACLE",
-      "type": "intel",
-      "status": "stale",
-      "runtime": "local",
-      "endpoint_class": "internal",
-      "capabilities": [
-        "price_validation",
-        "multi_source",
-        "infra_monitoring"
-      ],
-      "priority": "normal",
-      "cost_tier": "low",
-      "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-04-22T01:59:41.670952+00:00",
-      "last_seen_at": "2026-04-22T01:59:41.670952+00:00",
-      "cooldown_until": null,
-      "metadata": {},
-      "latency_ms": null,
-      "error_rate": null
-    },
-    "ONCHAIN_GUARDIAN": {
-      "agent_id": "ONCHAIN_GUARDIAN",
-      "type": "intel",
-      "status": "stale",
-      "runtime": "local",
-      "endpoint_class": "internal",
-      "capabilities": [
-        "chain_monitoring",
-        "token_reports"
-      ],
-      "priority": "normal",
-      "cost_tier": "low",
-      "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-04-22T01:33:33.237551+00:00",
-      "last_seen_at": "2026-04-22T01:33:33.237551+00:00",
-      "cooldown_until": null,
-      "metadata": {},
-      "latency_ms": null,
-      "error_rate": null
-    },
-    "COMET": {
-      "agent_id": "COMET",
-      "type": "intel",
-      "status": "stale",
-      "runtime": "local",
-      "endpoint_class": "internal",
-      "capabilities": [
-        "market_news",
-        "sentiment_scan",
-        "browser_research"
-      ],
-      "priority": "normal",
-      "cost_tier": "low",
-      "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-04-22T01:59:41.206753+00:00",
-      "last_seen_at": "2026-08-04T02:36:00.984165+00:00",
-      "cooldown_until": null,
-      "metadata": {
-        "status_reason": "Entree legacy non maintenue depuis avril. Le vrai flux Comet/Perplexity actif est lagent perplexity_news_scanner (cron */30min, memory/news_scan.json, desormais heartbeat via mesh_heartbeat_cron). Lagent comet_sentiment (distinct, online) est un signal heuristique gratuit Fear&Greed/Binance sans lien avec Perplexity malgre le nom similaire - ne pas confondre les trois."
-      },
-      "latency_ms": null,
-      "error_rate": null
-    },
-    "GEMINI": {
-      "agent_id": "GEMINI",
-      "type": "llm",
-      "status": "disabled",
-      "runtime": "legacy_google_ai_studio",
-      "endpoint_class": "internal",
-      "capabilities": [
-        "ACCESS_DENIED_403"
-      ],
-      "priority": "normal",
-      "cost_tier": "low",
-      "reliability_score": 0.0,
-      "last_heartbeat_at": "2026-04-22T02:07:32.270943+00:00",
-      "last_seen_at": "2026-04-22T02:07:32.270943+00:00",
-      "cooldown_until": null,
-      "metadata": {
-        "disabled_at": "2026-04-22",
-        "reason": "Google AI Studio access denied - Major decision"
-      },
-      "latency_ms": null,
-      "error_rate": null
-    },
-    "ARKON5": {
-      "agent_id": "ARKON5",
-      "type": "signal",
-      "status": "disabled",
-      "runtime": "local",
-      "endpoint_class": "internal",
-      "capabilities": [
-        "mesh_auto_relay"
-      ],
-      "priority": "normal",
-      "cost_tier": "low",
-      "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-04-22T01:33:35.653570+00:00",
-      "last_seen_at": "2026-04-22T01:33:35.653570+00:00",
-      "cooldown_until": null,
-      "metadata": {},
-      "latency_ms": null,
-      "error_rate": null
-    },
-    "KIMI": {
-      "agent_id": "KIMI",
-      "type": "llm",
-      "status": "online",
-      "runtime": "legacy",
-      "endpoint_class": "internal",
-      "capabilities": [
-        "dormant"
-      ],
-      "priority": "normal",
-      "cost_tier": "low",
-      "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-04-22T01:33:36.375237+00:00",
-      "last_seen_at": "2026-08-04T02:36:00.645025+00:00",
-      "cooldown_until": null,
-      "metadata": {
-        "status_reason": "Endpoint on-demand /api/kimi/chat (Moonshot natif, modele kimi-k2.6) verifie fonctionnel 2026-08-03/04 apres correctifs commits 6f0d032+6032d6d (nom modele + temperature). Cette entree etait un vestige dun ancien agent process cron; le vrai systeme est une route Flask stateless sans heartbeat cron, disponibilite verifiable via /api/kimi/health."
-      },
-      "latency_ms": null,
-      "error_rate": null
-    },
-    "coinbase_ha_publisher": {
-      "agent_id": "coinbase_ha_publisher",
-      "type": "infra",
-      "status": "online",
-      "runtime": "local",
-      "endpoint_class": "internal",
-      "capabilities": [
-        "ha_state_push",
-        "coinbase_portfolio"
-      ],
-      "priority": "normal",
-      "cost_tier": "low",
-      "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-09-19T16:30:02.805945+00:00",
-      "last_seen_at": "2026-09-19T16:30:02.805945+00:00",
-      "cooldown_until": null,
-      "metadata": {},
-      "latency_ms": 58254,
-      "error_rate": 0.0
-    },
-    "mesh_signal_bridge": {
-      "agent_id": "mesh_signal_bridge",
-      "type": "signal",
-      "status": "online",
-      "runtime": "local",
-      "endpoint_class": "internal",
-      "capabilities": [
-        "signal_relay",
-        "mesh_routing"
-      ],
-      "priority": "normal",
-      "cost_tier": "low",
-      "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-09-19T16:30:02.818406+00:00",
-      "last_seen_at": "2026-09-19T16:30:02.818406+00:00",
-      "cooldown_until": null,
-      "metadata": {},
-      "latency_ms": 222,
-      "error_rate": 0.0
-    },
-    "trailing_stop_manager": {
-      "agent_id": "trailing_stop_manager",
-      "type": "exec",
-      "status": "online",
-      "runtime": "local",
-      "endpoint_class": "internal",
-      "capabilities": [
-        "bracket_update",
-        "trailing_stops"
-      ],
-      "priority": "normal",
-      "cost_tier": "low",
-      "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-09-19T16:30:02.827124+00:00",
-      "last_seen_at": "2026-09-19T16:30:02.827124+00:00",
-      "cooldown_until": null,
-      "metadata": {},
-      "latency_ms": 221,
-      "error_rate": 0.0
-    },
     "auto_signal_scanner": {
       "agent_id": "auto_signal_scanner",
       "type": "signal",
@@ -244,11 +13,11 @@
       "priority": "normal",
       "cost_tier": "low",
       "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-09-19T16:30:02.832753+00:00",
-      "last_seen_at": "2026-09-19T16:30:02.832753+00:00",
+      "last_heartbeat_at": "2026-09-19T16:59:01.434244+00:00",
+      "last_seen_at": "2026-09-19T16:59:01.434244+00:00",
       "cooldown_until": null,
       "metadata": {},
-      "latency_ms": 595,
+      "latency_ms": 237882,
       "error_rate": 0.0
     },
     "comet_sentiment": {
@@ -264,11 +33,11 @@
       "priority": "normal",
       "cost_tier": "low",
       "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-09-19T16:30:02.838457+00:00",
-      "last_seen_at": "2026-09-19T16:30:02.838457+00:00",
+      "last_heartbeat_at": "2026-09-19T16:59:01.438919+00:00",
+      "last_seen_at": "2026-09-19T16:59:01.438919+00:00",
       "cooldown_until": null,
       "metadata": {},
-      "latency_ms": 599430,
+      "latency_ms": 534242,
       "error_rate": 0.0
     },
     "drawdown_guardian": {
@@ -284,11 +53,11 @@
       "priority": "normal",
       "cost_tier": "low",
       "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-09-19T16:30:02.843087+00:00",
-      "last_seen_at": "2026-09-19T16:30:02.843087+00:00",
+      "last_heartbeat_at": "2026-09-19T16:59:01.443257+00:00",
+      "last_seen_at": "2026-09-19T16:59:01.443257+00:00",
       "cooldown_until": null,
       "metadata": {},
-      "latency_ms": 599405,
+      "latency_ms": 537913,
       "error_rate": 0.0
     },
     "dca_scheduler": {
@@ -303,11 +72,11 @@
       "priority": "normal",
       "cost_tier": "low",
       "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-09-19T16:30:02.848300+00:00",
-      "last_seen_at": "2026-09-19T16:30:02.848300+00:00",
+      "last_heartbeat_at": "2026-09-19T16:59:01.447535+00:00",
+      "last_seen_at": "2026-09-19T16:59:01.447535+00:00",
       "cooldown_until": null,
       "metadata": {},
-      "latency_ms": 375,
+      "latency_ms": 839489,
       "error_rate": 0.0
     },
     "quant_brain": {
@@ -325,51 +94,11 @@
       "priority": "normal",
       "cost_tier": "low",
       "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-09-19T16:30:02.854016+00:00",
-      "last_seen_at": "2026-09-19T16:30:02.854016+00:00",
+      "last_heartbeat_at": "2026-09-19T16:59:01.452034+00:00",
+      "last_seen_at": "2026-09-19T16:59:01.452034+00:00",
       "cooldown_until": null,
       "metadata": {},
-      "latency_ms": 1787116,
-      "error_rate": 0.0
-    },
-    "gemini_orchestrator": {
-      "agent_id": "gemini_orchestrator",
-      "type": "brain",
-      "status": "stale",
-      "runtime": "google_cloud",
-      "endpoint_class": "internal",
-      "capabilities": [
-        "strategic_brief",
-        "portfolio_health_score"
-      ],
-      "priority": "normal",
-      "cost_tier": "low",
-      "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-04-22T02:10:02.480242+00:00",
-      "last_seen_at": "2026-04-22T02:10:02.480242+00:00",
-      "cooldown_until": null,
-      "metadata": {},
-      "latency_ms": 595653,
-      "error_rate": 0.0
-    },
-    "gemini_news_scanner": {
-      "agent_id": "gemini_news_scanner",
-      "type": "intel",
-      "status": "stale",
-      "runtime": "google_cloud",
-      "endpoint_class": "internal",
-      "capabilities": [
-        "news_grounding",
-        "google_search_citations"
-      ],
-      "priority": "normal",
-      "cost_tier": "low",
-      "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-04-22T02:10:02.485035+00:00",
-      "last_seen_at": "2026-04-22T02:10:02.485035+00:00",
-      "cooldown_until": null,
-      "metadata": {},
-      "latency_ms": 3128860,
+      "latency_ms": 3525715,
       "error_rate": 0.0
     },
     "system_health": {
@@ -385,11 +114,11 @@
       "priority": "normal",
       "cost_tier": "low",
       "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-09-19T16:30:02.862435+00:00",
-      "last_seen_at": "2026-09-19T16:30:02.862435+00:00",
+      "last_heartbeat_at": "2026-09-19T16:59:01.456510+00:00",
+      "last_seen_at": "2026-09-19T16:59:01.456510+00:00",
       "cooldown_until": null,
       "metadata": {},
-      "latency_ms": 299954,
+      "latency_ms": 238091,
       "error_rate": 0.0
     },
     "git_auto_sync": {
@@ -404,11 +133,32 @@
       "priority": "normal",
       "cost_tier": "low",
       "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-09-19T16:30:02.866814+00:00",
-      "last_seen_at": "2026-09-19T16:30:02.866814+00:00",
+      "last_heartbeat_at": "2026-09-19T16:59:01.462661+00:00",
+      "last_seen_at": "2026-09-19T16:59:01.462661+00:00",
       "cooldown_until": null,
       "metadata": {},
-      "latency_ms": 1783517,
+      "latency_ms": 1735932,
+      "error_rate": 0.0
+    },
+    "perplexity_news_scanner": {
+      "agent_id": "perplexity_news_scanner",
+      "type": "intel",
+      "status": "online",
+      "runtime": "local",
+      "endpoint_class": "internal",
+      "capabilities": [
+        "market_news",
+        "sentiment_scan",
+        "perplexity_api"
+      ],
+      "priority": "normal",
+      "cost_tier": "low",
+      "reliability_score": 1.0,
+      "last_heartbeat_at": "2026-09-19T16:59:01.467267+00:00",
+      "last_seen_at": "2026-09-19T16:59:01.467267+00:00",
+      "cooldown_until": null,
+      "metadata": {},
+      "latency_ms": 1738309,
       "error_rate": 0.0
     },
     "COCKPIT_LUMIERE": {
@@ -425,87 +175,12 @@
       "priority": "normal",
       "cost_tier": "low",
       "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-09-19T16:30:02.902400+00:00",
-      "last_seen_at": "2026-09-19T16:30:02.902400+00:00",
+      "last_heartbeat_at": "2026-09-19T16:59:01.500007+00:00",
+      "last_seen_at": "2026-09-19T16:59:01.500007+00:00",
       "cooldown_until": null,
       "metadata": {},
       "latency_ms": null,
       "error_rate": 0.0
-    },
-    "HOME_ASSISTANT": {
-      "agent_id": "HOME_ASSISTANT",
-      "type": "infra",
-      "status": "stale",
-      "runtime": "local_network",
-      "endpoint_class": "internal",
-      "capabilities": [
-        "ha_automation",
-        "ha_notify",
-        "sensor_push",
-        "dashboard",
-        "kill_switch",
-        "voice_bridge"
-      ],
-      "priority": "normal",
-      "cost_tier": "low",
-      "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-04-22T02:10:41.052336+00:00",
-      "last_seen_at": "2026-04-22T02:10:41.052336+00:00",
-      "cooldown_until": null,
-      "metadata": {
-        "url": "http://10.0.0.136:8123",
-        "role": "primary_exec"
-      },
-      "latency_ms": null,
-      "error_rate": null
-    },
-    "ALIENSTEF": {
-      "agent_id": "ALIENSTEF",
-      "type": "gateway",
-      "status": "online",
-      "runtime": "dell_linux",
-      "endpoint_class": "internal",
-      "capabilities": [
-        "api_gateway",
-        "command_mesh",
-        "ops_routes",
-        "stability_layer",
-        "mission_worker",
-        "cron_host",
-        "systemd_host",
-        "any",
-        "infra_monitoring"
-      ],
-      "priority": "normal",
-      "cost_tier": "low",
-      "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-04-22T02:10:41.387023+00:00",
-      "last_seen_at": "2026-08-04T02:36:33.946051+00:00",
-      "cooldown_until": null,
-      "metadata": {
-        "role": "command_plane_host",
-        "ip": "10.0.0.97",
-        "status_reason": "Hote actif en continu (cockpit + 20+ crons tournent dessus en ce moment). Entree registre non rafraichie depuis avril car aucun processus dedie ne pousse son heartbeat - corrige manuellement, pas de watchdog automatique en place pour ce slot."
-      },
-      "latency_ms": null,
-      "error_rate": null
-    },
-    "COINBASE": {
-      "agent_id": "COINBASE",
-      "name": "COINBASE",
-      "kind": "executor",
-      "status": "online",
-      "capabilities": [
-        "trade_execute",
-        "bracket_orders",
-        "market_quotes"
-      ],
-      "description": "Coinbase Advanced executor \u2014 accepts trade_execute missions via /webhook/tradingview",
-      "registered_at": "2026-04-22T04:00:00+00:00",
-      "metadata": {
-        "status_reason": "Executeur verifie actif 2026-08-04 via /api/coinbase/portfolio (solde reel retourne, 0.52 USD dispo, 6 coins). Etait bloque a stale depuis avril alors que mission_worker.py filtre les cibles trade_execute sur status==online - corrige pour restaurer leligibilite de routing."
-      },
-      "last_seen_at": "2026-08-04T02:36:00.325891+00:00"
     },
     "CLAUDE": {
       "agent_id": "CLAUDE",
@@ -519,50 +194,72 @@
       "priority": "normal",
       "cost_tier": "low",
       "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-09-19T16:30:02.276791+00:00",
-      "last_seen_at": "2026-09-19T16:30:02.276791+00:00",
+      "last_heartbeat_at": "2026-09-19T16:59:41.771559+00:00",
+      "last_seen_at": "2026-09-19T16:59:41.771559+00:00",
       "cooldown_until": null,
       "metadata": {},
       "latency_ms": null,
       "error_rate": null
     },
-    "perplexity_news_scanner": {
-      "agent_id": "perplexity_news_scanner",
-      "type": "intel",
+    "coinbase_ha_publisher": {
+      "agent_id": "coinbase_ha_publisher",
+      "type": "infra",
       "status": "online",
       "runtime": "local",
       "endpoint_class": "internal",
       "capabilities": [
-        "market_news",
-        "sentiment_scan",
-        "perplexity_api"
+        "ha_state_push",
+        "coinbase_portfolio"
       ],
       "priority": "normal",
       "cost_tier": "low",
       "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-09-19T16:30:02.870891+00:00",
-      "last_seen_at": "2026-09-19T16:30:02.870891+00:00",
+      "last_heartbeat_at": "2026-09-19T16:59:01.416007+00:00",
+      "last_seen_at": "2026-09-19T16:59:01.416007+00:00",
       "cooldown_until": null,
       "metadata": {},
-      "latency_ms": 218,
+      "latency_ms": 57407,
       "error_rate": 0.0
     },
-    "SECURITY_TEST_ONLY": {
-      "agent_id": "SECURITY_TEST_ONLY",
-      "type": "generic",
+    "mesh_signal_bridge": {
+      "agent_id": "mesh_signal_bridge",
+      "type": "signal",
       "status": "online",
-      "runtime": "probe",
+      "runtime": "local",
       "endpoint_class": "internal",
-      "capabilities": [],
+      "capabilities": [
+        "signal_relay",
+        "mesh_routing"
+      ],
       "priority": "normal",
       "cost_tier": "low",
       "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-09-13T18:26:42.350310+00:00",
-      "last_seen_at": "2026-09-13T18:26:42.350310+00:00",
+      "last_heartbeat_at": "2026-09-19T16:59:01.424080+00:00",
+      "last_seen_at": "2026-09-19T16:59:01.424080+00:00",
       "cooldown_until": null,
       "metadata": {},
-      "latency_ms": null,
-      "error_rate": null
+      "latency_ms": 58875,
+      "error_rate": 0.0
+    },
+    "trailing_stop_manager": {
+      "agent_id": "trailing_stop_manager",
+      "type": "exec",
+      "status": "online",
+      "runtime": "local",
+      "endpoint_class": "internal",
+      "capabilities": [
+        "bracket_update",
+        "trailing_stops"
+      ],
+      "priority": "normal",
+      "cost_tier": "low",
+      "reliability_score": 1.0,
+      "last_heartbeat_at": "2026-09-19T16:59:01.429521+00:00",
+      "last_seen_at": "2026-09-19T16:59:01.429521+00:00",
+      "cooldown_until": null,
+      "metadata": {},
+      "latency_ms": 119483,
+      "error_rate": 0.0
     }
   }
 }

@@ -1,11 +1,11 @@
 {
-  "ts": "2026-09-19T16:30:02.495327+00:00",
+  "ts": "2026-09-19T17:00:02.959450+00:00",
   "global_status": "healthy",
   "pipeline_status": "unknown",
   "mesh_status": "online",
   "tunnel_active": true,
   "agents_online": 13,
-  "agents_expected": 14,
+  "agents_expected": 13,
   "active_incidents": 0,
   "router_quota_state": "ok",
   "last_signal_at": "2026-04-22T02:01:01.645750+00:00",
