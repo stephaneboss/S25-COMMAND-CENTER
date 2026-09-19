@@ -30,6 +30,10 @@ logger = logging.getLogger("s25.mesh_heartbeat")
 
 REPO = Path(__file__).resolve().parent.parent
 COCKPIT = os.getenv("S25_COCKPIT_URL", "http://localhost:7777")
+# report_health requires X-S25-Secret once S25_SHARED_SECRET is set (since 2026-09-13);
+# without it every heartbeat got 401 and the mesh fell to 1/14 online.
+_SECRET = os.getenv("S25_SHARED_SECRET", "")
+HEADERS = {"X-S25-Secret": _SECRET} if _SECRET else {}
 
 # agent_id -> (log_path, expected_interval_sec, type, runtime, capabilities)
 LOCAL_AGENTS: Dict[str, Dict] = {
@@ -119,8 +123,10 @@ def post_heartbeat(agent_id: str, meta: Dict):
     }
     try:
         r = requests.post(f"{COCKPIT}/api/mesh/report_health",
-                          json=payload, timeout=5)
+                          json=payload, headers=HEADERS, timeout=5)
         ok = r.status_code == 200
+        if r.status_code == 401:
+            logger.error("heartbeat REFUSED (401) for %s: S25_SHARED_SECRET missing or wrong in env", agent_id)
     except Exception as e:
         ok = False
         logger.warning("heartbeat POST failed for %s: %s", agent_id, e)
@@ -158,7 +164,7 @@ def main():
             "reliability_score": 1.0 if cockpit_ok else 0.0,
         }
         requests.post(f"{COCKPIT}/api/mesh/report_health",
-                      json=payload, timeout=5)
+                      json=payload, headers=HEADERS, timeout=5)
     except Exception:
         pass
     print(json.dumps(summary))
