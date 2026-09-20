@@ -219283,6 +219283,58 @@
       },
       "error": null,
       "updated_at": "2026-09-20T14:01:11.089266+00:00"
+    },
+    "mis_Si5927oUsjFr": {
+      "mission_id": "mis_Si5927oUsjFr",
+      "created_at": "2026-09-20T14:30:03.171819+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "quant_brain",
+      "task_type": "trading_analysis",
+      "intent": "Auto trading analysis brief \u2014 periodic",
+      "priority": "normal",
+      "status": "completed",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": {
+        "duration_sec": 9.41,
+        "output_preview": "{\n  \"decisions\": [],\n  \"dry_run\": true,\n  \"live_perf_rows\": 0,\n  \"backtest_rows\": 56,\n  \"strategies_seen\": 8,\n  \"live_data_freshness\": {\n    \"window_hours\": 72,\n    \"cutoff_ts\": 1789655471.205208,\n    \"last_successful_live_trade_ts\": 1779922806.7810013,\n    \"successful_live_trades_in_window\": 0,\n    \"most_recent_trade_success\": false,\n    \"reason\": \"no successful live trade in window - most recent order attempts failed (check balance/funds)\"\n  }\n}\n"
+      },
+      "error": null,
+      "updated_at": "2026-09-20T14:31:11.323549+00:00"
+    },
+    "mis_zB8VThOme4vi": {
+      "mission_id": "mis_zB8VThOme4vi",
+      "created_at": "2026-09-20T14:30:17.074778+00:00",
+      "created_by": "TRINITY",
+      "target_agent": "CLAUDE",
+      "task_type": "infra_ops",
+      "intent": "Test de bout en bout du dimanche. Lecture seule : r\u00e9sume l'\u00e9tat du mesh (agents online, incidents, derni\u00e8res missions quant_brain) et signale toute anomalie. Aucune modification, aucune donn\u00e9e sensible.",
+      "priority": "normal",
+      "status": "completed",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120,
+        "max_retries": 2,
+        "require_ack": true
+      },
+      "routing": {
+        "selected_by": "TRINITY",
+        "runtime_preference": "akash",
+        "fallback_agents": []
+      },
+      "result": {
+        "completed_by": "CLAUDE",
+        "output_preview": "---\n\n## Rapport de Sant\u00e9 Mesh \u2014 S25 Lumiere\n**Mission** `mis_zB8VThOme4vi` | **Date** 2026-09-20 14:31 UTC | **Type** `infra_ops` (lecture seule)\n\n---\n\n### Agents \u2014 13/13 ONLINE\n\n| Agent | Type | Reliability | Error Rate | Latence |\n|---|---|---|---|---|\n| git_auto_sync | infra | 1.0 | 0.0 | 56 670 ms |\n| perplexity_news_scanner | intel | 1.0 | 0.0 | 58 375 ms |\n| COCKPIT_LUMIERE | gateway | 1.0 | 0.0 | \u2014 |\n| CLAUDE | generic | 1.0 | \u2014 | \u2014 |\n| mesh_signal_bridge | signal | 1.0 | 0.0 | **60 ms** "
+      },
+      "error": null,
+      "updated_at": "2026-09-20T14:32:15.218285+00:00"
     }
   }
 }
