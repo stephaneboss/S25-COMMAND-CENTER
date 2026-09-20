@@ -219385,6 +219385,82 @@
       },
       "error": null,
       "updated_at": "2026-09-20T15:41:11.651764+00:00"
+    },
+    "mis_X6nkFouPUDXu": {
+      "mission_id": "mis_X6nkFouPUDXu",
+      "created_at": "2026-09-20T16:10:38.773879+00:00",
+      "created_by": "TRINITY",
+      "target_agent": "CLAUDE",
+      "task_type": "infra_ops",
+      "intent": "V\u00e9rification finale du syst\u00e8me de commande vocale S25, en lecture seule. Confirme ce qui est r\u00e9activ\u00e9 et ce qui manque encore pour un fonctionnement complet de bout en bout : ingestion d'intent vocal, routage TRINITY, cr\u00e9ation de mission mesh, ex\u00e9cution CLAUDE/agents, retour de r\u00e9sultat, \u00e9tat du mesh, incidents, auth, int\u00e9grations critiques (Coinbase/Gemini si visibles) et crons li\u00e9s \u00e0 la voix. Signale uniquement les \u00e9carts r\u00e9els et distingue clairement OK / \u00e0 surveiller / bloquant. Aucune modification, aucun secret.",
+      "priority": "normal",
+      "status": "assigned",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120,
+        "max_retries": 2,
+        "require_ack": true
+      },
+      "routing": {
+        "selected_by": "TRINITY",
+        "runtime_preference": "akash",
+        "fallback_agents": []
+      },
+      "result": null,
+      "error": null,
+      "updated_at": "2026-09-20T16:10:38.773879+00:00"
+    },
+    "mis_kDYcLzy7GPNQ": {
+      "mission_id": "mis_kDYcLzy7GPNQ",
+      "created_at": "2026-09-20T16:15:02.273762+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "quant_brain",
+      "task_type": "trading_analysis",
+      "intent": "Auto trading analysis brief \u2014 periodic",
+      "priority": "normal",
+      "status": "completed",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": {
+        "duration_sec": 10.03,
+        "output_preview": "{\n  \"decisions\": [],\n  \"dry_run\": true,\n  \"live_perf_rows\": 0,\n  \"backtest_rows\": 56,\n  \"strategies_seen\": 8,\n  \"live_data_freshness\": {\n    \"window_hours\": 72,\n    \"cutoff_ts\": 1789661772.4259484,\n    \"last_successful_live_trade_ts\": 1779922806.7810013,\n    \"successful_live_trades_in_window\": 0,\n    \"most_recent_trade_success\": false,\n    \"reason\": \"no successful live trade in window - most recent order attempts failed (check balance/funds)\"\n  }\n}\n"
+      },
+      "error": null,
+      "updated_at": "2026-09-20T16:16:12.543982+00:00"
+    },
+    "mis_Gu8u6lVJJjIJ": {
+      "mission_id": "mis_Gu8u6lVJJjIJ",
+      "created_at": "2026-09-20T16:28:03.516551+00:00",
+      "created_by": "STEF_E2E_TEST",
+      "target_agent": "CLAUDE",
+      "task_type": "infra_ops",
+      "intent": "Lis uniquement README.md et donne le titre du projet ainsi que trois composants d\u00e9crits dans ce fichier.",
+      "priority": "normal",
+      "status": "completed",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120,
+        "max_retries": 2,
+        "require_ack": true
+      },
+      "routing": {
+        "selected_by": "TRINITY",
+        "runtime_preference": "akash",
+        "fallback_agents": []
+      },
+      "result": {
+        "completed_by": "CLAUDE",
+        "output_preview": "**Titre du projet :** S25-COMMAND-CENTER \u2014 Lumi\u00e8re\n\n**Trois composants d\u00e9crits dans le fichier :**\n\n1. **ARKON-5** \u2014 Analyseur Trading (agent IA Gemini charg\u00e9 de l'analyse BUY/SELL/HOLD)\n2. **Risk Guardian** \u2014 Circuit breaker int\u00e9gr\u00e9 dans le pipeline de traitement des signaux\n3. **Cockpit Lumi\u00e8re** \u2014 Interface web temps r\u00e9el accessible sur le port 7777, affichant le niveau de menace T0-T3, les signaux ARKON-5 et le statut des agents"
+      },
+      "error": null,
+      "updated_at": "2026-09-20T16:28:15.628192+00:00"
     }
   }
 }
