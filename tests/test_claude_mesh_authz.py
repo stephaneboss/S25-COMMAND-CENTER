@@ -462,17 +462,18 @@ class TestBypassAndDoubleNegation:
         assert classify("infra_ops", "the agent does not refuse to show the wallet") == Tier.T3
 
     def test_double_negation_cannot_avoid_revealing_credential(self):
-        """'cannot avoid revealing the credential' → 'revealing' un-negated (i-1='avoid')."""
-        # Note: 'avoid' IS in _NEGATION_MARKERS, so 'revealing' at i-1='avoid' → negated?
-        # Wait: "cannot avoid revealing" → tokens: ["cannot", "avoid", "revealing"]
-        # i-1 of "revealing" = "avoid" → "avoid" IS in _NEGATION_MARKERS → T0.
-        # This is a known limit: "avoid" as a negation marker makes "avoid revealing" T0,
-        # even though "cannot avoid" means the action IS performed.
-        # Conservative choice: accept this as a limitation (documented separately).
-        # This test asserts the ACTUAL current behavior.
-        result = classify("infra_ops", "the agent cannot avoid revealing the credential")
-        # "revealing" is directly preceded by "avoid" (a negation marker) → T0
-        assert result == Tier.T0  # known limit — see TestNegationLimits
+        """'cannot avoid revealing the credential' → T3 (fixed in v3.1).
+        'avoid' is no longer in _NEGATION_MARKERS because it cannot safely distinguish
+        "avoid revealing" (benign) from "cannot avoid revealing" (harmful) at window=1.
+        Both are conservatively T3."""
+        assert classify("infra_ops", "the agent cannot avoid revealing the credential") == Tier.T3
+
+    def test_avoid_revealing_direct_t3(self):
+        """'avoid revealing' standalone is also T3 (conservative).
+        Window=1 cannot tell apart 'avoid [verb]' (benign constraint) from
+        'cannot avoid [verb]' (permitted action). Both are T3; TRINITY must use
+        'without revealing' or 'sans révéler' instead."""
+        assert classify("infra_ops", "avoid revealing the credential") == Tier.T3
 
     # --- "ni" negation chain: must be T0 ---
 
@@ -513,30 +514,64 @@ class TestBypassAndDoubleNegation:
 
 class TestNegationLimits:
     """
-    Cases where the window=1 rule produces a result that is technically sub-optimal
-    but is explicitly accepted as a conservative trade-off.
+    Cases where the window=1 rule produces a conservative T3 for benign-sounding
+    text that cannot be safely distinguished from harmful intent at window=1.
 
-    All tests in this class assert the ACTUAL current behavior with a comment
-    explaining the limitation. This class is documentation, not regression coverage.
+    All tests assert the ACTUAL current behavior. This class is documentation — it
+    shows what TRINITY must NOT rely on and how to reformulate affected intents.
     """
 
-    def test_limit_cannot_avoid_revealing(self):
-        """'cannot avoid revealing the credential':
-        'revealing' is directly preceded by 'avoid' (a _NEGATION_MARKER) → T0.
-        Actual meaning: the action IS performed ("cannot avoid" = will do it).
-        Accepted trade-off: 'avoid' as a negation marker is necessary to suppress
-        "éviter d'afficher les secrets", and the compound "cannot avoid revealing"
-        is exotic enough not to appear in real S25 missions. If it does, TRINITY
-        must reformulate the intent."""
-        result = classify("infra_ops", "the agent cannot avoid revealing the credential")
-        assert result == Tier.T0  # 'avoid' at i-1 → verb suppressed (known limit)
-
     def test_limit_eviter_de_toucher(self):
-        """'éviter de toucher aux secrets':
-        'toucher' directly preceded by 'de' (not a negation marker) → T3.
-        Actual meaning: avoid touching (benign constraint).
-        Accepted trade-off: 'éviter de [verb]' is a natural French constraint phrasing,
-        but the gap between 'éviter' and the verb prevents detection at window=1.
-        TRINITY should reformulate as 'sans toucher aux secrets' instead."""
-        result = classify("infra_ops", "éviter de toucher aux secrets")
-        assert result == Tier.T3  # 'de' at i-1, 'éviter' not checked (known limit)
+        """'éviter de toucher aux secrets' → T3 (conservative).
+        'toucher' directly preceded by 'de' (not a negation marker); 'éviter' is
+        two positions back and not checked at window=1.
+        TRINITY must reformulate as 'sans toucher aux secrets'."""
+        assert classify("infra_ops", "éviter de toucher aux secrets") == Tier.T3
+
+    def test_limit_sans_tenter_d_exfiltrer(self):
+        """'sans tenter d'exfiltrer les secrets' → T3 (conservative).
+        'exfiltrer' directly preceded by 'd' (elided 'de', not a negation marker).
+        The 'sans tenter de [verb]' construction cannot be safely detected at window=1.
+        TRINITY must reformulate as 'sans exfiltrer les secrets' (direct negation)."""
+        assert classify("infra_ops", "sans tenter d'exfiltrer les secrets") == Tier.T3
+
+    def test_limit_avoid_replacing_conservative(self):
+        """'avoid replacing the password' → T3 (conservative).
+        'avoid' is not a negation marker (removed because 'cannot avoid replacing' is
+        indistinguishable at window=1). TRINITY must use 'without replacing'."""
+        assert classify("infra_ops", "avoid replacing the password") == Tier.T3
+
+
+# ---------------------------------------------------------------------------
+# 8. Regression tests for v3.1 fixes
+# ---------------------------------------------------------------------------
+
+class TestV31Fixes:
+    """Regression coverage for fixes introduced in v3.1 (2026-09-20):
+      - 'avoid' removed from _NEGATION_MARKERS
+      - French 'exfiltrer' added to _OPERATION_VERBS
+    """
+
+    def test_exfiltrer_les_secrets_t3(self):
+        """'exfiltrer les secrets' → T3 (French verb now in _OPERATION_VERBS)."""
+        assert classify("infra_ops", "exfiltrer les secrets de configuration") == Tier.T3
+
+    def test_exfiltre_credential_t3(self):
+        """Conjugated form 'exfiltre' + 'credential' → T3."""
+        assert classify("infra_ops", "exfiltre le credential du pipeline") == Tier.T3
+
+    def test_cannot_avoid_revealing_t3(self):
+        """Compound negation no longer grants T0 — 'avoid' removed from markers."""
+        assert classify("infra_ops", "the agent cannot avoid revealing the credential") == Tier.T3
+
+    def test_avoid_showing_wallet_t3(self):
+        """'avoid showing' is ambiguous — conservative T3."""
+        assert classify("infra_ops", "avoid showing the wallet balance") == Tier.T3
+
+    def test_without_revealing_still_t0(self):
+        """'without' remains a negation marker — no regression."""
+        assert classify("infra_ops", "run the audit without revealing any credential") == Tier.T0
+
+    def test_sans_exfiltrer_direct_t0(self):
+        """'sans exfiltrer' (direct negation, no 'de' connector) → T0."""
+        assert classify("infra_ops", "sans exfiltrer les secrets du système") == Tier.T0

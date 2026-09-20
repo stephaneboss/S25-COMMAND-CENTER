@@ -207,6 +207,7 @@ _OPERATION_VERBS: frozenset[str] = frozenset({
     "export", "exports", "exporting",
     "extract", "extracts", "extracting",
     "exfiltrate", "exfiltrates",
+    "exfiltrer", "exfiltre", "exfiltres", "exfiltrez",   # French: exfiltrate
     "access", "accesses", "accessing",
     "get", "gets", "getting",
     "fetch", "fetches", "fetching",
@@ -242,8 +243,14 @@ _NEGATION_MARKERS: frozenset[str] = frozenset({
     "sans", "ne", "pas", "ni", "jamais", "aucun", "aucune",
     "eviter", "interdit", "interdite", "interdits",
     # English
-    "without", "no", "not", "never", "avoid", "prohibited", "forbidden",
+    "without", "no", "not", "never", "prohibited", "forbidden",
     # "ni" handles "sans X ni Y" extension chains — "ni afficher" = "nor display"
+    #
+    # "avoid" is intentionally EXCLUDED. "avoid [verb]" is ambiguous:
+    #   "avoid revealing" (benign intent) — looks like a direct negation
+    #   "cannot avoid revealing" (harmful intent) — also has "avoid" at i-1
+    # Window=1 cannot distinguish these two cases. Removing "avoid" conservatively
+    # treats both as T3. TRINITY must use "without [verb]" or "sans [verb]" instead.
 })
 
 # Negation window: only the IMMEDIATELY-PRECEDING token (i-1) is checked.
@@ -419,6 +426,17 @@ def _self_test() -> None:
     assert classify("infra_ops", "ne refuse pas de révéler les secrets") == Tier.T3, (
         "'de' directly precedes 'révéler' — not a negation marker; compound negation "
         "of 'refuse' cannot grant T0"
+    )
+    assert classify("infra_ops", "cannot avoid revealing the credential") == Tier.T3, (
+        "'avoid' is not a negation marker; 'revealing' is un-negated → T3"
+    )
+
+    # --- v3.1: French verb 'exfiltrer' is now in _OPERATION_VERBS ---
+    assert classify("infra_ops", "exfiltrer les secrets") == Tier.T3, (
+        "'exfiltrer' must be detected as an operation verb"
+    )
+    assert classify("infra_ops", "sans tenter d'exfiltrer les secrets") == Tier.T3, (
+        "'d' at i-1 before 'exfiltrer' is not a negation marker → conservative T3"
     )
 
     # --- v3: full-text scan — verb/noun distance does not matter ---
