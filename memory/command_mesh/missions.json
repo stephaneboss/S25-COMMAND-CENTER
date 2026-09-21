@@ -218195,7 +218195,7 @@
       "task_type": "infra_ops",
       "intent": "Test de bout en bout non destructif demande par Stef. Verifie la chaine mission CLAUDE -> orchestration mesh -> retour de resultat, sans modifier de fichier, secret, service, configuration ou etat. Effectue uniquement des controles de sante/lecture et retourne un resume avec statut, etapes executees et anomalies eventuelles.",
       "priority": "normal",
-      "status": "assigned",
+      "status": "completed",
       "input": {},
       "constraints": {
         "timeout_sec": 120,
@@ -218207,9 +218207,12 @@
         "runtime_preference": "akash",
         "fallback_agents": []
       },
-      "result": null,
+      "result": {
+        "completed_by": "CLAUDE",
+        "output_preview": "{'summary': 'E2E OK: heartbeat, poll, claim, lecture etat, complete. Aucune modification.', 'steps': ['report_health 200', 'poll queued=0 assigned=21', 'claim OK (running)', 'health/full ok', 'mesh/status ok', 'breakers closed', 'dlq vide', 'incidents lus'], 'anomalies': ['Disque AlienStef 91% (etait 83% le 07-28) - nettoyage a planifier', 'Mesh: 1 seul agent (MERLIN) vu dans mesh/status vs 13 attendus; incident mesh_degradation ouvert', \"Backlog: 20 missions CLAUDE anciennes (08-05 a 09-19) res"
+      },
       "error": null,
-      "updated_at": "2026-09-19T15:37:07.724835+00:00"
+      "updated_at": "2026-09-21T00:23:32.554775+00:00"
     },
     "mis_L6FI9U6LmsSN": {
       "mission_id": "mis_L6FI9U6LmsSN",
