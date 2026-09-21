@@ -1,45 +1,5 @@
 {
   "items": {
-    "git_auto_sync": {
-      "agent_id": "git_auto_sync",
-      "type": "infra",
-      "status": "online",
-      "runtime": "local",
-      "endpoint_class": "internal",
-      "capabilities": [
-        "git_pull"
-      ],
-      "priority": "normal",
-      "cost_tier": "low",
-      "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-09-21T18:59:01.615349+00:00",
-      "last_seen_at": "2026-09-21T18:59:01.615349+00:00",
-      "cooldown_until": null,
-      "metadata": {},
-      "latency_ms": 1735845,
-      "error_rate": 0.0
-    },
-    "perplexity_news_scanner": {
-      "agent_id": "perplexity_news_scanner",
-      "type": "intel",
-      "status": "online",
-      "runtime": "local",
-      "endpoint_class": "internal",
-      "capabilities": [
-        "market_news",
-        "sentiment_scan",
-        "perplexity_api"
-      ],
-      "priority": "normal",
-      "cost_tier": "low",
-      "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-09-21T18:59:01.619109+00:00",
-      "last_seen_at": "2026-09-21T18:59:01.619109+00:00",
-      "cooldown_until": null,
-      "metadata": {},
-      "latency_ms": 1738698,
-      "error_rate": 0.0
-    },
     "COCKPIT_LUMIERE": {
       "agent_id": "COCKPIT_LUMIERE",
       "type": "gateway",
@@ -54,8 +14,8 @@
       "priority": "normal",
       "cost_tier": "low",
       "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-09-21T18:59:01.651667+00:00",
-      "last_seen_at": "2026-09-21T18:59:01.651667+00:00",
+      "last_heartbeat_at": "2026-09-21T19:30:03.429091+00:00",
+      "last_seen_at": "2026-09-21T19:30:03.429091+00:00",
       "cooldown_until": null,
       "metadata": {},
       "latency_ms": null,
@@ -73,32 +33,12 @@
       "priority": "normal",
       "cost_tier": "low",
       "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-09-21T18:59:41.896775+00:00",
-      "last_seen_at": "2026-09-21T18:59:41.896775+00:00",
+      "last_heartbeat_at": "2026-09-21T19:30:03.373320+00:00",
+      "last_seen_at": "2026-09-21T19:30:03.373320+00:00",
       "cooldown_until": null,
       "metadata": {},
       "latency_ms": null,
       "error_rate": null
-    },
-    "coinbase_ha_publisher": {
-      "agent_id": "coinbase_ha_publisher",
-      "type": "infra",
-      "status": "online",
-      "runtime": "local",
-      "endpoint_class": "internal",
-      "capabilities": [
-        "ha_state_push",
-        "coinbase_portfolio"
-      ],
-      "priority": "normal",
-      "cost_tier": "low",
-      "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-09-21T19:00:03.064356+00:00",
-      "last_seen_at": "2026-09-21T19:00:03.064356+00:00",
-      "cooldown_until": null,
-      "metadata": {},
-      "latency_ms": 58978,
-      "error_rate": 0.0
     },
     "mesh_signal_bridge": {
       "agent_id": "mesh_signal_bridge",
@@ -113,11 +53,11 @@
       "priority": "normal",
       "cost_tier": "low",
       "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-09-21T19:00:03.081493+00:00",
-      "last_seen_at": "2026-09-21T19:00:03.081493+00:00",
+      "last_heartbeat_at": "2026-09-21T19:30:03.026033+00:00",
+      "last_seen_at": "2026-09-21T19:30:03.026033+00:00",
       "cooldown_until": null,
       "metadata": {},
-      "latency_ms": 28,
+      "latency_ms": 3,
       "error_rate": 0.0
     },
     "trailing_stop_manager": {
@@ -133,11 +73,31 @@
       "priority": "normal",
       "cost_tier": "low",
       "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-09-21T19:00:03.088360+00:00",
-      "last_seen_at": "2026-09-21T19:00:03.088360+00:00",
+      "last_heartbeat_at": "2026-09-21T19:30:03.048215+00:00",
+      "last_seen_at": "2026-09-21T19:30:03.048215+00:00",
       "cooldown_until": null,
       "metadata": {},
-      "latency_ms": 255,
+      "latency_ms": 96,
+      "error_rate": 0.0
+    },
+    "auto_signal_scanner": {
+      "agent_id": "auto_signal_scanner",
+      "type": "signal",
+      "status": "online",
+      "runtime": "local",
+      "endpoint_class": "internal",
+      "capabilities": [
+        "strategy_scan",
+        "multi_coin"
+      ],
+      "priority": "normal",
+      "cost_tier": "low",
+      "reliability_score": 1.0,
+      "last_heartbeat_at": "2026-09-21T19:30:03.061017+00:00",
+      "last_seen_at": "2026-09-21T19:30:03.061017+00:00",
+      "cooldown_until": null,
+      "metadata": {},
+      "latency_ms": 299284,
       "error_rate": 0.0
     },
     "comet_sentiment": {
@@ -153,11 +113,11 @@
       "priority": "normal",
       "cost_tier": "low",
       "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-09-21T19:00:03.141457+00:00",
-      "last_seen_at": "2026-09-21T19:00:03.141457+00:00",
+      "last_heartbeat_at": "2026-09-21T19:30:03.089757+00:00",
+      "last_seen_at": "2026-09-21T19:30:03.089757+00:00",
       "cooldown_until": null,
       "metadata": {},
-      "latency_ms": 593092,
+      "latency_ms": 594577,
       "error_rate": 0.0
     },
     "drawdown_guardian": {
@@ -173,11 +133,11 @@
       "priority": "normal",
       "cost_tier": "low",
       "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-09-21T19:00:03.157440+00:00",
-      "last_seen_at": "2026-09-21T19:00:03.157440+00:00",
+      "last_heartbeat_at": "2026-09-21T19:30:03.105834+00:00",
+      "last_seen_at": "2026-09-21T19:30:03.105834+00:00",
       "cooldown_until": null,
       "metadata": {},
-      "latency_ms": 600004,
+      "latency_ms": 600807,
       "error_rate": 0.0
     },
     "dca_scheduler": {
@@ -192,11 +152,11 @@
       "priority": "normal",
       "cost_tier": "low",
       "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-09-21T18:59:01.601492+00:00",
-      "last_seen_at": "2026-09-21T18:59:01.601492+00:00",
+      "last_heartbeat_at": "2026-09-21T19:30:03.120924+00:00",
+      "last_seen_at": "2026-09-21T19:30:03.120924+00:00",
       "cooldown_until": null,
       "metadata": {},
-      "latency_ms": 838943,
+      "latency_ms": 133,
       "error_rate": 0.0
     },
     "quant_brain": {
@@ -214,11 +174,11 @@
       "priority": "normal",
       "cost_tier": "low",
       "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-09-21T18:59:01.606462+00:00",
-      "last_seen_at": "2026-09-21T18:59:01.606462+00:00",
+      "last_heartbeat_at": "2026-09-21T19:30:03.139356+00:00",
+      "last_seen_at": "2026-09-21T19:30:03.139356+00:00",
       "cooldown_until": null,
       "metadata": {},
-      "latency_ms": 3523281,
+      "latency_ms": 1784586,
       "error_rate": 0.0
     },
     "system_health": {
@@ -234,31 +194,71 @@
       "priority": "normal",
       "cost_tier": "low",
       "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-09-21T18:59:01.611019+00:00",
-      "last_seen_at": "2026-09-21T18:59:01.611019+00:00",
+      "last_heartbeat_at": "2026-09-21T19:30:03.147380+00:00",
+      "last_seen_at": "2026-09-21T19:30:03.147380+00:00",
       "cooldown_until": null,
       "metadata": {},
-      "latency_ms": 237861,
+      "latency_ms": 298757,
       "error_rate": 0.0
     },
-    "auto_signal_scanner": {
-      "agent_id": "auto_signal_scanner",
-      "type": "signal",
+    "git_auto_sync": {
+      "agent_id": "git_auto_sync",
+      "type": "infra",
       "status": "online",
       "runtime": "local",
       "endpoint_class": "internal",
       "capabilities": [
-        "strategy_scan",
-        "multi_coin"
+        "git_pull"
       ],
       "priority": "normal",
       "cost_tier": "low",
       "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-09-21T19:00:03.124324+00:00",
-      "last_seen_at": "2026-09-21T19:00:03.124324+00:00",
+      "last_heartbeat_at": "2026-09-21T19:30:03.291707+00:00",
+      "last_seen_at": "2026-09-21T19:30:03.291707+00:00",
       "cooldown_until": null,
       "metadata": {},
-      "latency_ms": 646,
+      "latency_ms": 1797291,
+      "error_rate": 0.0
+    },
+    "perplexity_news_scanner": {
+      "agent_id": "perplexity_news_scanner",
+      "type": "intel",
+      "status": "online",
+      "runtime": "local",
+      "endpoint_class": "internal",
+      "capabilities": [
+        "market_news",
+        "sentiment_scan",
+        "perplexity_api"
+      ],
+      "priority": "normal",
+      "cost_tier": "low",
+      "reliability_score": 1.0,
+      "last_heartbeat_at": "2026-09-21T19:30:03.346706+00:00",
+      "last_seen_at": "2026-09-21T19:30:03.346706+00:00",
+      "cooldown_until": null,
+      "metadata": {},
+      "latency_ms": 1799492,
+      "error_rate": 0.0
+    },
+    "coinbase_ha_publisher": {
+      "agent_id": "coinbase_ha_publisher",
+      "type": "infra",
+      "status": "online",
+      "runtime": "local",
+      "endpoint_class": "internal",
+      "capabilities": [
+        "ha_state_push",
+        "coinbase_portfolio"
+      ],
+      "priority": "normal",
+      "cost_tier": "low",
+      "reliability_score": 1.0,
+      "last_heartbeat_at": "2026-09-21T19:30:03.011945+00:00",
+      "last_seen_at": "2026-09-21T19:30:03.011945+00:00",
+      "cooldown_until": null,
+      "metadata": {},
+      "latency_ms": 58848,
       "error_rate": 0.0
     }
   }
