@@ -221612,6 +221612,28 @@
       },
       "error": null,
       "updated_at": "2026-09-22T14:26:11.969150+00:00"
+    },
+    "mis_y3aPDkbNXKeK": {
+      "mission_id": "mis_y3aPDkbNXKeK",
+      "created_at": "2026-09-22T15:00:03.404620+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "quant_brain",
+      "task_type": "trading_analysis",
+      "intent": "Auto trading analysis brief \u2014 periodic",
+      "priority": "normal",
+      "status": "assigned",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": null,
+      "error": null,
+      "updated_at": "2026-09-22T15:00:03.404620+00:00"
     }
   }
 }
