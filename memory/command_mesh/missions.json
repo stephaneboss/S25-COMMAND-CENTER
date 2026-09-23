@@ -222196,7 +222196,7 @@
       "task_type": "trading_analysis",
       "intent": "Auto trading analysis brief \u2014 periodic",
       "priority": "normal",
-      "status": "assigned",
+      "status": "completed",
       "input": {},
       "constraints": {
         "timeout_sec": 120
@@ -222206,9 +222206,12 @@
           "LOCAL_CRON"
         ]
       },
-      "result": null,
+      "result": {
+        "duration_sec": 8.54,
+        "output_preview": "{\n  \"decisions\": [],\n  \"dry_run\": true,\n  \"live_perf_rows\": 0,\n  \"backtest_rows\": 56,\n  \"strategies_seen\": 8,\n  \"live_data_freshness\": {\n    \"window_hours\": 72,\n    \"cutoff_ts\": 1789876870.983696,\n    \"last_successful_live_trade_ts\": 1779922806.7810013,\n    \"successful_live_trades_in_window\": 0,\n    \"most_recent_trade_success\": false,\n    \"reason\": \"no successful live trade in window - most recent order attempts failed (check balance/funds)\"\n  }\n}\n"
+      },
       "error": null,
-      "updated_at": "2026-09-23T04:00:02.791812+00:00"
+      "updated_at": "2026-09-23T04:01:11.118501+00:00"
     }
   }
 }
