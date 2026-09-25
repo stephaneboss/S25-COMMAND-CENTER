@@ -224234,6 +224234,55 @@
       },
       "error": null,
       "updated_at": "2026-09-25T00:51:11.652549+00:00"
+    },
+    "mis_v9vMCXapyPOo": {
+      "mission_id": "mis_v9vMCXapyPOo",
+      "created_at": "2026-09-25T01:20:03.022654+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "quant_brain",
+      "task_type": "trading_analysis",
+      "intent": "Auto trading analysis brief \u2014 periodic",
+      "priority": "normal",
+      "status": "completed",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": {
+        "duration_sec": 12.87,
+        "output_preview": "{\n  \"decisions\": [],\n  \"dry_run\": true,\n  \"live_perf_rows\": 0,\n  \"backtest_rows\": 56,\n  \"strategies_seen\": 8,\n  \"live_data_freshness\": {\n    \"window_hours\": 72,\n    \"cutoff_ts\": 1790040074.9129026,\n    \"last_successful_live_trade_ts\": 1779922806.7810013,\n    \"successful_live_trades_in_window\": 0,\n    \"most_recent_trade_success\": false,\n    \"reason\": \"no successful live trade in window - most recent order attempts failed (check balance/funds)\"\n  }\n}\n"
+      },
+      "error": null,
+      "updated_at": "2026-09-25T01:21:15.028326+00:00"
+    },
+    "mis_OPO8sBmyvLFS": {
+      "mission_id": "mis_OPO8sBmyvLFS",
+      "created_at": "2026-09-25T01:22:36.316715+00:00",
+      "created_by": "TRINITY",
+      "target_agent": "CLAUDE",
+      "task_type": "strategy_planning",
+      "intent": "Aligner la feuille de route S25 sur trois axes inspir\u00e9s des \u00e9changes r\u00e9cents: (1) intelligence Claude Code + KIMI/Moonshot pour raisonner/coder, Perplexity pour veille sourc\u00e9e; (2) red teaming d\u00e9fensif des agents face aux prompt injections/jailbreaks (dont exemples publics attribu\u00e9s \u00e0 Pliny), avec tests en sandbox et sans retirer garde-fous; (3) autonomie de type JARVIS 2.0 via relay CLAUDE ind\u00e9pendant du mission_worker, ACK et suivi de sessions/\u00e9tats. PRIORIT\u00c9 imm\u00e9diate: diagnostiquer la mission CLAUDE qui reste assigned require_ack=true et concevoir un relay fiable m\u00eame en safe_mode, sans d\u00e9sactiver safe_mode. Pr\u00e9server autorisation T0/T1, T2 uniquement confirmation explicite de Stef, T3 bloqu\u00e9. Home Assistant volontairement OFF, ne pas restaurer. Coinbase LIVE mais fonds insuffisants: aucun trade r\u00e9el, aucune transaction. Ne pas manipuler de secrets ni modifier cockpit_lumiere.py sans nouvelle autorisation. Livrer cartographie v\u00e9rifi\u00e9e du code, plan par \u00e9tapes, tests, diff propos\u00e9 uniquement; pas de modification appliqu\u00e9e automatiquement.",
+      "priority": "normal",
+      "status": "assigned",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120,
+        "max_retries": 2,
+        "require_ack": true
+      },
+      "routing": {
+        "selected_by": "TRINITY",
+        "runtime_preference": "akash",
+        "fallback_agents": []
+      },
+      "result": null,
+      "error": null,
+      "updated_at": "2026-09-25T01:22:36.316715+00:00"
     }
   }
 }
