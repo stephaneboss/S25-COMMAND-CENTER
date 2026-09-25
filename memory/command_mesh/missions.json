@@ -224363,11 +224363,11 @@
       "mission_id": "mis_MgXwMHKna24E",
       "created_at": "2026-09-25T03:30:02.774530+00:00",
       "created_by": "mesh_activator",
-      "target_agent": "quant_brain",
+      "target_agent": null,
       "task_type": "trading_analysis",
       "intent": "Auto trading analysis brief \u2014 periodic",
       "priority": "normal",
-      "status": "assigned",
+      "status": "blocked",
       "input": {},
       "constraints": {
         "timeout_sec": 120
@@ -224378,8 +224378,8 @@
         ]
       },
       "result": null,
-      "error": null,
-      "updated_at": "2026-09-25T03:30:02.774530+00:00"
+      "error": "no_eligible_target",
+      "updated_at": "2026-09-25T03:31:02.171861+00:00"
     }
   }
 }
