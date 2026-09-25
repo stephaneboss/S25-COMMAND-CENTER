@@ -224580,6 +224580,28 @@
       },
       "error": null,
       "updated_at": "2026-09-25T07:56:11.060316+00:00"
+    },
+    "mis_scbeSinxWp0D": {
+      "mission_id": "mis_scbeSinxWp0D",
+      "created_at": "2026-09-25T08:30:03.350194+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "quant_brain",
+      "task_type": "trading_analysis",
+      "intent": "Auto trading analysis brief \u2014 periodic",
+      "priority": "normal",
+      "status": "assigned",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": null,
+      "error": null,
+      "updated_at": "2026-09-25T08:30:03.350194+00:00"
     }
   }
 }
