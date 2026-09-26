@@ -8,7 +8,7 @@ and sends a /api/mesh/report_health heartbeat with derived status:
   - degraded  : 2× ≤ age < 4× (2 missed heartbeats)
   - offline   : age ≥ 4× expected interval (4+ missed)
 
-Also reports LLM agents (GEMINI, TRINITY) based on their process / cockpit uptime.
+Reports cockpit HTTP availability separately. Neither probe verifies task success.
 
 Per Trinity architecture spec:
   "heartbeat agent: toutes les 30s
@@ -97,10 +97,16 @@ LOCAL_AGENTS: Dict[str, Dict] = {
 
 
 def derive_status(log_path: Path, interval_sec: int) -> tuple[str, int | None]:
-    """Returns (status, age_sec) derived from log mtime."""
-    if not log_path.exists():
+    """Return log-activity status and age in milliseconds, never request latency."""
+    if interval_sec <= 0:
+        raise ValueError("interval_sec must be positive")
+    try:
+        age = time.time() - log_path.stat().st_mtime
+    except OSError:
         return "offline", None
-    age = time.time() - log_path.stat().st_mtime
+    # A future timestamp is not evidence of a healthy cron.
+    if age < 0:
+        return "degraded", None
     if age < 2 * interval_sec:
         return "online", int(age * 1000)
     if age < 4 * interval_sec:
@@ -108,19 +114,33 @@ def derive_status(log_path: Path, interval_sec: int) -> tuple[str, int | None]:
     return "offline", int(age * 1000)
 
 
-def post_heartbeat(agent_id: str, meta: Dict):
-    log_path = Path(meta["log"])
-    status, latency_ms = derive_status(log_path, meta["interval"])
-    payload = {
+def build_heartbeat(agent_id: str, meta: Dict) -> Dict:
+    """Separate observed log activity from unmeasured operational success."""
+    status, log_age_ms = derive_status(Path(meta["log"]), meta["interval"])
+    return {
         "agent_id": agent_id,
         "type": meta["type"],
         "status": status,
         "runtime": meta["runtime"],
         "capabilities": meta["capabilities"],
-        "latency_ms": latency_ms,
-        "error_rate": 0.0,
+        "latency_ms": None,
+        "error_rate": None,
+        # Retained for compatibility; this is only the legacy activity score.
         "reliability_score": 1.0 if status == "online" else (0.5 if status == "degraded" else 0.0),
+        "metadata": {
+            "health_basis": "log_mtime",
+            "log_age_ms": log_age_ms,
+            "expected_interval_sec": meta["interval"],
+            "operational_status": "unknown",
+            "task_success_verified": False,
+            "reliability_score_basis": "log_activity_only",
+        },
     }
+
+
+def post_heartbeat(agent_id: str, meta: Dict):
+    payload = build_heartbeat(agent_id, meta)
+    status = payload["status"]
     try:
         r = requests.post(f"{COCKPIT}/api/mesh/report_health",
                           json=payload, headers=HEADERS, timeout=5)
@@ -130,8 +150,8 @@ def post_heartbeat(agent_id: str, meta: Dict):
     except Exception as e:
         ok = False
         logger.warning("heartbeat POST failed for %s: %s", agent_id, e)
-    logger.info("%s → %s (latency=%sms, pushed=%s)",
-                agent_id, status, latency_ms, ok)
+    logger.info("%s → %s (log_age_ms=%s, task_success=unknown, pushed=%s)",
+                agent_id, status, payload["metadata"]["log_age_ms"], ok)
     return status
 
 
@@ -150,7 +170,7 @@ def main():
             logger.warning("heartbeat error %s: %s", agent_id, e)
 
     logger.info("summary: %s", summary)
-    # Report TRINITY Core itself via cockpit uptime
+    # Report cockpit HTTP availability, not TRINITY execution or pipeline health
     try:
         r = requests.get(f"{COCKPIT}/api/status", timeout=3)
         cockpit_ok = r.status_code == 200
@@ -160,8 +180,15 @@ def main():
             "status": "online" if cockpit_ok else "offline",
             "runtime": "local",
             "capabilities": ["api_gateway", "command_mesh", "ops_routes"],
-            "error_rate": 0.0,
+            "error_rate": None,
             "reliability_score": 1.0 if cockpit_ok else 0.0,
+            "metadata": {
+                "health_basis": "http_status",
+                "http_status": r.status_code,
+                "operational_status": "unknown",
+                "task_success_verified": False,
+                "reliability_score_basis": "http_availability_only",
+            },
         }
         requests.post(f"{COCKPIT}/api/mesh/report_health",
                       json=payload, headers=HEADERS, timeout=5)
