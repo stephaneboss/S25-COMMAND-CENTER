@@ -25,7 +25,8 @@ logger = logging.getLogger("s25.ha_bridge")
 try:
     from security.vault import vault_get
 except ImportError:
-    vault_get = lambda key, default=None: os.environ.get(key, default)
+    def vault_get(key, default=None):
+        return os.environ.get(key, default)
 
 
 class HABridge:
