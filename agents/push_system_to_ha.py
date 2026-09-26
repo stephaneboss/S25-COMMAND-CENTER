@@ -26,6 +26,7 @@ def load_ha_config():
 HA, TOKEN = load_ha_config()
 H = {"Authorization": f"Bearer {TOKEN}", "Content-Type": "application/json"}
 
+
 def push(entity, state, attrs):
     r = requests.post(f"{HA}/api/states/{entity}", headers=H, json={
         "state": str(state), "attributes": attrs
