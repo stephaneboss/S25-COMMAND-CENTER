@@ -55,3 +55,13 @@ def test_failed_sensor_write_makes_pipeline_result_false():
     assert result["sensors_ok"] is False
     assert result["ok"] is False
     bridge.call_service.assert_not_called()
+
+def test_accepted_trade_request_is_not_retried_for_sensor_failure():
+    bridge = bridge_with_mocks()
+    bridge.push_sensor.return_value = False
+
+    result = signal(bridge)
+
+    assert result["mexc_service_accepted"] is True
+    assert result["sensors_ok"] is False
+    assert result["ok"] is True
