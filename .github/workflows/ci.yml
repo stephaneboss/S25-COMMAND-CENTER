@@ -8,6 +8,21 @@ on:
 
 jobs:
 
+  # Run lint separately so style errors do not skip YAML checks or tests.
+  lint:
+    name: Lint Code
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install flake8
+        run: pip install flake8
+      - name: Lint (flake8)
+        run: |
+          flake8 agents/ security/ monitoring/ \
+            --max-line-length=120 \
+            --ignore=E501,W503,E302,E303,E221,E241,W504,E401,E701,E128,E226 \
+            --exclude=__pycache__
+
   # ─── Code Quality ───────────────────────────────────────────────────
   validate:
     name: Validate Code
@@ -25,15 +40,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
-          pip install flake8 pytest pytest-asyncio
-
-      - name: Lint (flake8)
-        run: |
-          flake8 agents/ security/ monitoring/ \
-            --max-line-length=120 \
-            --ignore=E501,W503,E302,E303,E221,E241,W504,E401,E701,E128,E226 \
-            --exclude=__pycache__
-          echo "✓ Lint passed"
+          pip install pytest pytest-asyncio
 
       - name: Validate YAML configs
         run: |
