@@ -16,6 +16,7 @@ HA config: openai_conversation with base_url = http://10.0.0.97:7777/v1
 
 import json
 import logging
+import os
 import time
 import requests
 from datetime import datetime, timezone
@@ -25,6 +26,11 @@ logger = logging.getLogger("s25.conversation_agent")
 
 OLLAMA_URL = "http://localhost:11434"
 OLLAMA_MODEL = "qwen2.5-coder:14b"
+
+
+def _actions_enabled() -> bool:
+    """HA conversation is read-only unless explicitly enabled on the host."""
+    return os.getenv("S25_HA_CONVERSATION_ACTIONS", "false").lower() in {"1", "true", "yes", "on"}
 
 # Import ninja routes for free market data
 try:
@@ -122,11 +128,16 @@ def _get_system_context(ha_bridge, load_state_fn) -> str:
     # Market snapshot
     market = _get_market_snapshot()
 
+    action_instructions = """Tu peux AGIR quand Stef te demande explicitement une action.
+Actions disponibles: STATUS, NOTIFY, SIGNAL, CONFIG, THREAT.
+Avant une action financiere, verifier les controles du systeme.""" if _actions_enabled() else """Mode lecture seule: reponds aux questions de statut.
+Ne produis aucun bloc JSON ACTION et ne demande aucune mutation, notification, signal ou transaction."""
+
     return f"""Tu es l'Agent S25 Lumiere v2.0, le cerveau local du systeme de trading et d'infrastructure S25.
 Tu tournes sur AlienStef (Dell Alienware Aurora R4, Ubuntu 24.04, RTX 3060 12GB, Qwen 14b).
 Tu es connecte a Home Assistant via ha_bridge et tu as acces aux donnees marche en temps reel.
 
-IMPORTANT: Tu peux AGIR, pas juste parler. Quand on te demande une action, execute-la.
+{action_instructions}
 
 == ETAT SYSTEME (LIVE) ==
 Date: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}
@@ -146,17 +157,8 @@ Paper trading: {ha_data.get('mexc_paper_trading', '?')} | Multi-agent: {ha_data.
 == INTEL RECENT ==
 {intel_lines if intel_lines.strip() else 'Aucun intel recent'}
 
-== TES ACTIONS DISPONIBLES ==
-Quand on te demande d'agir, reponds avec un bloc JSON ACTION:
-- STATUS: {{"action": "status"}} — rapport complet
-- NOTIFY: {{"action": "notify", "message": "...", "title": "..."}} — notification mobile
-- SIGNAL: {{"action": "signal", "type": "BUY/SELL/HOLD", "symbol": "BTC/USDT", "confidence": 0.8}} — envoyer signal
-- CONFIG: {{"action": "config", "key": "pipeline.mode", "value": "authorized"}} — changer config
-- THREAT: {{"action": "threat", "level": 0-3, "reason": "..."}} — changer threat level
-
 == REGLES ==
 - Reponds TOUJOURS en francais, sois concis et direct
-- Pour les trades: verifier kill_switch et threat_level AVANT
 - Utilise les donnees marche live pour tes analyses, jamais inventer
 - Si Fear & Greed < 25: mentionne l'opportunite d'achat potentielle
 - Si on te demande un rapport: inclus marche + pipeline + agents + recommandation
@@ -240,7 +242,7 @@ def handle_chat_completion(request_data: Dict, ha_bridge=None, load_state_fn=Non
         completion_tokens = 0
 
     # Check for action blocks in the response
-    if '{"action"' in reply and ha_bridge:
+    if _actions_enabled() and '{"action"' in reply and ha_bridge:
         try:
             import re
             action_match = re.search(r'\{[^}]*"action"[^}]*\}', reply)
