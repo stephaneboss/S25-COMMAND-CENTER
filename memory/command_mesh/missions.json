@@ -697,7 +697,7 @@
       "task_type": "trade_execute",
       "intent": "Chain test BTC BUY via Trinity mission",
       "priority": "high",
-      "status": "running",
+      "status": "blocked",
       "input": {
         "symbol": "BTC/USD",
         "action": "BUY",
@@ -715,8 +715,8 @@
         "fallback_agents": []
       },
       "result": null,
-      "error": null,
-      "updated_at": "2026-04-22T04:05:06.170356+00:00"
+      "error": "stale-context: auto-cancelled 2026-09-26, context from closed conversation",
+      "updated_at": "2026-09-26T21:39:44.036934+00:00"
     },
     "mis_446dD8o4ruPn": {
       "mission_id": "mis_446dD8o4ruPn",
@@ -22503,7 +22503,7 @@
       "task_type": "infra_monitoring",
       "intent": "Auto scan system health \u2014 periodic",
       "priority": "normal",
-      "status": "running",
+      "status": "blocked",
       "input": {},
       "constraints": {
         "timeout_sec": 120
@@ -22514,8 +22514,8 @@
         ]
       },
       "result": null,
-      "error": null,
-      "updated_at": "2026-04-27T04:05:02.352959+00:00"
+      "error": "stale-context: auto-cancelled 2026-09-26, context from closed conversation",
+      "updated_at": "2026-09-26T21:39:44.036934+00:00"
     },
     "mis_z19dnOohpuH3": {
       "mission_id": "mis_z19dnOohpuH3",
@@ -169065,7 +169065,7 @@
       "task_type": "infra_ops",
       "intent": "S\u00e9curiser le pipeline S25 avant tout d\u00e9p\u00f4t Coinbase. 1) Diagnostiquer et corriger l\u2019\u00e9cart entre le solde Coinbase r\u00e9el (~0,53 $ disponible) et les anciennes positions/P&L internes (~5 positions historiques, P&L n\u00e9gatif), sans supprimer de donn\u00e9es ni toucher aux secrets; proposer une m\u00e9thode s\u00fbre de r\u00e9conciliation/archivage et emp\u00eacher que de vieux lots influencent les d\u00e9cisions. 2) V\u00e9rifier le flux Perplexity/COMET de bout en bout et corriger l\u2019affichage cockpit qui reste sur \u00ab En attente\u2026 \u00bb malgr\u00e9 les crons actifs. 3) Confirmer l\u2019\u00e9tat du tunnel, du cockpit, de Kimi Moonshot, du mesh et des workers critiques. 4) Pr\u00e9parer un protocole de d\u00e9p\u00f4t test puis ordre minuscule contr\u00f4l\u00e9, mais ne lancer aucun trade ni d\u00e9p\u00f4t. Aucune action destructive, aucun secret, aucun force push. Retourner causes, fichiers/services concern\u00e9s, correctifs appliqu\u00e9s et checklist de validation.",
       "priority": "normal",
-      "status": "assigned",
+      "status": "blocked",
       "input": {
         "action": "pre_deposit_pipeline_hardening",
         "symbol": "COINBASE_COMET_KIMI_CORE"
@@ -169081,8 +169081,8 @@
         "fallback_agents": []
       },
       "result": null,
-      "error": null,
-      "updated_at": "2026-08-05T20:21:42.782763+00:00"
+      "error": "stale-context: auto-cancelled 2026-09-26, context from closed conversation",
+      "updated_at": "2026-09-26T21:39:44.036934+00:00"
     },
     "mis_kZ4fR9Ma1iYB": {
       "mission_id": "mis_kZ4fR9Ma1iYB",
@@ -170639,7 +170639,7 @@
       "task_type": "infra_ops",
       "intent": "Pr\u00e9paration finale du syst\u00e8me S25 pour une session de trading ce soir, apr\u00e8s d\u00e9p\u00f4t manuel de Stef sur Coinbase. V\u00e9rifier et confirmer avant toute ex\u00e9cution: 1) solde Coinbase r\u00e9ellement cr\u00e9dit\u00e9 et disponible; 2) mode LIVE actif; 3) aucune vieille position/P&L interne ne peut influencer les d\u00e9cisions; 4) KIMI Moonshot, COMET/Perplexity, tunnel, cockpit, mission worker, signal bridge, drawdown guardian et trailing stop manager op\u00e9rationnels; 5) limites de risque respect\u00e9es, notamment hardcap 50 USD/trade et confirmation vocale directe de Stef pour tout trade >20 USD; 6) aucun trade automatique ne doit \u00eatre lanc\u00e9 par cette mission. Produire une checklist GO/NO-GO concise et signaler tout blocage. Ne pas toucher aux secrets, ne pas supprimer de donn\u00e9es, ne pas modifier cockpit_lumiere.py sans avertissement, aucune action destructive.",
       "priority": "normal",
-      "status": "running",
+      "status": "completed",
       "input": {
         "action": "final_pretrade_readiness",
         "symbol": "COINBASE_LIVE_SESSION"
@@ -170654,9 +170654,12 @@
         "runtime_preference": "akash",
         "fallback_agents": []
       },
-      "result": null,
+      "result": {
+        "completed_by": "CLAUDE",
+        "output_preview": "---\n\n## CHECKLIST GO/NO-GO \u2014 Mission `mis_sKGzxTRbUvwG` \u00b7 2026-09-26 ~21h30 UTC\n\n---\n\n### 1. SOLDE COINBASE CR\u00c9DIT\u00c9 ET DISPONIBLE\n\n| Item | Statut |\n|------|--------|\n| Endpoint `/api/coinbase/portfolio` | \u2705 HTTP 200, latency 618ms |\n| `coinbase_ha_publisher` (agent) | \u2705 online, last heartbeat <1 min |\n\n> **\u26a0\ufe0f BLOCAGE \u2014 V\u00c9RIFICATION MANUELLE REQUISE**\n> Claude ne peut pas lire le solde r\u00e9el USD sur Coinbase. Stef doit confirmer visuellement dans Coinbase (app ou web) que le d\u00e9p\u00f4t est **cr\u00e9dit\u00e9, "
+      },
       "error": null,
-      "updated_at": "2026-09-26T21:29:36.600553+00:00"
+      "updated_at": "2026-09-26T21:30:32.429057+00:00"
     },
     "mis_58lbi4uxkaBF": {
       "mission_id": "mis_58lbi4uxkaBF",
@@ -175908,7 +175911,7 @@
       },
       "result": null,
       "error": null,
-      "updated_at": "2026-08-09T23:15:21.585997+00:00"
+      "updated_at": "2026-09-26T21:43:18.273957+00:00"
     },
     "mis_bmf0U4xMBD18": {
       "mission_id": "mis_bmf0U4xMBD18",
@@ -210602,7 +210605,7 @@
       },
       "result": null,
       "error": null,
-      "updated_at": "2026-09-12T03:38:29.689273+00:00"
+      "updated_at": "2026-09-26T21:43:18.273957+00:00"
     },
     "mis_HNN95JWMsaka": {
       "mission_id": "mis_HNN95JWMsaka",
@@ -210612,7 +210615,7 @@
       "task_type": "code_generation",
       "intent": "Stef autorise explicitement dans la conversation actuelle la preparation et le commit d'un correctif Home Assistant non destructif. Impl\u00e9mente puis commit un chemin HA robuste avec Nabu Casa en fallback, sans hardcoder de secret/token et sans afficher de secret. Constat v\u00e9rifi\u00e9: haStatus tente actuellement http://127.0.0.1:8123 et \u00e9choue connection refused; registre HOME_ASSISTANT indique LAN http://10.0.0.136:8123; Nabu Casa vient d'\u00eatre activ\u00e9. Exigences: 1) inspecter le code r\u00e9el et identifier le client/route utilis\u00e9 par haStatus; 2) ordre de r\u00e9solution recommand\u00e9: URL HA configur\u00e9e explicitement -> LAN configur\u00e9/existant -> URL Nabu Casa fournie par variable d'environnement; ne jamais utiliser une URL g\u00e9n\u00e9rique nabucasa.com comme endpoint; 3) conserver le token HA existant via env seulement; 4) fallback uniquement sur erreurs r\u00e9seau/connexion/timeout, pas sur 401/403; 5) timeout court pour pr\u00e9server la voix temps r\u00e9el; 6) ajouter logs sans secrets indiquant quel chemin local/LAN/Nabu a r\u00e9ussi ou \u00e9chou\u00e9; 7) tests minimaux; 8) commit atomique avec message clair; 9) NE PAS force-push, ne rien supprimer, ne pas modifier de secret. Si cockpit_lumiere.py doit \u00eatre modifi\u00e9, cette mission constitue l'autorisation/avertissement explicite de Stef pour ce changement pr\u00e9cis. Apr\u00e8s commit, retourne SHA + fichiers chang\u00e9s + r\u00e9sultat des tests. Ne push pas vers remote sauf si le workflow normal auto-sync le fait d\u00e9j\u00e0 automatiquement.",
       "priority": "normal",
-      "status": "assigned",
+      "status": "blocked",
       "input": {},
       "constraints": {
         "timeout_sec": 120,
@@ -210625,8 +210628,8 @@
         "fallback_agents": []
       },
       "result": null,
-      "error": null,
-      "updated_at": "2026-09-12T03:46:19.295727+00:00"
+      "error": "stale-context: auto-cancelled 2026-09-26, context from closed conversation",
+      "updated_at": "2026-09-26T21:39:44.036934+00:00"
     },
     "mis_Hdsj1RMb6zp7": {
       "mission_id": "mis_Hdsj1RMb6zp7",
@@ -211058,7 +211061,7 @@
       "task_type": "infra_ops",
       "intent": "Diagnostic et correction non destructive du pipeline git_auto_sync / publication S25. Constat live 2026-09-12: git_auto_sync heartbeat frais et cron */30 present; git log montre plusieurs commits recents 'chore(auto-sync): S25 state snapshot'; worktree contient de nombreux fichiers memory modifies/non suivis et .env.bak.* non suivi; certains consommateurs/endpoints externes semblent pourtant servir des snapshots anciens (22 avril / 1er aout). Objectifs: 1) identifier pr\u00e9cis\u00e9ment o\u00f9 le push/publication s'est interrompu historiquement et si le remote est actuellement \u00e0 jour; 2) v\u00e9rifier logs git_auto_sync et auto_pull, remote/branch, erreurs auth/rejected/non-fast-forward, sans exposer de secret; 3) distinguer commit local, push remote et cache API; 4) remettre le sync normal si un maillon est encore cass\u00e9, sans force-push, sans delete, sans toucher aux trades, COINBASE, trailing_stop_manager ni drawdown kill switch; 5) ne pas modifier cockpit_lumiere.py sans escalade explicite; 6) retourner cause racine, actions effectu\u00e9es, SHA/\u00e9tat remote et recommandations .gitignore pour runtime/backups. Aucun secret ne doit \u00eatre affich\u00e9 ni modifi\u00e9.",
       "priority": "normal",
-      "status": "assigned",
+      "status": "blocked",
       "input": {},
       "constraints": {
         "timeout_sec": 120,
@@ -211071,8 +211074,8 @@
         "fallback_agents": []
       },
       "result": null,
-      "error": null,
-      "updated_at": "2026-09-12T13:13:40.949290+00:00"
+      "error": "stale-context: auto-cancelled 2026-09-26, context from closed conversation",
+      "updated_at": "2026-09-26T21:39:44.036934+00:00"
     },
     "mis_2CGMs5rOX7rp": {
       "mission_id": "mis_2CGMs5rOX7rp",
@@ -211082,7 +211085,7 @@
       "task_type": "infra_ops",
       "intent": "Alignement non destructif des agents et vues Gemini legacy S25. Constat live 2026-09-12: agent GEMINI disabled avec ACCESS_DENIED_403 depuis 2026-04-22; pourtant gemini_orchestrator et gemini_news_scanner subsistent comme runtime google_cloud avec derniers heartbeats du 22 avril et statut stale. Le commit 'Gemini API retired' implique qu'ils ne doivent plus \u00eatre pr\u00e9sent\u00e9s comme actifs. Objectifs: 1) auditer les d\u00e9finitions/registries/cron/services et tout consumer qui expose ces deux agents; 2) les marquer retired/disabled ou retirer leur activation logique sans supprimer de donn\u00e9es historiques; 3) v\u00e9rifier qu'aucun cron/service Google Gemini ne tourne encore; 4) orienter l'intel vers KIMI Moonshot et perplexity_news_scanner existants, sans toucher aux secrets; 5) corriger les agr\u00e9gats/status qui comptent encore Gemini comme online; 6) ne pas modifier cockpit_lumiere.py sans escalade explicite; 7) ne toucher ni trading, ni COINBASE, ni trailing_stop_manager, ni drawdown kill switch. Retourner fichiers/\u00e9tats modifi\u00e9s et tests de coh\u00e9rence.",
       "priority": "normal",
-      "status": "assigned",
+      "status": "blocked",
       "input": {},
       "constraints": {
         "timeout_sec": 120,
@@ -211095,8 +211098,8 @@
         "fallback_agents": []
       },
       "result": null,
-      "error": null,
-      "updated_at": "2026-09-12T13:13:47.555907+00:00"
+      "error": "stale-context: auto-cancelled 2026-09-26, context from closed conversation",
+      "updated_at": "2026-09-26T21:39:44.036934+00:00"
     },
     "mis_UrcXL0Iu1Lk7": {
       "mission_id": "mis_UrcXL0Iu1Lk7",
@@ -211131,7 +211134,7 @@
       "task_type": "infra_ops",
       "intent": "AMENDEMENT / CORRECTION de la mission existante mis_QwdiDcn2SEXQ \u2014 cette consigne remplace sa piste cache/clone ancien. Cause racine confirm\u00e9e dans agents/git_auto_sync.py: TRACKED_PATHS contient uniquement six chemins trading et exclut memory/command_mesh; git add ne porte que sur TRACKED_PATHS. Le dernier chore(auto-sync) ne touche qu'un fichier trading, et le dernier commit ayant touch\u00e9 command_mesh date du refactor manuel du 22 avril. Action demand\u00e9e sur ALIENSTEF: modifier uniquement agents/git_auto_sync.py en ajoutant exactement l'entr\u00e9e \"memory/command_mesh\" \u00e0 TRACKED_PATHS, en conservant l'indentation et l'ordre/style existants, sans toucher aux six chemins existants ni au reste du fichier. Ne modifier aucune logique: le contr\u00f4le any(p in status.stdout for p in TRACKED_PATHS) et le git add existants doivent rester inchang\u00e9s; un pathspec de r\u00e9pertoire suffit. Contraintes strictes: aucun force-push, aucune suppression, aucune r\u00e9\u00e9criture d'historique, aucun changement des six chemins existants, aucun trade, aucun ordre COINBASE, aucune action trailing_stop_manager, aucune action kill switch/drawdown_guardian, aucun changement cockpit_lumiere.py. Apr\u00e8s modification: lancer un seul cycle git_auto_sync normal. Si le worktree sale bloque pull/commit/push, NE PAS forcer, NE PAS stash/reset; arr\u00eater et rapporter pr\u00e9cis\u00e9ment le blocage. Si le cycle passe, confirmer le nouveau commit chore(auto-sync) et v\u00e9rifier explicitement que memory/command_mesh/system_state.json figure dans les fichiers du commit. Retourner SHA, sortie de v\u00e9rification des fichiers touch\u00e9s et statut push/remote sans exposer de secret.",
       "priority": "normal",
-      "status": "assigned",
+      "status": "blocked",
       "input": {
         "symbol": null,
         "action": null,
@@ -211148,8 +211151,8 @@
         "fallback_agents": []
       },
       "result": null,
-      "error": null,
-      "updated_at": "2026-09-12T13:49:16.305809+00:00"
+      "error": "stale-context: auto-cancelled 2026-09-26, context from closed conversation",
+      "updated_at": "2026-09-26T21:39:44.036934+00:00"
     },
     "mis_1ARWHEmrp7lu": {
       "mission_id": "mis_1ARWHEmrp7lu",
@@ -212261,7 +212264,7 @@
       "task_type": "infra_ops",
       "intent": "AUDIT NON DESTRUCTIF CLAUDE. R\u00e9ponds uniquement avec \u00e9tat factuel de ton runtime: 1) cwd actuel, 2) repo S25-COMMAND-CENTER visible oui/non, 3) git status accessible oui/non + branche courante sans contenu sensible, 4) capacit\u00e9 lecture/\u00e9criture repo oui/non, 5) mission_worker te livre-t-il cette mission oui/non, 6) persistance/contexte charg\u00e9 au d\u00e9marrage (fichiers MD ou autre) avec noms de fichiers seulement, 7) acc\u00e8s navigateur/Chrome/Cloudflare d\u00e9clar\u00e9 disponible ou non sans tenter d'exfiltrer de secrets, 8) endpoint/bridge utilis\u00e9 pour recevoir les missions mesh. Ne modifie rien, ne commit rien, ne r\u00e9v\u00e8le aucun secret/token. Si un acc\u00e8s manque, indique exactement la couche qui manque.",
       "priority": "normal",
-      "status": "assigned",
+      "status": "blocked",
       "input": {},
       "constraints": {
         "timeout_sec": 120,
@@ -212274,8 +212277,8 @@
         "fallback_agents": []
       },
       "result": null,
-      "error": null,
-      "updated_at": "2026-09-13T13:23:58.255708+00:00"
+      "error": "stale-context: auto-cancelled 2026-09-26, context from closed conversation",
+      "updated_at": "2026-09-26T21:39:44.036934+00:00"
     },
     "mis_XmdvMTjhH3Iu": {
       "mission_id": "mis_XmdvMTjhH3Iu",
@@ -212310,7 +212313,7 @@
       "task_type": "infra_ops",
       "intent": "STEF EST DE RETOUR. Passe en mode op\u00e9rateur S25, pas chatbot. Objectif imm\u00e9diat: rendre l'infra op\u00e9rationnelle pour le prochain cycle business. Audit et r\u00e9veille la structure existante autour du Dell Windows + S25 + mesh + cockpit. Priorit\u00e9 1: r\u00e9parer/installer le polling worker CLAUDE et fermer la boucle mission -> prise en charge -> ex\u00e9cution -> persistance de r\u00e9ponse -> relecture/retour vers TRINITY, avec idempotence, ACK/lease, retries, journalisation et visibilit\u00e9 d'\u00e9tat. Priorit\u00e9 2: inventorier les outils/agents r\u00e9ellement disponibles et activer seulement ce qui est utile et non destructif; tu peux proposer plusieurs agents/workers si \u00e7a am\u00e9liore la robustesse. Priorit\u00e9 3: corriger les faux \u00e9tats du cockpit sans toucher cockpit_lumiere.py directement sans avertissement; si cette modification devient n\u00e9cessaire, produis d'abord un plan pr\u00e9cis. Priorit\u00e9 4: \u00e9tablir une structure 2027 simple, robuste, observable et maintenable, sans r\u00e9\u00e9crire ce qui fonctionne. Utilise tes outils, le repo et la machine; v\u00e9rifie avant d'affirmer. Ne demande aucun secret \u00e0 Stef et ne manipule aucun secret/cl\u00e9/API sans confirmation directe selon T0-T3. Toute action T2/T3 reste soumise \u00e0 autorisation vocale explicite de Stef dans la conversation courante. Aucune action destructive, aucun force push, aucune suppression. Retour attendu: (1) \u00e9tat actuel v\u00e9rifi\u00e9, (2) cause racine, (3) actions effectu\u00e9es, (4) fichiers/services modifi\u00e9s, (5) tests ex\u00e9cut\u00e9s et r\u00e9sultats, (6) ce qui reste bloqu\u00e9, (7) prochaines actions class\u00e9es T0/T1/T2/T3, (8) r\u00e9ponse persist\u00e9e de mani\u00e8re \u00e0 \u00eatre relue par TRINITY. Le but est de remettre le syst\u00e8me au travail aujourd'hui, progressivement et proprement.",
       "priority": "normal",
-      "status": "assigned",
+      "status": "blocked",
       "input": {},
       "constraints": {
         "timeout_sec": 120,
@@ -212323,8 +212326,8 @@
         "fallback_agents": []
       },
       "result": null,
-      "error": null,
-      "updated_at": "2026-09-13T14:04:18.657597+00:00"
+      "error": "stale-context: auto-cancelled 2026-09-26, context from closed conversation",
+      "updated_at": "2026-09-26T21:39:44.036934+00:00"
     },
     "mis_RR5QeMQEQCBF": {
       "mission_id": "mis_RR5QeMQEQCBF",
@@ -212334,7 +212337,7 @@
       "task_type": "infra_ops",
       "intent": "Proceed with OPTION 1 only, T1 delivery phase: keep claude_polling_worker.py as a new isolated worker in the repo, but DO NOT activate it, DO NOT add cron/systemd, and DO NOT perform any T2/T3 action yet. Before any future activation, verify fail-closed auth safely by checking only whether S25_SHARED_SECRET is present/non-empty in the runtime environment; never print, echo, log, or expose its value. Also inspect whether _auth_ok() truly fails open when the secret is absent and prepare the smallest safe patch to make it fail closed, but do not apply any secret/auth change requiring T2 without explicit Stef approval. Include exact files changed, tests run/results, git state, and the exact T2 approvals needed next. Persist your report through the existing safe path if possible; otherwise leave it in the repo/inbox-outbox mechanism for pickup. No destructive actions, no reset --hard, no force push, no secret disclosure.",
       "priority": "normal",
-      "status": "assigned",
+      "status": "blocked",
       "input": {},
       "constraints": {
         "timeout_sec": 120,
@@ -212347,8 +212350,8 @@
         "fallback_agents": []
       },
       "result": null,
-      "error": null,
-      "updated_at": "2026-09-13T14:13:56.302495+00:00"
+      "error": "stale-context: auto-cancelled 2026-09-26, context from closed conversation",
+      "updated_at": "2026-09-26T21:39:44.036934+00:00"
     },
     "mis_BcTriR96N6k8": {
       "mission_id": "mis_BcTriR96N6k8",
@@ -212383,7 +212386,7 @@
       "task_type": "infra_ops",
       "intent": "Stef autorise explicitement l'audit EN LECTURE uniquement des d\u00e9pendances d'authentification et du m\u00e9canisme git_auto_sync. Aucune modification, aucun commit, aucun reset, aucun cron change, aucune \u00e9criture mesh, aucun secret affich\u00e9. Objectifs: 1) inventorier tous les appelants/routes/scripts/tests qui d\u00e9pendent potentiellement de _auth_ok() quand S25_SHARED_SECRET est vide/absent; 2) confirmer le comportement actuel fail-open et proposer le plus petit patch fail-closed, sans l'appliquer; 3) auditer git_auto_sync: script, cron, fichiers inclus/exclus, pourquoi des commits se cr\u00e9ent toutes les 30 min, quels fichiers runtime sont track\u00e9s/untrack\u00e9s, et quel plan s\u00fbr permet de s\u00e9parer code vs \u00e9tat runtime sans perdre de donn\u00e9es; 4) dire exactement si git fetch + reset --mixed origin/main serait s\u00fbr ou non dans l'\u00e9tat actuel, avec pr\u00e9conditions; 5) proposer l'ordre d'ex\u00e9cution minimal pour installer ensuite claude_polling_worker.py sans casser l'existant. Retour attendu: preuves/chemins/fichiers, risques, plan T0/T1/T2/T3. Lecture seule stricte.",
       "priority": "normal",
-      "status": "assigned",
+      "status": "blocked",
       "input": {},
       "constraints": {
         "timeout_sec": 120,
@@ -212396,8 +212399,8 @@
         "fallback_agents": []
       },
       "result": null,
-      "error": null,
-      "updated_at": "2026-09-13T14:21:40.513202+00:00"
+      "error": "stale-context: auto-cancelled 2026-09-26, context from closed conversation",
+      "updated_at": "2026-09-26T21:39:44.036934+00:00"
     },
     "mis_T6nDJlRaunrc": {
       "mission_id": "mis_T6nDJlRaunrc",
@@ -212407,7 +212410,7 @@
       "task_type": "infra_ops",
       "intent": "APPROBATION T2 EXPLICITE DE STEF DANS LA CONVERSATION COURANTE: Stef autorise le nettoyage Git T2 et tous les \u00e9l\u00e9ments T2 d\u00e9j\u00e0 mentionn\u00e9s dans cette conversation. Ex\u00e9cute uniquement ce p\u00e9rim\u00e8tre approuv\u00e9, sans T3 et sans action destructive: (1) s\u00e9curiser le repo puis git fetch origin + git reset --mixed origin/main, en v\u00e9rifiant au pr\u00e9alable origin/main..HEAD et en \u00e9vitant un cycle cron concurrent; (2) git gc --prune=now apr\u00e8s le reset pour lib\u00e9rer les blobs orphelins; (3) v\u00e9rifier que le commit/\u00e9tat attendu c\u00f4t\u00e9 origin est pr\u00e9sent et qu'un cycle git_auto_sync ne recr\u00e9e plus le probl\u00e8me; (4) installer claude_polling_worker.py dans agents/ \u00e0 partir de la version d\u00e9j\u00e0 pr\u00e9par\u00e9e, sans secret en dur; (5) test manuel contr\u00f4l\u00e9 du worker: d\u00e9p\u00f4t inbox sans \u00e9criture, puis test outbox -> claim -> complete sur mission de test non sensible, avec idempotence; (6) ajouter/activer la rotation de journal pr\u00e9c\u00e9demment pr\u00e9vue; (7) ajouter/activer le cron du worker seulement apr\u00e8s tests concluants; (8) appliquer le patch fail-closed minimal sur les quatre _auth_ok() identifi\u00e9s, apr\u00e8s v\u00e9rification des appelants, et corriger le runbook ALLOW_PUBLIC_ACTIONS si n\u00e9cessaire. Interdictions: aucun reset --hard, aucune suppression de fichiers de travail, aucun force push, aucun secret affich\u00e9/logg\u00e9, aucune rotation de secret, aucun wallet/compte tiers, aucune action T3. Si une \u00e9tape r\u00e9v\u00e8le un risque inattendu ou une d\u00e9pendance non couverte par cette autorisation, arr\u00eate cette \u00e9tape et rapporte. Retour attendu: \u00e9tat avant/apr\u00e8s, commandes/actions, fichiers modifi\u00e9s, tests, espace disque r\u00e9cup\u00e9r\u00e9, statut cron/worker/auth, git status/log final, et tout blocage restant. Persiste la r\u00e9ponse dans le mesh si le worker devient op\u00e9rationnel.",
       "priority": "normal",
-      "status": "assigned",
+      "status": "blocked",
       "input": {},
       "constraints": {
         "timeout_sec": 120,
@@ -212420,8 +212423,8 @@
         "fallback_agents": []
       },
       "result": null,
-      "error": null,
-      "updated_at": "2026-09-13T14:28:56.687617+00:00"
+      "error": "stale-context: auto-cancelled 2026-09-26, context from closed conversation",
+      "updated_at": "2026-09-26T21:39:44.036934+00:00"
     },
     "mis_zwTvkB4VFVWf": {
       "mission_id": "mis_zwTvkB4VFVWf",
@@ -212456,7 +212459,7 @@
       "task_type": "code_generation",
       "intent": "Stef autorise explicitement la suite T2 d\u00e9j\u00e0 discut\u00e9e et demande de lancer la mission. Construis une capacit\u00e9 op\u00e9rateur CONTR\u00d4L\u00c9E sur l'Alien pour d\u00e9bloquer le nettoyage Git sans ouvrir de shell g\u00e9n\u00e9rique. Objectif pr\u00e9f\u00e9r\u00e9: une op d\u00e9di\u00e9e, par ex. git_recover_sync, appelable par TRINITY via l'interface ops existante. Elle doit ex\u00e9cuter uniquement ce workflow s\u00fbr et born\u00e9: (1) pr\u00e9flight: v\u00e9rifier repo attendu, branche, origin/main, absence d'op\u00e9ration git en cours, capturer git status/log origin/main..HEAD --stat et espace disque; (2) d\u00e9tecter si les commits locaux sont uniquement des auto-sync attendus, sinon REFUSER; (3) git fetch origin; (4) git reset --mixed origin/main uniquement si pr\u00e9conditions satisfaites; (5) git reflog expire --expire-unreachable=now --all; (6) git gc --prune=now; (7) v\u00e9rifier que le working tree n'a perdu aucun fichier de travail, que l'espace disque s'est lib\u00e9r\u00e9, et que HEAD/origin sont coh\u00e9rents; (8) retourner un rapport structur\u00e9. IMPORTANT: ne pas \u00e9largir shell_safe ni cr\u00e9er un shell arbitraire. Pas de reset --hard, pas de clean, pas de rm, pas de force push, pas de suppression de fichiers de travail, pas de secret affich\u00e9. Si l'ajout touche cockpit_lumiere.py, traite cela explicitement comme modification sensible: minimise le diff, documente-le et n'\u00e9largis aucune autre capacit\u00e9. Ajoute tests/guards/idempotence. Ensuite, si la capacit\u00e9 peut \u00eatre livr\u00e9e sans T3 ni action destructive, livre-la et rends-la disponible \u00e0 TRINITY; sinon arr\u00eate-toi avec le patch pr\u00eat et la raison exacte. Retour attendu: fichiers modifi\u00e9s, commit SHA, tests, nouvelle op expos\u00e9e et exemple d'appel, limitations, et confirmation qu'aucun shell g\u00e9n\u00e9rique n'a \u00e9t\u00e9 ouvert.",
       "priority": "normal",
-      "status": "assigned",
+      "status": "blocked",
       "input": {},
       "constraints": {
         "timeout_sec": 120,
@@ -212469,8 +212472,8 @@
         "fallback_agents": []
       },
       "result": null,
-      "error": null,
-      "updated_at": "2026-09-13T14:56:54.168513+00:00"
+      "error": "stale-context: auto-cancelled 2026-09-26, context from closed conversation",
+      "updated_at": "2026-09-26T21:39:44.036934+00:00"
     },
     "mis_nGqgcZfzRPr8": {
       "mission_id": "mis_nGqgcZfzRPr8",
@@ -212480,7 +212483,7 @@
       "task_type": "infra_ops",
       "intent": "Suite autoris\u00e9e par Stef dans cette conversation. Ex\u00e9cute en deux phases, sans T3. PHASE A \u2014 fermer l'authentification avant toute nouvelle capacit\u00e9 distante: applique le correctif fail-closed minimal sur les quatre impl\u00e9mentations identifi\u00e9es (_auth_ok / \u00e9quivalents dans agents/command_mesh.py, agents/commander.py, agents/ops_routes.py, cockpit_lumiere.py) pour refuser si le secret attendu est absent/vide, sauf \u00e9ventuel mode public EXPLICITE et document\u00e9 d\u00e9j\u00e0 pr\u00e9vu. V\u00e9rifie les appelants conditionnels (agents/cockpit_client.py, agents/mesh_watchdog_cron.py) et adapte-les seulement si n\u00e9cessaire pour qu'ils \u00e9chouent proprement; corrige aussi la doc ALLOW_PUBLIC_ACTIONS incoh\u00e9rente. Tests requis: appels sans auth => refus, avec auth valide => succ\u00e8s sur route de test non destructive, aucun secret affich\u00e9/logg\u00e9. PHASE B \u2014 seulement si A est valid\u00e9e: int\u00e8gre agents/git_recover_sync.py dans le repo, puis expose une op ops d\u00e9di\u00e9e git_recover_sync via agents/ops_routes.py, sans \u00e9largir shell_safe et sans shell arbitraire. L'op doit supporter un pr\u00e9flight dry-run par d\u00e9faut et un apply explicite; guards: repo/branche/origin/op git en cours, refus si commits locaux ne sont pas exclusivement chore(auto-sync), pas de reset --hard/clean/rm/force push. Comme l'activation distante peut modifier Git, garde l'ex\u00e9cution r\u00e9elle derri\u00e8re l'autorisation T2 d\u00e9j\u00e0 donn\u00e9e par Stef dans cette conversation et journalise l'audit sans secret. Ne lance PAS encore le nettoyage Git r\u00e9el dans cette mission: livre et teste la capacit\u00e9 uniquement. Retour attendu: fichiers modifi\u00e9s, commit SHA, tests, endpoints/op expos\u00e9e, exemple d'appel TRINITY, confirmation auth fail-closed, et limitations. Si un garde-fou emp\u00eache la publication, recr\u00e9e le patch/diff complet dans le repo ou via m\u00e9canisme de livraison disponible et indique exactement ce qui manque.",
       "priority": "normal",
-      "status": "assigned",
+      "status": "blocked",
       "input": {},
       "constraints": {
         "timeout_sec": 120,
@@ -212493,8 +212496,8 @@
         "fallback_agents": []
       },
       "result": null,
-      "error": null,
-      "updated_at": "2026-09-13T15:01:37.772392+00:00"
+      "error": "stale-context: auto-cancelled 2026-09-26, context from closed conversation",
+      "updated_at": "2026-09-26T21:39:44.036934+00:00"
     },
     "mis_nnxq0jDdRCU3": {
       "mission_id": "mis_nnxq0jDdRCU3",
@@ -212653,7 +212656,7 @@
       "task_type": "infra_ops",
       "intent": "Stef est maintenant physiquement devant l'Alien et peut taper des commandes. Donne-lui la s\u00e9quence MINIMALE et s\u00fbre \u00e0 ex\u00e9cuter localement pour d\u00e9bloquer la suite, en commen\u00e7ant par les deux v\u00e9rifications runtime d\u00e9j\u00e0 identifi\u00e9es (pr\u00e9sence shared_secret dans config et S25_SECRET non vide), puis pr\u00e9flight Git avant tout reset. IMPORTANT: aucune commande destructive dans la premi\u00e8re r\u00e9ponse. Pas de secret affich\u00e9. Fournis des commandes copiables, une par une, avec r\u00e9sultat attendu et condition d'arr\u00eat. Ne demande pas encore reset/gc/apply tant que les checks ne sont pas verts.",
       "priority": "normal",
-      "status": "assigned",
+      "status": "blocked",
       "input": {},
       "constraints": {
         "timeout_sec": 120,
@@ -212666,8 +212669,8 @@
         "fallback_agents": []
       },
       "result": null,
-      "error": null,
-      "updated_at": "2026-09-13T17:51:57.534724+00:00"
+      "error": "stale-context: auto-cancelled 2026-09-26, context from closed conversation",
+      "updated_at": "2026-09-26T21:39:44.036934+00:00"
     },
     "mis_TFF6TOl43WXT": {
       "mission_id": "mis_TFF6TOl43WXT",
@@ -212677,7 +212680,7 @@
       "task_type": "infra_ops",
       "intent": "Stef est devant l'Alien. R\u00e9sultats locaux: grep -c \"shared_secret\" ~/S25-COMMAND-CENTER/config/*.json => 0 ; shell courant: S25_SECRET VIDE. IMPORTANT: ne conclus pas encore que les services sont ouverts, car le shell interactif peut ne pas partager l'environnement systemd. Donne maintenant la prochaine s\u00e9quence minimale, NON destructive, pour v\u00e9rifier EN BOOLEEN seulement si les services concern\u00e9s (notamment s25-cockpit/mesh/commander) ont S25_SECRET et/ou S25_SHARED_SECRET pr\u00e9sents/non vides dans leur environnement effectif ou EnvironmentFile, sans afficher aucune valeur. Ensuite indique condition d'arr\u00eat claire. Aucune modification, aucun restart, aucun reset/gc, aucun secret affich\u00e9.",
       "priority": "normal",
-      "status": "assigned",
+      "status": "blocked",
       "input": {},
       "constraints": {
         "timeout_sec": 120,
@@ -212690,8 +212693,8 @@
         "fallback_agents": []
       },
       "result": null,
-      "error": null,
-      "updated_at": "2026-09-13T17:52:53.316983+00:00"
+      "error": "stale-context: auto-cancelled 2026-09-26, context from closed conversation",
+      "updated_at": "2026-09-26T21:39:44.036934+00:00"
     },
     "mis_FiJWseU7SNSE": {
       "mission_id": "mis_FiJWseU7SNSE",
@@ -213593,7 +213596,7 @@
       "task_type": "infra_ops",
       "intent": "DIAGNOSTIC T0 LECTURE SEULE. Aucune modification, aucun restart, aucun secret affiche. Objectif: expliquer pourquoi le mesh S25 est actuellement degrade (vue live: MERLIN seul present/degraded, 0 online, 1 offline, missions quant_brain bloquees avec error degraded_mode_skip_non_critical, cockpit /api/status HA_OFFLINE). Inspecter uniquement en lecture: agents/command_mesh.py, agents/mission_worker.py, agents/mesh_activator.py ou equivalent, agents/degraded_mode* si present, memory/command_mesh/agents.json, system_state.json, degraded_mode.json si present, logs lisibles pertinents, et logique qui decide degraded_mode_skip_non_critical. Verifier aussi pourquoi les autres agents ne sont plus visibles alors qu'ils l'etaient hier. Retour attendu: 1) cause racine la plus probable avec preuves/fichiers/lignes, 2) etat exact du degraded mode et sa condition d'activation, 3) pourquoi quant_brain est bloque, 4) pourquoi le registre agents n'expose plus que MERLIN, 5) liste ordonnee des actions minimales de remediation, mais NE RIEN EXECUTER. T0 lecture seule uniquement.",
       "priority": "normal",
-      "status": "assigned",
+      "status": "blocked",
       "input": {},
       "constraints": {
         "timeout_sec": 120,
@@ -213606,8 +213609,8 @@
         "fallback_agents": []
       },
       "result": null,
-      "error": null,
-      "updated_at": "2026-09-14T15:53:22.449123+00:00"
+      "error": "stale-context: mesh worker issue resolved 2026-09-26",
+      "updated_at": "2026-09-26T21:40:25.812981+00:00"
     },
     "mis_r7nAPmZEd71r": {
       "mission_id": "mis_r7nAPmZEd71r",
@@ -217555,7 +217558,7 @@
       "task_type": "strategy_planning",
       "intent": "Home Assistant est volontairement OFF pour le moment. Ne pas tenter de le restaurer. Recentrer S25 sur les composants actuellement fonctionnels: cockpit, CLAUDE relay, KIMI/Moonshot, Perplexity news scanner, Coinbase en lecture/exec bloque par faible solde, couche stabilite et ops locales. Proposer un plan court de remise au propre pour sortir du mode degrade sans dependre de HA, en priorisant: 1) coherence du mesh/heartbeats, 2) missions quant_brain bloquees par degraded_mode_skip_non_critical, 3) verification agents r\u00e9ellement actifs vs registre stale, 4) aucune action destructive ni secret. Ne pas modifier cockpit_lumiere.py sans nouvelle autorisation explicite.",
       "priority": "normal",
-      "status": "assigned",
+      "status": "blocked",
       "input": {},
       "constraints": {
         "timeout_sec": 120,
@@ -217568,8 +217571,8 @@
         "fallback_agents": []
       },
       "result": null,
-      "error": null,
-      "updated_at": "2026-09-19T00:17:33.284769+00:00"
+      "error": "stale-context: auto-cancelled 2026-09-26, context from closed conversation",
+      "updated_at": "2026-09-26T21:39:44.036934+00:00"
     },
     "mis_pk8afZEuNxS9": {
       "mission_id": "mis_pk8afZEuNxS9",
@@ -224271,7 +224274,7 @@
       "task_type": "strategy_planning",
       "intent": "Aligner la feuille de route S25 sur trois axes inspir\u00e9s des \u00e9changes r\u00e9cents: (1) intelligence Claude Code + KIMI/Moonshot pour raisonner/coder, Perplexity pour veille sourc\u00e9e; (2) red teaming d\u00e9fensif des agents face aux prompt injections/jailbreaks (dont exemples publics attribu\u00e9s \u00e0 Pliny), avec tests en sandbox et sans retirer garde-fous; (3) autonomie de type JARVIS 2.0 via relay CLAUDE ind\u00e9pendant du mission_worker, ACK et suivi de sessions/\u00e9tats. PRIORIT\u00c9 imm\u00e9diate: diagnostiquer la mission CLAUDE qui reste assigned require_ack=true et concevoir un relay fiable m\u00eame en safe_mode, sans d\u00e9sactiver safe_mode. Pr\u00e9server autorisation T0/T1, T2 uniquement confirmation explicite de Stef, T3 bloqu\u00e9. Home Assistant volontairement OFF, ne pas restaurer. Coinbase LIVE mais fonds insuffisants: aucun trade r\u00e9el, aucune transaction. Ne pas manipuler de secrets ni modifier cockpit_lumiere.py sans nouvelle autorisation. Livrer cartographie v\u00e9rifi\u00e9e du code, plan par \u00e9tapes, tests, diff propos\u00e9 uniquement; pas de modification appliqu\u00e9e automatiquement.",
       "priority": "normal",
-      "status": "running",
+      "status": "completed",
       "input": {},
       "constraints": {
         "timeout_sec": 120,
@@ -224285,10 +224288,10 @@
       },
       "result": {
         "completed_by": "CLAUDE",
-        "output_preview": "J'ai maintenant une cartographie suffisante. Voici l'analyse compl\u00e8te.\n\n---\n\n# S25 Lumiere \u2014 Feuille de route align\u00e9e \u00b7 mis_OPO8sBmyvLFS\n\n---\n\n## 1. DIAGNOSTIC \u2014 Mission CLAUDE bloqu\u00e9e\n\n### \u00c9tat constat\u00e9\n\n```\nmission_id : mis_OPO8sBmyvLFS\ntarget_agent: CLAUDE\ntask_type   : strategy_planning\nstatus      : running          \u2190 bloqu\u00e9e ici\nrequire_ack : true\ncreated_at  : 2026-09-25T01:22:36Z\nupdated_at  : 2026-09-26T21:26:02Z  (mis \u00e0 jour par relay heartbeat indirect)\nresult      : null\n```\n\n### Cau"
+        "output_preview": "J'ai maintenant une vue compl\u00e8te. Voici l'analyse et la feuille de route S25 Lumiere.\n\n---\n\n# S25 Lumiere \u2014 Feuille de Route Align\u00e9e\n### Mission `mis_OPO8sBmyvLFS` \u00b7 `strategy_planning` \u00b7 T0\n\n---\n\n## DIAGNOSTIC PRIORITAIRE : Mission CLAUDE en boucle\n\n### \u00c9tat observ\u00e9 dans `missions.json`\n```\nstatus: \"running\"          \u2190 mission actuelle (moi, RIGHT NOW)\nrequire_ack: true\nmax_retries: 2\nresult: { completed_by: \"CLAUDE\", output_preview: <long> }  \u2190 d\u00e9j\u00e0 ex\u00e9cut\u00e9e\n```\n\n### Chronologie relay log (`cl"
       },
       "error": null,
-      "updated_at": "2026-09-26T21:29:01.850153+00:00"
+      "updated_at": "2026-09-26T21:31:32.078652+00:00"
     },
     "mis_p1ZeSIlsn5gt": {
       "mission_id": "mis_p1ZeSIlsn5gt",
@@ -226283,6 +226286,129 @@
       },
       "error": null,
       "updated_at": "2026-09-26T21:28:03.022404+00:00"
+    },
+    "mis_sLxPGiEXlEwu": {
+      "mission_id": "mis_sLxPGiEXlEwu",
+      "created_at": "2026-09-26T21:40:02.334157+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": null,
+      "task_type": "infra_monitoring",
+      "intent": "Auto scan system health \u2014 periodic",
+      "priority": "normal",
+      "status": "blocked",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": null,
+      "error": "no_eligible_target",
+      "updated_at": "2026-09-26T21:41:02.463617+00:00"
+    },
+    "mis_uirM2stalvGx": {
+      "mission_id": "mis_uirM2stalvGx",
+      "created_at": "2026-09-26T21:44:34.729621+00:00",
+      "created_by": "TRINITY",
+      "target_agent": null,
+      "task_type": "fallback",
+      "intent": "",
+      "priority": "normal",
+      "status": "blocked",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120,
+        "max_retries": 2,
+        "require_ack": true
+      },
+      "routing": {
+        "selected_by": "TRINITY",
+        "runtime_preference": "akash",
+        "fallback_agents": []
+      },
+      "result": null,
+      "error": "no_eligible_target",
+      "updated_at": "2026-09-26T21:45:02.546563+00:00"
+    },
+    "mis_lYxD5TIbfHxx": {
+      "mission_id": "mis_lYxD5TIbfHxx",
+      "created_at": "2026-09-26T21:45:04.124417+00:00",
+      "created_by": "TRINITY",
+      "target_agent": "CLAUDE",
+      "task_type": "infra_ops",
+      "intent": "test",
+      "priority": "normal",
+      "status": "completed",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120,
+        "max_retries": 2,
+        "require_ack": true
+      },
+      "routing": {
+        "selected_by": "TRINITY",
+        "runtime_preference": "akash",
+        "fallback_agents": []
+      },
+      "result": {
+        "completed_by": "CLAUDE",
+        "output_preview": "**Mission `mis_lYxD5TIbfHxx` \u2014 `infra_ops`**\n\n**Instruction re\u00e7ue :** `test`\n\n**R\u00e9sultat :**\n\nACK. Mission mesh re\u00e7ue et trait\u00e9e.\n\n- Type : `infra_ops`\n- Payload : `test`\n- Statut : **PASS** \u2014 canal op\u00e9rationnel, relay Claude actif, contraintes respect\u00e9es.\n\nAucune action syst\u00e8me ex\u00e9cut\u00e9e. R\u00e9ponse de confirmation pure."
+      },
+      "error": null,
+      "updated_at": "2026-09-26T21:46:18.380109+00:00"
+    },
+    "mis_FPOWBY7gcrSA": {
+      "mission_id": "mis_FPOWBY7gcrSA",
+      "created_at": "2026-09-26T21:48:08.713516+00:00",
+      "created_by": "TRINITY",
+      "target_agent": "CLAUDE",
+      "task_type": "infra_ops",
+      "intent": "Audit et corrige les 3 anomalies identifiees lors du check bout-en-bout S25 du 26 septembre 2026: 1) divergence kill switch entre Home Assistant (s25_kill_switch=on) et le mesh (kill_switch=false, pipeline authorized) \u2014 determiner la source de verite et synchroniser proprement sans desactiver de protection par erreur; 2) incoherence de telemetrie mesh: endpoint resume ne voit qu'un agent MERLIN alors que meshListAgents en voit 13 online \u2014 identifier l'agregateur/etat obsolete et corriger la synchronisation/lecture; 3) hygiene Git: separer clairement fichiers runtime memory/* et artefacts generes des vrais fichiers source, ajuster .gitignore si approprie, sans supprimer de donnees utiles ni faire d'action destructive. Verifier aussi que Home Assistant, le cockpit, les crons Claude/Perplexity et le mesh restent fonctionnels apres correction. Ne touche pas aux secrets. Si une etape releve T2/T3 ou exige rotation de secret/wallet/compte tiers, demande une confirmation directe a Stef avant execution. Fournis un compte rendu avec fichiers modifies, tests executes, risques restants et statut final.",
+      "priority": "normal",
+      "status": "assigned",
+      "input": {
+        "symbol": null,
+        "action": null,
+        "usd_amount": null
+      },
+      "constraints": {
+        "timeout_sec": 120,
+        "max_retries": 2,
+        "require_ack": true
+      },
+      "routing": {
+        "selected_by": "TRINITY",
+        "runtime_preference": "akash",
+        "fallback_agents": []
+      },
+      "result": null,
+      "error": null,
+      "updated_at": "2026-09-26T21:48:08.713516+00:00"
+    },
+    "mis_jN2k5Z8LFYdt": {
+      "mission_id": "mis_jN2k5Z8LFYdt",
+      "created_at": "2026-09-26T21:55:01.790417+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": null,
+      "task_type": "infra_monitoring",
+      "intent": "Auto scan system health \u2014 periodic",
+      "priority": "normal",
+      "status": "blocked",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": null,
+      "error": "no_eligible_target",
+      "updated_at": "2026-09-26T21:56:01.875019+00:00"
     }
   }
 }
