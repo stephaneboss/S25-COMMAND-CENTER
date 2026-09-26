@@ -236,7 +236,9 @@ class HABridge:
         )
         results["notification"] = "sent" if notif_ok else "failed"
         results["sensors_ok"] = all(sensor_results)
-        results["ok"] = results["sensors_ok"] and service_ok and notif_ok
+        # An accepted trade request must not look failed solely because telemetry failed:
+        # callers could otherwise retry and submit a duplicate order.
+        results["ok"] = service_ok if verdict == "EXECUTE" else (results["sensors_ok"] and notif_ok)
         return results
 
     # -- Wallet & Balance --------------------------------------------------
