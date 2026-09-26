@@ -34,6 +34,7 @@ def push(entity, state, attrs):
     r.raise_for_status()
     print(f"  {entity} = {state} -> {r.status_code}")
 
+
 # Get system health from cockpit
 try:
     health = requests.get("http://localhost:7777/api/system/health", timeout=10).json()
