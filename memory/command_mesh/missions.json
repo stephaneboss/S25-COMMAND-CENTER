@@ -170639,7 +170639,7 @@
       "task_type": "infra_ops",
       "intent": "Pr\u00e9paration finale du syst\u00e8me S25 pour une session de trading ce soir, apr\u00e8s d\u00e9p\u00f4t manuel de Stef sur Coinbase. V\u00e9rifier et confirmer avant toute ex\u00e9cution: 1) solde Coinbase r\u00e9ellement cr\u00e9dit\u00e9 et disponible; 2) mode LIVE actif; 3) aucune vieille position/P&L interne ne peut influencer les d\u00e9cisions; 4) KIMI Moonshot, COMET/Perplexity, tunnel, cockpit, mission worker, signal bridge, drawdown guardian et trailing stop manager op\u00e9rationnels; 5) limites de risque respect\u00e9es, notamment hardcap 50 USD/trade et confirmation vocale directe de Stef pour tout trade >20 USD; 6) aucun trade automatique ne doit \u00eatre lanc\u00e9 par cette mission. Produire une checklist GO/NO-GO concise et signaler tout blocage. Ne pas toucher aux secrets, ne pas supprimer de donn\u00e9es, ne pas modifier cockpit_lumiere.py sans avertissement, aucune action destructive.",
       "priority": "normal",
-      "status": "assigned",
+      "status": "running",
       "input": {
         "action": "final_pretrade_readiness",
         "symbol": "COINBASE_LIVE_SESSION"
@@ -170656,7 +170656,7 @@
       },
       "result": null,
       "error": null,
-      "updated_at": "2026-08-06T19:05:07.442982+00:00"
+      "updated_at": "2026-09-26T21:29:36.600553+00:00"
     },
     "mis_58lbi4uxkaBF": {
       "mission_id": "mis_58lbi4uxkaBF",
@@ -212504,7 +212504,7 @@
       "task_type": "code_generation",
       "intent": "Stef est actuellement hors de la maison et n'a pas acc\u00e8s au terminal Alien. Continue SANS exiger d'intervention locale: pr\u00e9pare uniquement les artefacts statiques n\u00e9cessaires, sans appliquer de changement runtime. 1) produire les patches fail-closed minimaux pour command_mesh.py, commander.py, ops_routes.py et cockpit_lumiere.py, avec tests statiques/py_compile possibles; 2) pr\u00e9parer l'int\u00e9gration de git_recover_sync.py et l'enregistrement de l'op d\u00e9di\u00e9e dans ops_routes.py mais la laisser d\u00e9sactiv\u00e9e/non ex\u00e9cutable tant que les v\u00e9rifications runtime de shared_secret/S25_SECRET ne sont pas faites; 3) documenter pr\u00e9cis\u00e9ment les deux checks runtime restants et les conditions vert/rouge; 4) ne modifier aucun secret, ne red\u00e9marrer aucun service, ne toucher aucun cron, ne lancer aucun reset/gc. Retour attendu: diff pr\u00eat, fichiers, tests, ordre d'application une fois Stef de retour, et tout ce qui peut \u00eatre livr\u00e9 sans risque maintenant.",
       "priority": "normal",
-      "status": "assigned",
+      "status": "failed",
       "input": {},
       "constraints": {
         "timeout_sec": 120,
@@ -212517,8 +212517,8 @@
         "fallback_agents": []
       },
       "result": null,
-      "error": null,
-      "updated_at": "2026-09-13T15:08:54.811004+00:00"
+      "error": "Claude timeout after 150s",
+      "updated_at": "2026-09-26T21:25:32.551178+00:00"
     },
     "mis_RgIbnphMfTKr": {
       "mission_id": "mis_RgIbnphMfTKr",
@@ -220647,7 +220647,7 @@
       "task_type": "infra_ops",
       "intent": "E2E TEST 2026-09-21 \u2014 ping de bout en bout, NE RIEN EX\u00c9CUTER, r\u00e9pondre ok",
       "priority": "normal",
-      "status": "assigned",
+      "status": "completed",
       "input": {},
       "constraints": {
         "timeout_sec": 120,
@@ -220659,9 +220659,12 @@
         "runtime_preference": "akash",
         "fallback_agents": []
       },
-      "result": null,
+      "result": {
+        "completed_by": "CLAUDE",
+        "output_preview": "ok"
+      },
       "error": null,
-      "updated_at": "2026-09-21T17:50:08.220459+00:00"
+      "updated_at": "2026-09-26T21:22:18.603286+00:00"
     },
     "mis_3rzxvIqaioaL": {
       "mission_id": "mis_3rzxvIqaioaL",
@@ -224268,7 +224271,7 @@
       "task_type": "strategy_planning",
       "intent": "Aligner la feuille de route S25 sur trois axes inspir\u00e9s des \u00e9changes r\u00e9cents: (1) intelligence Claude Code + KIMI/Moonshot pour raisonner/coder, Perplexity pour veille sourc\u00e9e; (2) red teaming d\u00e9fensif des agents face aux prompt injections/jailbreaks (dont exemples publics attribu\u00e9s \u00e0 Pliny), avec tests en sandbox et sans retirer garde-fous; (3) autonomie de type JARVIS 2.0 via relay CLAUDE ind\u00e9pendant du mission_worker, ACK et suivi de sessions/\u00e9tats. PRIORIT\u00c9 imm\u00e9diate: diagnostiquer la mission CLAUDE qui reste assigned require_ack=true et concevoir un relay fiable m\u00eame en safe_mode, sans d\u00e9sactiver safe_mode. Pr\u00e9server autorisation T0/T1, T2 uniquement confirmation explicite de Stef, T3 bloqu\u00e9. Home Assistant volontairement OFF, ne pas restaurer. Coinbase LIVE mais fonds insuffisants: aucun trade r\u00e9el, aucune transaction. Ne pas manipuler de secrets ni modifier cockpit_lumiere.py sans nouvelle autorisation. Livrer cartographie v\u00e9rifi\u00e9e du code, plan par \u00e9tapes, tests, diff propos\u00e9 uniquement; pas de modification appliqu\u00e9e automatiquement.",
       "priority": "normal",
-      "status": "assigned",
+      "status": "running",
       "input": {},
       "constraints": {
         "timeout_sec": 120,
@@ -224280,9 +224283,12 @@
         "runtime_preference": "akash",
         "fallback_agents": []
       },
-      "result": null,
+      "result": {
+        "completed_by": "CLAUDE",
+        "output_preview": "J'ai maintenant une cartographie suffisante. Voici l'analyse compl\u00e8te.\n\n---\n\n# S25 Lumiere \u2014 Feuille de route align\u00e9e \u00b7 mis_OPO8sBmyvLFS\n\n---\n\n## 1. DIAGNOSTIC \u2014 Mission CLAUDE bloqu\u00e9e\n\n### \u00c9tat constat\u00e9\n\n```\nmission_id : mis_OPO8sBmyvLFS\ntarget_agent: CLAUDE\ntask_type   : strategy_planning\nstatus      : running          \u2190 bloqu\u00e9e ici\nrequire_ack : true\ncreated_at  : 2026-09-25T01:22:36Z\nupdated_at  : 2026-09-26T21:26:02Z  (mis \u00e0 jour par relay heartbeat indirect)\nresult      : null\n```\n\n### Cau"
+      },
       "error": null,
-      "updated_at": "2026-09-25T01:22:36.316715+00:00"
+      "updated_at": "2026-09-26T21:29:01.850153+00:00"
     },
     "mis_p1ZeSIlsn5gt": {
       "mission_id": "mis_p1ZeSIlsn5gt",
@@ -226252,6 +226258,31 @@
       },
       "error": null,
       "updated_at": "2026-09-26T20:56:12.580671+00:00"
+    },
+    "mis_VB9fAWZ5smzz": {
+      "mission_id": "mis_VB9fAWZ5smzz",
+      "created_at": "2026-09-26T21:25:02.280993+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "quant_brain",
+      "task_type": "trading_analysis",
+      "intent": "Auto trading analysis brief \u2014 periodic",
+      "priority": "normal",
+      "status": "completed",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": {
+        "duration_sec": 120.32,
+        "output_preview": "{\n  \"decisions\": [],\n  \"dry_run\": true,\n  \"live_perf_rows\": 0,\n  \"backtest_rows\": 0,\n  \"strategies_seen\": 8,\n  \"live_data_freshness\": {\n    \"window_hours\": 72,\n    \"cutoff_ts\": 1790198882.8965333,\n    \"last_successful_live_trade_ts\": 1779922806.7810013,\n    \"successful_live_trades_in_window\": 0,\n    \"most_recent_trade_success\": false,\n    \"reason\": \"no successful live trade in window - most recent order attempts failed (check balance/funds)\"\n  }\n}\n"
+      },
+      "error": null,
+      "updated_at": "2026-09-26T21:28:03.022404+00:00"
     }
   }
 }
