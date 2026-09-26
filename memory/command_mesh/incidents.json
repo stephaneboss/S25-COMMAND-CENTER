@@ -820,6 +820,37 @@
       ],
       "owner": "TRINITY",
       "resolved_at": "2026-09-26T16:30:31.811576+00:00"
+    },
+    "inc_IB56PIgYaxgr": {
+      "incident_id": "inc_IB56PIgYaxgr",
+      "opened_at": "2026-09-26T17:46:32.204396+00:00",
+      "severity": "critical",
+      "status": "open",
+      "source": "Policy",
+      "category": "mesh_degradation",
+      "title": "Moins de 4 agents online",
+      "summary": "Only 2/5 online",
+      "evidence": {
+        "ts": "2026-09-26T17:46:32.203820+00:00",
+        "global_status": "degraded",
+        "pipeline_status": "unknown",
+        "mesh_status": "degraded",
+        "tunnel_active": true,
+        "agents_online": 2,
+        "agents_expected": 5,
+        "active_incidents": 0,
+        "router_quota_state": "ok",
+        "last_signal_at": "2026-04-22T02:01:01.645750+00:00",
+        "control_plane_runtime": "local",
+        "local_dependency": "required",
+        "notes": []
+      },
+      "recommended_actions": [
+        "reroute_to_akash",
+        "disable_noncritical_dispatch"
+      ],
+      "owner": "TRINITY",
+      "resolved_at": null
     }
   }
 }
