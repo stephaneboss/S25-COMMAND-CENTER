@@ -138,9 +138,15 @@ class HABridge:
             return {"ok": False, "error": "HA not configured"}
 
         results = {}
+        sensor_results = []
+
+        def record_sensor(entity_id, state, attributes):
+            ok = self.push_sensor(entity_id, state, attributes)
+            sensor_results.append(ok)
+            return ok
 
         # 1. ARKON-5 action sensor
-        self.push_sensor("sensor.s25_arkon5_action", action, {
+        record_sensor("sensor.s25_arkon5_action", action, {
             "friendly_name": "S25 ARKON-5 Action",
             "symbol": symbol, "source": source, "verdict": verdict,
             "icon": "mdi:robot",
@@ -149,7 +155,7 @@ class HABridge:
 
         # 2. Confidence sensor
         conf_pct = int(effective_confidence * 100)
-        self.push_sensor("sensor.s25_arkon5_conf", str(conf_pct), {
+        record_sensor("sensor.s25_arkon5_conf", str(conf_pct), {
             "friendly_name": "S25 ARKON-5 Confidence",
             "unit_of_measurement": "%",
             "raw_confidence": confidence,
@@ -159,22 +165,22 @@ class HABridge:
         results["arkon5_conf"] = conf_pct
 
         # 3. Price sensors
-        self.push_sensor("sensor.s25_arkon5_tp", str(price), {
+        record_sensor("sensor.s25_arkon5_tp", str(price), {
             "friendly_name": "S25 ARKON-5 Target Price",
             "unit_of_measurement": "USD",
         })
-        self.push_sensor("sensor.s25_arkon5_sl", str(round(price * 0.97, 2)), {
+        record_sensor("sensor.s25_arkon5_sl", str(round(price * 0.97, 2)), {
             "friendly_name": "S25 ARKON-5 Stop Loss",
             "unit_of_measurement": "USD",
         })
 
         # 4. Reason sensor
-        self.push_sensor("sensor.s25_arkon5_reason", reason[:255], {
+        record_sensor("sensor.s25_arkon5_reason", reason[:255], {
             "friendly_name": "S25 ARKON-5 Reason", "source": source,
         })
 
         # 5. Pipeline status
-        self.push_sensor("sensor.s25_pipeline_status", verdict, {
+        record_sensor("sensor.s25_pipeline_status", verdict, {
             "friendly_name": "S25 Pipeline Status",
             "action": action, "symbol": symbol,
             "confidence": confidence,
@@ -186,37 +192,40 @@ class HABridge:
         results["pipeline_status"] = verdict
 
         # 6. Trinity signal
-        self.push_sensor("sensor.s25_trinity_signal", action, {
+        record_sensor("sensor.s25_trinity_signal", action, {
             "friendly_name": "S25 Trinity Signal",
             "intent": f"{action} {symbol} -- eff={effective_confidence:.2f} via {source}",
             "source": source,
             "ts": datetime.now(timezone.utc).isoformat(),
         })
 
-        # 7. EXECUTE -> trigger MEXC via HA shell_commands
+        # 7. EXECUTE -> request MEXC service via HA shell_commands
+        service_ok = True
         if verdict == "EXECUTE":
             base_asset = symbol.split("/")[0] if "/" in symbol else symbol
             base_lower = base_asset.lower()
+            service_name = None
 
             if action == "BUY" and base_lower in ("btc", "doge", "xrp"):
-                self.call_service("shell_command", f"spot_buy_{base_lower}")
-                results["mexc_executed"] = f"spot_buy_{base_lower}"
+                service_name = f"spot_buy_{base_lower}"
             elif action == "SELL" and base_lower in ("btc", "doge", "xrp"):
-                self.call_service("shell_command", f"spot_sell_{base_lower}")
-                results["mexc_executed"] = f"spot_sell_{base_lower}"
+                service_name = f"spot_sell_{base_lower}"
             elif action == "BUY":
-                self.call_service("shell_command", "trade_spot_buy")
-                results["mexc_executed"] = "trade_spot_buy"
+                service_name = "trade_spot_buy"
             elif action == "SELL":
-                self.call_service("shell_command", "trade_spot_sell")
-                results["mexc_executed"] = "trade_spot_sell"
+                service_name = "trade_spot_sell"
 
-            self.call_service("shell_command", "notify_trade")
-            self.call_service("input_text", "set_value", {
-                "entity_id": "input_text.agent_trading_status",
-                "value": f"EXECUTING_{action}_{base_asset}",
-            })
-            results["trading_status"] = f"EXECUTING_{action}_{base_asset}"
+            service_ok = bool(service_name) and self.call_service("shell_command", service_name)
+            results["mexc_service_requested"] = service_name
+            results["mexc_service_accepted"] = service_ok
+            # HA accepting a service request does not confirm an exchange order.
+            if service_ok:
+                self.call_service("shell_command", "notify_trade")
+                self.call_service("input_text", "set_value", {
+                    "entity_id": "input_text.agent_trading_status",
+                    "value": f"REQUESTED_{action}_{base_asset}",
+                })
+                results["trading_status"] = f"REQUESTED_{action}_{base_asset}"
 
         # 8. Mobile notification
         emoji = {"BUY": "\U0001f4c8", "SELL": "\U0001f4c9", "HOLD": "\u23f8\ufe0f"}.get(action, "\U0001f514")
@@ -226,7 +235,8 @@ class HABridge:
             importance="high" if verdict == "EXECUTE" else "default",
         )
         results["notification"] = "sent" if notif_ok else "failed"
-        results["ok"] = True
+        results["sensors_ok"] = all(sensor_results)
+        results["ok"] = results["sensors_ok"] and service_ok and notif_ok
         return results
 
     # -- Wallet & Balance --------------------------------------------------
