@@ -825,7 +825,7 @@
       "incident_id": "inc_IB56PIgYaxgr",
       "opened_at": "2026-09-26T17:46:32.204396+00:00",
       "severity": "critical",
-      "status": "open",
+      "status": "resolved",
       "source": "Policy",
       "category": "mesh_degradation",
       "title": "Moins de 4 agents online",
@@ -850,7 +850,7 @@
         "disable_noncritical_dispatch"
       ],
       "owner": "TRINITY",
-      "resolved_at": null
+      "resolved_at": "2026-09-26T18:00:03.168925+00:00"
     }
   }
 }
