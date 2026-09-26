@@ -794,7 +794,7 @@
       "incident_id": "inc_Xbe6f4sMmAPN",
       "opened_at": "2026-09-26T16:21:32.084160+00:00",
       "severity": "critical",
-      "status": "open",
+      "status": "resolved",
       "source": "Policy",
       "category": "mesh_degradation",
       "title": "Moins de 10 agents online",
@@ -819,7 +819,7 @@
         "disable_noncritical_dispatch"
       ],
       "owner": "TRINITY",
-      "resolved_at": null
+      "resolved_at": "2026-09-26T16:30:31.811576+00:00"
     }
   }
 }
