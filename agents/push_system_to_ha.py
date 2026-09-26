@@ -1,20 +1,36 @@
 #!/usr/bin/env python3
 """Push full system health + market data to HA sensors for dashboard."""
-import json, requests
+import os
+from pathlib import Path
 
-HA = "http://10.0.0.136:8123"
-for line in open("/home/alienstef/S25-COMMAND-CENTER/.env"):
-    if line.startswith("HA_URL="):
-        HA = line.split("=", 1)[1].strip()
-    if line.startswith("HA_TOKEN="):
-        TOKEN = line.split("=", 1)[1].strip()
-        break
+import requests
+
+
+def load_ha_config():
+    """Read both values regardless of their order in .env."""
+    values = {}
+    env_file = Path(__file__).resolve().parent.parent / ".env"
+    if env_file.is_file():
+        for line in env_file.read_text(encoding="utf-8").splitlines():
+            key, separator, value = line.partition("=")
+            if separator and key.strip() in ("HA_URL", "HA_TOKEN"):
+                values[key.strip()] = value.strip().strip('"').strip("'")
+
+    url = os.environ.get("HA_URL") or values.get("HA_URL")
+    token = os.environ.get("HA_TOKEN") or values.get("HA_TOKEN")
+    if not url or not token:
+        raise SystemExit("HA_URL and HA_TOKEN must be configured")
+    return url.rstrip("/"), token
+
+
+HA, TOKEN = load_ha_config()
 H = {"Authorization": f"Bearer {TOKEN}", "Content-Type": "application/json"}
 
 def push(entity, state, attrs):
     r = requests.post(f"{HA}/api/states/{entity}", headers=H, json={
         "state": str(state), "attributes": attrs
-    })
+    }, timeout=10)
+    r.raise_for_status()
     print(f"  {entity} = {state} -> {r.status_code}")
 
 # Get system health from cockpit
