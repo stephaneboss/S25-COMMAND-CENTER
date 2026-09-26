@@ -22,6 +22,7 @@ from __future__ import annotations
 import logging
 import os
 import time
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
@@ -610,8 +611,7 @@ class CoinbaseExecutor(BaseAgent):
     MAX_TRADES_PER_HOUR = 10      # global rate limit
 
     @classmethod
-    def _coolfile(cls) -> "Path":
-        from pathlib import Path
+    def _coolfile(cls) -> Path:
         return Path(__file__).resolve().parent.parent / "memory" / "executor_cooldown.json"
 
     def _cooldown_check(self, signal: Dict) -> Optional[Dict]:
