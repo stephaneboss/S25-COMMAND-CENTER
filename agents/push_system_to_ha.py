@@ -4,6 +4,8 @@ import json, requests
 
 HA = "http://10.0.0.136:8123"
 for line in open("/home/alienstef/S25-COMMAND-CENTER/.env"):
+    if line.startswith("HA_URL="):
+        HA = line.split("=", 1)[1].strip()
     if line.startswith("HA_TOKEN="):
         TOKEN = line.split("=", 1)[1].strip()
         break
