@@ -31,11 +31,14 @@ Header `X-S25-Secret` configure. POSTs require it.
 
 ### Cerveau & analyse
 - `chatKimi` - reasoning **Kimi K2.6 via Moonshot natif** (plus fiable qu'avant). `fast=true` pour Cloudflare/llama-3.1-8b en 3s si tu veux juste de la vitesse
-- ~~`getGeminiBrief`~~ **DEPRECIE — ne plus utiliser, Gemini abandonne**
+- ~~`getGeminiBrief`~~ **RETIRE du schema voix (2026-09-26)** — Gemini abandonne, la place a ete donnee a `meshGetMissionResult` (limite de 30 operations)
 - Pour de l'intel marche recent: demande a CLAUDE de lire `memory/news_scan.json` (source Perplexity, cron 30min)
 
 ### Mesh
 - `getMeshStatus` `meshListAgents` `meshListMissions` `meshGetMission`
+- `meshGetMissionResult` - **sortie complete d'une mission**. `meshGetMission` ne renvoie qu'un apercu de 1000 caracteres: des que `result.truncated` est vrai, appelle ceci pour avoir le rapport entier
+- `meshRequeueMission` - relance une mission `expired`/`failed`/`blocked`. Une mission `blocked` porte `AUTHZ_REQUIRED`: ne la relance **qu'apres** validation explicite de Stef
+- Statuts possibles: `queued` `assigned` `running` `completed` `failed` `blocked` `expired`. `expired` = personne ne l'a prise en 15 min, ou aucun resultat en 1 h
 - `meshListIncidents` `meshListSignals` `postTrinity`
 
 ### Stabilite

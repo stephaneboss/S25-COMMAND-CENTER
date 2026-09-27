@@ -474,6 +474,55 @@ paths:
   # ═══════════════ COMMAND MESH API (v9) — Trinity spec ═══════════════
   # Canonical 5 objects + 6 routes per docs/TRINITY_ARCHITECTURE_v1.md
 
+  /api/mesh/missions/{mission_id}/result:
+    get:
+      operationId: meshGetMissionResult
+      summary: Sortie complete d une mission (missions.json ne garde qu un apercu de 1000 caracteres)
+      description: |
+        Le texte complet est stocke hors du depot (memory/command_mesh/mission_results/,
+        gitignore) parce que missions.json est pousse sur un depot GitHub public.
+      x-openai-isConsequential: false
+      security: [ { S25Secret: [] } ]
+      parameters:
+        - name: mission_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses: { '200': { description: Sortie complete } }
+
+  /api/mesh/missions/{mission_id}/requeue:
+    post:
+      operationId: meshRequeueMission
+      summary: Relancer une mission expired/failed/blocked (-> assigned si l agent est online, sinon queued)
+      description: |
+        Une mission non reclamee en 15 min passe en "expired" (sweeper). Utilise ceci pour la relancer.
+        Une mission "blocked" avec AUTHZ_REQUIRED ne doit etre relancee qu apres validation explicite de Stef.
+      x-openai-isConsequential: true
+      security: [ { S25Secret: [] } ]
+      parameters:
+        - name: mission_id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                target_agent: { type: string, description: Optionnel - reassigner a un autre agent }
+                actor: { type: string, default: TRINITY }
+      responses: { '200': { description: Nouveau statut } }
+
+  /api/mesh/missions/sweep:
+    post:
+      operationId: meshSweepMissions
+      summary: Forcer le balayage des missions sans ack (15 min) ou sans resultat (1 h) -> expired
+      x-openai-isConsequential: false
+      security: [ { S25Secret: [] } ]
+      responses: { '200': { description: Liste des missions expirees } }
+
   /api/mesh/agents:
     get:
       operationId: meshListAgents

@@ -77,13 +77,6 @@ paths:
       x-openai-isConsequential: false
       responses: { '200': { description: Positions } }
 
-  /api/trading/brief:
-    get:
-      operationId: getGeminiBrief
-      summary: Latest Gemini analyst brief (french)
-      x-openai-isConsequential: false
-      responses: { '200': { description: Brief } }
-
   /api/mesh/agents:
     get:
       operationId: meshListAgents
@@ -114,6 +107,23 @@ paths:
           required: true
           schema: { type: string }
       responses: { '200': { description: Mission } }
+
+  /api/mesh/missions/{mission_id}/result:
+    get:
+      operationId: meshGetMissionResult
+      summary: Sortie complete d une mission (missions.json ne garde qu un apercu de 1000 caracteres)
+      description: |
+        Utilise ceci des que result.truncated vaut true. Le texte complet est stocke
+        hors du depot (memory/command_mesh/mission_results/, gitignore) parce que
+        missions.json est pousse sur un depot GitHub public.
+      x-openai-isConsequential: false
+      security: [ { S25Secret: [] } ]
+      parameters:
+        - name: mission_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses: { '200': { description: Sortie complete } }
 
   /api/stability/backpressure:
     get:
@@ -458,7 +468,7 @@ paths:
               properties:
                 job:
                   type: string
-                  description: Description du job en francais (ex: "ajoute un log de debug dans coinbase_executor.execute_signal" ou "trouve les TODO dans agents/scanner.py")
+                  description: 'Description du job en francais (ex: "ajoute un log de debug dans coinbase_executor.execute_signal" ou "trouve les TODO dans agents/scanner.py")'
                 target_files:
                   type: array
                   description: Chemins relatifs au repo S25-COMMAND-CENTER (max 5, pas de .. ni absolu, max 50KB par fichier). Ex&#58; ["agents/coinbase_executor.py"]

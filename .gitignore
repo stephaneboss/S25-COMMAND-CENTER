@@ -16,6 +16,9 @@ secrets/
 *.p12
 *.pfx
 
+# ─── Mission outputs (local only — missions.json is pushed publicly) ─
+memory/command_mesh/mission_results/
+
 # ─── Python ──────────────────────────────────────────────────────────
 __pycache__/
 *.py[cod]

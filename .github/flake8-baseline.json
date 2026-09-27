@@ -1,0 +1,667 @@
+[
+  [
+    "agents/auto_signal_scanner.py",
+    "F401",
+    "'typing.Optional' imported but unused",
+    "from typing import Dict, List, Optional",
+    1
+  ],
+  [
+    "agents/balance_sentinel.py",
+    "E402",
+    "module level import not at top of file",
+    "from agents.ha_bridge import ha as ha_bridge",
+    1
+  ],
+  [
+    "agents/claude_mesh_relay.py",
+    "F401",
+    "'typing.Optional' imported but unused",
+    "from typing import Any, Dict, Optional",
+    1
+  ],
+  [
+    "agents/cockpit_lumiere.py",
+    "E231",
+    "missing whitespace after ','",
+    "- Fear & Greed: {fg.get('value','?')}/100 ({fg.get('label','?')})",
+    2
+  ],
+  [
+    "agents/cockpit_lumiere.py",
+    "E231",
+    "missing whitespace after ','",
+    "BTC: ${btc:,.0f} ({btc_chg:+.1f}% 24h) | ETH: ${eth:,.2f} | F&G: {fg.get('value','?')}/100 {fg.get('label','')}",
+    2
+  ],
+  [
+    "agents/cockpit_lumiere.py",
+    "E231",
+    "missing whitespace after ','",
+    "summary=f\"CONTROL: {atype} executed by {target.get('source','?')} \u2014 {result.get('detail','')}\",",
+    2
+  ],
+  [
+    "agents/cockpit_lumiere.py",
+    "F841",
+    "local variable 'cutoff' is assigned to but never used",
+    "cutoff = ts[:11] + \"00:00:00Z\"  # fallback grossier; utilise ts reel via slice",
+    1
+  ],
+  [
+    "agents/coinbase_preflight.py",
+    "F401",
+    "'typing.Optional' imported but unused",
+    "from typing import Any, Dict, List, Optional",
+    1
+  ],
+  [
+    "agents/comet_bridge.py",
+    "F401",
+    "'requests' imported but unused",
+    "import requests",
+    1
+  ],
+  [
+    "agents/comet_sentiment.py",
+    "E702",
+    "multiple statements on one line (semicolon)",
+    "logger.warning(\"missing fg=%s change=%s\", fg, change); return 1",
+    1
+  ],
+  [
+    "agents/comet_sentiment.py",
+    "F401",
+    "'os' imported but unused",
+    "import os",
+    1
+  ],
+  [
+    "agents/comet_sentiment.py",
+    "F401",
+    "'typing.Optional' imported but unused",
+    "from typing import Dict, Optional",
+    1
+  ],
+  [
+    "agents/command_mesh.py",
+    "E131",
+    "continuation line unaligned for hanging indent",
+    "or existing.get(\"capabilities\", []),",
+    1
+  ],
+  [
+    "agents/command_mesh.py",
+    "E131",
+    "continuation line unaligned for hanging indent",
+    "or existing.get(\"endpoint_class\", \"internal\"),",
+    1
+  ],
+  [
+    "agents/command_mesh.py",
+    "E231",
+    "missing whitespace after ','",
+    "priority=(\"critical\" if str(body.get(\"action\",\"\")).upper() in (\"BUY\",\"SELL\") else \"normal\"),",
+    2
+  ],
+  [
+    "agents/command_mesh.py",
+    "E231",
+    "missing whitespace after ','",
+    "return f\"{prefix}_{secrets.token_urlsafe(10).replace('-','').replace('_','')[:12]}\"",
+    2
+  ],
+  [
+    "agents/command_mesh.py",
+    "F401",
+    "'typing.Any' imported but unused",
+    "from typing import Any, Dict, List, Optional",
+    1
+  ],
+  [
+    "agents/command_mesh.py",
+    "F401",
+    "'typing.List' imported but unused",
+    "from typing import Any, Dict, List, Optional",
+    1
+  ],
+  [
+    "agents/dca_scheduler.py",
+    "E702",
+    "multiple statements on one line (semicolon)",
+    "print(json.dumps(list_schedules(), indent=2, default=str)); return 0",
+    1
+  ],
+  [
+    "agents/dca_scheduler.py",
+    "E702",
+    "multiple statements on one line (semicolon)",
+    "print(json.dumps(r, indent=2)); return 0",
+    1
+  ],
+  [
+    "agents/dca_scheduler.py",
+    "E702",
+    "multiple statements on one line (semicolon)",
+    "save_schedules(schedules); print(f\"removed: {args.remove}\"); return 0",
+    2
+  ],
+  [
+    "agents/dca_scheduler.py",
+    "F401",
+    "'typing.Optional' imported but unused",
+    "from typing import Dict, List, Optional",
+    1
+  ],
+  [
+    "agents/dlq_replay_daemon.py",
+    "F401",
+    "'agents.stability_layer.process_with_stability' imported but unused",
+    "from agents.stability_layer import (",
+    1
+  ],
+  [
+    "agents/drawdown_guardian.py",
+    "E702",
+    "multiple statements on one line (semicolon)",
+    "qty = float(size); px = float(price)",
+    1
+  ],
+  [
+    "agents/gemini_orchestrator.py",
+    "F401",
+    "'datetime.timedelta' imported but unused",
+    "from datetime import datetime, timedelta, timezone",
+    1
+  ],
+  [
+    "agents/git_auto_sync.py",
+    "F401",
+    "'os' imported but unused",
+    "import os",
+    1
+  ],
+  [
+    "agents/kimi_v2/config.py",
+    "F401",
+    "'dataclasses.field' imported but unused",
+    "from dataclasses import dataclass, field",
+    1
+  ],
+  [
+    "agents/kimi_v2/executor.py",
+    "F401",
+    "'cosmpy.crypto.keypairs.Secp256k1' imported but unused",
+    "from cosmpy.crypto.keypairs import Secp256k1               # type: ignore",
+    1
+  ],
+  [
+    "agents/kimi_v2/executor.py",
+    "F841",
+    "local variable 'tx' is assigned to but never used",
+    "tx = client.send_tokens(  # type: ignore[call-arg]",
+    1
+  ],
+  [
+    "agents/kimi_v2/main.py",
+    "F401",
+    "'datetime.datetime' imported but unused",
+    "from datetime import datetime, timezone",
+    1
+  ],
+  [
+    "agents/kimi_v2/main.py",
+    "F401",
+    "'datetime.timezone' imported but unused",
+    "from datetime import datetime, timezone",
+    1
+  ],
+  [
+    "agents/kimi_v2/tests/test_oracle.py",
+    "E402",
+    "module level import not at top of file",
+    "from config import Config",
+    1
+  ],
+  [
+    "agents/kimi_v2/tests/test_oracle.py",
+    "E402",
+    "module level import not at top of file",
+    "from oracle import PriceOracle, _PriceCache",
+    1
+  ],
+  [
+    "agents/kimi_v2/tests/test_oracle.py",
+    "F401",
+    "'unittest.mock.PropertyMock' imported but unused",
+    "from unittest.mock import MagicMock, patch, PropertyMock",
+    1
+  ],
+  [
+    "agents/kimi_v2/tests/test_oracle.py",
+    "F401",
+    "'unittest.mock.patch' imported but unused",
+    "from unittest.mock import MagicMock, patch, PropertyMock",
+    1
+  ],
+  [
+    "agents/kimi_v2/tests/test_risk.py",
+    "E402",
+    "module level import not at top of file",
+    "from config import Config",
+    1
+  ],
+  [
+    "agents/kimi_v2/tests/test_risk.py",
+    "E402",
+    "module level import not at top of file",
+    "from risk import (",
+    1
+  ],
+  [
+    "agents/kimi_web3_trader.py",
+    "E231",
+    "missing whitespace after ','",
+    "f\"AKT: ${combined.get('AKT',0):.4f} (osm) / ${combined.get('AKT_cg',0):.4f} (cg) | \"",
+    2
+  ],
+  [
+    "agents/kimi_web3_trader.py",
+    "E231",
+    "missing whitespace after ','",
+    "f\"ATOM: ${combined.get('ATOM',0):.4f} | \"",
+    1
+  ],
+  [
+    "agents/kimi_web3_trader.py",
+    "E231",
+    "missing whitespace after ','",
+    "f\"OSMO: ${combined.get('OSMO',0):.5f}\"",
+    1
+  ],
+  [
+    "agents/kimi_web3_trader.py",
+    "E251",
+    "unexpected spaces around keyword / parameter equals",
+    "account_number  = acc_num,",
+    2
+  ],
+  [
+    "agents/kimi_web3_trader.py",
+    "E251",
+    "unexpected spaces around keyword / parameter equals",
+    "auth_info_bytes = auth_info.SerializeToString(),",
+    2
+  ],
+  [
+    "agents/kimi_web3_trader.py",
+    "E251",
+    "unexpected spaces around keyword / parameter equals",
+    "body_bytes      = tx_body.SerializeToString(),",
+    2
+  ],
+  [
+    "agents/kimi_web3_trader.py",
+    "E251",
+    "unexpected spaces around keyword / parameter equals",
+    "chain_id        = \"osmosis-1\",",
+    2
+  ],
+  [
+    "agents/kimi_web3_trader.py",
+    "E272",
+    "multiple spaces before keyword",
+    "action     = f\"BUY {sym}\"  if spread > 0 else f\"SELL {sym}\"",
+    1
+  ],
+  [
+    "agents/kimi_web3_trader.py",
+    "E702",
+    "multiple statements on one line (semicolon)",
+    "import sys; sys.exit(1)",
+    1
+  ],
+  [
+    "agents/kimi_web3_trader.py",
+    "E731",
+    "do not assign a lambda expression, use a def",
+    "vault_get = lambda key, default=None: os.environ.get(key, default)",
+    1
+  ],
+  [
+    "agents/kimi_web3_trader.py",
+    "F541",
+    "f-string is missing placeholders",
+    "logger.warning(f\"Below reserve floor \u2014 skipping SELL to protect balance\")",
+    1
+  ],
+  [
+    "agents/kimi_web3_trader.py",
+    "F841",
+    "local variable 'avail_atom' is assigned to but never used",
+    "avail_atom = wallet_bals.get(DENOM_ATOM, 0)",
+    1
+  ],
+  [
+    "agents/kimi_web3_trader.py",
+    "F841",
+    "local variable 'avail_usdc' is assigned to but never used",
+    "avail_usdc = wallet_bals.get(DENOM_USDC, 0)",
+    1
+  ],
+  [
+    "agents/kimi_web3_trader.py",
+    "F841",
+    "local variable 'entry_price' is assigned to but never used",
+    "entry_price = osm",
+    1
+  ],
+  [
+    "agents/kimi_web3_trader.py",
+    "F841",
+    "local variable 'ref_price' is assigned to but never used",
+    "ref_price   = cg",
+    1
+  ],
+  [
+    "agents/mesh_activator.py",
+    "E127",
+    "continuation line over-indented for visual indent",
+    "\"text\": r.text[:300]}",
+    1
+  ],
+  [
+    "agents/mesh_activator.py",
+    "F401",
+    "'sys' imported but unused",
+    "import sys",
+    1
+  ],
+  [
+    "agents/mesh_activator.py",
+    "F401",
+    "'typing.List' imported but unused",
+    "from typing import Dict, List, Optional",
+    1
+  ],
+  [
+    "agents/mesh_heartbeat_cron.py",
+    "E127",
+    "continuation line over-indented for visual indent",
+    "\"trading_analysis\", \"strategy_planning\"],",
+    1
+  ],
+  [
+    "agents/mesh_signal_bridge.py",
+    "E231",
+    "missing whitespace after ','",
+    "\"strategy\": f\"[mesh:{sig.get('source','?')}] auto-relay\",",
+    1
+  ],
+  [
+    "agents/mesh_signal_bridge.py",
+    "E231",
+    "missing whitespace after ','",
+    "s = f\"{sig.get('ts','')}|{sig.get('source','')}|{sig.get('symbol','')}|{sig.get('action','')}|{sig.get('confidence',0)}\"",
+    5
+  ],
+  [
+    "agents/mission_worker.py",
+    "F401",
+    "'typing.List' imported but unused",
+    "from typing import Dict, List, Optional",
+    1
+  ],
+  [
+    "agents/ninja_routes.py",
+    "E402",
+    "module level import not at top of file",
+    "import time as _time",
+    1
+  ],
+  [
+    "agents/ninja_routes.py",
+    "W292",
+    "no newline at end of file",
+    "print(json.dumps(snapshot, indent=2))",
+    1
+  ],
+  [
+    "agents/position_tracker.py",
+    "E741",
+    "ambiguous variable name 'l'",
+    "cost = sum(l[\"qty_left\"] * l[\"entry_price\"] for l in lots)",
+    1
+  ],
+  [
+    "agents/position_tracker.py",
+    "E741",
+    "ambiguous variable name 'l'",
+    "lots = [l for l in lots if l.get(\"qty_left\", 0) > 0]",
+    1
+  ],
+  [
+    "agents/position_tracker.py",
+    "E741",
+    "ambiguous variable name 'l'",
+    "qty_total = sum(l[\"qty_left\"] for l in lots)",
+    1
+  ],
+  [
+    "agents/position_tracker.py",
+    "F401",
+    "'os' imported but unused",
+    "import os",
+    1
+  ],
+  [
+    "agents/quant_brain.py",
+    "E127",
+    "continuation line over-indented for visual indent",
+    "\"fee\": float(t.get(\"fee\") or 0),",
+    1
+  ],
+  [
+    "agents/quant_brain.py",
+    "E131",
+    "continuation line unaligned for hanging indent",
+    "if v[\"total_usd\"] > 0 else 0,",
+    1
+  ],
+  [
+    "agents/quant_brain.py",
+    "F401",
+    "'datetime.timedelta' imported but unused",
+    "from datetime import datetime, timedelta, timezone",
+    1
+  ],
+  [
+    "agents/quant_brain.py",
+    "F841",
+    "local variable 'pnl_pct' is assigned to but never used",
+    "pnl_pct = ((float(price) / lot[\"price\"]) - 1) * 100",
+    1
+  ],
+  [
+    "agents/s25_conversation_agent.py",
+    "E231",
+    "missing whitespace after ','",
+    "f\"  - [{e.get('level','INFO')}] {e.get('summary','')}\" for e in feed",
+    2
+  ],
+  [
+    "agents/s25_conversation_agent.py",
+    "F401",
+    "'agents.ninja_routes.get_full_intel_snapshot' imported but unused",
+    "from agents.ninja_routes import (",
+    1
+  ],
+  [
+    "agents/s25_conversation_agent.py",
+    "F401",
+    "'typing.Any' imported but unused",
+    "from typing import Any, Dict, List",
+    1
+  ],
+  [
+    "agents/s25_conversation_agent.py",
+    "F401",
+    "'typing.List' imported but unused",
+    "from typing import Any, Dict, List",
+    1
+  ],
+  [
+    "agents/s25_conversation_agent.py",
+    "F841",
+    "local variable 'stream' is assigned to but never used",
+    "stream = request_data.get(\"stream\", False)",
+    1
+  ],
+  [
+    "agents/stability_layer.py",
+    "E127",
+    "continuation line over-indented for visual indent",
+    "\"disabled\", \"unreachable\"]):",
+    1
+  ],
+  [
+    "agents/stability_layer.py",
+    "E127",
+    "continuation line over-indented for visual indent",
+    "\"lock_conflict\", \"connection\", \"temporary\"]):",
+    1
+  ],
+  [
+    "agents/stability_layer.py",
+    "E127",
+    "continuation line over-indented for visual indent",
+    "\"reason\": \"not_replayable\"})",
+    1
+  ],
+  [
+    "agents/stability_layer.py",
+    "E127",
+    "continuation line over-indented for visual indent",
+    "\"validation\", \"missing field\"]):",
+    1
+  ],
+  [
+    "agents/stability_layer.py",
+    "E127",
+    "continuation line over-indented for visual indent",
+    "default=str).encode()).hexdigest()[:16]",
+    1
+  ],
+  [
+    "agents/stability_layer.py",
+    "E127",
+    "continuation line over-indented for visual indent",
+    "is_critical: bool = False):",
+    1
+  ],
+  [
+    "agents/stability_layer.py",
+    "E231",
+    "missing whitespace after ','",
+    "return f\"{prefix}_{secrets.token_urlsafe(10).replace('-','').replace('_','')[:12]}\"",
+    2
+  ],
+  [
+    "agents/system_health.py",
+    "F401",
+    "'datetime.timedelta' imported but unused",
+    "from datetime import datetime, timedelta, timezone",
+    1
+  ],
+  [
+    "agents/trailing_stop_manager.py",
+    "E702",
+    "multiple statements on one line (semicolon)",
+    "current_stop = None; current_limit = None",
+    1
+  ],
+  [
+    "agents/trailing_stop_manager.py",
+    "F401",
+    "'os' imported but unused",
+    "import os",
+    1
+  ],
+  [
+    "agents/trailing_stop_manager.py",
+    "F401",
+    "'sys' imported but unused",
+    "import sys",
+    1
+  ],
+  [
+    "agents/trailing_stop_manager.py",
+    "F401",
+    "'time' imported but unused",
+    "import time",
+    1
+  ],
+  [
+    "agents/uniswap_executor.py",
+    "E702",
+    "multiple statements on one line (semicolon)",
+    "rec[\"status\"] = \"ERROR\"; rec[\"error\"] = \"No private key\"",
+    1
+  ],
+  [
+    "agents/uniswap_executor.py",
+    "E702",
+    "multiple statements on one line (semicolon)",
+    "rec[\"status\"] = \"ERROR\"; rec[\"error\"] = \"Web3 not connected\"",
+    1
+  ],
+  [
+    "agents/uniswap_executor.py",
+    "E702",
+    "multiple statements on one line (semicolon)",
+    "rec[\"status\"] = \"FAILED\"; rec[\"error\"] = str(e)",
+    1
+  ],
+  [
+    "agents/uniswap_executor.py",
+    "E702",
+    "multiple statements on one line (semicolon)",
+    "rec[\"status\"] = \"PAPER_TRADE\"; rec[\"quote\"] = quote",
+    1
+  ],
+  [
+    "agents/uniswap_executor.py",
+    "E702",
+    "multiple statements on one line (semicolon)",
+    "rec[\"status\"] = \"UNKNOWN_MODE\"; self._save_trade(rec); return rec",
+    2
+  ],
+  [
+    "agents/uniswap_executor.py",
+    "E702",
+    "multiple statements on one line (semicolon)",
+    "self._save_trade(rec); return rec",
+    6
+  ],
+  [
+    "security/wallet_creator.py",
+    "F401",
+    "'cosmpy.crypto.address.Address' imported but unused",
+    "from cosmpy.crypto.address import Address",
+    1
+  ],
+  [
+    "security/wallet_creator.py",
+    "F401",
+    "'cosmpy.crypto.keypairs.PrivateKey' imported but unused",
+    "from cosmpy.crypto.keypairs import PrivateKey",
+    1
+  ],
+  [
+    "security/wallet_creator.py",
+    "F401",
+    "'os' imported but unused",
+    "import os",
+    1
+  ]
+]
