@@ -228014,11 +228014,11 @@
       "mission_id": "mis_c2RnYBFUWBDN",
       "created_at": "2026-09-27T09:00:02.682979+00:00",
       "created_by": "mesh_activator",
-      "target_agent": "LOCAL_CRON",
+      "target_agent": null,
       "task_type": "infra_monitoring",
       "intent": "Auto scan system health \u2014 periodic",
       "priority": "normal",
-      "status": "queued",
+      "status": "blocked",
       "input": {},
       "constraints": {
         "timeout_sec": 120
@@ -228029,8 +228029,55 @@
         ]
       },
       "result": null,
+      "error": "no_eligible_target",
+      "updated_at": "2026-09-27T09:01:01.471917+00:00"
+    },
+    "mis_KOhs62TrSG9l": {
+      "mission_id": "mis_KOhs62TrSG9l",
+      "created_at": "2026-09-27T09:00:03.187010+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "quant_brain",
+      "task_type": "trading_analysis",
+      "intent": "Auto trading analysis brief \u2014 periodic",
+      "priority": "normal",
+      "status": "completed",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": {
+        "duration_sec": 9.91,
+        "output_preview": "{\n  \"decisions\": [],\n  \"dry_run\": true,\n  \"live_perf_rows\": 0,\n  \"backtest_rows\": 56,\n  \"strategies_seen\": 8,\n  \"live_data_freshness\": {\n    \"window_hours\": 72,\n    \"cutoff_ts\": 1790240471.985065,\n    \"last_successful_live_trade_ts\": 1779922806.7810013,\n    \"successful_live_trades_in_window\": 0,\n    \"most_recent_trade_success\": false,\n    \"reason\": \"no successful live trade in window - most recent order attempts failed (check balance/funds)\"\n  }\n}\n"
+      },
       "error": null,
-      "updated_at": "2026-09-27T09:00:02.682979+00:00"
+      "updated_at": "2026-09-27T09:01:12.114906+00:00"
+    },
+    "mis_dTKtkLg2vx5V": {
+      "mission_id": "mis_dTKtkLg2vx5V",
+      "created_at": "2026-09-27T09:15:02.646894+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": null,
+      "task_type": "infra_monitoring",
+      "intent": "Auto scan system health \u2014 periodic",
+      "priority": "normal",
+      "status": "blocked",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": null,
+      "error": "no_eligible_target",
+      "updated_at": "2026-09-27T09:16:01.777529+00:00"
     }
   }
 }
