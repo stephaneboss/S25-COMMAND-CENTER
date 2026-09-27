@@ -126,9 +126,12 @@ def scan_once(idx: Dict[str, Any]) -> Dict[str, Any]:
             "intent_preview": (m.get("intent") or "")[:160],
             "updated_at": updated_at,
         }
-        if status in ("completed", "failed"):
+        if status in ("completed", "failed", "blocked", "expired"):
+            # blocked (AUTHZ_REQUIRED) and expired (no ack / run timeout) are terminal
+            # answers TRINITY must see too, not only completed/failed.
             result = m.get("result") or {}
-            entry["output_preview"] = str(result.get("output_preview") or result)[:300]
+            entry["output_preview"] = str(result.get("output_preview") or m.get("error")
+                                          or result)[:300]
             if mission_id not in unread:
                 unread.append(mission_id)
         append_log(entry)

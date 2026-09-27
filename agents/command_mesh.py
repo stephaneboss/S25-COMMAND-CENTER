@@ -39,6 +39,33 @@ MISSIONS_PATH  = STORE / "missions.json"
 SIGNALS_PATH   = STORE / "signals.json"
 INCIDENTS_PATH = STORE / "incidents.json"
 STATE_PATH     = STORE / "system_state.json"
+# Full mission outputs live here, NOT in missions.json: that file is pushed to a
+# public GitHub repo by git_auto_sync. This directory is gitignored and is read
+# back through GET /missions/<id>/result (authenticated).
+RESULTS_DIR    = STORE / "mission_results"
+
+
+def _preview_chars() -> int:
+    return int(os.getenv("MESH_RESULT_PREVIEW_CHARS", "1000"))
+
+
+def _max_result_chars() -> int:
+    return int(os.getenv("MESH_RESULT_MAX_CHARS", "20000"))
+
+
+def _store_result_file(mission_id: str, output: str) -> Optional[str]:
+    """Persist the full output next to the mesh store; return its repo-relative path."""
+    try:
+        RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+        path = RESULTS_DIR / f"{mission_id}.md"
+        path.write_text(output, encoding="utf-8")
+        try:
+            return str(path.relative_to(REPO))
+        except ValueError:
+            return str(path)
+    except OSError as e:
+        logger.warning("could not write mission result file: %s", e)
+        return None
 
 # ═══════════════════════ UTILITIES ═══════════════════════
 
@@ -96,6 +123,89 @@ def _journal(actor: str, entity_type: str, entity_id: str,
     except Exception as e:
         logger.warning("journal write failed: %s", e)
     return entry
+
+
+# ═══════════════════════ MISSION TIMEOUT SWEEPER ═══════════════════════
+# Missions carry constraints {timeout_sec, require_ack} but nothing enforced them:
+# a mission nobody claimed stayed "assigned" forever and TRINITY waited on it blind.
+# The sweeper moves such missions to "expired" (terminal but re-queueable, and a late
+# /complete is still accepted) so the control plane always gets an answer.
+
+ACK_PENDING_STATUSES = ("queued", "assigned")
+SWEEP_MIN_INTERVAL_SEC = 60
+_last_sweep_ts = 0.0
+
+
+def _ack_timeout_sec() -> int:
+    return int(os.getenv("MESH_ACK_TIMEOUT_SEC", "900"))      # 15 min without claim
+
+
+def _run_timeout_sec() -> int:
+    return int(os.getenv("MESH_RUN_TIMEOUT_SEC", "3600"))     # 1 h running without result
+
+
+def _age_sec(raw: Optional[str], now: datetime) -> Optional[float]:
+    if not raw:
+        return None
+    try:
+        d = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+        if d.tzinfo is None:
+            d = d.replace(tzinfo=timezone.utc)
+        return (now - d).total_seconds()
+    except Exception:
+        return None
+
+
+def sweep_stale_missions(store: Dict, now: Optional[datetime] = None) -> List[str]:
+    """Expire missions that were never acknowledged or never finished.
+
+    Mutates ``store`` in place and returns the list of expired mission ids.
+    The caller is responsible for saving when the list is non-empty.
+    """
+    now = now or datetime.now(timezone.utc)
+    ack_to, run_to = _ack_timeout_sec(), _run_timeout_sec()
+    expired: List[str] = []
+    for mid, m in store.get("items", {}).items():
+        status = m.get("status")
+        constraints = m.get("constraints") or {}
+        age = _age_sec(m.get("updated_at") or m.get("created_at"), now)
+        if age is None:
+            continue
+        reason = None
+        if status in ACK_PENDING_STATUSES and constraints.get("require_ack", True):
+            if age > ack_to:
+                reason = f"no_ack: not claimed within {ack_to}s"
+        elif status == "running":
+            limit = max(run_to, int(constraints.get("timeout_sec") or 0))
+            if age > limit:
+                reason = f"run_timeout: no result within {limit}s"
+        if reason:
+            m["previous_status"] = status
+            m["status"] = "expired"
+            m["error"] = reason
+            m["updated_at"] = now.isoformat()
+            expired.append(mid)
+    return expired
+
+
+def _maybe_sweep(actor: str, force: bool = False) -> List[str]:
+    """Throttled sweep: at most once per SWEEP_MIN_INTERVAL_SEC per process."""
+    global _last_sweep_ts
+    if not force and time.time() - _last_sweep_ts < SWEEP_MIN_INTERVAL_SEC:
+        return []
+    _last_sweep_ts = time.time()
+    try:
+        store = _load(MISSIONS_PATH, {"items": {}})
+        expired = sweep_stale_missions(store)
+        if expired:
+            _save(MISSIONS_PATH, store)
+            for mid in expired:
+                _journal(actor, "mission", mid, "expired",
+                         {"error": store["items"][mid].get("error")})
+        return expired
+    except Exception as e:
+        logger.warning("mission sweep failed (non-fatal): %s", e)
+        return []
 
 
 # ═══════════════════════ POLICY ENGINE ═══════════════════════
@@ -376,30 +486,110 @@ def mesh_complete_mission(mission_id):
     body = request.get_json(silent=True) or {}
     agent_id = str(body.get("agent_id", "")).strip() or "EXTERNAL"
     success = bool(body.get("ok", True))
-    output = str(body.get("output", ""))[:2000]
+    blocked = bool(body.get("blocked", False))
+    output = str(body.get("output", ""))[:_max_result_chars()]
     store = _load(MISSIONS_PATH, {"items": {}})
     item = store.get("items", {}).get(mission_id)
     if not item:
         return jsonify({"ok": False, "error": "not found"}), 404
-    if item.get("status") not in ("running", "queued", "assigned"):
+    if item.get("status") not in ("running", "queued", "assigned", "expired"):
         return jsonify({"ok": False, "error": f"not completable (status={item.get('status')})"}), 409
-    if success:
+    if item.get("status") == "expired":
+        item["late_result"] = True  # result arrived after the sweeper expired it
+    result_file = _store_result_file(mission_id, output) if output else None
+    preview = _preview_chars()
+    if blocked:
+        # Agent refuses on policy grounds (e.g. authz tier T3): terminal, needs a human.
+        item["status"] = "blocked"
+        item["error"] = output[:preview] or "blocked by agent policy"
+        success = False
+    elif success:
         item["status"] = "completed"
-        item["result"] = {"completed_by": agent_id, "output_preview": output[:500]}
+        item["result"] = {
+            "completed_by": agent_id,
+            "output_preview": output[:preview],
+            "output_chars": len(output),
+            "truncated": len(output) > preview,
+            "result_file": result_file,
+        }
     else:
         item["status"] = "failed"
-        item["error"] = output[:500] or "external agent reported failure"
+        item["error"] = output[:preview] or "external agent reported failure"
+        if result_file:
+            item["result"] = {"completed_by": agent_id, "result_file": result_file,
+                              "output_chars": len(output)}
     item["updated_at"] = _now_iso()
     _save(MISSIONS_PATH, store)
-    _journal(agent_id, "mission", mission_id,
-             "completed" if success else "failed", {"agent": agent_id})
-    try:
-        from agents.stability_layer import breaker_record
-        breaker_record(item.get("target_agent") or agent_id,
-                       item.get("task_type", "fallback"), success=success)
-    except Exception:
-        pass
+    _journal(agent_id, "mission", mission_id, item["status"], {"agent": agent_id})
+    if not blocked:  # a policy refusal is not an agent fault: keep breakers clean
+        try:
+            from agents.stability_layer import breaker_record
+            breaker_record(item.get("target_agent") or agent_id,
+                           item.get("task_type", "fallback"), success=success)
+        except Exception:
+            pass
     return jsonify({"ok": True, "mission_id": mission_id, "status": item["status"]})
+
+
+@mesh_bp.route("/missions/<mission_id>/result", methods=["GET"])
+def mesh_get_mission_result(mission_id):
+    """Full mission output (missions.json only keeps a short preview)."""
+    if not _auth_ok():
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
+    store = _load(MISSIONS_PATH, {"items": {}})
+    item = store.get("items", {}).get(mission_id)
+    if not item:
+        return jsonify({"ok": False, "error": "not found"}), 404
+    path = RESULTS_DIR / f"{mission_id}.md"
+    if path.exists():
+        try:
+            return jsonify({"ok": True, "mission_id": mission_id, "source": "file",
+                            "status": item.get("status"),
+                            "output": path.read_text(encoding="utf-8")})
+        except OSError as e:
+            logger.warning("could not read mission result file: %s", e)
+    fallback = (item.get("result") or {}).get("output_preview") or item.get("error") or ""
+    return jsonify({"ok": True, "mission_id": mission_id, "source": "preview",
+                    "status": item.get("status"), "output": fallback})
+
+
+@mesh_bp.route("/missions/<mission_id>/requeue", methods=["POST"])
+def mesh_requeue_mission(mission_id):
+    """Give an expired/failed/blocked mission another chance: -> queued (or assigned)."""
+    if not _auth_ok():
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
+    body = request.get_json(silent=True) or {}
+    actor = str(body.get("actor", "")).strip() or "TRINITY"
+    store = _load(MISSIONS_PATH, {"items": {}})
+    item = store.get("items", {}).get(mission_id)
+    if not item:
+        return jsonify({"ok": False, "error": "not found"}), 404
+    if item.get("status") not in ("expired", "failed", "blocked"):
+        return jsonify({"ok": False, "error": f"not requeueable (status={item.get('status')})"}), 409
+    if body.get("target_agent"):
+        item["target_agent"] = str(body["target_agent"]).strip()
+    if not item.get("target_agent"):
+        return jsonify({"ok": False, "error": "target_agent required to requeue"}), 400
+    agents = _load(AGENTS_PATH, {"items": {}}).get("items", {})
+    target = agents.get(item["target_agent"])
+    item["status"] = "assigned" if target and target.get("status") == "online" else "queued"
+    item["error"] = None
+    item["requeue_count"] = int(item.get("requeue_count") or 0) + 1
+    item["updated_at"] = _now_iso()
+    _save(MISSIONS_PATH, store)
+    _journal(actor, "mission", mission_id, "requeued", {"status": item["status"]})
+    return jsonify({"ok": True, "mission_id": mission_id, "status": item["status"]})
+
+
+@mesh_bp.route("/missions/sweep", methods=["POST"])
+def mesh_sweep_missions():
+    """Force an immediate timeout sweep (normally piggy-backs on heartbeats)."""
+    if not _auth_ok():
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
+    expired = _maybe_sweep("TRINITY", force=True)
+    return jsonify({"ok": True, "expired": expired, "count": len(expired),
+                    "ack_timeout_sec": _ack_timeout_sec(),
+                    "run_timeout_sec": _run_timeout_sec()})
 
 
 @mesh_bp.route("/signals", methods=["GET"])
@@ -552,6 +742,9 @@ def route_create_mission():
     if not _auth_ok():
         return jsonify({"ok": False, "error": "unauthorized"}), 401
     body = request.get_json(silent=True) or {}
+    if not str(body.get("target_agent") or "").strip():
+        return jsonify({"ok": False, "error": "missing target_agent"}), 400
+    _maybe_sweep(body.get("created_by", "TRINITY"))
     mid = _mkid("mis")
     now = _now_iso()
     mission = {
@@ -627,6 +820,7 @@ def route_report_health():
     _save(AGENTS_PATH, store)
     _journal(agent_id, "agent", agent_id, "heartbeat",
              {"status": agent["status"], "latency_ms": agent.get("latency_ms")})
+    _maybe_sweep("MeshSweeper")
     return jsonify({
         "accepted": True,
         "agent_status": agent["status"],
