@@ -175894,7 +175894,7 @@
       "task_type": "strategy_planning",
       "intent": "\u00c9tudier l\u2019approche officielle Anthropic Agent Skills (repo anthropics/skills) et proposer une int\u00e9gration S25 minimaliste et s\u00fbre. Objectif: ne pas importer le d\u00e9p\u00f4t en bloc. Concevoir d\u2019abord 2 \u00e0 3 skills S25 sur mesure, id\u00e9alement: s25-infra-health, s25-mesh-repair, s25-pretrade-check; \u00e9ventuellement s25-security-audit ou s25-perplexity-health si pertinent. V\u00e9rifier compatibilit\u00e9 avec notre architecture Claude Code/mesh, structure de fichiers, m\u00e9canisme de chargement, isolation, permissions et risques. Ne rien d\u00e9ployer en production sans validation. Ne pas toucher aux secrets. Retourner: proposition d\u2019architecture, fichiers \u00e0 cr\u00e9er, b\u00e9n\u00e9fices, risques, ordre d\u2019impl\u00e9mentation, et un petit prototype non destructif si possible.",
       "priority": "normal",
-      "status": "assigned",
+      "status": "failed",
       "input": {
         "action": "evaluate_anthropic_skills_for_s25",
         "symbol": "CLAUDE_SKILLS"
@@ -175910,8 +175910,8 @@
         "fallback_agents": []
       },
       "result": null,
-      "error": null,
-      "updated_at": "2026-09-26T21:43:18.273957+00:00"
+      "error": "AUTHZ_REQUIRED tier=T3: mission non executee par le worker automatique. Validation humaine (Stef) requise, puis /requeue ou execution manuelle.",
+      "updated_at": "2026-09-27T22:06:02.321376+00:00"
     },
     "mis_bmf0U4xMBD18": {
       "mission_id": "mis_bmf0U4xMBD18",
@@ -210591,7 +210591,7 @@
       "task_type": "strategy_planning",
       "intent": "Audit et plan d'optimisation S25 Lumiere pour reponses vocales et infra plus temps reel. Contexte observe 2026-09-12: s25-cockpit actif; tunnel actif; pipeline principal reporte authorized/T0 mais getSystemStatus affiche HA_OFFLINE; haStatus echoue sur 127.0.0.1:8123 connection refused alors que registre HOME_ASSISTANT pointe 10.0.0.136:8123; mesh status agrege n'affiche que MERLIN degraded alors que meshListAgents voit plusieurs agents online; KIMI Moonshot on-demand online; perplexity_news_scanner online cron */30; CLAUDE online; stabilite OK (0 breaker ouvert, 0 DLQ); git_status contient beaucoup de fichiers memory modifies/non suivis + .env.bak.* non suivi + agents/binance/__init__.py; git log recent = commits chore(auto-sync) snapshots. Quant brain missions periodiques retournent dry_run true et aucun trade live recent. Objectif: 1) verifier architecture voix->TRINITY->mesh->CLAUDE/KIMI/Perplexity et proposer chemin fast/realtime avec timeout/fallback; 2) expliquer et corriger les incoherences HA localhost vs 10.0.0.136 et mesh aggregate vs registry si bug confirme; 3) auditer git auto-sync pour eviter de committer memory runtime, backups .env ou secrets et proposer .gitignore/strategie propre; 4) definir un endpoint/status snapshot temps reel unique utilisable par TRINITY en une requete (cockpit, mesh, HA, Kimi health, Perplexity freshness, git, stability); 5) verifier la logique pipeline dry_run/authorized sans activer de trade; 6) produire plan de fichiers/commits atomiques. Ne rien supprimer, ne pas force-push, ne pas manipuler de secret, ne pas modifier cockpit_lumiere.py sans escalade/avertissement. Retourne d'abord diagnostic + patch plan, pas d'application automatique.",
       "priority": "normal",
-      "status": "assigned",
+      "status": "failed",
       "input": {},
       "constraints": {
         "timeout_sec": 120,
@@ -210604,8 +210604,8 @@
         "fallback_agents": []
       },
       "result": null,
-      "error": null,
-      "updated_at": "2026-09-26T21:43:18.273957+00:00"
+      "error": "AUTHZ_REQUIRED tier=T3: mission non executee par le worker automatique. Validation humaine (Stef) requise, puis /requeue ou execution manuelle.",
+      "updated_at": "2026-09-27T22:06:02.736528+00:00"
     },
     "mis_HNN95JWMsaka": {
       "mission_id": "mis_HNN95JWMsaka",
@@ -226368,7 +226368,7 @@
       "task_type": "infra_ops",
       "intent": "Audit et corrige les 3 anomalies identifiees lors du check bout-en-bout S25 du 26 septembre 2026: 1) divergence kill switch entre Home Assistant (s25_kill_switch=on) et le mesh (kill_switch=false, pipeline authorized) \u2014 determiner la source de verite et synchroniser proprement sans desactiver de protection par erreur; 2) incoherence de telemetrie mesh: endpoint resume ne voit qu'un agent MERLIN alors que meshListAgents en voit 13 online \u2014 identifier l'agregateur/etat obsolete et corriger la synchronisation/lecture; 3) hygiene Git: separer clairement fichiers runtime memory/* et artefacts generes des vrais fichiers source, ajuster .gitignore si approprie, sans supprimer de donnees utiles ni faire d'action destructive. Verifier aussi que Home Assistant, le cockpit, les crons Claude/Perplexity et le mesh restent fonctionnels apres correction. Ne touche pas aux secrets. Si une etape releve T2/T3 ou exige rotation de secret/wallet/compte tiers, demande une confirmation directe a Stef avant execution. Fournis un compte rendu avec fichiers modifies, tests executes, risques restants et statut final.",
       "priority": "normal",
-      "status": "assigned",
+      "status": "failed",
       "input": {
         "symbol": null,
         "action": null,
@@ -226385,8 +226385,8 @@
         "fallback_agents": []
       },
       "result": null,
-      "error": null,
-      "updated_at": "2026-09-26T21:48:08.713516+00:00"
+      "error": "AUTHZ_REQUIRED tier=T3: mission non executee par le worker automatique. Validation humaine (Stef) requise, puis /requeue ou execution manuelle.",
+      "updated_at": "2026-09-27T22:06:03.069539+00:00"
     },
     "mis_jN2k5Z8LFYdt": {
       "mission_id": "mis_jN2k5Z8LFYdt",
@@ -229929,6 +229929,122 @@
       },
       "error": null,
       "updated_at": "2026-09-27T21:56:12.061802+00:00"
+    },
+    "mis_ODr0tTEO3lS0": {
+      "mission_id": "mis_ODr0tTEO3lS0",
+      "created_at": "2026-09-27T22:00:02.184245+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": null,
+      "task_type": "infra_monitoring",
+      "intent": "Auto scan system health \u2014 periodic",
+      "priority": "normal",
+      "status": "blocked",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": null,
+      "error": "no_eligible_target",
+      "updated_at": "2026-09-27T22:01:01.476856+00:00"
+    },
+    "mis_6bmNWb7dUGZ8": {
+      "mission_id": "mis_6bmNWb7dUGZ8",
+      "created_at": "2026-09-27T22:10:02.316531+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "quant_brain",
+      "task_type": "strategy_planning",
+      "intent": "Auto strategy review \u2014 periodic",
+      "priority": "low",
+      "status": "completed",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": {
+        "duration_sec": 9.19,
+        "output_preview": "{\n  \"decisions\": [],\n  \"dry_run\": true,\n  \"live_perf_rows\": 0,\n  \"backtest_rows\": 56,\n  \"strategies_seen\": 8,\n  \"live_data_freshness\": {\n    \"window_hours\": 72,\n    \"cutoff_ts\": 1790287871.8652127,\n    \"last_successful_live_trade_ts\": 1779922806.7810013,\n    \"successful_live_trades_in_window\": 0,\n    \"most_recent_trade_success\": false,\n    \"reason\": \"no successful live trade in window - most recent order attempts failed (check balance/funds)\"\n  }\n}\n"
+      },
+      "error": null,
+      "updated_at": "2026-09-27T22:11:11.997137+00:00"
+    },
+    "mis_DQm9rQMlSZPj": {
+      "mission_id": "mis_DQm9rQMlSZPj",
+      "created_at": "2026-09-27T22:15:02.462426+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": null,
+      "task_type": "infra_monitoring",
+      "intent": "Auto scan system health \u2014 periodic",
+      "priority": "normal",
+      "status": "blocked",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": null,
+      "error": "no_eligible_target",
+      "updated_at": "2026-09-27T22:16:01.778008+00:00"
+    },
+    "mis_ZF88hwFQ75jO": {
+      "mission_id": "mis_ZF88hwFQ75jO",
+      "created_at": "2026-09-27T22:25:02.400432+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": null,
+      "task_type": "infra_monitoring",
+      "intent": "Auto scan system health \u2014 periodic",
+      "priority": "normal",
+      "status": "blocked",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": null,
+      "error": "no_eligible_target",
+      "updated_at": "2026-09-27T22:26:02.357364+00:00"
+    },
+    "mis_MANb6tdQDZPb": {
+      "mission_id": "mis_MANb6tdQDZPb",
+      "created_at": "2026-09-27T22:25:02.842620+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "quant_brain",
+      "task_type": "trading_analysis",
+      "intent": "Auto trading analysis brief \u2014 periodic",
+      "priority": "normal",
+      "status": "completed",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": {
+        "duration_sec": 8.8,
+        "output_preview": "{\n  \"decisions\": [],\n  \"dry_run\": true,\n  \"live_perf_rows\": 0,\n  \"backtest_rows\": 56,\n  \"strategies_seen\": 8,\n  \"live_data_freshness\": {\n    \"window_hours\": 72,\n    \"cutoff_ts\": 1790288771.755334,\n    \"last_successful_live_trade_ts\": 1779922806.7810013,\n    \"successful_live_trades_in_window\": 0,\n    \"most_recent_trade_success\": false,\n    \"reason\": \"no successful live trade in window - most recent order attempts failed (check balance/funds)\"\n  }\n}\n"
+      },
+      "error": null,
+      "updated_at": "2026-09-27T22:26:11.887157+00:00"
     }
   }
 }
