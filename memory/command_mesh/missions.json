@@ -229110,6 +229110,75 @@
       },
       "error": null,
       "updated_at": "2026-09-27T16:26:11.445025+00:00"
+    },
+    "mis_h2sYQijqXTxG": {
+      "mission_id": "mis_h2sYQijqXTxG",
+      "created_at": "2026-09-27T16:40:02.039361+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": null,
+      "task_type": "infra_monitoring",
+      "intent": "Auto scan system health \u2014 periodic",
+      "priority": "normal",
+      "status": "blocked",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": null,
+      "error": "no_eligible_target",
+      "updated_at": "2026-09-27T16:41:02.136077+00:00"
+    },
+    "mis_CaF4Nd8OfgmJ": {
+      "mission_id": "mis_CaF4Nd8OfgmJ",
+      "created_at": "2026-09-27T16:55:02.674935+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": null,
+      "task_type": "infra_monitoring",
+      "intent": "Auto scan system health \u2014 periodic",
+      "priority": "normal",
+      "status": "blocked",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": null,
+      "error": "no_eligible_target",
+      "updated_at": "2026-09-27T16:56:02.457079+00:00"
+    },
+    "mis_tNivc5zvgVUK": {
+      "mission_id": "mis_tNivc5zvgVUK",
+      "created_at": "2026-09-27T16:55:03.138081+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "quant_brain",
+      "task_type": "trading_analysis",
+      "intent": "Auto trading analysis brief \u2014 periodic",
+      "priority": "normal",
+      "status": "completed",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": {
+        "duration_sec": 9.81,
+        "output_preview": "{\n  \"decisions\": [],\n  \"dry_run\": true,\n  \"live_perf_rows\": 0,\n  \"backtest_rows\": 56,\n  \"strategies_seen\": 8,\n  \"live_data_freshness\": {\n    \"window_hours\": 72,\n    \"cutoff_ts\": 1790268972.9036062,\n    \"last_successful_live_trade_ts\": 1779922806.7810013,\n    \"successful_live_trades_in_window\": 0,\n    \"most_recent_trade_success\": false,\n    \"reason\": \"no successful live trade in window - most recent order attempts failed (check balance/funds)\"\n  }\n}\n"
+      },
+      "error": null,
+      "updated_at": "2026-09-27T16:56:13.029662+00:00"
     }
   }
 }
