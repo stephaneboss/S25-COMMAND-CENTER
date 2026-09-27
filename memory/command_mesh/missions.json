@@ -229179,6 +229179,50 @@
       },
       "error": null,
       "updated_at": "2026-09-27T16:56:13.029662+00:00"
+    },
+    "mis_RM6F4YhGhSVX": {
+      "mission_id": "mis_RM6F4YhGhSVX",
+      "created_at": "2026-09-27T17:10:02.007152+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": null,
+      "task_type": "infra_monitoring",
+      "intent": "Auto scan system health \u2014 periodic",
+      "priority": "normal",
+      "status": "blocked",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": null,
+      "error": "no_eligible_target",
+      "updated_at": "2026-09-27T17:11:01.896702+00:00"
+    },
+    "mis_kDn1JyLaKLmM": {
+      "mission_id": "mis_kDn1JyLaKLmM",
+      "created_at": "2026-09-27T17:20:02.832855+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": null,
+      "task_type": "infra_monitoring",
+      "intent": "Auto scan system health \u2014 periodic",
+      "priority": "normal",
+      "status": "blocked",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": null,
+      "error": "no_eligible_target",
+      "updated_at": "2026-09-27T17:21:01.693861+00:00"
     }
   }
 }
