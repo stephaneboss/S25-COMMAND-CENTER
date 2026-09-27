@@ -1,146 +1,5 @@
 {
   "items": {
-    "comet_sentiment": {
-      "agent_id": "comet_sentiment",
-      "type": "intel",
-      "status": "online",
-      "runtime": "local",
-      "endpoint_class": "internal",
-      "capabilities": [
-        "sentiment_scan",
-        "comet_proxy"
-      ],
-      "priority": "normal",
-      "cost_tier": "low",
-      "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-09-27T05:30:02.481243+00:00",
-      "last_seen_at": "2026-09-27T05:30:02.481243+00:00",
-      "cooldown_until": null,
-      "metadata": {},
-      "latency_ms": 595479,
-      "error_rate": 0.0
-    },
-    "drawdown_guardian": {
-      "agent_id": "drawdown_guardian",
-      "type": "risk",
-      "status": "online",
-      "runtime": "local",
-      "endpoint_class": "internal",
-      "capabilities": [
-        "drawdown_24h_rolling",
-        "kill_switch_trigger"
-      ],
-      "priority": "normal",
-      "cost_tier": "low",
-      "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-09-27T05:30:02.489734+00:00",
-      "last_seen_at": "2026-09-27T05:30:02.489734+00:00",
-      "cooldown_until": null,
-      "metadata": {},
-      "latency_ms": 600173,
-      "error_rate": 0.0
-    },
-    "dca_scheduler": {
-      "agent_id": "dca_scheduler",
-      "type": "exec",
-      "status": "online",
-      "runtime": "local",
-      "endpoint_class": "internal",
-      "capabilities": [
-        "dca_schedules"
-      ],
-      "priority": "normal",
-      "cost_tier": "low",
-      "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-09-27T05:30:02.499146+00:00",
-      "last_seen_at": "2026-09-27T05:30:02.499146+00:00",
-      "cooldown_until": null,
-      "metadata": {},
-      "latency_ms": 900241,
-      "error_rate": 0.0
-    },
-    "quant_brain": {
-      "agent_id": "quant_brain",
-      "type": "brain",
-      "status": "online",
-      "runtime": "local",
-      "endpoint_class": "internal",
-      "capabilities": [
-        "auto_tune_strategies",
-        "re_enable_rules",
-        "trading_analysis",
-        "strategy_planning"
-      ],
-      "priority": "normal",
-      "cost_tier": "low",
-      "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-09-27T05:30:02.508802+00:00",
-      "last_seen_at": "2026-09-27T05:30:02.508802+00:00",
-      "cooldown_until": null,
-      "metadata": {},
-      "latency_ms": 1791996,
-      "error_rate": 0.0
-    },
-    "system_health": {
-      "agent_id": "system_health",
-      "type": "infra",
-      "status": "online",
-      "runtime": "local",
-      "endpoint_class": "internal",
-      "capabilities": [
-        "cron_monitor",
-        "endpoint_health"
-      ],
-      "priority": "normal",
-      "cost_tier": "low",
-      "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-09-27T05:30:02.528149+00:00",
-      "last_seen_at": "2026-09-27T05:30:02.528149+00:00",
-      "cooldown_until": null,
-      "metadata": {},
-      "latency_ms": 298905,
-      "error_rate": 0.0
-    },
-    "git_auto_sync": {
-      "agent_id": "git_auto_sync",
-      "type": "infra",
-      "status": "online",
-      "runtime": "local",
-      "endpoint_class": "internal",
-      "capabilities": [
-        "git_pull"
-      ],
-      "priority": "normal",
-      "cost_tier": "low",
-      "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-09-27T05:30:02.588866+00:00",
-      "last_seen_at": "2026-09-27T05:30:02.588866+00:00",
-      "cooldown_until": null,
-      "metadata": {},
-      "latency_ms": 1796573,
-      "error_rate": 0.0
-    },
-    "perplexity_news_scanner": {
-      "agent_id": "perplexity_news_scanner",
-      "type": "intel",
-      "status": "online",
-      "runtime": "local",
-      "endpoint_class": "internal",
-      "capabilities": [
-        "market_news",
-        "sentiment_scan",
-        "perplexity_api"
-      ],
-      "priority": "normal",
-      "cost_tier": "low",
-      "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-09-27T05:30:02.601359+00:00",
-      "last_seen_at": "2026-09-27T05:30:02.601359+00:00",
-      "cooldown_until": null,
-      "metadata": {},
-      "latency_ms": 1798880,
-      "error_rate": 0.0
-    },
     "COCKPIT_LUMIERE": {
       "agent_id": "COCKPIT_LUMIERE",
       "type": "gateway",
@@ -155,8 +14,8 @@
       "priority": "normal",
       "cost_tier": "low",
       "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-09-27T05:30:02.796406+00:00",
-      "last_seen_at": "2026-09-27T05:30:02.796406+00:00",
+      "last_heartbeat_at": "2026-09-27T06:00:02.035843+00:00",
+      "last_seen_at": "2026-09-27T06:00:02.035843+00:00",
       "cooldown_until": null,
       "metadata": {},
       "latency_ms": null,
@@ -174,8 +33,8 @@
       "priority": "normal",
       "cost_tier": "low",
       "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-09-27T05:30:02.920859+00:00",
-      "last_seen_at": "2026-09-27T05:30:02.920859+00:00",
+      "last_heartbeat_at": "2026-09-27T06:00:02.434212+00:00",
+      "last_seen_at": "2026-09-27T06:00:02.434212+00:00",
       "cooldown_until": null,
       "metadata": {},
       "latency_ms": null,
@@ -194,11 +53,11 @@
       "priority": "normal",
       "cost_tier": "low",
       "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-09-27T05:30:02.445500+00:00",
-      "last_seen_at": "2026-09-27T05:30:02.445500+00:00",
+      "last_heartbeat_at": "2026-09-27T06:00:01.808517+00:00",
+      "last_seen_at": "2026-09-27T06:00:01.808517+00:00",
       "cooldown_until": null,
       "metadata": {},
-      "latency_ms": 58658,
+      "latency_ms": 58346,
       "error_rate": 0.0
     },
     "mesh_signal_bridge": {
@@ -214,11 +73,11 @@
       "priority": "normal",
       "cost_tier": "low",
       "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-09-27T05:30:02.456892+00:00",
-      "last_seen_at": "2026-09-27T05:30:02.456892+00:00",
+      "last_heartbeat_at": "2026-09-27T06:00:01.817922+00:00",
+      "last_seen_at": "2026-09-27T06:00:01.817922+00:00",
       "cooldown_until": null,
       "metadata": {},
-      "latency_ms": 120308,
+      "latency_ms": 120118,
       "error_rate": 0.0
     },
     "trailing_stop_manager": {
@@ -234,11 +93,11 @@
       "priority": "normal",
       "cost_tier": "low",
       "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-09-27T05:30:02.465916+00:00",
-      "last_seen_at": "2026-09-27T05:30:02.465916+00:00",
+      "last_heartbeat_at": "2026-09-27T06:00:01.826996+00:00",
+      "last_seen_at": "2026-09-27T06:00:01.826996+00:00",
       "cooldown_until": null,
       "metadata": {},
-      "latency_ms": 85,
+      "latency_ms": 2,
       "error_rate": 0.0
     },
     "auto_signal_scanner": {
@@ -254,11 +113,152 @@
       "priority": "normal",
       "cost_tier": "low",
       "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-09-27T05:30:02.471365+00:00",
-      "last_seen_at": "2026-09-27T05:30:02.471365+00:00",
+      "last_heartbeat_at": "2026-09-27T06:00:01.838939+00:00",
+      "last_seen_at": "2026-09-27T06:00:01.838939+00:00",
       "cooldown_until": null,
       "metadata": {},
-      "latency_ms": 358,
+      "latency_ms": 298809,
+      "error_rate": 0.0
+    },
+    "comet_sentiment": {
+      "agent_id": "comet_sentiment",
+      "type": "intel",
+      "status": "online",
+      "runtime": "local",
+      "endpoint_class": "internal",
+      "capabilities": [
+        "sentiment_scan",
+        "comet_proxy"
+      ],
+      "priority": "normal",
+      "cost_tier": "low",
+      "reliability_score": 1.0,
+      "last_heartbeat_at": "2026-09-27T06:00:01.849821+00:00",
+      "last_seen_at": "2026-09-27T06:00:01.849821+00:00",
+      "cooldown_until": null,
+      "metadata": {},
+      "latency_ms": 588977,
+      "error_rate": 0.0
+    },
+    "drawdown_guardian": {
+      "agent_id": "drawdown_guardian",
+      "type": "risk",
+      "status": "online",
+      "runtime": "local",
+      "endpoint_class": "internal",
+      "capabilities": [
+        "drawdown_24h_rolling",
+        "kill_switch_trigger"
+      ],
+      "priority": "normal",
+      "cost_tier": "low",
+      "reliability_score": 1.0,
+      "last_heartbeat_at": "2026-09-27T06:00:01.859838+00:00",
+      "last_seen_at": "2026-09-27T06:00:01.859838+00:00",
+      "cooldown_until": null,
+      "metadata": {},
+      "latency_ms": 599068,
+      "error_rate": 0.0
+    },
+    "dca_scheduler": {
+      "agent_id": "dca_scheduler",
+      "type": "exec",
+      "status": "online",
+      "runtime": "local",
+      "endpoint_class": "internal",
+      "capabilities": [
+        "dca_schedules"
+      ],
+      "priority": "normal",
+      "cost_tier": "low",
+      "reliability_score": 1.0,
+      "last_heartbeat_at": "2026-09-27T06:00:01.869905+00:00",
+      "last_seen_at": "2026-09-27T06:00:01.869905+00:00",
+      "cooldown_until": null,
+      "metadata": {},
+      "latency_ms": 899578,
+      "error_rate": 0.0
+    },
+    "quant_brain": {
+      "agent_id": "quant_brain",
+      "type": "brain",
+      "status": "online",
+      "runtime": "local",
+      "endpoint_class": "internal",
+      "capabilities": [
+        "auto_tune_strategies",
+        "re_enable_rules",
+        "trading_analysis",
+        "strategy_planning"
+      ],
+      "priority": "normal",
+      "cost_tier": "low",
+      "reliability_score": 1.0,
+      "last_heartbeat_at": "2026-09-27T06:00:01.879817+00:00",
+      "last_seen_at": "2026-09-27T06:00:01.879817+00:00",
+      "cooldown_until": null,
+      "metadata": {},
+      "latency_ms": 3591369,
+      "error_rate": 0.0
+    },
+    "system_health": {
+      "agent_id": "system_health",
+      "type": "infra",
+      "status": "online",
+      "runtime": "local",
+      "endpoint_class": "internal",
+      "capabilities": [
+        "cron_monitor",
+        "endpoint_health"
+      ],
+      "priority": "normal",
+      "cost_tier": "low",
+      "reliability_score": 1.0,
+      "last_heartbeat_at": "2026-09-27T06:00:01.897865+00:00",
+      "last_seen_at": "2026-09-27T06:00:01.897865+00:00",
+      "cooldown_until": null,
+      "metadata": {},
+      "latency_ms": 298545,
+      "error_rate": 0.0
+    },
+    "git_auto_sync": {
+      "agent_id": "git_auto_sync",
+      "type": "infra",
+      "status": "online",
+      "runtime": "local",
+      "endpoint_class": "internal",
+      "capabilities": [
+        "git_pull"
+      ],
+      "priority": "normal",
+      "cost_tier": "low",
+      "reliability_score": 1.0,
+      "last_heartbeat_at": "2026-09-27T06:00:01.903831+00:00",
+      "last_seen_at": "2026-09-27T06:00:01.903831+00:00",
+      "cooldown_until": null,
+      "metadata": {},
+      "latency_ms": 1796596,
+      "error_rate": 0.0
+    },
+    "perplexity_news_scanner": {
+      "agent_id": "perplexity_news_scanner",
+      "type": "intel",
+      "status": "online",
+      "runtime": "local",
+      "endpoint_class": "internal",
+      "capabilities": [
+        "market_news",
+        "sentiment_scan",
+        "perplexity_api"
+      ],
+      "priority": "normal",
+      "cost_tier": "low",
+      "reliability_score": 1.0,
+      "last_heartbeat_at": "2026-09-27T06:00:01.910822+00:00",
+      "last_seen_at": "2026-09-27T06:00:01.910822+00:00",
+      "cooldown_until": null,
+      "metadata": {},
+      "latency_ms": 1798604,
       "error_rate": 0.0
     }
   }
