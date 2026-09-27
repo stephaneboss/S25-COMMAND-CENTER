@@ -18,10 +18,7 @@ jobs:
         run: pip install flake8
       - name: Lint (flake8)
         run: |
-          flake8 agents/ security/ monitoring/ \
-            --max-line-length=120 \
-            --ignore=E501,W503,E302,E303,E221,E241,W504,E401,E701,E128,E226 \
-            --exclude=__pycache__
+          python scripts/check_flake8_baseline.py
 
   # ─── Code Quality ───────────────────────────────────────────────────
   validate:
