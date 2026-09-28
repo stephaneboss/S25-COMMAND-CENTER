@@ -233608,10 +233608,104 @@
       "mission_id": "mis_YhLK4pPuol6e",
       "created_at": "2026-09-28T19:00:02.687873+00:00",
       "created_by": "mesh_activator",
-      "target_agent": "LOCAL_CRON",
+      "target_agent": "quant_brain",
       "task_type": "strategy_planning",
       "intent": "Auto strategy review \u2014 periodic",
       "priority": "low",
+      "status": "completed",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": {
+        "duration_sec": 9.82,
+        "output_preview": "{\n  \"decisions\": [],\n  \"dry_run\": true,\n  \"live_perf_rows\": 0,\n  \"backtest_rows\": 56,\n  \"strategies_seen\": 8,\n  \"live_data_freshness\": {\n    \"window_hours\": 72,\n    \"cutoff_ts\": 1790362872.5243511,\n    \"last_successful_live_trade_ts\": 1779922806.7810013,\n    \"successful_live_trades_in_window\": 0,\n    \"most_recent_trade_success\": false,\n    \"reason\": \"no successful live trade in window - most recent order attempts failed (check balance/funds)\"\n  }\n}\n"
+      },
+      "error": null,
+      "updated_at": "2026-09-28T19:01:12.658239+00:00"
+    },
+    "mis_cy19dlWP81VD": {
+      "mission_id": "mis_cy19dlWP81VD",
+      "created_at": "2026-09-28T19:05:02.353329+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": null,
+      "task_type": "infra_monitoring",
+      "intent": "Auto scan system health \u2014 periodic",
+      "priority": "normal",
+      "status": "blocked",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": null,
+      "error": "no_eligible_target",
+      "updated_at": "2026-09-28T19:06:01.603888+00:00"
+    },
+    "mis_eZtEoKgYk6MU": {
+      "mission_id": "mis_eZtEoKgYk6MU",
+      "created_at": "2026-09-28T19:15:02.054333+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "quant_brain",
+      "task_type": "trading_analysis",
+      "intent": "Auto trading analysis brief \u2014 periodic",
+      "priority": "normal",
+      "status": "completed",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": {
+        "duration_sec": 10.48,
+        "output_preview": "{\n  \"decisions\": [],\n  \"dry_run\": true,\n  \"live_perf_rows\": 0,\n  \"backtest_rows\": 56,\n  \"strategies_seen\": 8,\n  \"live_data_freshness\": {\n    \"window_hours\": 72,\n    \"cutoff_ts\": 1790363772.7934623,\n    \"last_successful_live_trade_ts\": 1779922806.7810013,\n    \"successful_live_trades_in_window\": 0,\n    \"most_recent_trade_success\": false,\n    \"reason\": \"no successful live trade in window - most recent order attempts failed (check balance/funds)\"\n  }\n}\n"
+      },
+      "error": null,
+      "updated_at": "2026-09-28T19:16:12.925500+00:00"
+    },
+    "mis_uFH2Zg7oYd7u": {
+      "mission_id": "mis_uFH2Zg7oYd7u",
+      "created_at": "2026-09-28T19:20:02.063646+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": null,
+      "task_type": "infra_monitoring",
+      "intent": "Auto scan system health \u2014 periodic",
+      "priority": "normal",
+      "status": "blocked",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": null,
+      "error": "no_eligible_target",
+      "updated_at": "2026-09-28T19:21:01.640004+00:00"
+    },
+    "mis_VZHo6zDvekA": {
+      "mission_id": "mis_VZHo6zDvekA",
+      "created_at": "2026-09-28T19:30:03.198124+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "LOCAL_CRON",
+      "task_type": "infra_monitoring",
+      "intent": "Auto scan system health \u2014 periodic",
+      "priority": "normal",
       "status": "queued",
       "input": {},
       "constraints": {
@@ -233624,7 +233718,7 @@
       },
       "result": null,
       "error": null,
-      "updated_at": "2026-09-28T19:00:02.687873+00:00"
+      "updated_at": "2026-09-28T19:30:03.198124+00:00"
     }
   }
 }
