@@ -231255,7 +231255,32 @@
       "task_type": "trading_analysis",
       "intent": "Auto trading analysis brief \u2014 periodic",
       "priority": "normal",
-      "status": "assigned",
+      "status": "completed",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": {
+        "duration_sec": 8.08,
+        "output_preview": "{\n  \"decisions\": [],\n  \"dry_run\": true,\n  \"live_perf_rows\": 0,\n  \"backtest_rows\": 56,\n  \"strategies_seen\": 8,\n  \"live_data_freshness\": {\n    \"window_hours\": 72,\n    \"cutoff_ts\": 1790314269.9733987,\n    \"last_successful_live_trade_ts\": 1779922806.7810013,\n    \"successful_live_trades_in_window\": 0,\n    \"most_recent_trade_success\": false,\n    \"reason\": \"no successful live trade in window - most recent order attempts failed (check balance/funds)\"\n  }\n}\n"
+      },
+      "error": null,
+      "updated_at": "2026-09-28T05:31:10.104615+00:00"
+    },
+    "mis_LnRNs7tcV5de": {
+      "mission_id": "mis_LnRNs7tcV5de",
+      "created_at": "2026-09-28T05:35:02.643540+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": null,
+      "task_type": "infra_monitoring",
+      "intent": "Auto scan system health \u2014 periodic",
+      "priority": "normal",
+      "status": "blocked",
       "input": {},
       "constraints": {
         "timeout_sec": 120
@@ -231266,8 +231291,30 @@
         ]
       },
       "result": null,
-      "error": null,
-      "updated_at": "2026-09-28T05:30:02.655978+00:00"
+      "error": "no_eligible_target",
+      "updated_at": "2026-09-28T05:36:01.714229+00:00"
+    },
+    "mis_I7HfszrHtPvQ": {
+      "mission_id": "mis_I7HfszrHtPvQ",
+      "created_at": "2026-09-28T05:50:02.855111+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": null,
+      "task_type": "infra_monitoring",
+      "intent": "Auto scan system health \u2014 periodic",
+      "priority": "normal",
+      "status": "blocked",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": null,
+      "error": "no_eligible_target",
+      "updated_at": "2026-09-28T05:51:01.765745+00:00"
     }
   }
 }
