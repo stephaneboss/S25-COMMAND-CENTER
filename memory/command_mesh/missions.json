@@ -232610,6 +232610,124 @@
       "result": null,
       "error": "no_eligible_target",
       "updated_at": "2026-09-28T13:21:01.677297+00:00"
+    },
+    "mis_6ZwGPmpOtd9Z": {
+      "mission_id": "mis_6ZwGPmpOtd9Z",
+      "created_at": "2026-09-28T13:35:01.875756+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": null,
+      "task_type": "infra_monitoring",
+      "intent": "Auto scan system health \u2014 periodic",
+      "priority": "normal",
+      "status": "blocked",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": null,
+      "error": "no_eligible_target",
+      "updated_at": "2026-09-28T13:36:01.932747+00:00"
+    },
+    "mis_JGwpjAnO56iP": {
+      "mission_id": "mis_JGwpjAnO56iP",
+      "created_at": "2026-09-28T13:43:22.140094+00:00",
+      "created_by": "TRINITY",
+      "target_agent": "CLAUDE",
+      "task_type": "strategy_planning",
+      "intent": "Inspection compl\u00e8te et plan de remise \u00e0 niveau S25 \u2014 mode dev intensif, Stef de retour. 1) Inspecter les GPT/custom assistants existants li\u00e9s au projet (config, docs, prompts, manifests, int\u00e9grations) et produire une liste claire: r\u00f4le, chevauchements, d\u00e9pendances, valeur actuelle, statut actif/obsol\u00e8te/inconnu. 2) Refaire une map de travail cible en distinguant: GPTs \u00e0 conserver tels quels, GPTs \u00e0 migrer en plugins, GPTs \u00e0 fusionner, GPTs \u00e0 abandonner. 3) Concevoir un plan plugins: plugins existants \u00e0 activer, nouveaux plugins \u00e0 ajouter ou d\u00e9velopper, responsabilit\u00e9s de chacun, interfaces/actions requises, niveaux d\u2019autorisation T0/T1/T2/T3, d\u00e9pendances Home Assistant / Cockpit / Mesh / wallets / GitHub / Akash / Flux / exchanges. 4) Refaire une cartographie compl\u00e8te de l\u2019infra actuelle S25 \u00e0 partir du repo et de l\u2019\u00e9tat serveur: cockpit, mesh, agents, cron, Claude relay, Perplexity/COMET, Ollama/Kimi, Home Assistant, trading, stabilit\u00e9/DLQ, tunnels, GPU/local inference, Akash/Flux, Git sync, s\u00e9curit\u00e9/secrets. 5) Identifier ce qui est r\u00e9ellement op\u00e9rationnel, partiellement cass\u00e9, redondant, legacy, dangereux ou non document\u00e9. 6) Produire un plan de remise \u00e0 jour par phases, avec priorit\u00e9s, d\u00e9pendances, risques, quick wins et crit\u00e8res de validation. 7) Ne rien modifier, ne d\u00e9ployer aucun changement, ne toucher \u00e0 aucun secret. Diagnostic et plan seulement. Ne jamais r\u00e9v\u00e9ler de cl\u00e9, token, mnemonic ou secret. Livrable attendu: architecture actuelle, architecture cible, backlog prioris\u00e9, matrice GPT->plugin, plugins \u00e0 ajouter, et ordre d\u2019ex\u00e9cution recommand\u00e9.",
+      "priority": "normal",
+      "status": "failed",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120,
+        "max_retries": 2,
+        "require_ack": true
+      },
+      "routing": {
+        "selected_by": "TRINITY",
+        "runtime_preference": "akash",
+        "fallback_agents": []
+      },
+      "result": null,
+      "error": "AUTHZ_REQUIRED tier=T3: mission non executee par le worker automatique. Validation humaine (Stef) requise, puis /requeue ou execution manuelle.",
+      "updated_at": "2026-09-28T13:44:01.953939+00:00"
+    },
+    "mis_FudsFIor5xkS": {
+      "mission_id": "mis_FudsFIor5xkS",
+      "created_at": "2026-09-28T13:45:02.109918+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": null,
+      "task_type": "infra_monitoring",
+      "intent": "Auto scan system health \u2014 periodic",
+      "priority": "normal",
+      "status": "blocked",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": null,
+      "error": "no_eligible_target",
+      "updated_at": "2026-09-28T13:46:01.778487+00:00"
+    },
+    "mis_ZLTfoRxCOMfp": {
+      "mission_id": "mis_ZLTfoRxCOMfp",
+      "created_at": "2026-09-28T13:45:02.549690+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "quant_brain",
+      "task_type": "trading_analysis",
+      "intent": "Auto trading analysis brief \u2014 periodic",
+      "priority": "normal",
+      "status": "completed",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": {
+        "duration_sec": 8.56,
+        "output_preview": "{\n  \"decisions\": [],\n  \"dry_run\": true,\n  \"live_perf_rows\": 0,\n  \"backtest_rows\": 56,\n  \"strategies_seen\": 8,\n  \"live_data_freshness\": {\n    \"window_hours\": 72,\n    \"cutoff_ts\": 1790343970.9472563,\n    \"last_successful_live_trade_ts\": 1779922806.7810013,\n    \"successful_live_trades_in_window\": 0,\n    \"most_recent_trade_success\": false,\n    \"reason\": \"no successful live trade in window - most recent order attempts failed (check balance/funds)\"\n  }\n}\n"
+      },
+      "error": null,
+      "updated_at": "2026-09-28T13:46:11.079740+00:00"
+    },
+    "mis_4HaL4lvV7KQ": {
+      "mission_id": "mis_4HaL4lvV7KQ",
+      "created_at": "2026-09-28T13:45:02.976938+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "quant_brain",
+      "task_type": "strategy_planning",
+      "intent": "Auto strategy review \u2014 periodic",
+      "priority": "low",
+      "status": "completed",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": {
+        "duration_sec": 8.41,
+        "output_preview": "{\n  \"decisions\": [],\n  \"dry_run\": true,\n  \"live_perf_rows\": 0,\n  \"backtest_rows\": 56,\n  \"strategies_seen\": 8,\n  \"live_data_freshness\": {\n    \"window_hours\": 72,\n    \"cutoff_ts\": 1790343980.1097286,\n    \"last_successful_live_trade_ts\": 1779922806.7810013,\n    \"successful_live_trades_in_window\": 0,\n    \"most_recent_trade_success\": false,\n    \"reason\": \"no successful live trade in window - most recent order attempts failed (check balance/funds)\"\n  }\n}\n"
+      },
+      "error": null,
+      "updated_at": "2026-09-28T13:46:20.239272+00:00"
     }
   }
 }
