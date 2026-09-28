@@ -233098,6 +233098,72 @@
       },
       "error": null,
       "updated_at": "2026-09-28T15:56:12.272728+00:00"
+    },
+    "mis_mE4XQ0KzWipt": {
+      "mission_id": "mis_mE4XQ0KzWipt",
+      "created_at": "2026-09-28T16:05:01.867345+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": null,
+      "task_type": "infra_monitoring",
+      "intent": "Auto scan system health \u2014 periodic",
+      "priority": "normal",
+      "status": "blocked",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": null,
+      "error": "no_eligible_target",
+      "updated_at": "2026-09-28T16:06:02.170477+00:00"
+    },
+    "mis_OPvxOxB69ddU": {
+      "mission_id": "mis_OPvxOxB69ddU",
+      "created_at": "2026-09-28T16:15:01.982668+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": null,
+      "task_type": "infra_monitoring",
+      "intent": "Auto scan system health \u2014 periodic",
+      "priority": "normal",
+      "status": "blocked",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": null,
+      "error": "no_eligible_target",
+      "updated_at": "2026-09-28T16:16:02.380765+00:00"
+    },
+    "mis_JVpEjfB8ja1b": {
+      "mission_id": "mis_JVpEjfB8ja1b",
+      "created_at": "2026-09-28T16:25:02.057554+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": null,
+      "task_type": "infra_monitoring",
+      "intent": "Auto scan system health \u2014 periodic",
+      "priority": "normal",
+      "status": "blocked",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": null,
+      "error": "no_eligible_target",
+      "updated_at": "2026-09-28T16:26:02.046575+00:00"
     }
   }
 }
