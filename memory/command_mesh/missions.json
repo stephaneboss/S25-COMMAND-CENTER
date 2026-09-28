@@ -232171,6 +232171,97 @@
       "result": null,
       "error": "no_eligible_target",
       "updated_at": "2026-09-28T10:51:02.295802+00:00"
+    },
+    "mis_Tu7xibV1s110": {
+      "mission_id": "mis_Tu7xibV1s110",
+      "created_at": "2026-09-28T11:00:02.816589+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": null,
+      "task_type": "infra_monitoring",
+      "intent": "Auto scan system health \u2014 periodic",
+      "priority": "normal",
+      "status": "blocked",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": null,
+      "error": "no_eligible_target",
+      "updated_at": "2026-09-28T11:01:01.922126+00:00"
+    },
+    "mis_6xeqwWpjOuB4": {
+      "mission_id": "mis_6xeqwWpjOuB4",
+      "created_at": "2026-09-28T11:00:03.421153+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "quant_brain",
+      "task_type": "trading_analysis",
+      "intent": "Auto trading analysis brief \u2014 periodic",
+      "priority": "normal",
+      "status": "completed",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": {
+        "duration_sec": 8.32,
+        "output_preview": "{\n  \"decisions\": [],\n  \"dry_run\": true,\n  \"live_perf_rows\": 0,\n  \"backtest_rows\": 56,\n  \"strategies_seen\": 8,\n  \"live_data_freshness\": {\n    \"window_hours\": 72,\n    \"cutoff_ts\": 1790334070.8353438,\n    \"last_successful_live_trade_ts\": 1779922806.7810013,\n    \"successful_live_trades_in_window\": 0,\n    \"most_recent_trade_success\": false,\n    \"reason\": \"no successful live trade in window - most recent order attempts failed (check balance/funds)\"\n  }\n}\n"
+      },
+      "error": null,
+      "updated_at": "2026-09-28T11:01:10.967926+00:00"
+    },
+    "mis_6Sl4KM60n61b": {
+      "mission_id": "mis_6Sl4KM60n61b",
+      "created_at": "2026-09-28T11:15:02.903505+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": null,
+      "task_type": "infra_monitoring",
+      "intent": "Auto scan system health \u2014 periodic",
+      "priority": "normal",
+      "status": "blocked",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": null,
+      "error": "no_eligible_target",
+      "updated_at": "2026-09-28T11:16:01.974462+00:00"
+    },
+    "mis_60eRCeXzP6u8": {
+      "mission_id": "mis_60eRCeXzP6u8",
+      "created_at": "2026-09-28T11:30:02.476874+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "LOCAL_CRON",
+      "task_type": "infra_monitoring",
+      "intent": "Auto scan system health \u2014 periodic",
+      "priority": "normal",
+      "status": "queued",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": null,
+      "error": null,
+      "updated_at": "2026-09-28T11:30:02.476874+00:00"
     }
   }
 }
