@@ -81,7 +81,7 @@ LOCAL_AGENTS: Dict[str, Dict] = {
     "system_health": {
         "log": "/tmp/system_health.log", "interval": 300,
         "type": "infra", "runtime": "local",
-        "capabilities": ["cron_monitor", "endpoint_health"],
+        "capabilities": ["cron_monitor", "endpoint_health", "infra_monitoring"],
     },
     "git_auto_sync": {
         "log": "/tmp/git_sync.log", "interval": 1800,
