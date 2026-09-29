@@ -17,7 +17,7 @@ Agents watched:
   git_auto_sync           every 30 min
   quant_brain             every 60 min
   gemini_orchestrator     every 120 min
-  gemini_news_scanner     every 60 min
+  perplexity_news_scanner every 30 min
 
 Endpoint health:
   /api/status
@@ -55,7 +55,7 @@ CRONS = {
     "git_auto_sync":          ("/tmp/git_sync.log",              70,  "low"),
     "quant_brain":            ("/tmp/quant_brain.log",           130, "high"),
     "gemini_orchestrator":    ("/tmp/gemini_orchestrator.log",   250, "medium"),
-    "gemini_news_scanner":    ("/tmp/gemini_news.log",           130, "medium"),
+    "perplexity_news_scanner": ("/tmp/perplexity_news.log",     70, "medium"),
 }
 
 ENDPOINTS = [

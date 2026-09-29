@@ -16,11 +16,11 @@ _spec.loader.exec_module(health)
 
 
 class CronEvidenceTests(unittest.TestCase):
-    def test_missing_gemini_logs_are_unobserved_and_keep_health_degraded(self):
+    def test_missing_gemini_log_is_unobserved_and_keeps_health_degraded(self):
         crons = [
             {"name": "system_a", "status": "healthy", "priority": "high"},
             {"name": "gemini_orchestrator", "status": "no_log", "priority": "medium"},
-            {"name": "gemini_news_scanner", "status": "no_log", "priority": "medium"},
+            {"name": "perplexity_news_scanner", "status": "healthy", "priority": "medium"},
         ]
         endpoints = [{"status": "healthy"}]
         with tempfile.TemporaryDirectory() as directory:
@@ -33,9 +33,15 @@ class CronEvidenceTests(unittest.TestCase):
             result = json.loads(output.read_text(encoding="utf-8"))
         self.assertEqual(result["overall_status"], "degraded")
         self.assertEqual(result["crons_stuck"], 0)
-        self.assertEqual(result["crons_unobserved"], 2)
+        self.assertEqual(result["crons_unobserved"], 1)
         self.assertEqual(result["unobserved_agent_names"],
-                         ["gemini_orchestrator", "gemini_news_scanner"])
+                         ["gemini_orchestrator"])
+
+    def test_news_monitor_tracks_the_scheduled_scanner(self):
+        self.assertIn("perplexity_news_scanner", health.CRONS)
+        self.assertNotIn("gemini_news_scanner", health.CRONS)
+        self.assertEqual(health.CRONS["perplexity_news_scanner"][0],
+                         "/tmp/perplexity_news.log")
 
     def test_old_log_remains_stuck(self):
         crons = [{"name": "system_a", "status": "stuck", "priority": "high"}]

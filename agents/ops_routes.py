@@ -50,7 +50,8 @@ KNOWN_AGENTS = {
     "git_auto_sync":          {"log": "/tmp/git_sync.log",              "type": "cron", "cron": "*/30 * * * *"},
     "quant_brain":            {"log": "/tmp/quant_brain.log",           "type": "cron", "cron": "0 * * * *"},
     "gemini_orchestrator":    {"log": "/tmp/gemini_orchestrator.log",   "type": "cron", "cron": "0 */2 * * *"},
-    "gemini_news_scanner":    {"log": "/tmp/gemini_news.log",           "type": "cron", "cron": "17 * * * *"},
+    "gemini_news_scanner":    {"log": "/tmp/gemini_news.log",           "type": "manual"},
+    "perplexity_news_scanner": {"log": "/tmp/perplexity_news.log",    "type": "cron", "cron": "*/30 * * * *"},
     "system_health":          {"log": "/tmp/system_health.log",         "type": "cron", "cron": "*/5 * * * *"},
     "cockpit":                {"log": "/tmp/cockpit_lumiere.log",       "type": "systemd", "unit": "cockpit-lumiere"},
 }
