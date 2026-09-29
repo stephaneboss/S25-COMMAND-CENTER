@@ -235080,6 +235080,75 @@
       "result": null,
       "error": "no_eligible_target",
       "updated_at": "2026-09-29T03:26:02.327469+00:00"
+    },
+    "mis_ACKt9er5B1B2": {
+      "mission_id": "mis_ACKt9er5B1B2",
+      "created_at": "2026-09-29T03:30:01.862578+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "quant_brain",
+      "task_type": "trading_analysis",
+      "intent": "Auto trading analysis brief \u2014 periodic",
+      "priority": "normal",
+      "status": "completed",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": {
+        "duration_sec": 8.13,
+        "output_preview": "{\n  \"decisions\": [],\n  \"dry_run\": true,\n  \"live_perf_rows\": 0,\n  \"backtest_rows\": 56,\n  \"strategies_seen\": 8,\n  \"live_data_freshness\": {\n    \"window_hours\": 72,\n    \"cutoff_ts\": 1790393469.888482,\n    \"last_successful_live_trade_ts\": 1779922806.7810013,\n    \"successful_live_trades_in_window\": 0,\n    \"most_recent_trade_success\": false,\n    \"reason\": \"no successful live trade in window - most recent order attempts failed (check balance/funds)\"\n  }\n}\n"
+      },
+      "error": null,
+      "updated_at": "2026-09-29T03:31:10.012674+00:00"
+    },
+    "mis_OMBrSbZsoySK": {
+      "mission_id": "mis_OMBrSbZsoySK",
+      "created_at": "2026-09-29T03:35:02.532023+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": null,
+      "task_type": "infra_monitoring",
+      "intent": "Auto scan system health \u2014 periodic",
+      "priority": "normal",
+      "status": "blocked",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": null,
+      "error": "no_eligible_target",
+      "updated_at": "2026-09-29T03:36:01.672721+00:00"
+    },
+    "mis_SBg9RhgIdLCq": {
+      "mission_id": "mis_SBg9RhgIdLCq",
+      "created_at": "2026-09-29T03:45:02.720987+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": null,
+      "task_type": "infra_monitoring",
+      "intent": "Auto scan system health \u2014 periodic",
+      "priority": "normal",
+      "status": "blocked",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": null,
+      "error": "no_eligible_target",
+      "updated_at": "2026-09-29T03:46:01.971434+00:00"
     }
   }
 }
