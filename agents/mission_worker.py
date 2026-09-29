@@ -335,7 +335,8 @@ def dispatch_coinbase_executor(mission: Dict) -> Dict:
 
 
 def dispatch_noop(mission: Dict) -> Dict:
-    return {"ok": True, "note": "fallback no-op"}
+    # A missing executor must never produce a completed mission receipt.
+    return {"ok": False, "error": f"no_dispatcher_for_task_type:{mission.get('task_type', 'fallback')}"}
 
 
 DISPATCH_MAP = {
