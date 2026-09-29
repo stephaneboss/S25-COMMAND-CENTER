@@ -338,6 +338,17 @@ def _recompute_system_state():
     if signals:
         last_sig = max((s.get("ts") for s in signals.values() if s.get("ts")), default=None)
 
+    # A signal timestamp is historical evidence, not proof of a live pipeline.
+    # Derive an explicit freshness state instead of carrying "unknown" forever.
+    signal_stale_sec = int(os.getenv("MESH_SIGNAL_STALE_SEC", "7200"))
+    signal_age = _age_sec(last_sig, _now)
+    if last_sig is None:
+        pipeline_status = "NO_SIGNAL"
+    elif signal_age is not None and signal_age <= signal_stale_sec:
+        pipeline_status = "SIGNAL_FRESH"
+    else:
+        pipeline_status = "SIGNAL_STALE"
+
     # Decide global_status
     if any(i.get("severity") == "severe" and
            i.get("status") in ("open", "mitigating") for i in incidents.values()):
@@ -355,7 +366,7 @@ def _recompute_system_state():
     state = {
         "ts": _now_iso(),
         "global_status": global_status,
-        "pipeline_status": get_system_state().get("pipeline_status", "unknown"),
+        "pipeline_status": pipeline_status,
         "mesh_status": mesh_status,
         "tunnel_active": get_system_state().get("tunnel_active", True),
         "agents_online": online,
@@ -366,6 +377,8 @@ def _recompute_system_state():
         "control_plane_runtime": "local",
         "local_dependency": "required",
         "notes": [],
+        "signal_age_sec": int(signal_age) if signal_age is not None else None,
+        "signal_stale_after_sec": signal_stale_sec,
     }
     _save(STATE_PATH, state)
 
