@@ -236220,11 +236220,11 @@
       "mission_id": "mis_zXTH8DZDCbme",
       "created_at": "2026-09-29T10:00:02.415630+00:00",
       "created_by": "mesh_activator",
-      "target_agent": "LOCAL_CRON",
+      "target_agent": null,
       "task_type": "infra_monitoring",
       "intent": "Auto scan system health \u2014 periodic",
       "priority": "normal",
-      "status": "queued",
+      "status": "blocked",
       "input": {},
       "constraints": {
         "timeout_sec": 120
@@ -236235,8 +236235,52 @@
         ]
       },
       "result": null,
-      "error": null,
-      "updated_at": "2026-09-29T10:00:02.415630+00:00"
+      "error": "no_eligible_target",
+      "updated_at": "2026-09-29T10:01:01.865416+00:00"
+    },
+    "mis_6kgLqVumXlU2": {
+      "mission_id": "mis_6kgLqVumXlU2",
+      "created_at": "2026-09-29T10:10:02.982325+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": null,
+      "task_type": "infra_monitoring",
+      "intent": "Auto scan system health \u2014 periodic",
+      "priority": "normal",
+      "status": "blocked",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": null,
+      "error": "no_eligible_target",
+      "updated_at": "2026-09-29T10:11:01.971319+00:00"
+    },
+    "mis_WRk8XwkWdJ7X": {
+      "mission_id": "mis_WRk8XwkWdJ7X",
+      "created_at": "2026-09-29T10:25:01.948663+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": null,
+      "task_type": "infra_monitoring",
+      "intent": "Auto scan system health \u2014 periodic",
+      "priority": "normal",
+      "status": "blocked",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": null,
+      "error": "no_eligible_target",
+      "updated_at": "2026-09-29T10:26:02.452396+00:00"
     }
   }
 }
