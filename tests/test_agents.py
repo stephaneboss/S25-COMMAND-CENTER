@@ -116,6 +116,21 @@ def test_commander_status():
 
 # ─── Security Vault Tests ────────────────────────────────────────────
 
+def test_vault_bundle_default_is_local_and_override_is_explicit(monkeypatch, tmp_path):
+    """Never silently read a Drive-synced secret bundle on a fresh host."""
+    from security.vault import S25Vault
+
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.delenv("S25_SECRETS_BUNDLE_PATH", raising=False)
+    monkeypatch.setattr(S25Vault, "_load_all", lambda self: None)
+    vault = S25Vault(env_file=str(tmp_path / "absent.env"))
+    assert vault._bundle_path == tmp_path / ".local/share/s25/secrets.bundle"
+
+    private_bundle = tmp_path / "private" / "secrets.bundle"
+    monkeypatch.setenv("S25_SECRETS_BUNDLE_PATH", str(private_bundle))
+    assert S25Vault(env_file=str(tmp_path / "absent.env"))._bundle_path == private_bundle
+
+
 def test_vault_init():
     """Test vault initializes without error."""
     from security.vault import S25Vault
