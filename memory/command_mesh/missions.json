@@ -238002,6 +238002,106 @@
       },
       "error": null,
       "updated_at": "2026-09-29T19:51:16.110659+00:00"
+    },
+    "mis_Qmq4ySDfJ0nr": {
+      "mission_id": "mis_Qmq4ySDfJ0nr",
+      "created_at": "2026-09-29T20:00:03.161689+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "system_health",
+      "task_type": "infra_monitoring",
+      "intent": "Auto scan system health \u2014 periodic",
+      "priority": "normal",
+      "status": "completed",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": {
+        "duration_sec": 1.41,
+        "output_preview": "{\n  \"generated_at\": \"2026-09-29T20:01:03.678755+00:00\",\n  \"overall_status\": \"degraded\",\n  \"crons_healthy\": 9,\n  \"crons_stale\": 0,\n  \"crons_stuck\": 2,\n  \"endpoints_ok\": 6,\n  \"endpoints_fail\": 0,\n  \"stuck_agent_names\": []\n}\n"
+      },
+      "error": null,
+      "updated_at": "2026-09-29T20:01:03.808205+00:00"
+    },
+    "mis_jp8NMq4KcvQu": {
+      "mission_id": "mis_jp8NMq4KcvQu",
+      "created_at": "2026-09-29T20:15:02.386257+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "system_health",
+      "task_type": "infra_monitoring",
+      "intent": "Auto scan system health \u2014 periodic",
+      "priority": "normal",
+      "status": "completed",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": {
+        "duration_sec": 1.37,
+        "output_preview": "{\n  \"generated_at\": \"2026-09-29T20:16:03.315445+00:00\",\n  \"overall_status\": \"degraded\",\n  \"crons_healthy\": 9,\n  \"crons_stale\": 0,\n  \"crons_stuck\": 2,\n  \"endpoints_ok\": 6,\n  \"endpoints_fail\": 0,\n  \"stuck_agent_names\": []\n}\n"
+      },
+      "error": null,
+      "updated_at": "2026-09-29T20:16:03.451936+00:00"
+    },
+    "mis_iF4cKOrXMH4h": {
+      "mission_id": "mis_iF4cKOrXMH4h",
+      "created_at": "2026-09-29T20:15:03.002570+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "quant_brain",
+      "task_type": "trading_analysis",
+      "intent": "Auto trading analysis brief \u2014 periodic",
+      "priority": "normal",
+      "status": "completed",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": {
+        "duration_sec": 9.4,
+        "output_preview": "{\n  \"decisions\": [],\n  \"dry_run\": true,\n  \"live_perf_rows\": 0,\n  \"backtest_rows\": 56,\n  \"strategies_seen\": 8,\n  \"live_data_freshness\": {\n    \"window_hours\": 72,\n    \"cutoff_ts\": 1790453773.4696674,\n    \"last_successful_live_trade_ts\": 1779922806.7810013,\n    \"successful_live_trades_in_window\": 0,\n    \"most_recent_trade_success\": false,\n    \"reason\": \"no successful live trade in window - most recent order attempts failed (check balance/funds)\"\n  }\n}\n"
+      },
+      "error": null,
+      "updated_at": "2026-09-29T20:16:13.588969+00:00"
+    },
+    "mis_yJ5GIyaHXxLF": {
+      "mission_id": "mis_yJ5GIyaHXxLF",
+      "created_at": "2026-09-29T20:25:02.462046+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "system_health",
+      "task_type": "infra_monitoring",
+      "intent": "Auto scan system health \u2014 periodic",
+      "priority": "normal",
+      "status": "completed",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": {
+        "duration_sec": 1.35,
+        "output_preview": "{\n  \"generated_at\": \"2026-09-29T20:26:03.228688+00:00\",\n  \"overall_status\": \"degraded\",\n  \"crons_healthy\": 9,\n  \"crons_stale\": 0,\n  \"crons_stuck\": 2,\n  \"endpoints_ok\": 6,\n  \"endpoints_fail\": 0,\n  \"stuck_agent_names\": []\n}\n"
+      },
+      "error": null,
+      "updated_at": "2026-09-29T20:26:03.339235+00:00"
     }
   }
 }
