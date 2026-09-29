@@ -17,7 +17,7 @@ Agents watched:
   git_auto_sync           every 30 min
   quant_brain             every 60 min
   gemini_orchestrator     every 120 min
-  gemini_news_scanner     every 60 min
+  perplexity_news_scanner every 30 min
 
 Endpoint health:
   /api/status
@@ -55,7 +55,7 @@ CRONS = {
     "git_auto_sync":          ("/tmp/git_sync.log",              70,  "low"),
     "quant_brain":            ("/tmp/quant_brain.log",           130, "high"),
     "gemini_orchestrator":    ("/tmp/gemini_orchestrator.log",   250, "medium"),
-    "gemini_news_scanner":    ("/tmp/gemini_news.log",           130, "medium"),
+    "perplexity_news_scanner": ("/tmp/perplexity_news.log",     70, "medium"),
 }
 
 ENDPOINTS = [
@@ -154,9 +154,11 @@ def push_ha(summary: Dict):
                     "crons_healthy": summary["crons_healthy"],
                     "crons_stale": summary["crons_stale"],
                     "crons_stuck": summary["crons_stuck"],
+                    "crons_unobserved": summary["crons_unobserved"],
                     "endpoints_ok": summary["endpoints_ok"],
                     "endpoints_fail": summary["endpoints_fail"],
                     "stuck_agents": summary["stuck_agent_names"],
+                    "unobserved_agents": summary["unobserved_agent_names"],
                     "generated_at": summary["generated_at"],
                 },
             },
@@ -186,7 +188,8 @@ def main():
 
     healthy = sum(1 for c in crons if c["status"] == "healthy")
     stale = sum(1 for c in crons if c["status"] == "stale")
-    stuck = sum(1 for c in crons if c["status"] in ("stuck", "no_log"))
+    stuck = sum(1 for c in crons if c["status"] == "stuck")
+    unobserved = [c["name"] for c in crons if c["status"] == "no_log"]
     stuck_critical = [c["name"] for c in crons
                       if c["status"] in ("stuck", "no_log")
                       and c["priority"] in ("critical", "high")]
@@ -197,7 +200,7 @@ def main():
     overall = "healthy"
     if stuck_critical or ep_fail:
         overall = "critical"
-    elif stuck or stale or ep_fail > 0:
+    elif stuck or unobserved or stale:
         overall = "degraded"
 
     summary = {
@@ -206,9 +209,11 @@ def main():
         "crons_healthy": healthy,
         "crons_stale": stale,
         "crons_stuck": stuck,
+        "crons_unobserved": len(unobserved),
         "endpoints_ok": ep_ok,
         "endpoints_fail": ep_fail,
         "stuck_agent_names": stuck_critical,
+        "unobserved_agent_names": unobserved,
         "details": {"crons": crons, "endpoints": endpoints},
     }
 
@@ -216,8 +221,8 @@ def main():
     HEALTH_PATH.write_text(json.dumps(summary, indent=2, default=str))
     push_ha(summary)
 
-    logger.info("overall=%s crons: %d healthy / %d stale / %d stuck | endpoints: %d/%d ok",
-                overall, healthy, stale, stuck, ep_ok, len(endpoints))
+    logger.info("overall=%s crons: %d healthy / %d stale / %d stuck / %d without log | endpoints: %d/%d ok",
+                overall, healthy, stale, stuck, len(unobserved), ep_ok, len(endpoints))
     print(json.dumps({k: v for k, v in summary.items() if k != "details"}, indent=2))
     return 0
 
