@@ -1,0 +1,9 @@
+[Unit]
+Description=S25 safe GitHub-to-Alien auto-pull
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/alienstef/S25-COMMAND-CENTER
+ExecStart=/home/alienstef/S25-COMMAND-CENTER/scripts/auto_pull_cron.sh

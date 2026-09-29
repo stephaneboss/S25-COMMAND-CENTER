@@ -1,0 +1,11 @@
+[Unit]
+Description=Run S25 safe auto-pull every 5 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+Persistent=true
+Unit=s25-auto-pull.service
+
+[Install]
+WantedBy=timers.target
