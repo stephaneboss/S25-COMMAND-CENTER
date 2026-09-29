@@ -15,6 +15,8 @@ from agents.ha_bridge import ha as ha_bridge
 from agents.s25_conversation_agent import handle_chat_completion, list_models as list_agent_models, push_mesh_to_ha
 from agents.ops_routes import ops_bp
 from agents.command_mesh import mesh_bp as command_mesh_bp
+from agents import command_mesh as command_mesh_store
+from agents.mesh_status_view import snapshot as mesh_status_snapshot
 
 MEMORY_DIR = Path(os.getenv("MEMORY_DIR", os.path.expanduser("~/S25-COMMAND-CENTER/memory")))
 MEMORY_DIR.mkdir(parents=True, exist_ok=True)
@@ -2099,23 +2101,25 @@ def _archive_mission(state: dict, mission: dict):
 
 @app.route('/api/mesh/status', methods=['GET'])
 def api_mesh_status():
-    """Vue unifiee du reseau d'agents, du pipeline et des missions."""
+    """Summarize the same mesh store used by /api/mesh/agents and /missions."""
     state = _load_agents_state()
-    _ensure_missions(state)
     _ensure_intel(state)
-    agents = state.get("agents", {})
-    online = sum(1 for a in agents.values() if a.get("status") == "online")
-    total = len(agents)
+    try:
+        mesh = mesh_status_snapshot(
+            command_mesh_store.AGENTS_PATH,
+            command_mesh_store.MISSIONS_PATH,
+            now=datetime.now(timezone.utc),
+            stale_sec=int(os.getenv("MESH_HEARTBEAT_STALE_SEC", "7200")),
+        )
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        # A missing/corrupt canonical store must not be reported as 0 agents online.
+        app.logger.warning("canonical mesh status unavailable: %s", exc)
+        return jsonify({"ok": False, "error": "mesh_store_unavailable",
+                        "source": "command_mesh"}), 503
+    mesh["intel_entries"] = len(state["intel"].get("comet_feed", []))
     return jsonify({
         "ok": True,
-        "mesh": {
-            "total_agents": total,
-            "online": online,
-            "offline": total - online,
-            "agents": {k: {"status": v.get("status", "unknown"), "last_seen": v.get("last_seen")} for k, v in agents.items()},
-            "missions_active": len(state["missions"]["active"]),
-            "intel_entries": len(state["intel"].get("comet_feed", [])),
-        },
+        "mesh": mesh,
         "pipeline": state.get("pipeline", {}),
     })
 
