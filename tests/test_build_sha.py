@@ -10,10 +10,10 @@ import pytest
 SRC = Path(__file__).resolve().parents[1] / "cockpit_lumiere.py"
 
 
-def _load(run):
+def _load(run, root):
     tree = ast.parse(SRC.read_text(encoding="utf-8"))
     fn = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "_resolve_build_sha"]
-    ns = {"os": os, "Path": Path, "__file__": str(SRC),
+    ns = {"os": os, "Path": Path, "__file__": str(root / "cockpit_lumiere.py"),
           "subprocess": SimpleNamespace(run=run, TimeoutExpired=subprocess.TimeoutExpired)}
     exec(compile(ast.Module(fn, []), str(SRC), "exec"), ns)
     return ns["_resolve_build_sha"]
@@ -32,28 +32,46 @@ def _env(monkeypatch):
     monkeypatch.setenv("APP_BUILD_SHA", "abc123")   # would falsely match if used
 
 
-def test_clean_tree():
-    f = _load(_run(lambda c, **k: SimpleNamespace(returncode=0, stdout="")))
+@pytest.fixture
+def repo(tmp_path):
+    (tmp_path / ".git").mkdir()
+    return tmp_path
+
+
+def test_clean_tree(repo):
+    f = _load(_run(lambda c, **k: SimpleNamespace(returncode=0, stdout="")), repo)
     assert f() == ("abc123", "git")
 
 
-def test_dirty_tree():
-    f = _load(_run(lambda c, **k: SimpleNamespace(returncode=0, stdout=" M agents/x.py\n")))
+def test_dirty_tree(repo):
+    f = _load(_run(lambda c, **k: SimpleNamespace(returncode=0, stdout=" M agents/x.py\n")), repo)
     assert f() == ("abc123-dirty", "git")
 
 
-def test_status_timeout_is_unverified_not_env():
+def test_status_timeout_is_unverified_not_env(repo):
     def boom(c, **k):
         raise subprocess.TimeoutExpired(c, 5)
-    assert _load(_run(boom))() == ("abc123-unverified", "git")
+    assert _load(_run(boom), repo)() == ("abc123-unverified", "git")
 
 
-def test_status_error_is_unverified():
-    f = _load(_run(lambda c, **k: SimpleNamespace(returncode=128, stdout="")))
+def test_status_error_is_unverified(repo):
+    f = _load(_run(lambda c, **k: SimpleNamespace(returncode=128, stdout="")), repo)
     assert f() == ("abc123-unverified", "git")
 
 
-def test_no_git_falls_back_to_env():
-    def nogit(c, **k):
-        raise FileNotFoundError("git")
-    assert _load(nogit)() == ("abc123", "env")
+def test_repo_present_git_log_timeout_never_uses_env(repo):
+    # APP_BUILD_SHA == expected SHA must NOT be attested when git cannot be read
+    def boom(c, **k):
+        raise subprocess.TimeoutExpired(c, 5)
+    assert _load(boom, repo)() == ("unverified", "git")
+
+
+def test_repo_present_git_log_error_never_uses_env(repo):
+    f = _load(lambda c, **k: SimpleNamespace(returncode=128, stdout=""), repo)
+    assert f() == ("unverified", "git")
+
+
+def test_no_repo_uses_env(tmp_path):
+    def never(c, **k):
+        raise AssertionError("git must not be called without a repo")
+    assert _load(never, tmp_path)() == ("abc123", "env")
