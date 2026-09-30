@@ -11,7 +11,7 @@ SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "auto_pull_cron.sh"
 
 class AutoPullTests(unittest.TestCase):
     def run_script(self, *, pull_fails=False, restart_fails=False, changed=True,
-                   runtime="new", noop=False, state=None):
+                   runtime="new", noop=False, state=None, memonly=False):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             bin_dir = root / "bin"
@@ -22,6 +22,7 @@ case "$1" in
   rev-parse) if [[ -e "$S25_TEST_PULLED" ]]; then echo new; else echo old; fi ;;
   pull) if [[ "$S25_TEST_PULL_FAIL" == 1 ]]; then exit 1; fi; [[ "$S25_TEST_NOOP" == 1 ]] && exit 0; touch "$S25_TEST_PULLED" ;;
   diff) if [[ "$S25_TEST_CHANGED" == 1 ]]; then echo agents/command_mesh.py; fi ;;
+  log) if [[ "$S25_TEST_MEMONLY" == 1 || ! -e "$S25_TEST_PULLED" ]]; then echo old; else echo new; fi ;;
 esac
 ''')
             git.chmod(0o755)
@@ -54,6 +55,7 @@ printf '{"build_sha":"%s"}' "$S25_TEST_RUNTIME"
                    "S25_TEST_CHANGED": str(int(changed)),
                    "S25_TEST_RUNTIME": runtime,
                    "S25_TEST_NOOP": str(int(noop)),
+                   "S25_TEST_MEMONLY": str(int(memonly)),
                    "S25_DEPLOY_STATE": str(state_file),
                    "S25_VERIFY_TRIES": "2",
                    "S25_VERIFY_SLEEP": "0"}
@@ -96,7 +98,7 @@ printf '{"build_sha":"%s"}' "$S25_TEST_RUNTIME"
         # nothing to pull (HEAD=old) but the process reports dev -> one restart
         code, log, calls = self.run_script(runtime="dev", noop=True)
         self.assertNotEqual(code, 0)          # still dev after restart -> mismatch
-        self.assertIn("DEPLOY DRIFT: runtime 'dev' != HEAD old, healing", log)
+        self.assertIn("DEPLOY DRIFT: runtime 'dev' != code old, healing", log)
         self.assertIn("--user restart s25-cockpit", calls)
 
     def test_persisting_drift_does_not_restart_loop(self):
@@ -136,8 +138,24 @@ printf '{"build_sha":"%s"}' "$S25_TEST_RUNTIME"
     def test_new_sha_gets_a_fresh_heal_budget(self):
         prev = '{"status":"drift","expected_sha":"older","runtime_sha":"dev","heal_sha":"older"}'
         code, log, calls = self.run_script(runtime="dev", noop=True, state=prev)
-        self.assertIn("DEPLOY DRIFT: runtime 'dev' != HEAD old, healing", log)
+        self.assertIn("DEPLOY DRIFT: runtime 'dev' != code old, healing", log)
         self.assertIn("--user restart s25-cockpit", calls)
+
+    def test_memory_only_pull_does_not_restart(self):
+        # git_auto_sync commits memory/ every 30 min: HEAD moves, code SHA does not
+        code, log, calls = self.run_script(runtime="old", memonly=True)
+        self.assertEqual(code, 0)
+        self.assertIn("AUTO-PULL NO RESTART: memory-only update", log)
+        self.assertEqual(calls, "")
+        self.assertIn('"status":"verified"', self.state)
+
+    def test_memory_only_pull_still_checks_runtime(self):
+        # no stale receipt: after any pull the runtime is re-checked against the code SHA
+        prev = '{"status":"verified","expected_sha":"old","runtime_sha":"old","heal_sha":""}'
+        code, log, calls = self.run_script(runtime="", memonly=True, state=prev)
+        self.assertNotEqual(code, 0)
+        self.assertIn("DEPLOY UNREACHABLE", log)
+        self.assertIn('"status":"unreachable"', self.state)
 
 
 if __name__ == "__main__":
