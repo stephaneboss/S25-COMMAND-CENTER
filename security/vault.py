@@ -83,7 +83,7 @@ class S25Vault:
         self._bundle_path = Path(
             os.getenv(
                 "S25_SECRETS_BUNDLE_PATH",
-                str(Path.home() / "Google Drive" / "S25" / "secrets.bundle"),
+                str(Path.home() / ".local" / "share" / "s25" / "secrets.bundle"),
             )
         )
         self._secrets: Dict[str, str] = {}
