@@ -100,7 +100,7 @@ printf '{"build_sha":"%s"}' "$S25_TEST_RUNTIME"
         self.assertIn("--user restart s25-cockpit", calls)
 
     def test_persisting_drift_does_not_restart_loop(self):
-        prev = '{"status":"mismatch","expected_sha":"old","runtime_sha":"dev"}'
+        prev = '{"status":"mismatch","expected_sha":"old","runtime_sha":"dev","heal_sha":"old"}'
         code, log, calls = self.run_script(runtime="dev", noop=True, state=prev)
         self.assertNotEqual(code, 0)
         self.assertIn("DEPLOY DRIFT PERSISTS", log)
@@ -112,11 +112,32 @@ printf '{"build_sha":"%s"}' "$S25_TEST_RUNTIME"
         self.assertEqual(calls, "")
         self.assertIn('"status":"verified"', self.state)
 
-    def test_unreachable_cockpit_is_reported_not_restarted(self):
-        code, log, calls = self.run_script(runtime="", noop=True)
-        self.assertEqual(code, 0)
-        self.assertIn("DEPLOY DRIFT UNKNOWN", log)
+    def test_unreachable_cockpit_is_a_visible_failure(self):
+        prev = '{"status":"verified","expected_sha":"old","runtime_sha":"old","heal_sha":""}'
+        code, log, calls = self.run_script(runtime="", noop=True, state=prev)
+        self.assertNotEqual(code, 0)
+        self.assertIn("DEPLOY UNREACHABLE", log)
         self.assertEqual(calls, "")
+        self.assertIn('"status":"unreachable"', self.state)   # no stale "verified"
+
+    def test_successful_heal_is_not_repeated_for_same_sha(self):
+        # heal already used on this SHA (even if it worked): new drift -> no restart
+        prev = '{"status":"verified","expected_sha":"old","runtime_sha":"old","heal_sha":"old"}'
+        code, log, calls = self.run_script(runtime="dev", noop=True, state=prev)
+        self.assertNotEqual(code, 0)
+        self.assertIn("DEPLOY DRIFT PERSISTS", log)
+        self.assertEqual(calls, "")
+        self.assertIn('"status":"drift"', self.state)
+
+    def test_heal_records_heal_sha(self):
+        code, _, _ = self.run_script(runtime="dev", noop=True)
+        self.assertIn('"heal_sha":"old"', self.state)
+
+    def test_new_sha_gets_a_fresh_heal_budget(self):
+        prev = '{"status":"drift","expected_sha":"older","runtime_sha":"dev","heal_sha":"older"}'
+        code, log, calls = self.run_script(runtime="dev", noop=True, state=prev)
+        self.assertIn("DEPLOY DRIFT: runtime 'dev' != HEAD old, healing", log)
+        self.assertIn("--user restart s25-cockpit", calls)
 
 
 if __name__ == "__main__":
