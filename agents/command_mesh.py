@@ -382,6 +382,14 @@ def _recompute_system_state():
     }
     _save(STATE_PATH, state)
 
+    # Safe mode must follow global_status (P0 2026-09-29: flag set in April was
+    # never cleared and blocked 295 non-critical missions).
+    try:
+        from agents import safe_mode as _safe_mode
+        _safe_mode.reconcile(global_status)
+    except Exception as e:  # never break state recompute
+        logging.getLogger(__name__).warning("safe_mode reconcile failed: %s", e)
+
     # Auto-resolve mesh_degradation incidents once the agent ratio has recovered
     # (avoids mission_worker staying stuck in degraded_mode_skip_non_critical
     # forever after a transient dip, since nothing else ever closed these).

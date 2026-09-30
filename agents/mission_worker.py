@@ -169,8 +169,18 @@ def release_lock(lock_key: str, owner: str):
 
 # ═══════════════════════ SAFE MODE (Trinity §17) ═══════════════════════
 
+def _safe_mode():
+    """Import agents.safe_mode even when this file runs as a plain script (cron)."""
+    import sys
+    if str(REPO) not in sys.path:
+        sys.path.insert(0, str(REPO))
+    from agents import safe_mode
+    return safe_mode
+
+
 def safe_mode_active() -> bool:
-    return DEGRADED_FLAG.exists()
+    # TTL-aware + honours active=false (see agents/safe_mode.py)
+    return _safe_mode().is_active(path=DEGRADED_FLAG)
 
 
 def should_skip_non_critical(mission: Dict) -> bool:

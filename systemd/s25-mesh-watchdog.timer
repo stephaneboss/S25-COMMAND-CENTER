@@ -1,0 +1,11 @@
+[Unit]
+Description=Run S25 mesh watchdog every 5 minutes
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=5min
+Persistent=true
+Unit=s25-mesh-watchdog.service
+
+[Install]
+WantedBy=timers.target

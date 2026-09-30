@@ -82,8 +82,8 @@ def collect_and_publish():
     degraded = False
     dfile = REPO / "memory" / "command_mesh" / "degraded_mode.json"
     try:
-        if dfile.exists():
-            degraded = bool(json.loads(dfile.read_text()).get("active"))
+        from agents import safe_mode
+        degraded = safe_mode.is_active(path=dfile)
     except Exception:
         pass
 
