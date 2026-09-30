@@ -156,6 +156,49 @@ def _age_sec(raw: Optional[str], now: datetime) -> Optional[float]:
         return None
 
 
+def _pipeline_state_path() -> Path:
+    """agents_state.json of the cockpit pipeline (same MEMORY_DIR rule as cockpit)."""
+    raw = os.getenv("MEMORY_DIR", "").strip()
+    base = Path(raw).expanduser() if raw else REPO / "memory"
+    if not base.is_absolute():
+        base = REPO / base
+    return base / "agents_state.json"
+
+
+def _pipeline_last_signal() -> Dict[str, Any]:
+    """pipeline.last_signal written by /webhook/tradingview and /api/signal.
+
+    P1 2026-09-30: those entry points never write the mesh signals store, so
+    system_state.last_signal_at stayed on the last /api/mesh/commit_signal
+    (April test signals) while TradingView kept flowing. Returns {} if absent.
+    """
+    try:
+        data = json.loads(_pipeline_state_path().read_text(encoding="utf-8"))
+        last = (data.get("pipeline") or {}).get("last_signal") or {}
+        return last if last.get("ts") else {}
+    except Exception:
+        return {}
+
+
+def _latest_signal(mesh_signals: Dict[str, Any], now: datetime) -> Dict[str, Any]:
+    """Most recent signal across the mesh store and the cockpit pipeline."""
+    candidates = []
+    for s in mesh_signals.values():
+        if s.get("ts"):
+            candidates.append({"ts": s["ts"], "source": s.get("source_agent"), "origin": "mesh"})
+    pipe = _pipeline_last_signal()
+    if pipe:
+        candidates.append({"ts": pipe["ts"], "source": pipe.get("source"), "origin": "pipeline"})
+    best, best_age = {}, None
+    for c in candidates:
+        age = _age_sec(c["ts"], now)
+        if age is None:
+            continue
+        if best_age is None or age < best_age:
+            best, best_age = c, age
+    return best
+
+
 def sweep_stale_missions(store: Dict, now: Optional[datetime] = None) -> List[str]:
     """Expire missions that were never acknowledged or never finished.
 
@@ -334,9 +377,8 @@ def _recompute_system_state():
     ) or 1
     active_inc = sum(1 for i in incidents.values()
                      if i.get("status") in ("open", "acknowledged", "mitigating"))
-    last_sig = None
-    if signals:
-        last_sig = max((s.get("ts") for s in signals.values() if s.get("ts")), default=None)
+    latest = _latest_signal(signals, _now)
+    last_sig = latest.get("ts")
 
     # A signal timestamp is historical evidence, not proof of a live pipeline.
     # Derive an explicit freshness state instead of carrying "unknown" forever.
@@ -378,6 +420,8 @@ def _recompute_system_state():
         "local_dependency": "required",
         "notes": [],
         "signal_age_sec": int(signal_age) if signal_age is not None else None,
+        "last_signal_source": latest.get("source"),
+        "last_signal_origin": latest.get("origin"),
         "signal_stale_after_sec": signal_stale_sec,
     }
     _save(STATE_PATH, state)
