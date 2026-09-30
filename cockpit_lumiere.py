@@ -37,20 +37,24 @@ S25_SECRET      = vault_get("S25_SHARED_SECRET", "")
 def _resolve_build_sha() -> tuple:
     """(sha, source) of the code actually loaded, read once at import.
 
-    git checkout wins (Alien): HEAD, suffixed "-dirty" if tracked code differs from it
-    (memory/ runtime state excluded). APP_BUILD_SHA only for images without .git.
-    Chantier 1: after a restart /api/version proves runtime_sha == expected_sha.
+    git checkout wins (Alien): the last commit touching code, i.e. excluding memory/
+    (git_auto_sync commits runtime state there every 30 min without changing code).
+    Suffix "-dirty" if tracked code differs from it, "-unverified" if git status fails.
+    APP_BUILD_SHA only for images without .git.
+    Chantier 1: after a restart /api/version proves runtime_sha == expected code sha.
     """
     root = str(Path(__file__).resolve().parent)
     try:
-        r = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root,
-                           capture_output=True, text=True, timeout=5)
+        r = subprocess.run(["git", "log", "-1", "--format=%H", "--", ".", ":(exclude)memory"],
+                           cwd=root, capture_output=True, text=True, timeout=5)
         if r.returncode == 0 and r.stdout.strip():
             sha = r.stdout.strip()
             d = subprocess.run(["git", "status", "--porcelain", "--untracked-files=no",
                                 "--", ".", ":(exclude)memory"], cwd=root,
                                capture_output=True, text=True, timeout=5)
-            if d.returncode == 0 and d.stdout.strip():
+            if d.returncode != 0:
+                sha += "-unverified"
+            elif d.stdout.strip():
                 sha += "-dirty"
             return sha, "git"
     except Exception:
