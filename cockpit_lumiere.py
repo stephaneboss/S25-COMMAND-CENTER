@@ -34,26 +34,34 @@ HA_TOKEN        = vault_get("HA_TOKEN", "")
 GEMINI_API_KEY  = vault_get("GEMINI_API_KEY", "")
 GEMINI_MODEL    = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
 S25_SECRET      = vault_get("S25_SHARED_SECRET", "")
-def _resolve_build_sha() -> str:
-    """SHA of the code actually loaded: APP_BUILD_SHA (image builds) > git HEAD at start > "dev".
+def _resolve_build_sha() -> tuple:
+    """(sha, source) of the code actually loaded, read once at import.
 
-    Read once at import, so after a restart /api/version proves which commit is running
-    (chantier 1: deploiement deterministe, runtime_sha == expected_sha).
+    git checkout wins (Alien): HEAD, suffixed "-dirty" if tracked code differs from it
+    (memory/ runtime state excluded). APP_BUILD_SHA only for images without .git.
+    Chantier 1: after a restart /api/version proves runtime_sha == expected_sha.
     """
-    env_sha = os.getenv("APP_BUILD_SHA", "").strip()
-    if env_sha and env_sha != "dev":
-        return env_sha
+    root = str(Path(__file__).resolve().parent)
     try:
-        r = subprocess.run(["git", "rev-parse", "HEAD"], cwd=str(Path(__file__).resolve().parent),
+        r = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root,
                            capture_output=True, text=True, timeout=5)
         if r.returncode == 0 and r.stdout.strip():
-            return r.stdout.strip()
+            sha = r.stdout.strip()
+            d = subprocess.run(["git", "status", "--porcelain", "--untracked-files=no",
+                                "--", ".", ":(exclude)memory"], cwd=root,
+                               capture_output=True, text=True, timeout=5)
+            if d.returncode == 0 and d.stdout.strip():
+                sha += "-dirty"
+            return sha, "git"
     except Exception:
         pass
-    return "dev"
+    env_sha = os.getenv("APP_BUILD_SHA", "").strip()
+    if env_sha and env_sha != "dev":
+        return env_sha, "env"
+    return "dev", "none"
 
 
-APP_BUILD_SHA   = _resolve_build_sha()
+APP_BUILD_SHA, APP_BUILD_SOURCE = _resolve_build_sha()
 ALLOW_PUBLIC_ACTIONS = os.getenv("ALLOW_PUBLIC_ACTIONS", "true").lower() in {"1", "true", "yes", "on"}
 
 
@@ -680,6 +688,7 @@ def api_version():
         "version": "2.0.0",
         "build_sha": APP_BUILD_SHA,
         "started_at": datetime.fromtimestamp(_START_TIME, timezone.utc).isoformat(),
+        "build_sha_source": APP_BUILD_SOURCE,
         "memory_routes": True,
         "secret_configured": bool(S25_SECRET),
     })
