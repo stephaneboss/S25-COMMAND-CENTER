@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # S25 deterministic deploy on Alien (chantier 1).
-# Pull main without touching local changes, restart the cockpit when runtime code
-# changed, then PROVE it: /api/version build_sha must equal git HEAD.
-# Also self-heals a runtime that never picked up HEAD (e.g. build_sha=dev), once per SHA.
+# Pull main without touching local changes, restart the cockpit when code changed, then
+# PROVE it: /api/version build_sha must equal the code SHA (last commit outside memory/).
+# Every run ends with a runtime check, so deploy.json never keeps a stale receipt.
+# Self-heals a runtime that is not on the code SHA (e.g. build_sha=dev), once per SHA.
 set -euo pipefail
 
 repo=${S25_AUTO_PULL_REPO:-/home/alienstef/S25-COMMAND-CENTER}
@@ -61,33 +62,37 @@ restart_and_verify() {  # expected_sha reason heal_sha
   return 1
 }
 
+# Code identity = last commit touching code (memory/ excluded): git_auto_sync commits
+# runtime state every 30 min, which must neither restart nor "drift" the cockpit.
+code_sha() { git log -1 --format=%H -- . ':(exclude)memory'; }
+
 cd "$repo"
 before=$(git rev-parse HEAD)
+code_before=$(code_sha)
 if ! git pull --ff-only origin main; then
   echo "$(date -Iseconds) AUTO-PULL FAILED: repository remains at $before"
   exit 1
 fi
-after=$(git rev-parse HEAD)
+head_after=$(git rev-parse HEAD)
+after=$(code_sha)
 
-if [[ "$before" != "$after" ]]; then
-  echo "$(date -Iseconds) AUTO-PULL UPDATED: $before -> $after"
-  changed=$(git diff --name-only "$before" "$after")
-  if grep -qE '^(cockpit_lumiere\.py|(agents|tools|strategies|security|config|configs)/.+\.(py|json|ya?ml))$' <<<"$changed"; then
+if [[ "$before" != "$head_after" ]]; then
+  echo "$(date -Iseconds) AUTO-PULL UPDATED: $before -> $head_after (code $code_before -> $after)"
+  if [[ "$code_before" != "$after" ]]; then
     restart_and_verify "$after" "code update" ""
     exit $?
   fi
-  echo "$(date -Iseconds) AUTO-PULL NO RESTART: no runtime file changed"
-  exit 0
+  echo "$(date -Iseconds) AUTO-PULL NO RESTART: memory-only update, code still $after"
+else
+  echo "$(date -Iseconds) AUTO-PULL UNCHANGED: $head_after"
 fi
 
-echo "$(date -Iseconds) AUTO-PULL UNCHANGED: $after"
-
-# Drift check: HEAD unchanged but the running process is not on it (stale runtime,
-# build_sha=dev, dirty tree). At most ONE heal restart per SHA (heal_sha), whether that
+# Runtime check, every run that did not just restart: the process must be on the code
+# SHA (catches stale runtime, build_sha=dev, dirty tree, memory-only pulls). At most ONE heal restart per SHA (heal_sha), whether that
 # heal succeeded or not; later drift on the same SHA stays visible, no restart loop.
 got=$(runtime_sha)
 if [[ -z "$got" ]]; then
-  echo "$(date -Iseconds) DEPLOY UNREACHABLE: $version_url did not answer (HEAD $after)"
+  echo "$(date -Iseconds) DEPLOY UNREACHABLE: $version_url did not answer (code $after)"
   write_state unreachable "$after" ""
   exit 1
 fi
@@ -97,9 +102,9 @@ if [[ "$got" == "$after" ]]; then
   exit 0
 fi
 if [[ "$(last_state_field heal_sha)" == "$after" ]]; then
-  echo "$(date -Iseconds) DEPLOY DRIFT PERSISTS: runtime '$got' != HEAD $after (heal already used for this SHA, manual check needed)"
+  echo "$(date -Iseconds) DEPLOY DRIFT PERSISTS: runtime '$got' != code $after (heal already used for this SHA, manual check needed)"
   write_state drift "$after" "$got"
   exit 1
 fi
-echo "$(date -Iseconds) DEPLOY DRIFT: runtime '$got' != HEAD $after, healing"
+echo "$(date -Iseconds) DEPLOY DRIFT: runtime '$got' != code $after, healing"
 restart_and_verify "$after" "drift heal" "$after"
