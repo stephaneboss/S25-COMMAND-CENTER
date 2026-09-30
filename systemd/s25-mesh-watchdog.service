@@ -1,0 +1,9 @@
+[Unit]
+Description=S25 mesh watchdog (safe-mode lifecycle, auto incidents)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/alienstef/S25-COMMAND-CENTER
+ExecStart=/home/alienstef/S25-COMMAND-CENTER/.venv/bin/python3 agents/mesh_watchdog_cron.py
