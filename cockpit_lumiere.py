@@ -39,22 +39,23 @@ def _resolve_build_sha() -> tuple:
 
     git checkout wins (Alien): the last commit touching code, i.e. excluding memory/
     (git_auto_sync commits runtime state there every 30 min without changing code).
-    Suffix "-dirty" if tracked code differs from it, "-unverified" if git status fails.
-    APP_BUILD_SHA only for images without .git.
+    Suffix "-dirty" if tracked code differs from it; "-unverified" (or "unverified") if
+    git cannot be read. APP_BUILD_SHA only when there is no .git at all (images).
     Chantier 1: after a restart /api/version proves runtime_sha == expected code sha.
     """
-    root = str(Path(__file__).resolve().parent)
-    sha = ""
-    try:
-        r = subprocess.run(["git", "log", "-1", "--format=%H", "--", ".", ":(exclude)memory"],
-                           cwd=root, capture_output=True, text=True, timeout=5)
-        if r.returncode == 0:
-            sha = r.stdout.strip()
-    except Exception:
-        sha = ""
-    if sha:
-        # Once a git SHA exists, never fall back to APP_BUILD_SHA: an unchecked tree
-        # (timeout, error) is reported as such, not attested clean.
+    root_path = Path(__file__).resolve().parent
+    root = str(root_path)
+    if (root_path / ".git").exists():
+        # A repo is present: identity comes from git or is reported unverified.
+        # Never fall back to APP_BUILD_SHA here (it could mask an unchecked tree).
+        try:
+            r = subprocess.run(["git", "log", "-1", "--format=%H", "--", ".", ":(exclude)memory"],
+                               cwd=root, capture_output=True, text=True, timeout=5)
+            sha = r.stdout.strip() if r.returncode == 0 else ""
+        except Exception:
+            sha = ""
+        if not sha:
+            return "unverified", "git"
         try:
             d = subprocess.run(["git", "status", "--porcelain", "--untracked-files=no",
                                 "--", ".", ":(exclude)memory"], cwd=root,
@@ -66,6 +67,7 @@ def _resolve_build_sha() -> tuple:
         if d.stdout.strip():
             return sha + "-dirty", "git"
         return sha, "git"
+    # No repo (Docker/Akash image): the build-time SHA is the only source.
     env_sha = os.getenv("APP_BUILD_SHA", "").strip()
     if env_sha and env_sha != "dev":
         return env_sha, "env"
