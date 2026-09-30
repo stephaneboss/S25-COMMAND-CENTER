@@ -1,17 +1,17 @@
 {
-  "ts": "2026-09-30T16:30:01.818531+00:00",
+  "ts": "2026-09-30T17:00:02.842430+00:00",
   "global_status": "healthy",
   "pipeline_status": "SIGNAL_STALE",
   "mesh_status": "online",
   "tunnel_active": true,
-  "agents_online": 13,
-  "agents_expected": 13,
+  "agents_online": 10,
+  "agents_expected": 10,
   "active_incidents": 0,
   "router_quota_state": "ok",
   "last_signal_at": "2026-04-22T02:01:01.645750+00:00",
   "control_plane_runtime": "local",
   "local_dependency": "required",
   "notes": [],
-  "signal_age_sec": 13962540,
+  "signal_age_sec": 13964341,
   "signal_stale_after_sec": 7200
 }
