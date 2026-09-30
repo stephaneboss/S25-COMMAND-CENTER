@@ -53,16 +53,17 @@ def _secret() -> str:
 
 
 def set_degraded_mode(active: bool, reason: str = ""):
-    DEGRADED_FLAG.parent.mkdir(parents=True, exist_ok=True)
+    """Delegates to agents.safe_mode (explicit active flag + TTL, never unlink)."""
+    from agents import safe_mode
     if active:
-        DEGRADED_FLAG.write_text(json.dumps({
-            "active": True,
-            "activated_at": time.time(),
-            "reason": reason,
-        }, indent=2))
+        safe_mode.activate(reason, path=DEGRADED_FLAG)
     else:
-        if DEGRADED_FLAG.exists():
-            DEGRADED_FLAG.unlink()
+        safe_mode.deactivate(reason or "healthy", path=DEGRADED_FLAG)
+
+
+def _degraded_active() -> bool:
+    from agents import safe_mode
+    return safe_mode.is_active(path=DEGRADED_FLAG)
 
 
 def main():
@@ -91,11 +92,11 @@ def main():
     elif global_status == "degraded":
         # Warn but don't throttle yet
         logger.info("ℹ️  mesh degraded but not critical — watching")
-        if DEGRADED_FLAG.exists():
-            set_degraded_mode(False)
-    else:
-        if DEGRADED_FLAG.exists():
-            set_degraded_mode(False)
+        if _degraded_active():
+            set_degraded_mode(False, f"global_status={global_status}")
+    elif global_status != "unknown":
+        if _degraded_active():
+            set_degraded_mode(False, f"global_status={global_status}")
             logger.info("✅ degraded_mode DISABLED — healthy again")
 
     # Auto-open incident if critical AND no matching active incident
@@ -128,7 +129,7 @@ def main():
 
     print(json.dumps({
         "global_status": global_status,
-        "degraded_mode": DEGRADED_FLAG.exists(),
+        "degraded_mode": _degraded_active(),
         "online": online, "expected": expected,
         "active_incidents": active_inc,
     }))
