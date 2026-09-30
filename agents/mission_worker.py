@@ -43,10 +43,6 @@ import requests
 logger = logging.getLogger("s25.mission_worker")
 
 REPO = Path(__file__).resolve().parent.parent
-# allow `from agents import safe_mode` when run as a plain script (cron)
-import sys as _sys
-if str(REPO) not in _sys.path:
-    _sys.path.insert(0, str(REPO))
 COCKPIT = os.getenv("S25_COCKPIT_URL", "http://localhost:7777")
 MISSIONS_PATH = REPO / "memory" / "command_mesh" / "missions.json"
 AGENTS_PATH = REPO / "memory" / "command_mesh" / "agents.json"
@@ -173,10 +169,18 @@ def release_lock(lock_key: str, owner: str):
 
 # ═══════════════════════ SAFE MODE (Trinity §17) ═══════════════════════
 
+def _safe_mode():
+    """Import agents.safe_mode even when this file runs as a plain script (cron)."""
+    import sys
+    if str(REPO) not in sys.path:
+        sys.path.insert(0, str(REPO))
+    from agents import safe_mode
+    return safe_mode
+
+
 def safe_mode_active() -> bool:
     # TTL-aware + honours active=false (see agents/safe_mode.py)
-    from agents import safe_mode
-    return safe_mode.is_active(path=DEGRADED_FLAG)
+    return _safe_mode().is_active(path=DEGRADED_FLAG)
 
 
 def should_skip_non_critical(mission: Dict) -> bool:

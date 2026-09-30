@@ -103,8 +103,8 @@ def reconcile(global_status: str, path: Optional[Path] = None,
               now: Optional[float] = None) -> bool:
     """Align the flag with global_status. Returns resulting active state."""
     gs = (global_status or "unknown").lower()
-    if gs == "critical":
-        activate("global_status=critical", path=path, now=now)
+    if gs in ("critical", "severe"):   # same set as mesh_watchdog_cron
+        activate("global_status=%s" % gs, path=path, now=now)
     elif gs in ("healthy", "degraded", "ok", "online"):
         if read(path).get("active"):
             deactivate("global_status=%s" % gs, path=path, now=now)

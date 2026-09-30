@@ -20,7 +20,6 @@ from __future__ import annotations
 import json
 import logging
 import os
-import time
 from pathlib import Path
 
 import requests
@@ -28,10 +27,6 @@ import requests
 logger = logging.getLogger("s25.mesh_watchdog")
 
 REPO = Path(__file__).resolve().parent.parent
-# allow `from agents import safe_mode` when run as a plain script (cron)
-import sys as _sys
-if str(REPO) not in _sys.path:
-    _sys.path.insert(0, str(REPO))
 COCKPIT = os.getenv("S25_COCKPIT_URL", "http://localhost:7777")
 DEGRADED_FLAG = REPO / "memory" / "command_mesh" / "degraded_mode.json"
 
@@ -56,9 +51,18 @@ def _secret() -> str:
     return _env_get("S25_SHARED_SECRET")
 
 
+def _safe_mode():
+    """Import agents.safe_mode even when this file runs as a plain script (cron)."""
+    import sys
+    if str(REPO) not in sys.path:
+        sys.path.insert(0, str(REPO))
+    from agents import safe_mode
+    return safe_mode
+
+
 def set_degraded_mode(active: bool, reason: str = ""):
     """Delegates to agents.safe_mode (explicit active flag + TTL, never unlink)."""
-    from agents import safe_mode
+    safe_mode = _safe_mode()
     if active:
         safe_mode.activate(reason, path=DEGRADED_FLAG)
     else:
@@ -66,8 +70,7 @@ def set_degraded_mode(active: bool, reason: str = ""):
 
 
 def _degraded_active() -> bool:
-    from agents import safe_mode
-    return safe_mode.is_active(path=DEGRADED_FLAG)
+    return _safe_mode().is_active(path=DEGRADED_FLAG)
 
 
 def main():
