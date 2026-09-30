@@ -34,7 +34,47 @@ HA_TOKEN        = vault_get("HA_TOKEN", "")
 GEMINI_API_KEY  = vault_get("GEMINI_API_KEY", "")
 GEMINI_MODEL    = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
 S25_SECRET      = vault_get("S25_SHARED_SECRET", "")
-APP_BUILD_SHA   = os.getenv("APP_BUILD_SHA", "dev")
+def _resolve_build_sha() -> tuple:
+    """(sha, source) of the code actually loaded, read once at import.
+
+    git checkout wins (Alien): the last commit touching code, i.e. excluding memory/
+    (git_auto_sync commits runtime state there every 30 min without changing code).
+    Suffix "-dirty" if tracked code differs from it; "-unverified" (or "unverified") if
+    git cannot be read. APP_BUILD_SHA only when there is no .git at all (images).
+    Chantier 1: after a restart /api/version proves runtime_sha == expected code sha.
+    """
+    root_path = Path(__file__).resolve().parent
+    root = str(root_path)
+    if (root_path / ".git").exists():
+        # A repo is present: identity comes from git or is reported unverified.
+        # Never fall back to APP_BUILD_SHA here (it could mask an unchecked tree).
+        try:
+            r = subprocess.run(["git", "log", "-1", "--format=%H", "--", ".", ":(exclude)memory"],
+                               cwd=root, capture_output=True, text=True, timeout=5)
+            sha = r.stdout.strip() if r.returncode == 0 else ""
+        except Exception:
+            sha = ""
+        if not sha:
+            return "unverified", "git"
+        try:
+            d = subprocess.run(["git", "status", "--porcelain", "--untracked-files=no",
+                                "--", ".", ":(exclude)memory"], cwd=root,
+                               capture_output=True, text=True, timeout=5)
+        except Exception:
+            return sha + "-unverified", "git"
+        if d.returncode != 0:
+            return sha + "-unverified", "git"
+        if d.stdout.strip():
+            return sha + "-dirty", "git"
+        return sha, "git"
+    # No repo (Docker/Akash image): the build-time SHA is the only source.
+    env_sha = os.getenv("APP_BUILD_SHA", "").strip()
+    if env_sha and env_sha != "dev":
+        return env_sha, "env"
+    return "dev", "none"
+
+
+APP_BUILD_SHA, APP_BUILD_SOURCE = _resolve_build_sha()
 ALLOW_PUBLIC_ACTIONS = os.getenv("ALLOW_PUBLIC_ACTIONS", "true").lower() in {"1", "true", "yes", "on"}
 
 
@@ -660,6 +700,8 @@ def api_version():
         "service": "S25 Lumiere Cockpit",
         "version": "2.0.0",
         "build_sha": APP_BUILD_SHA,
+        "started_at": datetime.fromtimestamp(_START_TIME, timezone.utc).isoformat(),
+        "build_sha_source": APP_BUILD_SOURCE,
         "memory_routes": True,
         "secret_configured": bool(S25_SECRET),
     })
