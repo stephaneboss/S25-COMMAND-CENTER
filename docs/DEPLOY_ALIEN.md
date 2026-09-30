@@ -8,8 +8,8 @@ branche → PR (CLAUDE) → tests → merge (Stef) → `s25-auto-pull.timer` (5 
 `git pull --ff-only` → `systemctl --user restart s25-cockpit` → vérification `build_sha`.
 
 ## Preuves
-- `/api/version` : `build_sha` = SHA du code au démarrage (checkout git prioritaire ; suffixe `-dirty` si du code suivi diffère, `-unverified` si `git status` échoue ; `APP_BUILD_SHA` seulement pour les images sans `.git`), `build_sha_source` (git|env|none) et `started_at`.
-- `~/.local/state/s25/deploy.json` : `{status: verified|mismatch|restart_failed|drift|unreachable, expected_sha, runtime_sha, heal_sha, ts}` — réécrit à chaque passage, jamais de reçu périmé.
+- `/api/version` : `build_sha` = SHA du code au démarrage (checkout git prioritaire ; suffixe `-dirty` si du code suivi diffère, `-unverified` si `git status` échoue ou expire — jamais de repli sur `APP_BUILD_SHA` quand un dépôt git existe ; `APP_BUILD_SHA` seulement pour les images sans `.git`), `build_sha_source` (git|env|none) et `started_at`.
+- `~/.local/state/s25/deploy.json` : `{status: verified|mismatch|restart_failed|drift|unreachable, expected_sha, runtime_sha, heal_sha, ts}` — l’état est vérifié à chaque passage et le reçu réécrit dès qu’il change (un `verified` inchangé garde son horodatage d’origine).
 - `/tmp/auto_pull.log` : `DEPLOY VERIFIED`, `DEPLOY MISMATCH`, `DEPLOY DRIFT`, `DEPLOY DRIFT PERSISTS`, `DEPLOY UNREACHABLE`, `AUTO-PULL NO RESTART: memory-only update`.
 
 ## Dérive (runtime ≠ SHA du code)
