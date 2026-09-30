@@ -1,7 +1,7 @@
 {
-  "ts": "2026-09-30T04:00:02.806229+00:00",
+  "ts": "2026-09-30T04:30:02.524444+00:00",
   "global_status": "healthy",
-  "pipeline_status": "unknown",
+  "pipeline_status": "SIGNAL_STALE",
   "mesh_status": "online",
   "tunnel_active": true,
   "agents_online": 13,
@@ -11,5 +11,7 @@
   "last_signal_at": "2026-04-22T02:01:01.645750+00:00",
   "control_plane_runtime": "local",
   "local_dependency": "required",
-  "notes": []
+  "notes": [],
+  "signal_age_sec": 13919340,
+  "signal_stale_after_sec": 7200
 }
