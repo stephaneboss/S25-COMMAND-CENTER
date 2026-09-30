@@ -26,6 +26,7 @@ from typing import Any, Dict, List, Optional
 from flask import Blueprint, jsonify, request
 
 from agents import stability_layer as _stab
+from agents.mesh_registry_store import update_agent
 logger = logging.getLogger("s25.command_mesh")
 mesh_bp = Blueprint("s25_command_mesh", __name__, url_prefix="/api/mesh")
 
@@ -813,32 +814,12 @@ def route_report_health():
     agent_id = body.get("agent_id")
     if not agent_id:
         return jsonify({"ok": False, "error": "missing agent_id"}), 400
-    store = _load(AGENTS_PATH, {"items": {}})
-    items = store.setdefault("items", {})
-    existing = items.get(agent_id, {})
     now = _now_iso()
-    agent = {
-        "agent_id": agent_id,
-        "type": body.get("type") or existing.get("type", "generic"),
-        "status": body.get("status", "online"),
-        "runtime": body.get("runtime") or existing.get("runtime", "local"),
-        "endpoint_class": body.get("endpoint_class")
-                          or existing.get("endpoint_class", "internal"),
-        "capabilities": body.get("capabilities")
-                        or existing.get("capabilities", []),
-        "priority": body.get("priority") or existing.get("priority", "normal"),
-        "cost_tier": body.get("cost_tier") or existing.get("cost_tier", "low"),
-        "reliability_score": body.get("reliability_score",
-                                      existing.get("reliability_score", 1.0)),
-        "last_heartbeat_at": now,
-        "last_seen_at": now,
-        "cooldown_until": body.get("cooldown_until", existing.get("cooldown_until")),
-        "metadata": body.get("metadata", existing.get("metadata", {})),
-        "latency_ms": body.get("latency_ms"),
-        "error_rate": body.get("error_rate"),
-    }
-    items[agent_id] = agent
-    _save(AGENTS_PATH, store)
+    try:
+        agent = update_agent(AGENTS_PATH, body, now)
+    except (OSError, ValueError, KeyError) as exc:
+        logger.error("agent registry update failed for %s: %s", agent_id, exc)
+        return jsonify({"ok": False, "error": "agent registry unavailable"}), 503
     _journal(agent_id, "agent", agent_id, "heartbeat",
              {"status": agent["status"], "latency_ms": agent.get("latency_ms")})
     _maybe_sweep("MeshSweeper")
