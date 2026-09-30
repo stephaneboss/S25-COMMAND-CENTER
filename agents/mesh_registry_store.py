@@ -30,10 +30,10 @@ def update_agent(path: Path, body: dict, now: str) -> dict:
                 "type": body.get("type") or existing.get("type", "generic"),
                 "status": body.get("status", "online"),
                 "runtime": body.get("runtime") or existing.get("runtime", "local"),
-                "endpoint_class": body.get("endpoint_class")
-                                  or existing.get("endpoint_class", "internal"),
-                "capabilities": body.get("capabilities")
-                                or existing.get("capabilities", []),
+                "endpoint_class": (body.get("endpoint_class")
+                                   or existing.get("endpoint_class", "internal")),
+                "capabilities": (body.get("capabilities")
+                                 or existing.get("capabilities", [])),
                 "priority": body.get("priority") or existing.get("priority", "normal"),
                 "cost_tier": body.get("cost_tier") or existing.get("cost_tier", "low"),
                 "reliability_score": body.get(
