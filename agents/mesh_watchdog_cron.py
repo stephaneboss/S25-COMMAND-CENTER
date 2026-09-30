@@ -28,6 +28,10 @@ import requests
 logger = logging.getLogger("s25.mesh_watchdog")
 
 REPO = Path(__file__).resolve().parent.parent
+# allow `from agents import safe_mode` when run as a plain script (cron)
+import sys as _sys
+if str(REPO) not in _sys.path:
+    _sys.path.insert(0, str(REPO))
 COCKPIT = os.getenv("S25_COCKPIT_URL", "http://localhost:7777")
 DEGRADED_FLAG = REPO / "memory" / "command_mesh" / "degraded_mode.json"
 
