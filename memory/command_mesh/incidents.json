@@ -882,6 +882,39 @@
       ],
       "owner": "TRINITY",
       "resolved_at": "2026-09-29T19:11:31.791218+00:00"
+    },
+    "inc_6eYmdn6G5xDv": {
+      "incident_id": "inc_6eYmdn6G5xDv",
+      "opened_at": "2026-09-30T20:26:31.480437+00:00",
+      "severity": "critical",
+      "status": "open",
+      "source": "Policy",
+      "category": "mesh_degradation",
+      "title": "Moins de 10 agents online",
+      "summary": "Only 4/13 online",
+      "evidence": {
+        "ts": "2026-09-30T20:26:31.479949+00:00",
+        "global_status": "degraded",
+        "pipeline_status": "SIGNAL_STALE",
+        "mesh_status": "degraded",
+        "tunnel_active": true,
+        "agents_online": 4,
+        "agents_expected": 13,
+        "active_incidents": 0,
+        "router_quota_state": "ok",
+        "last_signal_at": "2026-04-22T02:01:01.645750+00:00",
+        "control_plane_runtime": "local",
+        "local_dependency": "required",
+        "notes": [],
+        "signal_age_sec": 13976729,
+        "signal_stale_after_sec": 7200
+      },
+      "recommended_actions": [
+        "reroute_to_akash",
+        "disable_noncritical_dispatch"
+      ],
+      "owner": "TRINITY",
+      "resolved_at": null
     }
   }
 }
