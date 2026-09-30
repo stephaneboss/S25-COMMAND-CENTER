@@ -170,7 +170,9 @@ def release_lock(lock_key: str, owner: str):
 # ═══════════════════════ SAFE MODE (Trinity §17) ═══════════════════════
 
 def safe_mode_active() -> bool:
-    return DEGRADED_FLAG.exists()
+    # TTL-aware + honours active=false (see agents/safe_mode.py)
+    from agents import safe_mode
+    return safe_mode.is_active(path=DEGRADED_FLAG)
 
 
 def should_skip_non_critical(mission: Dict) -> bool:
