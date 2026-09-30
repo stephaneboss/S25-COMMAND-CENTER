@@ -242527,6 +242527,100 @@
       },
       "error": null,
       "updated_at": "2026-09-30T20:11:24.194467+00:00"
+    },
+    "mis_oSU8n2xXuybz": {
+      "mission_id": "mis_oSU8n2xXuybz",
+      "created_at": "2026-09-30T20:30:02.230692+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "LOCAL_CRON",
+      "task_type": "infra_monitoring",
+      "intent": "Auto scan system health \u2014 periodic",
+      "priority": "normal",
+      "status": "blocked",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": null,
+      "error": "degraded_mode_skip_non_critical",
+      "updated_at": "2026-09-30T20:31:02.555550+00:00"
+    },
+    "mis_WafFmQPGejjo": {
+      "mission_id": "mis_WafFmQPGejjo",
+      "created_at": "2026-09-30T20:40:02.745828+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "system_health",
+      "task_type": "infra_monitoring",
+      "intent": "Auto scan system health \u2014 periodic",
+      "priority": "normal",
+      "status": "completed",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": {
+        "duration_sec": 12.54,
+        "output_preview": "{\n  \"generated_at\": \"2026-09-30T20:41:12.243781+00:00\",\n  \"overall_status\": \"critical\",\n  \"crons_healthy\": 9,\n  \"crons_stale\": 0,\n  \"crons_stuck\": 0,\n  \"crons_unobserved\": 2,\n  \"endpoints_ok\": 5,\n  \"endpoints_fail\": 1,\n  \"stuck_agent_names\": [\n    \"quant_brain\"\n  ],\n  \"unobserved_agent_names\": [\n    \"quant_brain\",\n    \"gemini_orchestrator\"\n  ]\n}\n"
+      },
+      "error": null,
+      "updated_at": "2026-09-30T20:41:15.431711+00:00"
+    },
+    "mis_Ov7ZNBhoIqC5": {
+      "mission_id": "mis_Ov7ZNBhoIqC5",
+      "created_at": "2026-09-30T20:40:03.466981+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": null,
+      "task_type": "trading_analysis",
+      "intent": "Auto trading analysis brief \u2014 periodic",
+      "priority": "normal",
+      "status": "blocked",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": null,
+      "error": "no_eligible_target",
+      "updated_at": "2026-09-30T20:41:16.105238+00:00"
+    },
+    "mis_mT0gtURxGONV": {
+      "mission_id": "mis_mT0gtURxGONV",
+      "created_at": "2026-09-30T20:50:02.869462+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "system_health",
+      "task_type": "infra_monitoring",
+      "intent": "Auto scan system health \u2014 periodic",
+      "priority": "normal",
+      "status": "completed",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": {
+        "duration_sec": 6.68,
+        "output_preview": "{\n  \"generated_at\": \"2026-09-30T20:51:08.450675+00:00\",\n  \"overall_status\": \"critical\",\n  \"crons_healthy\": 9,\n  \"crons_stale\": 0,\n  \"crons_stuck\": 0,\n  \"crons_unobserved\": 2,\n  \"endpoints_ok\": 5,\n  \"endpoints_fail\": 1,\n  \"stuck_agent_names\": [\n    \"quant_brain\"\n  ],\n  \"unobserved_agent_names\": [\n    \"quant_brain\",\n    \"gemini_orchestrator\"\n  ]\n}\n"
+      },
+      "error": null,
+      "updated_at": "2026-09-30T20:51:08.941596+00:00"
     }
   }
 }
