@@ -25,10 +25,10 @@ runtime_sha() {
     | python3 -c 'import json,sys; print(json.load(sys.stdin).get("build_sha",""))' 2>/dev/null || true
 }
 
-write_state() {  # status expected runtime
+write_state() {  # status expected runtime [heal_sha]
   mkdir -p "$(dirname "$state")"
-  printf '{"ts":"%s","status":"%s","expected_sha":"%s","runtime_sha":"%s"}\n' \
-    "$(date -Iseconds)" "$1" "$2" "$3" >"$state.tmp" && mv "$state.tmp" "$state"
+  printf '{"ts":"%s","status":"%s","expected_sha":"%s","runtime_sha":"%s","heal_sha":"%s"}\n' \
+    "$(date -Iseconds)" "$1" "$2" "$3" "${4-$(last_state_field heal_sha)}" >"$state.tmp" && mv "$state.tmp" "$state"
 }
 
 last_state_field() {  # field
@@ -36,13 +36,13 @@ last_state_field() {  # field
   python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get(sys.argv[2],""))' "$state" "$1" 2>/dev/null || true
 }
 
-restart_and_verify() {  # expected_sha reason
-  local expected=$1 reason=$2 got=""
+restart_and_verify() {  # expected_sha reason heal_sha
+  local expected=$1 reason=$2 heal=$3 got=""
   export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
   # A reload can leave Flask running its previously imported Python modules.
   if ! systemctl --user restart "$service" || ! systemctl --user is-active --quiet "$service"; then
     echo "$(date -Iseconds) AUTO-PULL RESTART FAILED: $service; repository at $expected ($reason)"
-    write_state restart_failed "$expected" ""
+    write_state restart_failed "$expected" "" "$heal"
     return 1
   fi
   echo "$(date -Iseconds) AUTO-PULL RESTARTED: $service at $expected ($reason)"
@@ -53,11 +53,11 @@ restart_and_verify() {  # expected_sha reason
   done
   if [[ "$got" == "$expected" ]]; then
     echo "$(date -Iseconds) DEPLOY VERIFIED: runtime_sha == $expected"
-    write_state verified "$expected" "$got"
+    write_state verified "$expected" "$got" "$heal"
     return 0
   fi
   echo "$(date -Iseconds) DEPLOY MISMATCH: expected $expected, runtime reports '${got:-unreachable}'"
-  write_state mismatch "$expected" "$got"
+  write_state mismatch "$expected" "$got" "$heal"
   return 1
 }
 
@@ -73,7 +73,7 @@ if [[ "$before" != "$after" ]]; then
   echo "$(date -Iseconds) AUTO-PULL UPDATED: $before -> $after"
   changed=$(git diff --name-only "$before" "$after")
   if grep -qE '^(cockpit_lumiere\.py|(agents|tools|strategies|security|config|configs)/.+\.(py|json|ya?ml))$' <<<"$changed"; then
-    restart_and_verify "$after" "code update"
+    restart_and_verify "$after" "code update" ""
     exit $?
   fi
   echo "$(date -Iseconds) AUTO-PULL NO RESTART: no runtime file changed"
@@ -83,20 +83,23 @@ fi
 echo "$(date -Iseconds) AUTO-PULL UNCHANGED: $after"
 
 # Drift check: HEAD unchanged but the running process is not on it (stale runtime,
-# build_sha=dev). Heal once per SHA; a repeated mismatch stays visible, no restart loop.
+# build_sha=dev, dirty tree). At most ONE heal restart per SHA (heal_sha), whether that
+# heal succeeded or not; later drift on the same SHA stays visible, no restart loop.
 got=$(runtime_sha)
 if [[ -z "$got" ]]; then
-  echo "$(date -Iseconds) DEPLOY DRIFT UNKNOWN: $version_url unreachable"
-  exit 0
+  echo "$(date -Iseconds) DEPLOY UNREACHABLE: $version_url did not answer (HEAD $after)"
+  write_state unreachable "$after" ""
+  exit 1
 fi
 if [[ "$got" == "$after" ]]; then
   [[ "$(last_state_field status)" == verified && "$(last_state_field expected_sha)" == "$after" ]] \
     || write_state verified "$after" "$got"
   exit 0
 fi
-if [[ "$(last_state_field expected_sha)" == "$after" && "$(last_state_field status)" != verified ]]; then
-  echo "$(date -Iseconds) DEPLOY DRIFT PERSISTS: runtime '$got' != HEAD $after (already retried, manual check needed)"
+if [[ "$(last_state_field heal_sha)" == "$after" ]]; then
+  echo "$(date -Iseconds) DEPLOY DRIFT PERSISTS: runtime '$got' != HEAD $after (heal already used for this SHA, manual check needed)"
+  write_state drift "$after" "$got"
   exit 1
 fi
 echo "$(date -Iseconds) DEPLOY DRIFT: runtime '$got' != HEAD $after, healing"
-restart_and_verify "$after" "drift heal"
+restart_and_verify "$after" "drift heal" "$after"
