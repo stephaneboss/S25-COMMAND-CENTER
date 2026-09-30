@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from agents.gouv4_planner import GOUV4Router
+from agents.invoice_drafts import invoice_drafts
 from security.vault import vault_get
 
 MEMORY_DIR = Path(os.getenv("MEMORY_DIR", "/app/memory"))
@@ -21,6 +22,7 @@ AGENTS_STATE_FILE  = MEMORY_DIR / "agents_state.json"
 
 app = Flask(__name__)
 app.secret_key = vault_get("SECRET_KEY", os.urandom(32).hex())
+app.register_blueprint(invoice_drafts)
 
 HA_URL          = os.getenv("HA_URL", "http://homeassistant.local:8123")
 HA_TOKEN        = vault_get("HA_TOKEN", os.getenv("HA_TOKEN", "")) or ""
