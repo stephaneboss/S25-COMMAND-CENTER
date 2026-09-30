@@ -44,21 +44,28 @@ def _resolve_build_sha() -> tuple:
     Chantier 1: after a restart /api/version proves runtime_sha == expected code sha.
     """
     root = str(Path(__file__).resolve().parent)
+    sha = ""
     try:
         r = subprocess.run(["git", "log", "-1", "--format=%H", "--", ".", ":(exclude)memory"],
                            cwd=root, capture_output=True, text=True, timeout=5)
-        if r.returncode == 0 and r.stdout.strip():
+        if r.returncode == 0:
             sha = r.stdout.strip()
+    except Exception:
+        sha = ""
+    if sha:
+        # Once a git SHA exists, never fall back to APP_BUILD_SHA: an unchecked tree
+        # (timeout, error) is reported as such, not attested clean.
+        try:
             d = subprocess.run(["git", "status", "--porcelain", "--untracked-files=no",
                                 "--", ".", ":(exclude)memory"], cwd=root,
                                capture_output=True, text=True, timeout=5)
-            if d.returncode != 0:
-                sha += "-unverified"
-            elif d.stdout.strip():
-                sha += "-dirty"
-            return sha, "git"
-    except Exception:
-        pass
+        except Exception:
+            return sha + "-unverified", "git"
+        if d.returncode != 0:
+            return sha + "-unverified", "git"
+        if d.stdout.strip():
+            return sha + "-dirty", "git"
+        return sha, "git"
     env_sha = os.getenv("APP_BUILD_SHA", "").strip()
     if env_sha and env_sha != "dev":
         return env_sha, "env"
