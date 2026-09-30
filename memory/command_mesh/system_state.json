@@ -1,10 +1,10 @@
 {
-  "ts": "2026-09-30T22:00:02.935615+00:00",
+  "ts": "2026-09-30T22:29:31.984918+00:00",
   "global_status": "healthy",
   "pipeline_status": "SIGNAL_STALE",
   "mesh_status": "online",
   "tunnel_active": true,
-  "agents_online": 13,
+  "agents_online": 12,
   "agents_expected": 13,
   "active_incidents": 0,
   "router_quota_state": "ok",
@@ -12,6 +12,6 @@
   "control_plane_runtime": "local",
   "local_dependency": "required",
   "notes": [],
-  "signal_age_sec": 13982341,
+  "signal_age_sec": 13984110,
   "signal_stale_after_sec": 7200
 }
