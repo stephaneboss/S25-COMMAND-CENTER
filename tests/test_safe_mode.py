@@ -38,3 +38,9 @@ def test_critical_refreshes_ttl(tmp_path):
     assert d["activated_at"] == 0 and d["confirmed_at"] == 90
     assert sm.is_active(p, now=150) is True
     assert sm.is_active(p, now=191) is False
+
+
+def test_severe_activates_like_critical(tmp_path):
+    p = tmp_path / "d.json"
+    assert sm.reconcile("severe", p, now=1000) is True
+    assert sm.reconcile("healthy", p, now=1001) is False
