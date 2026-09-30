@@ -979,4 +979,3 @@ def route_open_incident():
     _save(INCIDENTS_PATH, store)
     _journal(inc["owner"], "incident", inc_id, "open", inc)
     return jsonify({"incident_id": inc_id, "status": "open"})
-
