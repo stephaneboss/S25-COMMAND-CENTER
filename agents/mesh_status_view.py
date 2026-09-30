@@ -43,3 +43,17 @@ def snapshot(agents_path: Path, missions_path: Path, *, now: datetime,
         "missions_active": active,
         "source": "command_mesh",
     }
+
+
+def pipeline_control_evidence(pipeline: dict, ha_state: str) -> dict:
+    """Expose control sources without changing the execution policy."""
+    local = bool(pipeline.get("kill_switch", False))
+    ha_state = ha_state if ha_state in ("on", "off") else "unknown"
+    effective = True if local or ha_state == "on" else (False if ha_state == "off" else None)
+    return {
+        **pipeline,
+        "local_kill_switch": local,
+        "ha_kill_switch_state": ha_state,
+        "effective_kill_switch": effective,
+        "kill_switch_sources_consistent": None if ha_state == "unknown" else local == (ha_state == "on"),
+    }

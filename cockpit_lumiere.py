@@ -16,7 +16,7 @@ from agents.s25_conversation_agent import handle_chat_completion, list_models as
 from agents.ops_routes import ops_bp
 from agents.command_mesh import mesh_bp as command_mesh_bp
 from agents import command_mesh as command_mesh_store
-from agents.mesh_status_view import snapshot as mesh_status_snapshot
+from agents.mesh_status_view import snapshot as mesh_status_snapshot, pipeline_control_evidence
 
 MEMORY_DIR = Path(os.getenv("MEMORY_DIR", os.path.expanduser("~/S25-COMMAND-CENTER/memory")))
 MEMORY_DIR.mkdir(parents=True, exist_ok=True)
@@ -576,23 +576,29 @@ setInterval(refreshAll, 60000);
 '''
 
 
-def _ha_kill_switch_active(timeout: float = 2.0) -> bool:
-    """Read input_boolean.s25_kill_switch from HA. Returns True if ON."""
+def _ha_kill_switch_state(timeout: float = 2.0) -> str:
+    """Read HA control evidence; unavailable must remain unknown."""
     try:
         ha_url = (vault_get("HA_URL", os.getenv("HA_URL", "http://homeassistant.local:8123")) or "").rstrip("/")
         ha_token = vault_get("HA_TOKEN", os.getenv("HA_TOKEN", ""))
         if not ha_token:
-            return False
+            return "unknown"
         r = requests.get(
             f"{ha_url}/api/states/input_boolean.s25_kill_switch",
             headers={"Authorization": f"Bearer {ha_token}"},
             timeout=timeout,
         )
         if r.status_code == 200:
-            return r.json().get("state") == "on"
+            state = r.json().get("state")
+            return state if state in ("on", "off") else "unknown"
     except Exception:
         pass
-    return False
+    return "unknown"
+
+
+def _ha_kill_switch_active(timeout: float = 2.0) -> bool:
+    """Preserve the existing execution-policy boolean."""
+    return _ha_kill_switch_state(timeout) == "on"
 
 
 @app.route('/')
@@ -2162,7 +2168,8 @@ def api_mesh_status():
     return jsonify({
         "ok": True,
         "mesh": mesh,
-        "pipeline": state.get("pipeline", {}),
+        "pipeline": pipeline_control_evidence(
+            state.get("pipeline", {}), _ha_kill_switch_state()),
     })
 
 
