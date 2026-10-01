@@ -21,8 +21,26 @@ log = logging.getLogger("s25_watchdog")
 # ─────────────────────────────────────────────────────
 # CONFIG
 # ─────────────────────────────────────────────────────
-HA_URL         = os.getenv("HA_URL", "http://homeassistant.local:8123")
-HA_TOKEN       = os.getenv("HA_TOKEN", "")
+def _cfg(key: str, default: str = "") -> str:
+    """Same sources as the cockpit (security.vault: env, .env, keyring, bundle).
+
+    2026-10-01: the watchdog read HA_TOKEN from os.environ only while the cockpit
+    reads it from the vault, so /api/watchdog reported ha=false (401) while
+    /api/ha/test was HTTP 200.
+    """
+    try:
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        from security.vault import vault_get
+        value = vault_get(key, None)
+        if value:
+            return value
+    except Exception:
+        pass
+    return os.getenv(key, default)
+
+
+HA_URL         = _cfg("HA_URL", "http://homeassistant.local:8123")
+HA_TOKEN       = _cfg("HA_TOKEN", "")
 TUNNEL_SCRIPT  = os.getenv("TUNNEL_SCRIPT", "/config/scripts/start_s25_tunnel.sh")
 PROXY_SCRIPT   = os.getenv("PROXY_SCRIPT", "/config/python_scripts/kimi_proxy.py")
 AKASH_ENDPOINT = os.getenv("AKASH_ENDPOINT", "http://localhost:5050")
@@ -42,11 +60,19 @@ FAILOVER_FILE = "/tmp/s25_failover_state.json"
 # ─────────────────────────────────────────────────────
 # CHECKS
 # ─────────────────────────────────────────────────────
+DETAILS = {}   # per-check reason, published next to the booleans
+
+
 def check_ha():
+    if not HA_TOKEN:
+        DETAILS["ha"] = "no_token"
+        return False
     try:
         r = requests.get(f"{HA_URL}/api/", headers={"Authorization": f"Bearer {HA_TOKEN}"}, timeout=10)
+        DETAILS["ha"] = f"http_{r.status_code}"
         return r.status_code == 200
     except Exception as e:
+        DETAILS["ha"] = f"error:{type(e).__name__}"
         log.error(f"HA check failed: {e}")
         return False
 
@@ -57,6 +83,11 @@ def check_tunnel():
         return result.returncode == 0
     except:
         return False
+
+def proxy_installed() -> bool:
+    """The Kimi proxy is optional: only supervise it where its script exists."""
+    return os.path.exists(PROXY_SCRIPT)
+
 
 def check_proxy():
     """Vérifie si le proxy Kimi est actif"""
@@ -263,10 +294,18 @@ def run():
                 if repaired:
                     status["repairs"].append("tunnel")
 
-        # CHECK PROXY
+        # CHECK PROXY (optional component: N/A when not installed on this host)
         proxy_ok = check_proxy()
-        status["checks"]["proxy"] = proxy_ok
-        if proxy_ok:
+        if not proxy_ok and not proxy_installed():
+            status["checks"]["proxy"] = None
+            DETAILS["proxy"] = "not_installed"
+        else:
+            status["checks"]["proxy"] = proxy_ok
+            DETAILS["proxy"] = "running" if proxy_ok else "down"
+        if status["checks"]["proxy"] is None:
+            failures["proxy"] = 0
+            log.info("ℹ️ Proxy Kimi: N/A (non installé sur cet hôte)")
+        elif proxy_ok:
             failures["proxy"] = 0
             log.info("✅ Proxy Kimi: OK")
         else:
@@ -311,7 +350,8 @@ def run():
             log.error(f"🚨 DISQUE PLEIN: {disk_pct}%")
             notify_ha(f"⚠️ Disque à {disk_pct}% — nettoyage requis!", "🚨 S25 Disque")
 
-        # SAVE STATUS
+        # SAVE STATUS (details explain each boolean: http_401, no_token, not_installed...)
+        status["details"] = dict(DETAILS)
         save_status(status)
 
         log.info(f"Status: HA={ha_ok} Tunnel={tunnel_ok} Proxy={proxy_ok} Akash={akash_ok} Alien={alien_ok} Merlin={merlin_ok} Disk={disk_pct}%")
