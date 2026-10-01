@@ -58,6 +58,34 @@ def test_push_sensor_skipped_while_down(monkeypatch):
     assert b.push_sensor("sensor.x", 1) is False
 
 
+def test_push_sensor_error_opens_breaker_from_closed(monkeypatch):
+    # GPT Work review: two pushes from a closed circuit -> one network call only
+    b = _bridge(monkeypatch)
+    calls = []
+
+    def boom(*a, **k):
+        calls.append(1)
+        raise requests.ConnectionError("No route to host")
+    monkeypatch.setattr(requests, "post", boom)
+    assert b.push_sensor("sensor.x", 1) is False
+    assert b.push_sensor("sensor.y", 2) is False
+    assert len(calls) == 1
+    assert b.reachable is False and "No route" in b.last_error
+
+
+def test_call_service_error_opens_breaker(monkeypatch):
+    b = _bridge(monkeypatch)
+    calls = []
+
+    def boom(*a, **k):
+        calls.append(1)
+        raise requests.Timeout("slow")
+    monkeypatch.setattr(requests, "post", boom)
+    assert b.call_service("notify", "x") is False
+    assert b.call_service("notify", "x") is False
+    assert len(calls) == 1
+
+
 def test_cockpit_heartbeat_uses_version_probe():
     import agents.mesh_heartbeat_cron as hb
     src = open(hb.__file__, encoding="utf-8").read()
