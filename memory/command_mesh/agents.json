@@ -13,11 +13,11 @@
       "priority": "normal",
       "cost_tier": "low",
       "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-10-01T20:00:03.060906+00:00",
-      "last_seen_at": "2026-10-01T20:00:03.060906+00:00",
+      "last_heartbeat_at": "2026-10-01T20:30:02.483414+00:00",
+      "last_seen_at": "2026-10-01T20:30:02.483414+00:00",
       "cooldown_until": null,
       "metadata": {},
-      "latency_ms": 180630,
+      "latency_ms": 180056,
       "error_rate": 0.0
     },
     "auto_signal_scanner": {
@@ -33,11 +33,11 @@
       "priority": "normal",
       "cost_tier": "low",
       "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-10-01T20:00:03.080687+00:00",
-      "last_seen_at": "2026-10-01T20:00:03.080687+00:00",
+      "last_heartbeat_at": "2026-10-01T20:30:02.491317+00:00",
+      "last_seen_at": "2026-10-01T20:30:02.491317+00:00",
       "cooldown_until": null,
       "metadata": {},
-      "latency_ms": 636,
+      "latency_ms": 299511,
       "error_rate": 0.0
     },
     "comet_sentiment": {
@@ -53,11 +53,11 @@
       "priority": "normal",
       "cost_tier": "low",
       "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-10-01T19:59:02.421380+00:00",
-      "last_seen_at": "2026-10-01T19:59:02.421380+00:00",
+      "last_heartbeat_at": "2026-10-01T20:30:02.504659+00:00",
+      "last_seen_at": "2026-10-01T20:30:02.504659+00:00",
       "cooldown_until": null,
       "metadata": {},
-      "latency_ms": 539281,
+      "latency_ms": 599384,
       "error_rate": 0.0
     },
     "drawdown_guardian": {
@@ -73,11 +73,11 @@
       "priority": "normal",
       "cost_tier": "low",
       "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-10-01T19:59:02.428825+00:00",
-      "last_seen_at": "2026-10-01T19:59:02.428825+00:00",
+      "last_heartbeat_at": "2026-10-01T20:30:02.515671+00:00",
+      "last_seen_at": "2026-10-01T20:30:02.515671+00:00",
       "cooldown_until": null,
       "metadata": {},
-      "latency_ms": 539112,
+      "latency_ms": 599335,
       "error_rate": 0.0
     },
     "dca_scheduler": {
@@ -92,11 +92,11 @@
       "priority": "normal",
       "cost_tier": "low",
       "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-10-01T19:59:02.437827+00:00",
-      "last_seen_at": "2026-10-01T19:59:02.437827+00:00",
+      "last_heartbeat_at": "2026-10-01T20:30:02.526961+00:00",
+      "last_seen_at": "2026-10-01T20:30:02.526961+00:00",
       "cooldown_until": null,
       "metadata": {},
-      "latency_ms": 840632,
+      "latency_ms": 899838,
       "error_rate": 0.0
     },
     "quant_brain": {
@@ -114,11 +114,11 @@
       "priority": "normal",
       "cost_tier": "low",
       "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-10-01T19:59:02.446975+00:00",
-      "last_seen_at": "2026-10-01T19:59:02.446975+00:00",
+      "last_heartbeat_at": "2026-10-01T20:30:02.539680+00:00",
+      "last_seen_at": "2026-10-01T20:30:02.539680+00:00",
       "cooldown_until": null,
       "metadata": {},
-      "latency_ms": 3531082,
+      "latency_ms": 1789373,
       "error_rate": 0.0
     },
     "system_health": {
@@ -135,11 +135,11 @@
       "priority": "normal",
       "cost_tier": "low",
       "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-10-01T19:59:02.453616+00:00",
-      "last_seen_at": "2026-10-01T19:59:02.453616+00:00",
+      "last_heartbeat_at": "2026-10-01T20:30:02.549637+00:00",
+      "last_seen_at": "2026-10-01T20:30:02.549637+00:00",
       "cooldown_until": null,
       "metadata": {},
-      "latency_ms": 231762,
+      "latency_ms": 291663,
       "error_rate": 0.0
     },
     "git_auto_sync": {
@@ -154,11 +154,11 @@
       "priority": "normal",
       "cost_tier": "low",
       "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-10-01T19:59:02.462572+00:00",
-      "last_seen_at": "2026-10-01T19:59:02.462572+00:00",
+      "last_heartbeat_at": "2026-10-01T20:30:02.564572+00:00",
+      "last_seen_at": "2026-10-01T20:30:02.564572+00:00",
       "cooldown_until": null,
       "metadata": {},
-      "latency_ms": 1737457,
+      "latency_ms": 1796462,
       "error_rate": 0.0
     },
     "perplexity_news_scanner": {
@@ -175,11 +175,11 @@
       "priority": "normal",
       "cost_tier": "low",
       "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-10-01T19:59:02.472909+00:00",
-      "last_seen_at": "2026-10-01T19:59:02.472909+00:00",
+      "last_heartbeat_at": "2026-10-01T20:30:02.578743+00:00",
+      "last_seen_at": "2026-10-01T20:30:02.578743+00:00",
       "cooldown_until": null,
       "metadata": {},
-      "latency_ms": 1724768,
+      "latency_ms": 1784684,
       "error_rate": 0.0
     },
     "COCKPIT_LUMIERE": {
@@ -215,8 +215,8 @@
       "priority": "normal",
       "cost_tier": "low",
       "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-10-01T20:00:03.014525+00:00",
-      "last_seen_at": "2026-10-01T20:00:03.014525+00:00",
+      "last_heartbeat_at": "2026-10-01T20:30:02.448274+00:00",
+      "last_seen_at": "2026-10-01T20:30:02.448274+00:00",
       "cooldown_until": null,
       "metadata": {},
       "latency_ms": null,
@@ -235,11 +235,11 @@
       "priority": "normal",
       "cost_tier": "low",
       "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-10-01T20:00:03.011070+00:00",
-      "last_seen_at": "2026-10-01T20:00:03.011070+00:00",
+      "last_heartbeat_at": "2026-10-01T20:30:02.464526+00:00",
+      "last_seen_at": "2026-10-01T20:30:02.464526+00:00",
       "cooldown_until": null,
       "metadata": {},
-      "latency_ms": 477,
+      "latency_ms": 2808,
       "error_rate": 0.0
     },
     "mesh_signal_bridge": {
@@ -255,11 +255,11 @@
       "priority": "normal",
       "cost_tier": "low",
       "reliability_score": 1.0,
-      "last_heartbeat_at": "2026-10-01T20:00:03.044517+00:00",
-      "last_seen_at": "2026-10-01T20:00:03.044517+00:00",
+      "last_heartbeat_at": "2026-10-01T20:30:02.474681+00:00",
+      "last_seen_at": "2026-10-01T20:30:02.474681+00:00",
       "cooldown_until": null,
       "metadata": {},
-      "latency_ms": 326,
+      "latency_ms": 120295,
       "error_rate": 0.0
     }
   }
