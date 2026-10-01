@@ -246045,6 +246045,80 @@
       "result": null,
       "error": "AUTHZ_REQUIRED tier=T3: mission non executee par le worker automatique. Validation humaine (Stef) requise, puis /requeue ou execution manuelle.",
       "updated_at": "2026-10-01T15:26:01.917175+00:00"
+    },
+    "mis_bySl4wf4J1dB": {
+      "mission_id": "mis_bySl4wf4J1dB",
+      "created_at": "2026-10-01T15:35:02.174947+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "system_health",
+      "task_type": "infra_monitoring",
+      "intent": "Auto scan system health \u2014 periodic",
+      "priority": "normal",
+      "status": "completed",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": {
+        "duration_sec": 6.58,
+        "output_preview": "{\n  \"generated_at\": \"2026-10-01T15:36:08.959531+00:00\",\n  \"overall_status\": \"critical\",\n  \"crons_healthy\": 10,\n  \"crons_stale\": 0,\n  \"crons_stuck\": 0,\n  \"crons_unobserved\": 1,\n  \"endpoints_ok\": 5,\n  \"endpoints_fail\": 1,\n  \"stuck_agent_names\": [],\n  \"unobserved_agent_names\": [\n    \"gemini_orchestrator\"\n  ]\n}\n"
+      },
+      "error": null,
+      "updated_at": "2026-10-01T15:36:09.499544+00:00"
+    },
+    "mis_lsX1bITBRUYq": {
+      "mission_id": "mis_lsX1bITBRUYq",
+      "created_at": "2026-10-01T15:35:02.667461+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "quant_brain",
+      "task_type": "trading_analysis",
+      "intent": "Auto trading analysis brief \u2014 periodic",
+      "priority": "normal",
+      "status": "completed",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": {
+        "duration_sec": 8.96,
+        "output_preview": "{\n  \"decisions\": [],\n  \"dry_run\": true,\n  \"live_perf_rows\": 0,\n  \"backtest_rows\": 56,\n  \"strategies_seen\": 8,\n  \"live_data_freshness\": {\n    \"window_hours\": 72,\n    \"cutoff_ts\": 1790609779.0790403,\n    \"last_successful_live_trade_ts\": 1779922806.7810013,\n    \"successful_live_trades_in_window\": 0,\n    \"most_recent_trade_success\": false,\n    \"reason\": \"no successful live trade in window - most recent order attempts failed (check balance/funds)\"\n  }\n}\n"
+      },
+      "error": null,
+      "updated_at": "2026-10-01T15:36:19.192058+00:00"
+    },
+    "mis_ClhbvvMaO1W5": {
+      "mission_id": "mis_ClhbvvMaO1W5",
+      "created_at": "2026-10-01T15:44:52.663441+00:00",
+      "created_by": "TRINITY",
+      "target_agent": "CLAUDE",
+      "task_type": "infra_ops",
+      "intent": "Diagnostic HA strictement non destructif. Home Assistant est configure actuellement sur 192.168.0.101:8123 mais retourne No route to host. Stef est absent de la maison et pense avoir rebranche HA sur un autre routeur, donc IP/subnet DHCP possiblement change. Chercher dans les fichiers/config/logs existants S25 les dernieres IP/URL HA connues et dernieres reponses reussies; inspecter les publishers HA et la topologie reseau observable avec outils read-only. Ne pas scanner agressivement le LAN, ne pas modifier .env, ne pas redemarrer HA/routeur/service, ne pas changer token/secret, ne pas declencher emergency stop. Retourner preuves, derniere connexion HA connue, IP candidates si elles sont deja presentes dans traces/config, et procedure de resynchronisation minimale. Evaluer aussi quel agent S25 devrait etre proprietaire du lien HA en respectant HA comme kill switch independant.",
+      "priority": "normal",
+      "status": "blocked",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120,
+        "max_retries": 2,
+        "require_ack": true
+      },
+      "routing": {
+        "selected_by": "TRINITY",
+        "runtime_preference": "akash",
+        "fallback_agents": []
+      },
+      "result": null,
+      "error": "AUTHZ_REQUIRED tier=T3: mission non executee par le worker automatique. Validation humaine (Stef) requise, puis /requeue ou execution manuelle.",
+      "updated_at": "2026-10-01T15:45:03.147736+00:00"
     }
   }
 }
