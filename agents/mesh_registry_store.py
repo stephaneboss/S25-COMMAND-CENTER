@@ -1,11 +1,31 @@
 """Serialize agent heartbeat updates to the canonical mesh registry."""
 from __future__ import annotations
 
-import fcntl
 import json
 import os
 import tempfile
 from pathlib import Path
+
+if os.name == "nt":
+    import msvcrt
+else:
+    import fcntl
+
+
+def _lock_registry(lock) -> None:
+    if os.name == "nt":
+        lock.seek(0)
+        msvcrt.locking(lock.fileno(), msvcrt.LK_LOCK, 1)
+    else:
+        fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+
+
+def _unlock_registry(lock) -> None:
+    if os.name == "nt":
+        lock.seek(0)
+        msvcrt.locking(lock.fileno(), msvcrt.LK_UNLCK, 1)
+    else:
+        fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
 
 
 def update_agent(path: Path, body: dict, now: str) -> dict:
@@ -16,8 +36,8 @@ def update_agent(path: Path, body: dict, now: str) -> dict:
     """
     path.parent.mkdir(parents=True, exist_ok=True)
     lock_path = path.with_name(path.name + ".lock")
-    with lock_path.open("a+") as lock:
-        fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+    with lock_path.open("a+b") as lock:
+        _lock_registry(lock)
         try:
             store = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {"items": {}}
             items = store["items"]
@@ -59,4 +79,4 @@ def update_agent(path: Path, body: dict, now: str) -> dict:
                     os.unlink(tmp_name)
             return agent
         finally:
-            fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
+            _unlock_registry(lock)
