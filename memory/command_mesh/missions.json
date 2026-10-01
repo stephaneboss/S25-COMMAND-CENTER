@@ -245921,6 +245921,130 @@
       },
       "error": null,
       "updated_at": "2026-10-01T14:56:10.256030+00:00"
+    },
+    "mis_pQsWe9kXXd3X": {
+      "mission_id": "mis_pQsWe9kXXd3X",
+      "created_at": "2026-10-01T15:00:03.274609+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "quant_brain",
+      "task_type": "trading_analysis",
+      "intent": "Auto trading analysis brief \u2014 periodic",
+      "priority": "normal",
+      "status": "completed",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": {
+        "duration_sec": 9.29,
+        "output_preview": "{\n  \"decisions\": [],\n  \"dry_run\": true,\n  \"live_perf_rows\": 0,\n  \"backtest_rows\": 56,\n  \"strategies_seen\": 8,\n  \"live_data_freshness\": {\n    \"window_hours\": 72,\n    \"cutoff_ts\": 1790607671.0035596,\n    \"last_successful_live_trade_ts\": 1779922806.7810013,\n    \"successful_live_trades_in_window\": 0,\n    \"most_recent_trade_success\": false,\n    \"reason\": \"no successful live trade in window - most recent order attempts failed (check balance/funds)\"\n  }\n}\n"
+      },
+      "error": null,
+      "updated_at": "2026-10-01T15:01:11.136763+00:00"
+    },
+    "mis_IpYykyR2tAcB": {
+      "mission_id": "mis_IpYykyR2tAcB",
+      "created_at": "2026-10-01T15:05:02.616833+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "system_health",
+      "task_type": "infra_monitoring",
+      "intent": "Auto scan system health \u2014 periodic",
+      "priority": "normal",
+      "status": "completed",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": {
+        "duration_sec": 7.11,
+        "output_preview": "{\n  \"generated_at\": \"2026-10-01T15:06:08.286340+00:00\",\n  \"overall_status\": \"critical\",\n  \"crons_healthy\": 10,\n  \"crons_stale\": 0,\n  \"crons_stuck\": 0,\n  \"crons_unobserved\": 1,\n  \"endpoints_ok\": 5,\n  \"endpoints_fail\": 1,\n  \"stuck_agent_names\": [],\n  \"unobserved_agent_names\": [\n    \"gemini_orchestrator\"\n  ]\n}\n"
+      },
+      "error": null,
+      "updated_at": "2026-10-01T15:06:09.335237+00:00"
+    },
+    "mis_YrqbyhtgCXIz": {
+      "mission_id": "mis_YrqbyhtgCXIz",
+      "created_at": "2026-10-01T15:15:02.453245+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "quant_brain",
+      "task_type": "strategy_planning",
+      "intent": "Auto strategy review \u2014 periodic",
+      "priority": "low",
+      "status": "completed",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": {
+        "duration_sec": 8.89,
+        "output_preview": "{\n  \"decisions\": [],\n  \"dry_run\": true,\n  \"live_perf_rows\": 0,\n  \"backtest_rows\": 56,\n  \"strategies_seen\": 8,\n  \"live_data_freshness\": {\n    \"window_hours\": 72,\n    \"cutoff_ts\": 1790608570.8676362,\n    \"last_successful_live_trade_ts\": 1779922806.7810013,\n    \"successful_live_trades_in_window\": 0,\n    \"most_recent_trade_success\": false,\n    \"reason\": \"no successful live trade in window - most recent order attempts failed (check balance/funds)\"\n  }\n}\n"
+      },
+      "error": null,
+      "updated_at": "2026-10-01T15:16:10.982512+00:00"
+    },
+    "mis_sfX623PEHtMO": {
+      "mission_id": "mis_sfX623PEHtMO",
+      "created_at": "2026-10-01T15:20:02.318306+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "system_health",
+      "task_type": "infra_monitoring",
+      "intent": "Auto scan system health \u2014 periodic",
+      "priority": "normal",
+      "status": "completed",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": {
+        "duration_sec": 7.44,
+        "output_preview": "{\n  \"generated_at\": \"2026-10-01T15:21:08.055483+00:00\",\n  \"overall_status\": \"critical\",\n  \"crons_healthy\": 10,\n  \"crons_stale\": 0,\n  \"crons_stuck\": 0,\n  \"crons_unobserved\": 1,\n  \"endpoints_ok\": 5,\n  \"endpoints_fail\": 1,\n  \"stuck_agent_names\": [],\n  \"unobserved_agent_names\": [\n    \"gemini_orchestrator\"\n  ]\n}\n"
+      },
+      "error": null,
+      "updated_at": "2026-10-01T15:21:09.419997+00:00"
+    },
+    "mis_ydMNmfWGpoBC": {
+      "mission_id": "mis_ydMNmfWGpoBC",
+      "created_at": "2026-10-01T15:25:25.103833+00:00",
+      "created_by": "TRINITY",
+      "target_agent": "CLAUDE",
+      "task_type": "infra_ops",
+      "intent": "Audit non destructif prioritaire pour restaurer le controle complet de S25. Diagnostiquer sans modifier: (1) pourquoi Home Assistant 192.168.0.101:8123 est No route to host et pipeline_status HA_OFFLINE; (2) pourquoi agent COCKPIT_LUMIERE est stale alors que s25-cockpit.service est active; (3) pourquoi breaker CLAUDE:strategy_planning est open; (4) pourquoi system_health reference encore gemini_orchestrator/Gemini abandonne; (5) proposer nettoyage Git/.gitignore separant runtime memory/* du code sans supprimer de donnees ni secrets. Retourner causes probables, preuves/logs, et plan de correction T0/T1 vs actions necessitant approbation. Ne faire aucune action destructive, aucune rotation de secret, aucun changement cockpit_lumiere.py.",
+      "priority": "normal",
+      "status": "blocked",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120,
+        "max_retries": 2,
+        "require_ack": true
+      },
+      "routing": {
+        "selected_by": "TRINITY",
+        "runtime_preference": "akash",
+        "fallback_agents": []
+      },
+      "result": null,
+      "error": "AUTHZ_REQUIRED tier=T3: mission non executee par le worker automatique. Validation humaine (Stef) requise, puis /requeue ou execution manuelle.",
+      "updated_at": "2026-10-01T15:26:01.917175+00:00"
     }
   }
 }
