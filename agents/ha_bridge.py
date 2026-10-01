@@ -120,17 +120,23 @@ class HABridge:
                 json=payload,
                 timeout=self._timeout,
             )
+            self._mark_up()
             ok = r.status_code in (200, 201)
             if not ok:
                 logger.warning("HA push_sensor(%s) -> %s", entity_id, r.status_code)
             return ok
+        except (requests.ConnectionError, requests.Timeout) as e:
+            self._mark_down(e)
+            logger.error("HA push_sensor(%s) failed, HA marked unreachable %ss: %s",
+                         entity_id, self._down_ttl, e)
+            return False
         except Exception as e:
             logger.error("HA push_sensor(%s) error: %s", entity_id, e)
             return False
 
     def call_service(self, domain: str, service: str, data: Dict = None) -> bool:
         """Call a HA service (shell_command, automation, input_boolean, etc.)."""
-        if not self.connected:
+        if not self.reachable:
             return False
         try:
             r = requests.post(
@@ -139,10 +145,16 @@ class HABridge:
                 json=data or {},
                 timeout=12,
             )
+            self._mark_up()
             ok = r.status_code == 200
             if not ok:
                 logger.warning("HA call_service(%s.%s) -> %s", domain, service, r.status_code)
             return ok
+        except (requests.ConnectionError, requests.Timeout) as e:
+            self._mark_down(e)
+            logger.error("HA call_service(%s.%s) failed, HA marked unreachable %ss: %s",
+                         domain, service, self._down_ttl, e)
+            return False
         except Exception as e:
             logger.error("HA call_service(%s.%s) error: %s", domain, service, e)
             return False
