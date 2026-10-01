@@ -1,5 +1,5 @@
 {
-  "ts": "2026-10-01T21:30:02.577174+00:00",
+  "ts": "2026-10-01T22:00:01.879429+00:00",
   "global_status": "healthy",
   "pipeline_status": "SIGNAL_STALE",
   "mesh_status": "online",
@@ -12,6 +12,6 @@
   "control_plane_runtime": "local",
   "local_dependency": "required",
   "notes": [],
-  "signal_age_sec": 14066940,
+  "signal_age_sec": 14068740,
   "signal_stale_after_sec": 7200
 }
