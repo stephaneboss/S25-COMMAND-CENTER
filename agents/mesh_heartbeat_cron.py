@@ -152,7 +152,9 @@ def main():
     logger.info("summary: %s", summary)
     # Report TRINITY Core itself via cockpit uptime
     try:
-        r = requests.get(f"{COCKPIT}/api/status", timeout=3)
+        # /api/version is the liveness probe: /api/status depends on Home Assistant and
+        # can take > 3 s when HA is unreachable, which silently dropped this heartbeat.
+        r = requests.get(f"{COCKPIT}/api/version", timeout=5)
         cockpit_ok = r.status_code == 200
         payload = {
             "agent_id": "COCKPIT_LUMIERE",
