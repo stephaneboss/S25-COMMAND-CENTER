@@ -247529,11 +247529,11 @@
       "mission_id": "mis_9rUi1XWMloxq",
       "created_at": "2026-10-01T23:30:02.943613+00:00",
       "created_by": "mesh_activator",
-      "target_agent": "LOCAL_CRON",
+      "target_agent": "system_health",
       "task_type": "infra_monitoring",
       "intent": "Auto scan system health \u2014 periodic",
       "priority": "normal",
-      "status": "queued",
+      "status": "completed",
       "input": {},
       "constraints": {
         "timeout_sec": 120
@@ -247543,9 +247543,111 @@
           "LOCAL_CRON"
         ]
       },
-      "result": null,
+      "result": {
+        "duration_sec": 9.23,
+        "output_preview": "{\n  \"generated_at\": \"2026-10-01T23:31:08.473433+00:00\",\n  \"overall_status\": \"critical\",\n  \"crons_healthy\": 10,\n  \"crons_stale\": 0,\n  \"crons_stuck\": 0,\n  \"crons_unobserved\": 1,\n  \"endpoints_ok\": 5,\n  \"endpoints_fail\": 1,\n  \"stuck_agent_names\": [],\n  \"unobserved_agent_names\": [\n    \"gemini_orchestrator\"\n  ]\n}\n"
+      },
       "error": null,
-      "updated_at": "2026-10-01T23:30:02.943613+00:00"
+      "updated_at": "2026-10-01T23:31:11.592180+00:00"
+    },
+    "mis_ENdrihzMS1Uq": {
+      "mission_id": "mis_ENdrihzMS1Uq",
+      "created_at": "2026-10-01T23:40:02.709666+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "quant_brain",
+      "task_type": "trading_analysis",
+      "intent": "Auto trading analysis brief \u2014 periodic",
+      "priority": "normal",
+      "status": "completed",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": {
+        "duration_sec": 8.95,
+        "output_preview": "{\n  \"decisions\": [],\n  \"dry_run\": true,\n  \"live_perf_rows\": 0,\n  \"backtest_rows\": 56,\n  \"strategies_seen\": 8,\n  \"live_data_freshness\": {\n    \"window_hours\": 72,\n    \"cutoff_ts\": 1790638871.2814295,\n    \"last_successful_live_trade_ts\": 1779922806.7810013,\n    \"successful_live_trades_in_window\": 0,\n    \"most_recent_trade_success\": false,\n    \"reason\": \"no successful live trade in window - most recent order attempts failed (check balance/funds)\"\n  }\n}\n"
+      },
+      "error": null,
+      "updated_at": "2026-10-01T23:41:11.413792+00:00"
+    },
+    "mis_ejPokMOB7xyG": {
+      "mission_id": "mis_ejPokMOB7xyG",
+      "created_at": "2026-10-01T23:40:22.892933+00:00",
+      "created_by": "TRINITY",
+      "target_agent": "CLAUDE",
+      "task_type": "strategy_planning",
+      "intent": "SOURCING PHONES \u2014 Stef autorise explicitement la prise de contact par courriel avec des distributeurs canadiens cr\u00e9dibles pour demander leurs listes de prix/stock dealer \u00e0 jour. Priorit\u00e9 Montr\u00e9al/Laval/Saint-Laurent, Ottawa/Gatineau, puis GTA. Cible iPhone 12/13/14/15, id\u00e9alement 128GB, unlocked, clean IMEI, grades A/B, d\u00e9tails batterie, garantie/RMA, MOQ et prix par 3/5/10 unit\u00e9s. Constituer une liste fournisseurs avec coordonn\u00e9es et r\u00e9ponses re\u00e7ues. Autorisation limit\u00e9e aux demandes de price lists/conditions commerciales; aucun achat, d\u00e9p\u00f4t, engagement, ouverture de cr\u00e9dit ou transmission de secret. Si le canal Gmail n'est pas disponible depuis l'infra, pr\u00e9parer les destinataires et brouillons pr\u00eats \u00e0 envoyer plut\u00f4t que pr\u00e9tendre les avoir envoy\u00e9s.",
+      "priority": "normal",
+      "status": "blocked",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120,
+        "max_retries": 2,
+        "require_ack": true
+      },
+      "routing": {
+        "selected_by": "TRINITY",
+        "runtime_preference": "akash",
+        "fallback_agents": []
+      },
+      "result": null,
+      "error": "AUTHZ_REQUIRED tier=T3: mission non executee par le worker automatique. Validation humaine (Stef) requise, puis /requeue ou execution manuelle.",
+      "updated_at": "2026-10-01T23:41:02.139804+00:00"
+    },
+    "mis_qRI2QItOhHpE": {
+      "mission_id": "mis_qRI2QItOhHpE",
+      "created_at": "2026-10-01T23:45:02.399073+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "system_health",
+      "task_type": "infra_monitoring",
+      "intent": "Auto scan system health \u2014 periodic",
+      "priority": "normal",
+      "status": "completed",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": {
+        "duration_sec": 6.26,
+        "output_preview": "{\n  \"generated_at\": \"2026-10-01T23:46:08.422828+00:00\",\n  \"overall_status\": \"critical\",\n  \"crons_healthy\": 10,\n  \"crons_stale\": 0,\n  \"crons_stuck\": 0,\n  \"crons_unobserved\": 1,\n  \"endpoints_ok\": 5,\n  \"endpoints_fail\": 1,\n  \"stuck_agent_names\": [],\n  \"unobserved_agent_names\": [\n    \"gemini_orchestrator\"\n  ]\n}\n"
+      },
+      "error": null,
+      "updated_at": "2026-10-01T23:46:08.616341+00:00"
+    },
+    "mis_9uwNULdsjTOb": {
+      "mission_id": "mis_9uwNULdsjTOb",
+      "created_at": "2026-10-01T23:45:03.018512+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "quant_brain",
+      "task_type": "strategy_planning",
+      "intent": "Auto strategy review \u2014 periodic",
+      "priority": "low",
+      "status": "completed",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": {
+        "duration_sec": 8.91,
+        "output_preview": "{\n  \"decisions\": [],\n  \"dry_run\": true,\n  \"live_perf_rows\": 0,\n  \"backtest_rows\": 56,\n  \"strategies_seen\": 8,\n  \"live_data_freshness\": {\n    \"window_hours\": 72,\n    \"cutoff_ts\": 1790639178.1808078,\n    \"last_successful_live_trade_ts\": 1779922806.7810013,\n    \"successful_live_trades_in_window\": 0,\n    \"most_recent_trade_success\": false,\n    \"reason\": \"no successful live trade in window - most recent order attempts failed (check balance/funds)\"\n  }\n}\n"
+      },
+      "error": null,
+      "updated_at": "2026-10-01T23:46:18.295560+00:00"
     }
   }
 }
