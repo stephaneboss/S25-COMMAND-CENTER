@@ -251697,6 +251697,56 @@
       },
       "error": null,
       "updated_at": "2026-10-02T20:56:14.092463+00:00"
+    },
+    "mis_YOCONe3QCeVE": {
+      "mission_id": "mis_YOCONe3QCeVE",
+      "created_at": "2026-10-02T21:05:02.606120+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "system_health",
+      "task_type": "infra_monitoring",
+      "intent": "Auto scan system health \u2014 periodic",
+      "priority": "normal",
+      "status": "completed",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": {
+        "duration_sec": 1.36,
+        "output_preview": "{\n  \"generated_at\": \"2026-10-02T21:06:03.591453+00:00\",\n  \"overall_status\": \"degraded\",\n  \"crons_healthy\": 10,\n  \"crons_stale\": 0,\n  \"crons_stuck\": 0,\n  \"crons_unobserved\": 1,\n  \"endpoints_ok\": 6,\n  \"endpoints_fail\": 0,\n  \"stuck_agent_names\": [],\n  \"unobserved_agent_names\": [\n    \"gemini_orchestrator\"\n  ]\n}\n"
+      },
+      "error": null,
+      "updated_at": "2026-10-02T21:06:03.705834+00:00"
+    },
+    "mis_6rXbaJWzBmkX": {
+      "mission_id": "mis_6rXbaJWzBmkX",
+      "created_at": "2026-10-02T21:20:01.794087+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "system_health",
+      "task_type": "infra_monitoring",
+      "intent": "Auto scan system health \u2014 periodic",
+      "priority": "normal",
+      "status": "completed",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": {
+        "duration_sec": 1.49,
+        "output_preview": "{\n  \"generated_at\": \"2026-10-02T21:21:04.073855+00:00\",\n  \"overall_status\": \"degraded\",\n  \"crons_healthy\": 10,\n  \"crons_stale\": 0,\n  \"crons_stuck\": 0,\n  \"crons_unobserved\": 1,\n  \"endpoints_ok\": 6,\n  \"endpoints_fail\": 0,\n  \"stuck_agent_names\": [],\n  \"unobserved_agent_names\": [\n    \"gemini_orchestrator\"\n  ]\n}\n"
+      },
+      "error": null,
+      "updated_at": "2026-10-02T21:21:04.198761+00:00"
     }
   }
 }
