@@ -248023,6 +248023,134 @@
       },
       "error": null,
       "updated_at": "2026-10-02T01:51:22.874434+00:00"
+    },
+    "mis_MI5QBQ6WO8RH": {
+      "mission_id": "mis_MI5QBQ6WO8RH",
+      "created_at": "2026-10-02T02:00:02.737464+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "system_health",
+      "task_type": "infra_monitoring",
+      "intent": "Auto scan system health \u2014 periodic",
+      "priority": "normal",
+      "status": "completed",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": {
+        "duration_sec": 7.27,
+        "output_preview": "{\n  \"generated_at\": \"2026-10-02T02:01:08.291911+00:00\",\n  \"overall_status\": \"critical\",\n  \"crons_healthy\": 10,\n  \"crons_stale\": 0,\n  \"crons_stuck\": 0,\n  \"crons_unobserved\": 1,\n  \"endpoints_ok\": 5,\n  \"endpoints_fail\": 1,\n  \"stuck_agent_names\": [],\n  \"unobserved_agent_names\": [\n    \"gemini_orchestrator\"\n  ]\n}\n"
+      },
+      "error": null,
+      "updated_at": "2026-10-02T02:01:09.480632+00:00"
+    },
+    "mis_78wI4fGaGjv4": {
+      "mission_id": "mis_78wI4fGaGjv4",
+      "created_at": "2026-10-02T02:10:02.681031+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "LOCAL_CRON",
+      "task_type": "infra_monitoring",
+      "intent": "Auto scan system health \u2014 periodic",
+      "priority": "normal",
+      "status": "completed",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": {
+        "duration_sec": 6.32,
+        "output_preview": "{\n  \"generated_at\": \"2026-10-02T02:11:08.380350+00:00\",\n  \"overall_status\": \"critical\",\n  \"crons_healthy\": 10,\n  \"crons_stale\": 0,\n  \"crons_stuck\": 0,\n  \"crons_unobserved\": 1,\n  \"endpoints_ok\": 5,\n  \"endpoints_fail\": 1,\n  \"stuck_agent_names\": [],\n  \"unobserved_agent_names\": [\n    \"gemini_orchestrator\"\n  ]\n}\n"
+      },
+      "error": null,
+      "updated_at": "2026-10-02T02:11:08.497991+00:00"
+    },
+    "mis_vo4TM1csEncJ": {
+      "mission_id": "mis_vo4TM1csEncJ",
+      "created_at": "2026-10-02T02:10:17.948707+00:00",
+      "created_by": "TRINITY",
+      "target_agent": "CLAUDE",
+      "task_type": "infra_ops",
+      "intent": "AUDIT ET RACCORDEMENT PIPELINE SUIVI CLIENT \u2014 V\u00e9rifier de bout en bout que les actions ex\u00e9cut\u00e9es hors mesh (ex. Outlook, Invoice Simple, Gmail) sont correctement r\u00e9inject\u00e9es dans l'infra S25 comme \u00e9v\u00e9nements de suivi m\u00e9tier. Cas de r\u00e9f\u00e9rence: dossier Ren\u00e9 Hubert / Villeray, contrat envoy\u00e9 apr\u00e8s r\u00e9cup\u00e9ration du courriel dans Outlook, envoi via Invoice Simple et Gmail. Objectif: confirmer ou corriger le flux `envoi -> journalisation -> \u00e9tat dossier -> attente r\u00e9ponse -> relance`, sans action destructive et sans manipulation/rotation de secrets. V\u00e9rifier les composants CLAUDE relay/worker, mission worker, journaux de suivi, m\u00e9moire chantier/soumissions, \u00e9ventuels hooks/webhooks/imports mail, et d\u00e9tecter pourquoi l'ex\u00e9cution r\u00e9ussie n'appara\u00eet pas clairement dans le mesh. Produire: (1) diagnostic factuel, (2) points cass\u00e9s ou manquants, (3) correctif minimal propos\u00e9/appliqu\u00e9 si T0/T1 et non destructif, sinon demander validation T2/T3, (4) test de bout en bout avec \u00e9v\u00e9nement simul\u00e9 ou r\u00e9el non destructif, (5) preuve que le prochain envoi est journalis\u00e9 et g\u00e9n\u00e8re un suivi/relance tra\u00e7able. Ne jamais exposer de secret et ne pas modifier cockpit_lumiere.py sans avertissement pr\u00e9alable.",
+      "priority": "normal",
+      "status": "failed",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120,
+        "max_retries": 2,
+        "require_ack": true
+      },
+      "routing": {
+        "selected_by": "TRINITY",
+        "runtime_preference": "akash",
+        "fallback_agents": []
+      },
+      "result": {
+        "completed_by": "CLAUDE",
+        "result_file": "memory/command_mesh/mission_results/mis_vo4TM1csEncJ.md",
+        "output_chars": 25
+      },
+      "error": "Claude timeout after 150s",
+      "updated_at": "2026-10-02T02:13:32.509625+00:00"
+    },
+    "mis_YTgPl0lD6Mts": {
+      "mission_id": "mis_YTgPl0lD6Mts",
+      "created_at": "2026-10-02T02:25:02.669748+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "system_health",
+      "task_type": "infra_monitoring",
+      "intent": "Auto scan system health \u2014 periodic",
+      "priority": "normal",
+      "status": "completed",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": {
+        "duration_sec": 6.52,
+        "output_preview": "{\n  \"generated_at\": \"2026-10-02T02:26:08.150291+00:00\",\n  \"overall_status\": \"critical\",\n  \"crons_healthy\": 10,\n  \"crons_stale\": 0,\n  \"crons_stuck\": 0,\n  \"crons_unobserved\": 1,\n  \"endpoints_ok\": 5,\n  \"endpoints_fail\": 1,\n  \"stuck_agent_names\": [],\n  \"unobserved_agent_names\": [\n    \"gemini_orchestrator\"\n  ]\n}\n"
+      },
+      "error": null,
+      "updated_at": "2026-10-02T02:26:08.587382+00:00"
+    },
+    "mis_21Kt2xFAeb7s": {
+      "mission_id": "mis_21Kt2xFAeb7s",
+      "created_at": "2026-10-02T02:25:03.149183+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "quant_brain",
+      "task_type": "trading_analysis",
+      "intent": "Auto trading analysis brief \u2014 periodic",
+      "priority": "normal",
+      "status": "completed",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": {
+        "duration_sec": 8.46,
+        "output_preview": "{\n  \"decisions\": [],\n  \"dry_run\": true,\n  \"live_perf_rows\": 0,\n  \"backtest_rows\": 56,\n  \"strategies_seen\": 8,\n  \"live_data_freshness\": {\n    \"window_hours\": 72,\n    \"cutoff_ts\": 1790648777.6976671,\n    \"last_successful_live_trade_ts\": 1779922806.7810013,\n    \"successful_live_trades_in_window\": 0,\n    \"most_recent_trade_success\": false,\n    \"reason\": \"no successful live trade in window - most recent order attempts failed (check balance/funds)\"\n  }\n}\n"
+      },
+      "error": null,
+      "updated_at": "2026-10-02T02:26:17.836596+00:00"
     }
   }
 }
