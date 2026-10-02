@@ -249173,6 +249173,81 @@
       },
       "error": null,
       "updated_at": "2026-10-02T07:26:10.677687+00:00"
+    },
+    "mis_MTxYUPrFJfoo": {
+      "mission_id": "mis_MTxYUPrFJfoo",
+      "created_at": "2026-10-02T07:40:02.670799+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "system_health",
+      "task_type": "infra_monitoring",
+      "intent": "Auto scan system health \u2014 periodic",
+      "priority": "normal",
+      "status": "completed",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": {
+        "duration_sec": 8.7,
+        "output_preview": "{\n  \"generated_at\": \"2026-10-02T07:41:08.010963+00:00\",\n  \"overall_status\": \"critical\",\n  \"crons_healthy\": 10,\n  \"crons_stale\": 0,\n  \"crons_stuck\": 0,\n  \"crons_unobserved\": 1,\n  \"endpoints_ok\": 5,\n  \"endpoints_fail\": 1,\n  \"stuck_agent_names\": [],\n  \"unobserved_agent_names\": [\n    \"gemini_orchestrator\"\n  ]\n}\n"
+      },
+      "error": null,
+      "updated_at": "2026-10-02T07:41:10.743332+00:00"
+    },
+    "mis_6hWOfjTkPrVv": {
+      "mission_id": "mis_6hWOfjTkPrVv",
+      "created_at": "2026-10-02T07:50:02.727206+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "system_health",
+      "task_type": "infra_monitoring",
+      "intent": "Auto scan system health \u2014 periodic",
+      "priority": "normal",
+      "status": "completed",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": {
+        "duration_sec": 7.54,
+        "output_preview": "{\n  \"generated_at\": \"2026-10-02T07:51:08.253239+00:00\",\n  \"overall_status\": \"critical\",\n  \"crons_healthy\": 10,\n  \"crons_stale\": 0,\n  \"crons_stuck\": 0,\n  \"crons_unobserved\": 1,\n  \"endpoints_ok\": 5,\n  \"endpoints_fail\": 1,\n  \"stuck_agent_names\": [],\n  \"unobserved_agent_names\": [\n    \"gemini_orchestrator\"\n  ]\n}\n"
+      },
+      "error": null,
+      "updated_at": "2026-10-02T07:51:09.801880+00:00"
+    },
+    "mis_u72T91HmPv40": {
+      "mission_id": "mis_u72T91HmPv40",
+      "created_at": "2026-10-02T07:50:03.340787+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "quant_brain",
+      "task_type": "trading_analysis",
+      "intent": "Auto trading analysis brief \u2014 periodic",
+      "priority": "normal",
+      "status": "completed",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": {
+        "duration_sec": 7.47,
+        "output_preview": "{\n  \"decisions\": [],\n  \"dry_run\": true,\n  \"live_perf_rows\": 0,\n  \"backtest_rows\": 56,\n  \"strategies_seen\": 8,\n  \"live_data_freshness\": {\n    \"window_hours\": 72,\n    \"cutoff_ts\": 1790668277.9287596,\n    \"last_successful_live_trade_ts\": 1779922806.7810013,\n    \"successful_live_trades_in_window\": 0,\n    \"most_recent_trade_success\": false,\n    \"reason\": \"no successful live trade in window - most recent order attempts failed (check balance/funds)\"\n  }\n}\n"
+      },
+      "error": null,
+      "updated_at": "2026-10-02T07:51:18.042920+00:00"
     }
   }
 }
