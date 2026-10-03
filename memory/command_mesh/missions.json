@@ -254922,6 +254922,232 @@
       },
       "error": null,
       "updated_at": "2026-10-03T14:21:04.268970+00:00"
+    },
+    "mis_kGE4A3nRwVM8": {
+      "mission_id": "mis_kGE4A3nRwVM8",
+      "created_at": "2026-10-03T14:30:03.108441+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "system_health",
+      "task_type": "infra_monitoring",
+      "intent": "Auto scan system health \u2014 periodic",
+      "priority": "normal",
+      "status": "completed",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": {
+        "duration_sec": 1.4,
+        "output_preview": "{\n  \"generated_at\": \"2026-10-03T14:31:03.863181+00:00\",\n  \"overall_status\": \"degraded\",\n  \"crons_healthy\": 10,\n  \"crons_stale\": 0,\n  \"crons_stuck\": 0,\n  \"crons_unobserved\": 1,\n  \"endpoints_ok\": 6,\n  \"endpoints_fail\": 0,\n  \"stuck_agent_names\": [],\n  \"unobserved_agent_names\": [\n    \"gemini_orchestrator\"\n  ]\n}\n"
+      },
+      "error": null,
+      "updated_at": "2026-10-03T14:31:03.990717+00:00"
+    },
+    "mis_TFhsWXwiR92w": {
+      "mission_id": "mis_TFhsWXwiR92w",
+      "created_at": "2026-10-03T14:30:03.650046+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "quant_brain",
+      "task_type": "trading_analysis",
+      "intent": "Auto trading analysis brief \u2014 periodic",
+      "priority": "normal",
+      "status": "completed",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": {
+        "duration_sec": 8.17,
+        "output_preview": "{\n  \"decisions\": [],\n  \"dry_run\": true,\n  \"live_perf_rows\": 0,\n  \"backtest_rows\": 56,\n  \"strategies_seen\": 8,\n  \"live_data_freshness\": {\n    \"window_hours\": 72,\n    \"cutoff_ts\": 1790778672.8330612,\n    \"last_successful_live_trade_ts\": 1779922806.7810013,\n    \"successful_live_trades_in_window\": 0,\n    \"most_recent_trade_success\": false,\n    \"reason\": \"no successful live trade in window - most recent order attempts failed (check balance/funds)\"\n  }\n}\n"
+      },
+      "error": null,
+      "updated_at": "2026-10-03T14:31:12.961245+00:00"
+    },
+    "mis_UB6KpgeRC5xW": {
+      "mission_id": "mis_UB6KpgeRC5xW",
+      "created_at": "2026-10-03T14:31:54.989854+00:00",
+      "created_by": "TRINITY",
+      "target_agent": "CLAUDE",
+      "task_type": "strategy_planning",
+      "intent": "Pr\u00e9parer un plan d\u2019architecture et de migration pour faire du S25/Alien \u00e0 la maison et du Cockpit Lumi\u00e8re la base centrale des connecteurs/applications externes (courriel, Google Drive/Docs/Sheets, calendrier, etc.), avec Home Assistant comme couche d\u2019automatisation/s\u00e9curit\u00e9. Objectif: \u00e9viter que chaque GPT/agent/appareil doive reconnecter s\u00e9par\u00e9ment ses sources. Concevoir un Connector Hub local avec gestion centralis\u00e9e des credentials/tokens, exposition contr\u00f4l\u00e9e au mesh, scopes minimaux, audit, rotation, health checks, cache/queue, et API interne stable. Pr\u00e9parer aussi la migration des GPT priv\u00e9s (TRINITY, Merlin Bridge, Gouvernement 4, DevOps, agent Dell/Linux GPT, Nono 2, trading bot, etc.) vers les Plugins OpenAI avant le retrait applicable, sans supposer que les plugins OpenAI pourront directement r\u00e9utiliser des tokens stock\u00e9s localement: proposer une passerelle s\u00e9curis\u00e9e Cockpit/API avec authentification par plugin/app, consentement explicite et s\u00e9paration des secrets. V\u00e9rifier l\u2019impact multi-appareils (iPad/S25/web) et proposer tests de bout en bout. NE PAS modifier cockpit_lumiere.py ni manipuler de secrets dans cette mission. Livrables: 1) inventaire des connecteurs et d\u00e9pendances, 2) architecture cible, 3) mod\u00e8le s\u00e9curit\u00e9/autorisations T0-T3, 4) plan migration GPT->Plugin, 5) phases/ordre de commits, 6) strat\u00e9gie rollback et tests, 7) fichiers probables \u00e0 cr\u00e9er/modifier. Base-toi sur le fait qu\u2019OpenAI indique actuellement le retrait des GPT personnalis\u00e9s au profit des Plugins, avec retraite standard pr\u00e9vue le 11 d\u00e9cembre 2026 pour les espaces de travail concern\u00e9s et calendrier pouvant varier selon le plan/espace. Ne jamais demander ni exposer de cl\u00e9s/secrets.",
+      "priority": "normal",
+      "status": "blocked",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120,
+        "max_retries": 2,
+        "require_ack": true
+      },
+      "routing": {
+        "selected_by": "TRINITY",
+        "runtime_preference": "akash",
+        "fallback_agents": []
+      },
+      "result": null,
+      "error": "AUTHZ_REQUIRED tier=T3: mission non executee par le worker automatique. Validation humaine (Stef) requise, puis /requeue ou execution manuelle.",
+      "updated_at": "2026-10-03T14:32:02.426765+00:00"
+    },
+    "mis_0zMSI85yQVOv": {
+      "mission_id": "mis_0zMSI85yQVOv",
+      "created_at": "2026-10-03T14:32:30.810421+00:00",
+      "created_by": "TRINITY",
+      "target_agent": "CLAUDE",
+      "task_type": "strategy_planning",
+      "intent": "Compl\u00e9ter la mission de planification du Connector Hub Cockpit avec un volet facturation/finances interne \u00e0 SMajor.org. Concevoir dans le Cockpit un module de suivi des factures et d\u00e9penses: ingestion depuis courriel/connecteurs et t\u00e9l\u00e9versements manuels, archivage des pi\u00e8ces originales, extraction structur\u00e9e (fournisseur, date, no facture, taxes, devise, montant, \u00e9ch\u00e9ance, statut pay\u00e9/non pay\u00e9), d\u00e9duplication, cat\u00e9gorisation, rattachement aux services/abonnements/projets, recherche et historique, rappels d\u2019\u00e9ch\u00e9ance, rapprochement des paiements quand une source bancaire/comptable est disponible, exports CSV/PDF/comptables, audit trail, r\u00f4les/scopes et permissions T0-T3. Pr\u00e9voir conservation locale s\u00e9curis\u00e9e sur l\u2019Alien, sauvegardes, chiffrement au repos, aucune cl\u00e9/secr\u00e8te dans les logs, et une API interne stable pour le site/cockpit et les futurs Plugins. Ajouter tableau de bord co\u00fbts r\u00e9currents (OpenAI/API/cloud/domaines/etc.) et alertes de hausse/anomalie, sans paiement automatique par d\u00e9faut. Inclure plan de migration, sch\u00e9ma de donn\u00e9es, endpoints, UI web SMajor.org, tests, rollback et ordre de commits. Ne pas modifier cockpit_lumiere.py ni manipuler de secrets \u00e0 cette \u00e9tape.",
+      "priority": "normal",
+      "status": "blocked",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120,
+        "max_retries": 2,
+        "require_ack": true
+      },
+      "routing": {
+        "selected_by": "TRINITY",
+        "runtime_preference": "akash",
+        "fallback_agents": []
+      },
+      "result": null,
+      "error": "AUTHZ_REQUIRED tier=T3: mission non executee par le worker automatique. Validation humaine (Stef) requise, puis /requeue ou execution manuelle.",
+      "updated_at": "2026-10-03T14:33:02.639000+00:00"
+    },
+    "mis_ddekPkjR4uLj": {
+      "mission_id": "mis_ddekPkjR4uLj",
+      "created_at": "2026-10-03T14:36:25.250121+00:00",
+      "created_by": "TRINITY",
+      "target_agent": "CLAUDE",
+      "task_type": "strategy_planning",
+      "intent": "Mettre \u00e0 jour le pipeline d\u2019orchestration S25 pour int\u00e9grer GPT Work sur le Dell comme fallback explicite apr\u00e8s CLAUDE. Contexte confirm\u00e9 par l\u2019utilisateur: GPT Work est install\u00e9/configur\u00e9 sur le Dell via l\u2019app ChatGPT, avec acc\u00e8s terminal d\u00e9j\u00e0 configur\u00e9. Objectif: pour les jobs de code/infra/commit, route primaire vers CLAUDE; si CLAUDE est indisponible, timeout, refuse de prendre la mission, ou ne produit pas de r\u00e9sultat exploitable, basculer vers GPT Work sur le Dell. Concevoir sans supposer que GPT Work est d\u00e9j\u00e0 expos\u00e9 comme agent mesh: pr\u00e9ciser le m\u00e9canisme d\u2019adaptation/bridge n\u00e9cessaire, health check, auth locale, files d\u2019attente, idempotence, anti-double-ex\u00e9cution, conservation du contexte, transfert du repo/branche/commit attendu, validation git diff/tests avant commit, journal d\u2019audit, et retour de statut dans le Cockpit. Respecter T0-T3: aucune approbation implicite via fallback, et GPT Work ne doit pas contourner les garde-fous CLAUDE. Ne pas manipuler de secrets ni modifier cockpit_lumiere.py dans cette \u00e9tape de planification. Ajouter ce fallback au plan global Connector Hub / migration GPT->Plugins / facturation. Produire les fichiers probables \u00e0 cr\u00e9er/modifier et l\u2019ordre de commits.",
+      "priority": "normal",
+      "status": "blocked",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120,
+        "max_retries": 2,
+        "require_ack": true
+      },
+      "routing": {
+        "selected_by": "TRINITY",
+        "runtime_preference": "akash",
+        "fallback_agents": []
+      },
+      "result": null,
+      "error": "AUTHZ_REQUIRED tier=T3: mission non executee par le worker automatique. Validation humaine (Stef) requise, puis /requeue ou execution manuelle.",
+      "updated_at": "2026-10-03T14:37:02.399667+00:00"
+    },
+    "mis_yLK2PmyWtuNu": {
+      "mission_id": "mis_yLK2PmyWtuNu",
+      "created_at": "2026-10-03T14:42:55.102907+00:00",
+      "created_by": "TRINITY",
+      "target_agent": "CLAUDE",
+      "task_type": "strategy_planning",
+      "intent": "Ajouter au plan global Cockpit S-major.org les exigences suivantes, \u00e0 conserver dans les m\u00e9moires/rapports partag\u00e9s et \u00e0 int\u00e9grer au pipeline d\u2019ex\u00e9cution apr\u00e8s le module facturation: 1) Google Drive/stockage documentaire comme sortie obligatoire des agents pour rapports, comptes-rendus, plans, audits et r\u00e9sultats importants, avec convention de nommage, dossier par projet/agent, index central, horodatage, liens de retour dans le Cockpit et v\u00e9rification qu\u2019un rapport a bien \u00e9t\u00e9 d\u00e9pos\u00e9. 2) Refonte des m\u00e9moires partag\u00e9es: m\u00e9moire op\u00e9rationnelle commune lisible par les agents autoris\u00e9s, s\u00e9paration nette entre m\u00e9moire, configuration et secrets, provenance/horodatage/version, TTL pour donn\u00e9es \u00e9ph\u00e9m\u00e8res, journal de changements, m\u00e9canisme de r\u00e9sum\u00e9/synchronisation pour \u00e9viter que les agents tournent en rond ou redemandent les m\u00eames instructions. 3) Refonte de la gestion des secrets partag\u00e9s: coffre central c\u00f4t\u00e9 Alien/Cockpit, secrets jamais stock\u00e9s dans les rapports/m\u00e9moires/logs, acc\u00e8s par scopes/roles/T0-T3, rotation, r\u00e9vocation, health checks, audit, injection au runtime seulement. 4) Boucles d\u2019auto-r\u00e9paration et de mise \u00e0 jour: health checks p\u00e9riodiques, d\u00e9tection de connecteur/API cass\u00e9, retry/backoff, circuit breaker, DLQ, fallback d\u2019agent, d\u00e9tection de changements de versions/fonctions chez OpenAI et autres fournisseurs, tests de compatibilit\u00e9 et proc\u00e9dure de migration. 5) Architecture bi-mode: chemin primaire local/front-end gratuit ou faible co\u00fbt vers Alien/Home Assistant/Cockpit; chemin secondaire backend/API payant seulement quand le local ou le connecteur natif \u00e9choue, avec budgets, quotas, priorit\u00e9s et journalisation des co\u00fbts. 6) Multi-provider et anti-lock-in: routage CLAUDE -> GPT Work Dell -> autres mod\u00e8les/providers selon capacit\u00e9/disponibilit\u00e9, sans contourner les approbations T0-T3; syst\u00e8me capable de continuer malgr\u00e9 rate limits, panne fournisseur ou changement de produit. 7) Connecteurs centralis\u00e9s serveur: email, Drive, calendrier, documents, facturation et futurs Plugins via Connector Hub local, pour que les agents consomment une API interne stable plut\u00f4t que des int\u00e9grations ad hoc par appareil/GPT. 8) Pr\u00e9voir explicitement l\u2019\u00e9volution OpenAI GPT -> Plugins et changements futurs de versions/fonctions: adapter c\u00f4t\u00e9 serveur via une couche d\u2019abstraction stable et tests contractuels. 9) GPT Work sur Dell doit \u00eatre un fallback r\u00e9el pour jobs code/infra si CLAUDE ne r\u00e9cup\u00e8re pas la mission, avec contexte complet, anti-double-ex\u00e9cution, retour de statut et d\u00e9p\u00f4t des rapports dans le Drive. 10) Produire un plan d\u2019impl\u00e9mentation incr\u00e9mental avec petits commits, tests, rollback, m\u00e9triques de sant\u00e9, et ordre de priorit\u00e9. Ne pas exposer de secrets. Si des changements touchent cockpit_lumiere.py ou des secrets, ils doivent rester soumis aux garde-fous habituels et confirmations requises.",
+      "priority": "normal",
+      "status": "completed",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120,
+        "max_retries": 2,
+        "require_ack": true
+      },
+      "routing": {
+        "selected_by": "TRINITY",
+        "runtime_preference": "akash",
+        "fallback_agents": []
+      },
+      "result": {
+        "completed_by": "CLAUDE",
+        "output_preview": "---\n\n# PLAN GLOBAL S25 LUMI\u00c8RE \u2014 Cockpit S-major.org\n## Addendum Architectural \u2014 10 Exigences Majeures\n**Mission:** `mis_yLK2PmyWtuNu` | **Date:** 2026-10-03 | **Auteur:** CLAUDE (ARKON)\n\n---\n\n## \u00c9TAT DES LIEUX (baseline)\n\n| Composant | \u00c9tat actuel | Gap |\n|---|---|---|\n| `cockpit_lumiere.py` (port 7777) | Op\u00e9rationnel | Pas de sortie Drive |\n| `memory/command_mesh/` | JSON plats, pas de TTL | M\u00e9moire non structur\u00e9e |\n| `security/vault.py` + `vault_get()` | Pr\u00e9sent, partiel | Pas de scopes/rotation |\n| `monitoring/health.py` | Existe | Pas de circuit breaker/DLQ |\n| Agents: 13 online | Int\u00e9grations ad hoc | Pas de Connector Hub |\n| Pipeline | Signal\u2192Exec\u2192Billing | Drive absent post-billing |\n\n---\n\n## MODULE 1 \u2014 GOOGLE DRIVE COMME SORTIE OBLIGATOIRE\n\n### Positionnement dans le pipeline\n```\nSignal \u2192 Risk \u2192 Executor \u2192 Billing \u2192 [NOUVEAU] DriveReportSink \u2192 Cockpit Index\n```\n\n### Conventions de nommage\n```\nDrive://S25-Cockpit/\n  \u251c\u2500\u2500 {AGENT_ID}/\n  \u2502   \u251c\u2500\u2500 {YYYY-MM-DD}_{AGENT_ID}_{TYPE}_{miss",
+        "output_chars": 12000,
+        "truncated": true,
+        "result_file": "memory/command_mesh/mission_results/mis_yLK2PmyWtuNu.md"
+      },
+      "error": null,
+      "updated_at": "2026-10-03T14:44:43.036435+00:00"
+    },
+    "mis_oPbBB1JbC7Gd": {
+      "mission_id": "mis_oPbBB1JbC7Gd",
+      "created_at": "2026-10-03T14:45:02.207969+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "system_health",
+      "task_type": "infra_monitoring",
+      "intent": "Auto scan system health \u2014 periodic",
+      "priority": "normal",
+      "status": "completed",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": {
+        "duration_sec": 1.27,
+        "output_preview": "{\n  \"generated_at\": \"2026-10-03T14:46:03.285082+00:00\",\n  \"overall_status\": \"degraded\",\n  \"crons_healthy\": 10,\n  \"crons_stale\": 0,\n  \"crons_stuck\": 0,\n  \"crons_unobserved\": 1,\n  \"endpoints_ok\": 6,\n  \"endpoints_fail\": 0,\n  \"stuck_agent_names\": [],\n  \"unobserved_agent_names\": [\n    \"gemini_orchestrator\"\n  ]\n}\n"
+      },
+      "error": null,
+      "updated_at": "2026-10-03T14:46:03.399508+00:00"
+    },
+    "mis_X6fbWReCkdkH": {
+      "mission_id": "mis_X6fbWReCkdkH",
+      "created_at": "2026-10-03T14:49:29.170211+00:00",
+      "created_by": "TRINITY",
+      "target_agent": "CLAUDE",
+      "task_type": "strategy_planning",
+      "intent": "Ajouter un commit/phase d\u00e9di\u00e9e \u00e0 la continuit\u00e9 de contexte et \u00e0 la m\u00e9moire partag\u00e9e inter-agents. Objectif: qu\u2019un agent (ChatGPT/TRINITY, CLAUDE, Perplexity/COMET, Kimi, GPT Work Dell, Gemini sp\u00e9cial m\u00eame en mode d\u00e9grad\u00e9 sans API active) r\u00e9cup\u00e8re toujours le m\u00eame contexte op\u00e9rationnel, la m\u00eame source de v\u00e9rit\u00e9, la m\u00eame cha\u00eene de d\u00e9cision et le m\u00eame suivi horodat\u00e9 lorsqu\u2019il prend ou reprend une mission. Concevoir: 1) un Context Pack standard attach\u00e9 \u00e0 chaque mission avec objectif courant, d\u00e9cisions prises, d\u00e9pendances, derniers r\u00e9sultats, connecteurs disponibles, limites connues et prochaine action; 2) une Source of Truth unique c\u00f4t\u00e9 Cockpit/Alien avec provenance, version, horodatage, identifiant de mission/projet, et r\u00e9sum\u00e9s compacts par domaine; 3) synchronisation m\u00e9moire avant ex\u00e9cution et write-back obligatoire apr\u00e8s ex\u00e9cution; 4) m\u00e9canisme de reprise apr\u00e8s timeout/fallback/changement d\u2019agent, sans obliger l\u2019utilisateur \u00e0 r\u00e9p\u00e9ter; 5) distinction stricte entre m\u00e9moire, configuration, secrets et pi\u00e8ces documentaires; 6) gestion des agents d\u00e9grad\u00e9s/offline: conserver leur \u00e9tat/capacit\u00e9s attendues mais ne pas les consid\u00e9rer disponibles; 7) journal de d\u00e9cision append-only et liens vers rapports Drive; 8) d\u00e9tection de contexte incomplet avec blocage doux + auto-r\u00e9cup\u00e9ration depuis la source de v\u00e9rit\u00e9 avant d\u2019interroger l\u2019utilisateur; 9) tests de handoff CLAUDE -> GPT Work -> Kimi/COMET -> retour CLAUDE; 10) m\u00e9triques: taux de reprise sans clarification, contexte manquant, doublons, stale context, \u00e9checs de sync. Ne pas utiliser getGeminiBrief ni supposer une API Gemini fonctionnelle: Gemini reste r\u00e9f\u00e9renc\u00e9 comme capacit\u00e9/configuration d\u00e9grad\u00e9e seulement. Pr\u00e9parer en commit isol\u00e9, test\u00e9, r\u00e9versible, sans manipuler de secrets ni modifier cockpit_lumiere.py sans garde-fous.",
+      "priority": "normal",
+      "status": "blocked",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120,
+        "max_retries": 2,
+        "require_ack": true
+      },
+      "routing": {
+        "selected_by": "TRINITY",
+        "runtime_preference": "akash",
+        "fallback_agents": []
+      },
+      "result": null,
+      "error": "AUTHZ_REQUIRED tier=T3: mission non executee par le worker automatique. Validation humaine (Stef) requise, puis /requeue ou execution manuelle.",
+      "updated_at": "2026-10-03T14:50:02.484372+00:00"
+    },
+    "mis_sq3HEutbVoX9": {
+      "mission_id": "mis_sq3HEutbVoX9",
+      "created_at": "2026-10-03T14:55:02.478198+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "system_health",
+      "task_type": "infra_monitoring",
+      "intent": "Auto scan system health \u2014 periodic",
+      "priority": "normal",
+      "status": "completed",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": {
+        "duration_sec": 1.39,
+        "output_preview": "{\n  \"generated_at\": \"2026-10-03T14:56:03.553120+00:00\",\n  \"overall_status\": \"degraded\",\n  \"crons_healthy\": 10,\n  \"crons_stale\": 0,\n  \"crons_stuck\": 0,\n  \"crons_unobserved\": 1,\n  \"endpoints_ok\": 6,\n  \"endpoints_fail\": 0,\n  \"stuck_agent_names\": [],\n  \"unobserved_agent_names\": [\n    \"gemini_orchestrator\"\n  ]\n}\n"
+      },
+      "error": null,
+      "updated_at": "2026-10-03T14:56:03.671201+00:00"
     }
   }
 }
