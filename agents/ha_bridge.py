@@ -16,6 +16,7 @@ Usage:
 
 import logging
 import os
+import time
 import requests
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
@@ -36,10 +37,28 @@ class HABridge:
         self.url = os.getenv("HA_URL", "http://10.0.0.136:8123").rstrip("/")
         self.token = vault_get("HA_TOKEN", os.getenv("HA_TOKEN", "")) or ""
         self._timeout = 8
+        # Circuit breaker: after a network failure, HA is considered unreachable for
+        # _down_ttl seconds so callers (e.g. /api/status, 6 entities) fail fast instead
+        # of waiting 8 s per call (2026-10-01: /api/status took 16 s, cockpit heartbeat lost).
+        self._down_ttl = int(os.getenv("HA_DOWN_TTL_SEC", "60"))
+        self._down_until = 0.0
+        self.last_error = ""
 
     @property
     def connected(self) -> bool:
         return bool(self.url and self.token)
+
+    @property
+    def reachable(self) -> bool:
+        return self.connected and time.time() >= self._down_until
+
+    def _mark_down(self, e: Exception) -> None:
+        self._down_until = time.time() + self._down_ttl
+        self.last_error = f"{type(e).__name__}: {e}"[:200]
+
+    def _mark_up(self) -> None:
+        self._down_until = 0.0
+        self.last_error = ""
 
     @property
     def _headers(self) -> Dict[str, str]:
@@ -60,13 +79,17 @@ class HABridge:
                 headers=self._headers,
                 timeout=self._timeout,
             )
+            self._mark_up()
             return {"ok": r.status_code == 200, "status_code": r.status_code}
+        except (requests.ConnectionError, requests.Timeout) as e:
+            self._mark_down(e)
+            return {"ok": False, "error": str(e)}
         except Exception as e:
             return {"ok": False, "error": str(e)}
 
     def get_state(self, entity_id: str) -> Optional[Dict]:
         """Read a single entity state from HA."""
-        if not self.connected:
+        if not self.reachable:
             return None
         try:
             r = requests.get(
@@ -74,15 +97,20 @@ class HABridge:
                 headers=self._headers,
                 timeout=self._timeout,
             )
+            self._mark_up()
             if r.status_code == 200:
                 return r.json()
+        except (requests.ConnectionError, requests.Timeout) as e:
+            self._mark_down(e)
+            logger.warning("HA get_state(%s) failed, HA marked unreachable %ss: %s",
+                           entity_id, self._down_ttl, e)
         except Exception as e:
             logger.warning("HA get_state(%s) failed: %s", entity_id, e)
         return None
 
     def push_sensor(self, entity_id: str, state: Any, attributes: Dict = None) -> bool:
         """Push/update a sensor value in HA."""
-        if not self.connected:
+        if not self.reachable:
             return False
         payload = {"state": str(state), "attributes": attributes or {}}
         try:
@@ -92,17 +120,23 @@ class HABridge:
                 json=payload,
                 timeout=self._timeout,
             )
+            self._mark_up()
             ok = r.status_code in (200, 201)
             if not ok:
                 logger.warning("HA push_sensor(%s) -> %s", entity_id, r.status_code)
             return ok
+        except (requests.ConnectionError, requests.Timeout) as e:
+            self._mark_down(e)
+            logger.error("HA push_sensor(%s) failed, HA marked unreachable %ss: %s",
+                         entity_id, self._down_ttl, e)
+            return False
         except Exception as e:
             logger.error("HA push_sensor(%s) error: %s", entity_id, e)
             return False
 
     def call_service(self, domain: str, service: str, data: Dict = None) -> bool:
         """Call a HA service (shell_command, automation, input_boolean, etc.)."""
-        if not self.connected:
+        if not self.reachable:
             return False
         try:
             r = requests.post(
@@ -111,10 +145,16 @@ class HABridge:
                 json=data or {},
                 timeout=12,
             )
+            self._mark_up()
             ok = r.status_code == 200
             if not ok:
                 logger.warning("HA call_service(%s.%s) -> %s", domain, service, r.status_code)
             return ok
+        except (requests.ConnectionError, requests.Timeout) as e:
+            self._mark_down(e)
+            logger.error("HA call_service(%s.%s) failed, HA marked unreachable %ss: %s",
+                         domain, service, self._down_ttl, e)
+            return False
         except Exception as e:
             logger.error("HA call_service(%s.%s) error: %s", domain, service, e)
             return False

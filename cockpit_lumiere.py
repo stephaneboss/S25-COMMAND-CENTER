@@ -1181,7 +1181,8 @@ def ops_run():
     Auth: X-S25-Secret header.
 
     Op types:
-      - "log_tail":   { file: "auto_signal_scanner|mission_worker|cockpit|trailing_stop|mesh_bridge", n: 30 }
+      - "log_tail":   { file: "auto_signal_scanner|mission_worker|cockpit|trailing_stop|mesh_bridge|auto_pull|mesh_watchdog", n: 30 }
+      - "deploy_receipt": {} -> read-only deploy proof (deploy.json + auto_pull.log tail + runtime sha)
       - "agent_restart": { service: "s25-cockpit" }
       - "git_status": {}
       - "git_log":    { n: 5 }
@@ -1229,14 +1230,35 @@ def ops_run():
             'mesh_bridge': '/tmp/mesh_bridge.log',
             'coinbase_ha_publisher': '/tmp/coinbase_ha_publisher.log',
             'stability_ha': '/tmp/stability_ha.log',
+            'auto_pull': '/tmp/auto_pull.log',
+            'mesh_watchdog': '/tmp/mesh_watchdog.log',
         }
         f = args.get('file', 'mission_worker')
         n = int(args.get('n', 30))
         n = min(max(n, 5), 200)
+        if f == 'cockpit':
+            # the cockpit logs to the user journal of its systemd unit
+            return jsonify({'ok': True, 'log': f, **_exec(
+                ['journalctl', '--user', '-u', 's25-cockpit', '-n', str(n), '--no-pager', '-o', 'short-iso'])})
         path = log_map.get(f)
         if not path:
-            return jsonify({'ok': False, 'error': f'unknown log: {f}', 'allowed': list(log_map.keys())}), 400
+            return jsonify({'ok': False, 'error': f'unknown log: {f}',
+                            'allowed': sorted(list(log_map.keys()) + ['cockpit'])}), 400
         return jsonify({'ok': True, 'log': f, **_exec(['tail', '-n', str(n), path])})
+
+    if op == 'deploy_receipt':
+        # Read-only proof of the deterministic deploy (chantier 1): receipt + recent log.
+        receipt_path = Path(os.path.expanduser('~/.local/state/s25/deploy.json'))
+        try:
+            receipt = json.loads(receipt_path.read_text())
+        except FileNotFoundError:
+            receipt = None
+        except Exception as e:
+            receipt = {'error': f'unreadable: {type(e).__name__}'}
+        log_tail = _exec(['tail', '-n', '20', '/tmp/auto_pull.log'])
+        return jsonify({'ok': True, 'receipt': receipt, 'runtime_sha': APP_BUILD_SHA,
+                        'runtime_sha_source': APP_BUILD_SOURCE,
+                        'auto_pull_log': log_tail.get('stdout', '')})
 
     if op == 'agent_restart':
         service = args.get('service', '').strip()
@@ -1653,7 +1675,7 @@ def ops_run():
         return jsonify({'ok': True, 'cmd': cmd, **_exec(cmd, timeout=10)})
 
     return jsonify({'ok': False, 'error': f'unknown op: {op}',
-                    'available_ops': ['log_tail', 'agent_restart', 'service_status',
+                    'available_ops': ['log_tail', 'deploy_receipt', 'agent_restart', 'service_status',
                                       'git_status', 'git_log', 'disk_usage', 'ram_status',
                                       'gpu_status', 'process_check', 'cron_check', 'crontab_show',
                                       'docker_env_check', 'docker_inspect_safe', 'sync_secret_to_env',
