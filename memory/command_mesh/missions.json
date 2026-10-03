@@ -255523,6 +255523,122 @@
       },
       "error": null,
       "updated_at": "2026-10-03T16:46:03.899770+00:00"
+    },
+    "mis_fDBL1rbtTP85": {
+      "mission_id": "mis_fDBL1rbtTP85",
+      "created_at": "2026-10-03T17:00:02.448205+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "system_health",
+      "task_type": "infra_monitoring",
+      "intent": "Auto scan system health \u2014 periodic",
+      "priority": "normal",
+      "status": "completed",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": {
+        "duration_sec": 1.31,
+        "output_preview": "{\n  \"generated_at\": \"2026-10-03T17:01:03.126019+00:00\",\n  \"overall_status\": \"degraded\",\n  \"crons_healthy\": 10,\n  \"crons_stale\": 0,\n  \"crons_stuck\": 0,\n  \"crons_unobserved\": 1,\n  \"endpoints_ok\": 6,\n  \"endpoints_fail\": 0,\n  \"stuck_agent_names\": [],\n  \"unobserved_agent_names\": [\n    \"gemini_orchestrator\"\n  ]\n}\n"
+      },
+      "error": null,
+      "updated_at": "2026-10-03T17:01:03.251752+00:00"
+    },
+    "mis_42oTsSuTIlTx": {
+      "mission_id": "mis_42oTsSuTIlTx",
+      "created_at": "2026-10-03T17:10:02.600550+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "system_health",
+      "task_type": "infra_monitoring",
+      "intent": "Auto scan system health \u2014 periodic",
+      "priority": "normal",
+      "status": "completed",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": {
+        "duration_sec": 17.96,
+        "output_preview": "{\n  \"generated_at\": \"2026-10-03T17:11:18.679915+00:00\",\n  \"overall_status\": \"critical\",\n  \"crons_healthy\": 1,\n  \"crons_stale\": 0,\n  \"crons_stuck\": 0,\n  \"crons_unobserved\": 10,\n  \"endpoints_ok\": 3,\n  \"endpoints_fail\": 3,\n  \"stuck_agent_names\": [\n    \"mesh_signal_bridge\",\n    \"trailing_stop_manager\",\n    \"auto_signal_scanner\",\n    \"drawdown_guardian\",\n    \"quant_brain\"\n  ],\n  \"unobserved_agent_names\": [\n    \"mesh_signal_bridge\",\n    \"trailing_stop_manager\",\n    \"auto_signal_scanner\",\n    \"comet_se"
+      },
+      "error": null,
+      "updated_at": "2026-10-03T17:11:21.310104+00:00"
+    },
+    "mis_M7frakcEHIXN": {
+      "mission_id": "mis_M7frakcEHIXN",
+      "created_at": "2026-10-03T17:15:02.023547+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "quant_brain",
+      "task_type": "trading_analysis",
+      "intent": "Auto trading analysis brief \u2014 periodic",
+      "priority": "normal",
+      "status": "blocked",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": null,
+      "error": "degraded_mode_skip_non_critical",
+      "updated_at": "2026-10-03T17:16:02.487369+00:00"
+    },
+    "mis_K9u0jt0hsTWv": {
+      "mission_id": "mis_K9u0jt0hsTWv",
+      "created_at": "2026-10-03T17:20:02.724701+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": "LOCAL_CRON",
+      "task_type": "infra_monitoring",
+      "intent": "Auto scan system health \u2014 periodic",
+      "priority": "normal",
+      "status": "blocked",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": null,
+      "error": "degraded_mode_skip_non_critical",
+      "updated_at": "2026-10-03T17:21:02.300414+00:00"
+    },
+    "mis_XmAfdrQPFsNe": {
+      "mission_id": "mis_XmAfdrQPFsNe",
+      "created_at": "2026-10-03T17:20:03.316126+00:00",
+      "created_by": "mesh_activator",
+      "target_agent": null,
+      "task_type": "strategy_planning",
+      "intent": "Auto strategy review \u2014 periodic",
+      "priority": "low",
+      "status": "blocked",
+      "input": {},
+      "constraints": {
+        "timeout_sec": 120
+      },
+      "routing": {
+        "fallback_agents": [
+          "LOCAL_CRON"
+        ]
+      },
+      "result": null,
+      "error": "no_eligible_target",
+      "updated_at": "2026-10-03T17:21:03.855948+00:00"
     }
   }
 }
